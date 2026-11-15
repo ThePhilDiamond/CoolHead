@@ -25,6 +25,12 @@ The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns 
 3. `coolhead selftest` must pass; the CI runs it on every pull request.
 4. The first time, the CLA bot asks you to sign the [Contributor License Agreement](CLA.md) by leaving a comment. You only do this once. It lets the project offer Cool Head under both licenses (see [COMMERCIAL.md](COMMERCIAL.md)); you keep your copyright.
 
+### How changes reach main
+
+- Every change arrives as a pull request and is merged by squashing, so main reads as one commit per change.
+- The CI must pass (`build`: the build, `coolhead selftest`, and packaging the app), and the maintainer reviews and approves.
+- main can't be force-pushed or deleted. The rules are in [`.github/rulesets/protect-main.json`](.github/rulesets/protect-main.json), and `scripts/apply-repo-settings.sh` applies them along with the repository's other settings.
+
 ### How the code is meant to work
 
 - **One sentence, one action.** A card says what something is and whether it is fine, then offers one thing to do. Detail goes behind "Details", never on the card.
