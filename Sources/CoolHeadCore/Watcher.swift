@@ -51,6 +51,9 @@ public final class Watcher {
     public struct LogEntry { public let t: Date; public let text: String }
     /// Set to open the "Report a problem" form (from the bottom row, the right-click menu, or after a fix).
     public var showReport = false
+    /// Changes each time the panel closes, so it reopens clean: nothing left expanded, no form left open.
+    public private(set) var panelSession = 0
+    public func panelClosed() { showReport = false; panelSession += 1 }
     /// Processes put on background priority by "Run it cooler", by process number and start time.
     public private(set) var cooled: [String: CooledItem] = [:]
     /// A process running at background priority because the person chose "Run it cooler": pinned at the top of

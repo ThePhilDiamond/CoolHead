@@ -232,13 +232,12 @@ enum MenuIcon {
         case .good:
             flake(center: NSPoint(x: 10, y: 9), r: 7.5)
         case .warning:
-            // spokes 0 (up), 1 (upper left) and 5 (upper right) stay whole; the lower three have melted to stubs
-            flake(center: NSPoint(x: 10, y: 10), r: 7) { i in [0, 1, 5].contains(i) ? 1 : 0.38 }
+            // every arm is still there, so it reads as a snowflake: the upper arms sag a little, the lower ones are
+            // shorter and droop, and drops fall from their tips into a small puddle
+            let tips = droopingFlake(center: NSPoint(x: 10, y: 10.5), r: 6.8)
             ice.setFill()
-            for (x, y, d) in [(6.6, 4.4, 1.6), (10.0, 3.6, 1.9), (13.4, 4.6, 1.4)] as [(CGFloat, CGFloat, CGFloat)] {
-                drop(at: NSPoint(x: x, y: y), size: d)
-            }
-            NSBezierPath(ovalIn: NSRect(x: 4.5, y: 0.6, width: 11, height: 2.2)).fill()
+            for (k, t) in tips.enumerated() { drop(at: NSPoint(x: t.x, y: t.y - 2.4 - CGFloat(k % 2) * 0.8), size: 1.1) }
+            NSBezierPath(ovalIn: NSRect(x: 4.5, y: 0.4, width: 11, height: 2.0)).fill()
         case .issue:
             // a big puddle, and a flame where the snowflake was
             ice.setFill()
@@ -256,7 +255,40 @@ enum MenuIcon {
             core.curve(to: NSPoint(x: 10, y: 3.6), controlPoint1: NSPoint(x: 12.6, y: 8.0), controlPoint2: NSPoint(x: 12.8, y: 4.6))
             core.close()
             NSColor(srgbRed: 1, green: 0.93, blue: 0.55, alpha: 1).setFill(); core.fill()
+            // the snowflake, small and sagging, in the middle of the fire: the same story as the other two
+            droopingFlake(center: NSPoint(x: 10, y: 8.6), r: 3.4, width: 1.1)
         }
+    }
+
+    /// A snowflake whose arms bend downward as if softening: upper arms sag slightly, lower arms are shorter and droop.
+    /// Returns the tips of the three lower arms, where drops form.
+    @discardableResult
+    static func droopingFlake(center c: NSPoint, r: CGFloat, width: CGFloat = 1.4) -> [NSPoint] {
+        NSColor.labelColor.setStroke()
+        var lowerTips: [NSPoint] = []
+        for i in 0..<6 {
+            let a = CGFloat(i) * .pi / 3 + .pi / 2
+            let lower = sin(a) < -0.1
+            let len = r * (lower ? 0.78 : 0.95)
+            let sag: CGFloat = lower ? 1.9 : 0.9
+            let end = NSPoint(x: c.x + cos(a) * len, y: c.y + sin(a) * len - sag)
+            let control = NSPoint(x: c.x + cos(a) * len * 0.55, y: c.y + sin(a) * len * 0.55)
+            let arm = NSBezierPath()
+            arm.move(to: c)
+            arm.curve(to: end, controlPoint1: control, controlPoint2: control)
+            // side branches, also sagging
+            let mid = NSPoint(x: c.x + cos(a) * len * 0.58, y: c.y + sin(a) * len * 0.58 - sag * 0.45)
+            for side in [-1.0, 1.0] as [CGFloat] {
+                let b = a + side * .pi / 4
+                arm.move(to: mid)
+                arm.line(to: NSPoint(x: mid.x + cos(b) * len * 0.34, y: mid.y + sin(b) * len * 0.34 - sag * 0.5))
+            }
+            arm.lineWidth = width
+            arm.lineCapStyle = .round
+            arm.stroke()
+            if lower { lowerTips.append(end) }
+        }
+        return lowerTips
     }
 
     /// A falling drop: round at the bottom, pointed at the top.
@@ -451,6 +483,7 @@ final class MenuPanel: NSPanel {
 
     override func close() {
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
+        if isVisible { Watcher.shared.panelClosed() }
         super.close()
     }
 

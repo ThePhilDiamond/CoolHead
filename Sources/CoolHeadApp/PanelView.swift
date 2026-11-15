@@ -40,6 +40,7 @@ struct PanelView: View {
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .id(watcher.panelSession)          // rebuilt after each close, so everything starts collapsed
                 .background(GeometryReader { g in Color.clear.preference(key: MiddleHeight.self, value: g.size.height) })
             }
             .frame(height: min(max(middleHeight, 40), PanelView.maxMiddle))
@@ -478,47 +479,99 @@ struct PinnedRow: View {
                 Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
             }
         }
-        .padding(.horizontal, 10).padding(.top, 14).padding(.bottom, 10)
+        .padding(.horizontal, 14).padding(.vertical, 14)
         .frozen()
     }
 }
 
-/// A "frozen" frame for things Cool Head has cooled: an icy gradient edge, a frosty tint, and icicles along the top.
+/// A "frozen" frame for things Cool Head has cooled: frost growing in from the edges, as on a cold window, on an ice
+/// tint, with a snowflake or two for accents. All vector lines,
+/// drawn from a fixed pattern, so it looks the same every time and costs almost nothing.
 struct Frozen: ViewModifier {
+    static let ice = Color(red: 0.55, green: 0.82, blue: 1.0)
+
     func body(content: Content) -> some View {
         content
-            .background(LinearGradient(colors: [Color(red: 0.86, green: 0.95, blue: 1.0).opacity(0.35), Color(red: 0.70, green: 0.88, blue: 1.0).opacity(0.18)],
-                                       startPoint: .top, endPoint: .bottom),
-                        in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(LinearGradient(colors: [.white, Color(red: 0.55, green: 0.85, blue: 1.0), Color(red: 0.30, green: 0.65, blue: 0.95), .white],
-                                             startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 2))
-            .overlay(alignment: .top) { Icicles().frame(height: 9).padding(.horizontal, 12).allowsHitTesting(false) }
-            .overlay(alignment: .topTrailing) {
-                Image(systemName: "snowflake").font(.system(size: 9)).foregroundStyle(Color(red: 0.45, green: 0.78, blue: 1.0)).padding(5)
-            }
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10).fill(IceTint.color)
+                    Frost().clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            )
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(red: 0.70, green: 0.88, blue: 1.0).opacity(0.9), lineWidth: 1))
+            .overlay(alignment: .topLeading) { flake(10).padding(.leading, 8).padding(.top, 7) }
+            .overlay(alignment: .bottomTrailing) { flake(13).padding(7) }
+    }
+
+    func flake(_ size: CGFloat) -> some View {
+        Image(systemName: "snowflake").font(.system(size: size, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
+            .shadow(color: Frozen.ice.opacity(0.6), radius: 1).allowsHitTesting(false)
     }
 }
 
 extension View { func frozen() -> some View { modifier(Frozen()) } }
 
-/// A row of icicles of uneven length, hanging from the top edge.
-struct Icicles: View {
+/// Pale ice blue, deep enough in light mode for white frost to show, and a cool slate in dark mode.
+enum IceTint {
+    static let color = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.20, green: 0.30, blue: 0.40, alpha: 1)
+            : NSColor(srgbRed: 0.56, green: 0.75, blue: 0.94, alpha: 1)
+    })
+}
+
+/// Frost crystals, as on a cold window: big feathery clusters growing from the corners and sparse, irregular ones
+/// along the edges. Branches split at uneven points and angles, so nothing repeats.
+struct Frost: View {
     var body: some View {
         Canvas { ctx, size in
-            let lengths: [CGFloat] = [0.9, 0.5, 1.0, 0.35, 0.75, 0.55, 0.95, 0.4, 0.8, 0.5, 1.0, 0.6, 0.45, 0.85]
-            let w = size.width / CGFloat(lengths.count)
-            for (i, l) in lengths.enumerated() {
-                var p = Path()
-                let x = CGFloat(i) * w
-                p.move(to: CGPoint(x: x + w * 0.15, y: 0))
-                p.addLine(to: CGPoint(x: x + w * 0.85, y: 0))
-                p.addLine(to: CGPoint(x: x + w * 0.5, y: size.height * l))
-                p.closeSubpath()
-                ctx.fill(p, with: .linearGradient(Gradient(colors: [.white, Color(red: 0.62, green: 0.87, blue: 1.0)]),
-                                                  startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
+            var seed: UInt64 = 0x5EED_C0DE
+            func rnd() -> CGFloat {                              // a fixed sequence, so the frost never shimmers
+                seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                return CGFloat((seed >> 33) % 10_000) / 10_000
             }
+            var main = Path(), fine = Path()
+            func branch(_ from: CGPoint, _ angle: CGFloat, _ length: CGFloat, _ depth: Int) {
+                // a slightly wandering stem
+                let bend = (rnd() - 0.5) * 0.35
+                let to = CGPoint(x: from.x + cos(angle + bend) * length, y: from.y + sin(angle + bend) * length)
+                if depth >= 2 { main.move(to: from); main.addLine(to: to) } else { fine.move(to: from); fine.addLine(to: to) }
+                guard depth > 0 else { return }
+                let splits = 2 + Int(rnd() * 3)
+                for _ in 0..<splits {
+                    let t = 0.2 + rnd() * 0.7
+                    let at = CGPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t)
+                    let side: CGFloat = rnd() < 0.5 ? -1 : 1
+                    branch(at, angle + bend + side * (0.45 + rnd() * 0.6), length * (0.25 + rnd() * 0.3) * (1.2 - t), depth - 1)
+                }
+            }
+            let w = size.width, h = size.height
+            // corner clusters: several stems fanning inward
+            let corners: [(CGPoint, CGFloat)] = [(CGPoint(x: 0, y: h), -.pi / 4), (CGPoint(x: w, y: h), -3 * .pi / 4),
+                                                  (CGPoint(x: 0, y: 0), .pi / 4), (CGPoint(x: w, y: 0), 3 * .pi / 4)]
+            for (i, (pt, dir)) in corners.enumerated() {
+                let stems = i < 2 ? 8 : 5                       // heavier at the bottom, like frost that settles
+                for _ in 0..<stems {
+                    branch(pt, dir + (rnd() - 0.5) * 1.5, (i < 2 ? 20 : 14) + rnd() * 12, 3)
+                }
+            }
+            // sparse, irregular crystals along the edges
+            func edge(_ step: CGFloat, _ span: CGFloat, _ point: (CGFloat) -> CGPoint, _ inward: CGFloat, _ reach: CGFloat, _ depth: Int) {
+                var x = step * rnd()
+                while x < span {
+                    branch(point(x), inward + (rnd() - 0.5) * 1.2, reach * (0.45 + rnd() * 0.75), depth)
+                    if rnd() < 0.5 { branch(point(x + step * 0.3), inward + (rnd() - 0.5) * 1.6, reach * (0.3 + rnd() * 0.4), depth - 1) }
+                    x += step * (0.5 + rnd() * 0.8)
+                }
+            }
+            edge(9, w, { CGPoint(x: $0, y: h) }, -.pi / 2, 15, 3)       // bottom: the thickest
+            edge(14, w, { CGPoint(x: $0, y: 0) }, .pi / 2, 8, 2)        // top
+            edge(9, h, { CGPoint(x: 0, y: $0) }, 0, 11, 2)              // left
+            edge(9, h, { CGPoint(x: w, y: $0) }, .pi, 11, 2)            // right
+            ctx.stroke(fine, with: .color(.white.opacity(0.55)), style: StrokeStyle(lineWidth: 0.7, lineCap: .round))
+            ctx.stroke(main, with: .color(.white.opacity(0.85)), style: StrokeStyle(lineWidth: 1.1, lineCap: .round))
         }
+        .allowsHitTesting(false)
     }
 }
 
