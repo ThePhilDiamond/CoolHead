@@ -5,6 +5,7 @@ import SwiftUI
 struct PanelView: View {
     let watcher: Watcher
     @AppStorage("welcomed") private var welcomed = false
+    @State private var whatsNew = WhatsNew.pending
 
     /// The middle scrolls; the panel grows with it up to this height, so it stays easy to read.
     static var maxMiddle: CGFloat { min(560, (NSScreen.main?.visibleFrame.height ?? 900) * 0.62) }
@@ -26,7 +27,8 @@ struct PanelView: View {
             // scrolls once it is taller than the limit
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    if !welcomed { WelcomeCard { welcomed = true } }
+                    if !welcomed { WelcomeCard { welcomed = true; WhatsNew.markSeen() } }
+                    else if let notes = whatsNew { WhatsNewCard(notes: notes) { WhatsNew.markSeen(); whatsNew = nil } }
                     UpdateBanner()
                     ForEach(watcher.cooledList) { PinnedRow(item: $0, watcher: watcher) }
                     if watcher.showReport {
@@ -394,6 +396,62 @@ struct VersionButton: View {
     }
 }
 
+/// What's new in this version, shown once after an update that brought something worth telling.
+struct WhatsNewCard: View {
+    let notes: [String]
+    let done: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("What's new in \(CoolHead.version)", systemImage: "sparkles").font(.body.weight(.semibold))
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(notes, id: \.self) { n in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("•").foregroundStyle(Ink.muted)
+                        Text(n).font(.callout).foregroundStyle(Ink.text).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            HStack(spacing: 10) {
+                Button("Got it", action: done).buttonStyle(.borderedProminent).controlSize(.small)
+                Button("All notes") {
+                    NSWorkspace.shared.open(URL(string: "https://github.com/ThePhilDiamond/CoolHead/blob/main/CHANGELOG.md")!)
+                }
+                .buttonStyle(.link).font(.callout)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
+    }
+}
+
+/// The notes the app shows after updating: only versions worth telling about have an entry. They're the short
+/// versions of CHANGELOG.md.
+enum WhatsNew {
+    static let notes: [String: [String]] = [
+        "0.4.0": [
+            "Shorter cards: one sentence, then Explore fixes or Learn more.",
+            "A green note says what changed after you act.",
+            "Things you slow down stay pinned at the top, frosted.",
+            "Better memory advice: close heavy tabs, Memory Saver, or quit, with what each costs.",
+            "Try the Melting Snowflake icon: right-click the menu bar icon.",
+        ],
+    ]
+
+    /// Notes for this version, if it's newer than the last version seen and has any.
+    static var pending: [String]? {
+        guard UserDefaults.standard.bool(forKey: "welcomed") else { return nil }          // new users get the welcome
+        let last = UserDefaults.standard.string(forKey: "lastSeenVersion") ?? "0"
+        guard Updater.newer(CoolHead.version, than: last) else { return nil }
+        guard let n = notes[CoolHead.version] else { markSeen(); return nil }             // nothing worth telling
+        return n
+    }
+
+    static func markSeen() { UserDefaults.standard.set(CoolHead.version, forKey: "lastSeenVersion") }
+}
+
 /// Shown once, on first launch, when the panel opens by itself: Cool Head has no window, and this is where it lives.
 struct WelcomeCard: View {
     let done: () -> Void
@@ -499,8 +557,9 @@ struct Frozen: ViewModifier {
                 }
             )
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(red: 0.70, green: 0.88, blue: 1.0).opacity(0.9), lineWidth: 1))
-            .overlay(alignment: .topLeading) { flake(10).padding(.leading, 8).padding(.top, 7) }
-            .overlay(alignment: .bottomTrailing) { flake(13).padding(7) }
+            .overlay(alignment: .topTrailing) { flake(12).padding(.trailing, 9).padding(.top, 6) }
+            .overlay(alignment: .bottomTrailing) { flake(15).padding(.trailing, 22).padding(.bottom, 5) }
+            .overlay(alignment: .bottomLeading) { flake(10).padding(.leading, 30).padding(.bottom, 4) }
     }
 
     func flake(_ size: CGFloat) -> some View {
@@ -520,56 +579,116 @@ enum IceTint {
     })
 }
 
-/// Frost crystals, as on a cold window: big feathery clusters growing from the corners and sparse, irregular ones
-/// along the edges. Branches split at uneven points and angles, so nothing repeats.
+/// Frost on a cold window, as people know it: a frosted rim hugging the edges of the glass, thickest in the corners
+/// and fading through a soft, uneven inner edge into clear glass, with a few feather-like crystals reaching in and
+/// some sparkles. Vector shapes from a fixed pattern, so it never shimmers and costs almost nothing.
 struct Frost: View {
     var body: some View {
         Canvas { ctx, size in
-            var seed: UInt64 = 0x5EED_C0DE
-            func rnd() -> CGFloat {                              // a fixed sequence, so the frost never shimmers
+            let w = size.width, h = size.height
+            var seed: UInt64 = 0xF2057
+            func rnd() -> CGFloat {
                 seed = seed &* 6364136223846793005 &+ 1442695040888963407
                 return CGFloat((seed >> 33) % 10_000) / 10_000
             }
-            var main = Path(), fine = Path()
-            func branch(_ from: CGPoint, _ angle: CGFloat, _ length: CGFloat, _ depth: Int) {
-                // a slightly wandering stem
-                let bend = (rnd() - 0.5) * 0.35
-                let to = CGPoint(x: from.x + cos(angle + bend) * length, y: from.y + sin(angle + bend) * length)
-                if depth >= 2 { main.move(to: from); main.addLine(to: to) } else { fine.move(to: from); fine.addLine(to: to) }
-                guard depth > 0 else { return }
-                let splits = 2 + Int(rnd() * 3)
-                for _ in 0..<splits {
-                    let t = 0.2 + rnd() * 0.7
-                    let at = CGPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t)
-                    let side: CGFloat = rnd() < 0.5 ? -1 : 1
-                    branch(at, angle + bend + side * (0.45 + rnd() * 0.6), length * (0.25 + rnd() * 0.3) * (1.2 - t), depth - 1)
+            let phases = (0..<3).map { _ in rnd() * 6.28 }
+            // smooth, uneven variation along the edge, 0 to 1
+            func wobble(_ s: CGFloat) -> CGFloat {
+                let v = 0.5 * sin(s * 0.19 + phases[0]) + 0.3 * sin(s * 0.43 + phases[1]) + 0.2 * sin(s * 1.07 + phases[2])
+                return (v + 1) / 2
+            }
+            // closeness to the nearest corner, 1 at the corner, 0 beyond `reach`
+            func cornerness(_ x: CGFloat, _ y: CGFloat, reach: CGFloat) -> CGFloat {
+                let d = min(hypot(x, y), hypot(w - x, y), hypot(x, h - y), hypot(w - x, h - y))
+                return max(0, 1 - d / reach)
+            }
+            // the inner edge of a frost band: walk round the rectangle, pushing inward by an uneven amount
+            func band(base: CGFloat, vary: CGFloat, corner: CGFloat, bottomExtra: CGFloat) -> Path {
+                var pts: [CGPoint] = []
+                let step: CGFloat = 3
+                var s: CGFloat = 0
+                func add(_ x: CGFloat, _ y: CGFloat, _ nx: CGFloat, _ ny: CGFloat) {
+                    let c = cornerness(x, y, reach: 34)
+                    let extra = ny < 0 ? bottomExtra : 0                    // frost settles thicker at the bottom
+                    let d = base + vary * wobble(s) + corner * c * c + extra
+                    pts.append(CGPoint(x: x + nx * d, y: y + ny * d))
+                    s += step
+                }
+                var x: CGFloat = 0, y: CGFloat = 0
+                while x < w { add(x, 0, 0, 1); x += step }
+                while y < h { add(w, y, -1, 0); y += step }
+                while x > 0 { add(x, h, 0, -1); x -= step }
+                while y > 0 { add(0, y, 1, 0); y -= step }
+                var p = Path(CGRect(origin: .zero, size: size))
+                // a smooth curve through the midpoints, so the edge is soft rather than jagged
+                guard pts.count > 2 else { return p }
+                let mid = { (a: CGPoint, b: CGPoint) in CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2) }
+                p.move(to: mid(pts[pts.count - 1], pts[0]))
+                for i in 0..<pts.count { p.addQuadCurve(to: mid(pts[i], pts[(i + 1) % pts.count]), control: pts[i]) }
+                p.closeSubpath()
+                return p
+            }
+            let even = FillStyle(eoFill: true)
+            // blurred, so the frost fades into the glass instead of stepping like a contour map
+            ctx.drawLayer { layer in
+                layer.addFilter(.blur(radius: 3))
+                layer.fill(band(base: 11, vary: 8, corner: 22, bottomExtra: 7), with: .color(.white.opacity(0.32)), style: even)   // haze
+                layer.fill(band(base: 6, vary: 6, corner: 16, bottomExtra: 4), with: .color(.white.opacity(0.5)), style: even)
+            }
+            ctx.drawLayer { layer in
+                layer.addFilter(.blur(radius: 0.8))
+                layer.fill(band(base: 2.5, vary: 3.5, corner: 11, bottomExtra: 2), with: .color(.white.opacity(0.92)), style: even) // the rim
+            }
+
+            // feather crystals: a long, gently curving stem with fine, close barbs angled toward its tip
+            func fern(from: CGPoint, angle: CGFloat, length: CGFloat, curl: CGFloat) {
+                var stem = Path(), barbs = Path()
+                let n = Int(length / 1.7)
+                var p = from, a = angle
+                stem.move(to: p)
+                for i in 0..<n {
+                    let t = CGFloat(i) / CGFloat(n)
+                    a += curl / CGFloat(n)
+                    let next = CGPoint(x: p.x + cos(a) * 1.7, y: p.y + sin(a) * 1.7)
+                    stem.addLine(to: next)
+                    let barb = (1 - t) * (length * 0.24) * (0.75 + rnd() * 0.25)
+                    for side in [-1.0, 1.0] as [CGFloat] {
+                        let ba = a + side * 0.8
+                        barbs.move(to: next)
+                        barbs.addLine(to: CGPoint(x: next.x + cos(ba) * barb, y: next.y + sin(ba) * barb))
+                    }
+                    p = next
+                }
+                ctx.stroke(barbs, with: .color(.white.opacity(0.8)), style: StrokeStyle(lineWidth: 0.6, lineCap: .round))
+                ctx.stroke(stem, with: .color(.white.opacity(0.95)), style: StrokeStyle(lineWidth: 1.1, lineCap: .round))
+            }
+            fern(from: CGPoint(x: 5, y: h - 5), angle: -.pi / 3.4, length: min(42, h * 0.62), curl: 0.4)
+            fern(from: CGPoint(x: w - 6, y: h - 4), angle: -.pi + .pi / 4.2, length: min(36, h * 0.56), curl: -0.35)
+            fern(from: CGPoint(x: w * 0.38, y: h - 3), angle: -.pi / 2 - 0.3, length: min(22, h * 0.36), curl: 0.25)
+            fern(from: CGPoint(x: w * 0.66, y: h - 3), angle: -.pi / 2 + 0.35, length: min(18, h * 0.3), curl: -0.2)
+            fern(from: CGPoint(x: 4, y: 5), angle: .pi / 4, length: min(20, h * 0.34), curl: 0.25)
+            fern(from: CGPoint(x: w - 4, y: 5), angle: .pi - .pi / 4, length: min(16, h * 0.28), curl: -0.25)
+
+            // sparkles near the frost: dots, and a few four-pointed glints
+            for i in 0..<14 {
+                let side = rnd()
+                let pt = side < 0.45 ? CGPoint(x: rnd() * w, y: h - 6 - rnd() * 12)
+                    : side < 0.6 ? CGPoint(x: rnd() * w, y: 4 + rnd() * 8)
+                    : CGPoint(x: side < 0.8 ? 4 + rnd() * 12 : w - 4 - rnd() * 12, y: rnd() * h)
+                if i % 4 == 0 {
+                    let r = 2.2 + rnd() * 1.6
+                    var star = Path()
+                    star.move(to: CGPoint(x: pt.x, y: pt.y - r))
+                    star.addQuadCurve(to: CGPoint(x: pt.x + r, y: pt.y), control: pt)
+                    star.addQuadCurve(to: CGPoint(x: pt.x, y: pt.y + r), control: pt)
+                    star.addQuadCurve(to: CGPoint(x: pt.x - r, y: pt.y), control: pt)
+                    star.addQuadCurve(to: CGPoint(x: pt.x, y: pt.y - r), control: pt)
+                    ctx.fill(star, with: .color(.white.opacity(0.95)))
+                } else {
+                    let r = 0.6 + rnd() * 0.9
+                    ctx.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)), with: .color(.white.opacity(0.9)))
                 }
             }
-            let w = size.width, h = size.height
-            // corner clusters: several stems fanning inward
-            let corners: [(CGPoint, CGFloat)] = [(CGPoint(x: 0, y: h), -.pi / 4), (CGPoint(x: w, y: h), -3 * .pi / 4),
-                                                  (CGPoint(x: 0, y: 0), .pi / 4), (CGPoint(x: w, y: 0), 3 * .pi / 4)]
-            for (i, (pt, dir)) in corners.enumerated() {
-                let stems = i < 2 ? 8 : 5                       // heavier at the bottom, like frost that settles
-                for _ in 0..<stems {
-                    branch(pt, dir + (rnd() - 0.5) * 1.5, (i < 2 ? 20 : 14) + rnd() * 12, 3)
-                }
-            }
-            // sparse, irregular crystals along the edges
-            func edge(_ step: CGFloat, _ span: CGFloat, _ point: (CGFloat) -> CGPoint, _ inward: CGFloat, _ reach: CGFloat, _ depth: Int) {
-                var x = step * rnd()
-                while x < span {
-                    branch(point(x), inward + (rnd() - 0.5) * 1.2, reach * (0.45 + rnd() * 0.75), depth)
-                    if rnd() < 0.5 { branch(point(x + step * 0.3), inward + (rnd() - 0.5) * 1.6, reach * (0.3 + rnd() * 0.4), depth - 1) }
-                    x += step * (0.5 + rnd() * 0.8)
-                }
-            }
-            edge(9, w, { CGPoint(x: $0, y: h) }, -.pi / 2, 15, 3)       // bottom: the thickest
-            edge(14, w, { CGPoint(x: $0, y: 0) }, .pi / 2, 8, 2)        // top
-            edge(9, h, { CGPoint(x: 0, y: $0) }, 0, 11, 2)              // left
-            edge(9, h, { CGPoint(x: w, y: $0) }, .pi, 11, 2)            // right
-            ctx.stroke(fine, with: .color(.white.opacity(0.55)), style: StrokeStyle(lineWidth: 0.7, lineCap: .round))
-            ctx.stroke(main, with: .color(.white.opacity(0.85)), style: StrokeStyle(lineWidth: 1.1, lineCap: .round))
         }
         .allowsHitTesting(false)
     }

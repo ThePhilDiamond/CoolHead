@@ -44,8 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         watcher.start()
         Updater.shared.schedule()
-        // first launch: there's no window, so open the panel under the icon with a welcome, once
-        if !UserDefaults.standard.bool(forKey: "welcomed") && ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] == nil {
+        // first launch: there's no window, so open the panel under the icon with a welcome, once; after an update
+        // that brought something worth telling, open it once with what's new
+        if (!UserDefaults.standard.bool(forKey: "welcomed") || WhatsNew.pending != nil) && ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] == nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.showPanel() }
         }
         // for testing the whole update path: check and install at launch (COOLHEAD_UPDATE_TEST=1)
@@ -192,8 +193,8 @@ enum MenuIcon {
     static let ice = NSColor(srgbRed: 0.35, green: 0.72, blue: 1.0, alpha: 1)
 
     /// The snowflake's spokes; `keep` chooses which spokes are drawn, and `length` how much of each.
-    static func flake(center c: NSPoint, r: CGFloat, keep: (Int) -> CGFloat = { _ in 1 }) {
-        NSColor.labelColor.setStroke()
+    static func flake(center c: NSPoint, r: CGFloat, color: NSColor = .labelColor, width: CGFloat = 1.4, keep: (Int) -> CGFloat = { _ in 1 }) {
+        color.setStroke()
         for i in 0..<6 {
             let len = keep(i)
             guard len > 0 else { continue }
@@ -209,7 +210,7 @@ enum MenuIcon {
                     spoke.line(to: NSPoint(x: m.x + cos(b) * r * 0.36, y: m.y + sin(b) * r * 0.36))
                 }
             }
-            spoke.lineWidth = 1.4
+            spoke.lineWidth = width
             spoke.lineCapStyle = .round
             spoke.stroke()
         }
@@ -239,38 +240,40 @@ enum MenuIcon {
             for (k, t) in tips.enumerated() { drop(at: NSPoint(x: t.x, y: t.y - 2.4 - CGFloat(k % 2) * 0.8), size: 1.1) }
             NSBezierPath(ovalIn: NSRect(x: 4.5, y: 0.4, width: 11, height: 2.0)).fill()
         case .issue:
-            // a big puddle, and a flame where the snowflake was
-            ice.setFill()
-            NSBezierPath(ovalIn: NSRect(x: 1.5, y: 0.5, width: 17, height: 3.4)).fill()
-            let flame = NSBezierPath()
-            flame.move(to: NSPoint(x: 10, y: 3.2))
-            flame.curve(to: NSPoint(x: 10.6, y: 16.5), controlPoint1: NSPoint(x: 4.2, y: 4.6), controlPoint2: NSPoint(x: 6.0, y: 12.0))
-            flame.curve(to: NSPoint(x: 10, y: 3.2), controlPoint1: NSPoint(x: 15.6, y: 12.0), controlPoint2: NSPoint(x: 15.8, y: 4.6))
-            flame.close()
-            NSGradient(colors: [NSColor.systemRed, NSColor.systemOrange, NSColor(srgbRed: 1, green: 0.82, blue: 0.2, alpha: 1)])!
-                .draw(in: flame, angle: 90)
-            let core = NSBezierPath()
-            core.move(to: NSPoint(x: 10, y: 3.6))
-            core.curve(to: NSPoint(x: 10.2, y: 10.5), controlPoint1: NSPoint(x: 7.2, y: 4.6), controlPoint2: NSPoint(x: 8.2, y: 8.6))
-            core.curve(to: NSPoint(x: 10, y: 3.6), controlPoint1: NSPoint(x: 12.6, y: 8.0), controlPoint2: NSPoint(x: 12.8, y: 4.6))
-            core.close()
-            NSColor(srgbRed: 1, green: 0.93, blue: 0.55, alpha: 1).setFill(); core.fill()
-            // the snowflake, small and sagging, in the middle of the fire: the same story as the other two
-            droopingFlake(center: NSPoint(x: 10, y: 8.6), r: 3.4, width: 1.1)
+            onFire()
         }
+    }
+
+    /// Problem: it got so hot the snowflake burst into flames. A flame with a wide base, a curving main tip and two
+    /// smaller licks, and inside it the white snowflake it used to be. (Chosen by Phil, 16 November 2026, after
+    /// several other ideas.)
+    static func onFire() {
+        let f = NSBezierPath()
+        f.move(to: NSPoint(x: 10, y: 0.6))
+        f.curve(to: NSPoint(x: 3.3, y: 6.6), controlPoint1: NSPoint(x: 5.4, y: 0.6), controlPoint2: NSPoint(x: 3.2, y: 3.2))
+        f.curve(to: NSPoint(x: 5.0, y: 13.2), controlPoint1: NSPoint(x: 3.3, y: 9.4), controlPoint2: NSPoint(x: 4.3, y: 11.6))      // left lick
+        f.curve(to: NSPoint(x: 7.4, y: 11.0), controlPoint1: NSPoint(x: 5.9, y: 12.0), controlPoint2: NSPoint(x: 6.7, y: 11.2))
+        f.curve(to: NSPoint(x: 10.9, y: 17.8), controlPoint1: NSPoint(x: 7.8, y: 13.8), controlPoint2: NSPoint(x: 9.6, y: 15.8))     // main tip
+        f.curve(to: NSPoint(x: 13.3, y: 12.4), controlPoint1: NSPoint(x: 12.4, y: 16.2), controlPoint2: NSPoint(x: 13.4, y: 14.4))
+        f.curve(to: NSPoint(x: 15.2, y: 14.0), controlPoint1: NSPoint(x: 14.1, y: 12.7), controlPoint2: NSPoint(x: 14.8, y: 13.3))    // right lick
+        f.curve(to: NSPoint(x: 16.7, y: 6.6), controlPoint1: NSPoint(x: 16.4, y: 11.6), controlPoint2: NSPoint(x: 16.9, y: 9.2))
+        f.curve(to: NSPoint(x: 10, y: 0.6), controlPoint1: NSPoint(x: 16.8, y: 3.2), controlPoint2: NSPoint(x: 14.6, y: 0.6))
+        f.close()
+        NSGradient(colors: [NSColor.systemRed, NSColor.systemOrange, NSColor(srgbRed: 1, green: 0.78, blue: 0.2, alpha: 1)])!.draw(in: f, angle: 90)
+        flake(center: NSPoint(x: 10, y: 6.6), r: 4.3, color: .white, width: 1.1)
     }
 
     /// A snowflake whose arms bend downward as if softening: upper arms sag slightly, lower arms are shorter and droop.
     /// Returns the tips of the three lower arms, where drops form.
     @discardableResult
-    static func droopingFlake(center c: NSPoint, r: CGFloat, width: CGFloat = 1.4) -> [NSPoint] {
-        NSColor.labelColor.setStroke()
+    static func droopingFlake(center c: NSPoint, r: CGFloat, width: CGFloat = 1.4, color: NSColor = .labelColor, sagScale: CGFloat = 1) -> [NSPoint] {
+        color.setStroke()
         var lowerTips: [NSPoint] = []
         for i in 0..<6 {
             let a = CGFloat(i) * .pi / 3 + .pi / 2
             let lower = sin(a) < -0.1
             let len = r * (lower ? 0.78 : 0.95)
-            let sag: CGFloat = lower ? 1.9 : 0.9
+            let sag: CGFloat = (lower ? 1.9 : 0.9) * sagScale
             let end = NSPoint(x: c.x + cos(a) * len, y: c.y + sin(a) * len - sag)
             let control = NSPoint(x: c.x + cos(a) * len * 0.55, y: c.y + sin(a) * len * 0.55)
             let arm = NSBezierPath()
@@ -289,6 +292,20 @@ enum MenuIcon {
             if lower { lowerTips.append(end) }
         }
         return lowerTips
+    }
+
+    /// Six plain arms, no side branches: clear even at a few points across.
+    static func smallFlake(center c: NSPoint, r: CGFloat) {
+        let arms = NSBezierPath()
+        for i in 0..<6 {
+            let a = CGFloat(i) * .pi / 3 + .pi / 2
+            arms.move(to: c)
+            arms.line(to: NSPoint(x: c.x + cos(a) * r, y: c.y + sin(a) * r))
+        }
+        arms.lineWidth = 1.1
+        arms.lineCapStyle = .round
+        NSColor.white.setStroke()           // white on the flame, in light and dark menu bars alike
+        arms.stroke()
     }
 
     /// A falling drop: round at the bottom, pointed at the top.

@@ -26,10 +26,15 @@ jobs:
           else
             swift scripts/sign-update.swift "build/Cool-Head-${GITHUB_REF_NAME}.zip"
           fi
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="## ${GITHUB_REF_NAME} " 'index($0, v) == 1 {on=1; next} /^## / {on=0} on' CHANGELOG.md > build/notes.md
+          test -s build/notes.md || echo "See CHANGELOG.md." > build/notes.md
+          cat build/notes.md
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             build/Cool-Head-${{ github.ref_name }}.zip
             build/Cool-Head-${{ github.ref_name }}.zip.sig
             build/SHA256SUMS.txt
-          generate_release_notes: true
+          body_path: build/notes.md
