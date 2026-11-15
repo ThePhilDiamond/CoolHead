@@ -1,5 +1,6 @@
 # Asks each new contributor to sign CLA.md once, on their first pull request, and
-# records the signature in signatures/cla.json on main.
+# records the signature in signatures/cla.json on the cla-signatures branch (main only takes changes through pull
+# requests, so the action can't write there). Bots such as Dependabot don't sign.
 name: CLA
 
 on:
@@ -26,5 +27,5 @@ jobs:
         with:
           path-to-signatures: 'signatures/cla.json'
           path-to-document: 'https://github.com/ThePhilDiamond/CoolHead/blob/main/CLA.md'
-          branch: 'main'
-          allowlist: ThePhilDiamond,bot*
+          branch: 'cla-signatures'
+          allowlist: ThePhilDiamond,dependabot[bot],github-actions[bot],*[bot]

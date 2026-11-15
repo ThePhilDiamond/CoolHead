@@ -30,16 +30,20 @@ One number names a version everywhere:
 - **`SHA256SUMS.txt`**: the zip's checksum, to check a download by hand.
 - **Notes**: copied from the version's section of [CHANGELOG.md](CHANGELOG.md), word for word.
 
+## How changes reach main
+
+Every change, the maintainer's included, goes through a pull request: `main` accepts nothing else, and the `build` check (build, selftest, version check) must pass before a squash merge. No approving review is required, since a maintainer can't approve their own pull request; contributors' pull requests are reviewed by the maintainer before merging. Dependabot opens pull requests to update the GitHub Actions the workflows use; each is merged once `build` passes, except an update to the release step (`softprops/action-gh-release`), which is read first and checked on the next release.
+
 ## Steps
 
 1. **During development**, each change a user would notice gets a line under `## [Unreleased]` in CHANGELOG.md, under Added, Changed or Fixed.
 2. **Choose the number** by the rules above: MINOR if anything under Unreleased is Added or Changed, PATCH if it's all Fixed.
-3. **Prepare the release** in one commit named `Release X.Y.Z`:
+3. **Prepare the release** in one pull request named `Release X.Y.Z`:
    - In CHANGELOG.md, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a new empty `## [Unreleased]` above it, and update the links at the bottom (`[Unreleased]` compares `vX.Y.Z...HEAD`; `[X.Y.Z]` compares the previous tag with `vX.Y.Z`).
    - Set `VERSION` and `CoolHead.version` to X.Y.Z.
    - If the version changes something a user sees, add its short note for the app's What's new (`WhatsNew` in `Sources/CoolHeadApp/PanelView.swift`).
    - Run `scripts/check-version.sh vX.Y.Z`, `swift build -c release` and `.build/release/coolhead selftest`.
-4. **Tag and push**: `git tag -a vX.Y.Z -m "Cool Head X.Y.Z"`, then push the commit and the tag. The release workflow checks the numbers, builds, runs the selftest, signs the zip, and publishes the release with its title, notes and downloads.
+4. **Merge, then tag**: once `build` passes, squash-merge the pull request, pull `main`, and tag the merged commit: `git tag -a vX.Y.Z -m "Cool Head X.Y.Z"`, then push the tag. The release workflow checks the numbers, builds, runs the selftest, signs the zip, and publishes the release with its title, notes and downloads.
 5. **Check the release**: the zip's checksum matches `SHA256SUMS.txt`, its signature verifies, the app reports X.Y.Z, and its selftest passes.
 
 ## History
@@ -47,3 +51,4 @@ One number names a version everywhere:
 - 0.1.0 and 0.2.0 have no `.sig` file: signing began with 0.3.0, the first version that updates itself.
 - 0.4.1 to 0.4.5 added features under patch numbers. These rules start with 0.5.0.
 - Release notes for 0.1.0 to 0.3.2 were filled in from CHANGELOG.md on 15 November 2026; at first they had only GitHub's list of commits.
+- Up to 0.5.0, the maintainer's commits went straight to `main`, bypassing its pull request rule. From 15 November 2026 they go through pull requests like everyone's.
