@@ -122,6 +122,54 @@ public struct Fixture {
         let memCrit = LiveCard(id: "memory-critical", pid: nil, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
         review.append(("wait-returns-only-if-worse", unknownCard.severity == 1 && stuckCard.severity == 2 && memWarn.severity == 1 && memCrit.severity == 2
                        && unknownCard.cause == stuckCard.cause, "waited at 1; returns at 2 for the same cause"))
+        // Phil (15 November 2026): "why is it green if it's running warm? We should be flagging causes if the heat is
+        // elevated." A busy job on a warm Mac says it's adding heat, offers running it cooler, and counts as a
+        // heat cause (severity 1), so the badge is yellow; the same job on a cool Mac stays calm (severity 0).
+        let job = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
+                                  start: now.addingTimeInterval(-2 * 3600), cores: 2)
+        let warmCard = Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
+        let coolCard = Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), warm: false)
+        let working = Card(state: .working, headline: "", explanation: "", fixes: [])
+        var warmLive = LiveCard(id: "2-working", pid: 2, card: working, details: [])
+        warmLive.heatCause = true
+        let coolLive = LiveCard(id: "2-working", pid: 2, card: working, details: [])
+        review.append(("heat-flags-causes", warmCard.explanation.contains("adding to the heat") && !coolCard.explanation.contains("heat")
+                       && warmCard.fixes.contains { $0.kind == .cooler } && warmLive.severity == 1 && coolLive.severity == 0,
+                       warmCard.explanation))
+        // Phil (15 November 2026), the option order, locked in: recommended first; then options you can undo, most
+        // helpful first; then options that close or lose something, least loss first; then sharing. Waiting is not
+        // in the list (a clock in the card's corner instead).
+        let shuffled = Card(state: .unknown, headline: "", explanation: "", fixes: [
+            Fix(id: "share", title: "", consequence: "", kind: .share),
+            Fix(id: "stop", title: "", consequence: "", kind: .stop),
+            Fix(id: "wait", title: "", consequence: "", kind: .wait(now)),
+            Fix(id: "quit", title: "", consequence: "", kind: .quitApp("/Applications/X.app")),
+            Fix(id: "lookup", title: "", consequence: "", kind: .lookUp("x"), recommended: true),
+            Fix(id: "cooler", title: "", consequence: "", kind: .cooler),
+            Fix(id: "find", title: "", consequence: "", kind: .info)])
+        let order = shuffled.fixes.map(\.id).joined(separator: " ")
+        let everyCard = all(now).map { f in Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor), warm: true) }
+        let allSorted = everyCard.allSatisfy { c in
+            c.fixes.map(Card.rank) == c.fixes.map(Card.rank).sorted() && !c.fixes.contains { if case .wait = $0.kind { return true }; return false }
+                && c.fixes.filter(\.recommended).count <= 1 }
+        review.append(("option-order", order == "lookup cooler find quit stop share" && allSorted, order))
+        // Trust (Phil, 15 November 2026): a trusted item is calm, but flagged anyway if it looks stuck, the Mac is hot,
+        // or it has been busy nonstop for 8 hours, so nothing is hidden indefinitely
+        let scriptJob = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
+                                        start: now.addingTimeInterval(-3600), cores: 2)
+        let fooHelper = Evidence.sample(name: "Foo Helper", path: "/Applications/Foo.app/Contents/Frameworks/Foo Helper.app/Contents/MacOS/Foo Helper",
+                                     start: now, cores: 1)
+        let system = Evidence.sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores", start: now, cores: 1)
+        let keys = Trust.key(scriptJob) == "script:/Users/x/Photos/export.py" && Trust.key(fooHelper) == "app:/Applications/Foo.app" && Trust.key(system) == nil
+        let limits = Trust.overLimit(state: .working, thermal: "fair", busyFor: 3600) == nil
+            && Trust.overLimit(state: .unknown, thermal: "nominal", busyFor: 7 * 3600) == nil
+            && Trust.overLimit(state: .stalled, thermal: "nominal", busyFor: 60) == "it looks stuck"
+            && Trust.overLimit(state: .working, thermal: "serious", busyFor: 60) == "your Mac is hot"
+            && Trust.overLimit(state: .working, thermal: "nominal", busyFor: 9 * 3600)?.contains("8 hours") == true
+        var calm = LiveCard(id: "3-unknown", pid: 3, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
+        calm.trusted = true
+        review.append(("trust-has-limits", keys && limits && !calm.needsLook && calm.severity == 0,
+                       "keys \(keys), limits \(limits), trusted card calm \(!calm.needsLook)"))
         // Run it cooler, for real, on a child process of our own (problem report, 15 November 2026: it said "macOS
         // didn't apply it" because getpriority can't report the setting; it is confirmed by scheduling priority now)
         let child = Process()
@@ -160,7 +208,7 @@ public struct Fixture {
                         start: ago(2 * hour), cores: 6,
                         progress: Progress(file: "/tmp/build.log", line: "25600/26512 passages, 178.4 min, about 6 min left",
                                            done: 25600, total: 26512, unit: "passages", minutesLeft: 6, lineTime: ago(60))),
-                    busyFor: 2 * hour, expectState: .working, expectHeadline: "96% done", expectAction: "Wait until"),
+                    busyFor: 2 * hour, expectState: .working, expectHeadline: "96% done", expectAction: nil),
             Fixture(id: "job-stalled", evidence: .sample(
                         name: "python3", path: "/usr/bin/python3", args: ["python3", "train.py"], cwd: "/Users/x/Model",
                         start: ago(5 * hour), cores: 1,
@@ -170,14 +218,14 @@ public struct Fixture {
             Fixture(id: "job-waiting", evidence: .sample(
                         name: "python3", path: "/usr/bin/python3", args: ["python3", "sync.py"], cwd: "/Users/x/Sync",
                         start: ago(hour), cores: 0, lastLine: "waiting for the compute lock (pid 999)"),
-                    busyFor: 0, expectState: .waiting, expectHeadline: "waiting for another job", expectAction: "Wait"),
+                    busyFor: 0, expectState: .waiting, expectHeadline: "waiting for another job", expectAction: nil),
             Fixture(id: "job-no-signs", evidence: .sample(
                         name: "node", path: "/opt/homebrew/bin/node", args: ["node", "server.js"], cwd: "/Users/x/Site",
                         start: ago(3 * hour), cores: 1.2),
                     busyFor: 3 * hour, expectState: .unknown, expectHeadline: "can't tell why", expectAction: "Look it up"),
             Fixture(id: "spotlight-normal", evidence: .sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores",
                                                              start: ago(48 * hour), cores: 1.5),
-                    busyFor: 0.5 * hour, expectState: .working, expectHeadline: "Spotlight is indexing", expectAction: "Wait"),
+                    busyFor: 0.5 * hour, expectState: .working, expectHeadline: "Spotlight is indexing", expectAction: nil),
             Fixture(id: "spotlight-long", evidence: .sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores",
                                                            start: ago(48 * hour), cores: 1.5),
                     busyFor: 5 * hour, expectState: .unknown, expectHeadline: "longer than usual", expectAction: "Look it up"),
@@ -192,7 +240,7 @@ public struct Fixture {
             Fixture(id: "docker-vm", evidence: .sample(name: "com.docker.virtualization",
                                                       path: "/Applications/Docker.app/Contents/MacOS/com.docker.virtualization",
                                                       start: ago(10 * hour), cores: 1),
-                    busyFor: 10 * hour, expectState: .working, expectHeadline: "Docker's virtual machine is running. That's normal.", expectAction: "Wait"),
+                    busyFor: 10 * hour, expectState: .working, expectHeadline: "Docker's virtual machine is running. That's normal.", expectAction: nil),
         ]
     }
 }

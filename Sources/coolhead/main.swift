@@ -92,17 +92,18 @@ func find(_ target: String) -> pid_t? {
 let argv = CommandLine.arguments.dropFirst()
 switch argv.first {
 case "now":
-    printState(MacState.read())
+    let state = MacState.read()
+    printState(state)
     print("")
     for (pid, cores) in busiest(limit: 8) where cores >= 0.25 {
         guard let e = Evidence.gather(pid: pid, interval: 0.5) else { continue }
-        printCard(Card.make(e, now: testNow))
+        printCard(Card.make(e, now: testNow, warm: state.thermal != "nominal"))
         print("")
     }
 case "why":
     guard let target = argv.dropFirst().first else { print(usage); exit(64) }
     guard let p = find(target), let e = Evidence.gather(pid: p) else { print("coolhead: no process matches \(target)"); exit(1) }
-    printCard(Card.make(e, now: testNow))
+    printCard(Card.make(e, now: testNow, warm: MacState.read().thermal != "nominal"))
     print("\nEvidence")
     printEvidence(e)
     print("\nThe Mac")

@@ -31,6 +31,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         item.button?.target = self
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        // a screenshot copy draws off screen and quits; it never appears in the menu bar, where it could be mistaken for
+        // the real one (its panel hides every card but the demo; Phil saw "Running warm" with nothing listed, 15 November 2026)
+        if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] != nil { item.isVisible = false }
 
         let host = NSHostingController(rootView: PanelView(watcher: watcher))
         host.sizingOptions = [.preferredContentSize]
@@ -78,6 +81,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             iconItem.submenu = iconMenu
             menu.addItem(iconItem)
             menu.addItem(.separator())
+            // trusted apps and jobs: each one listed, choosing it stops trusting it
+            let trustMenu = NSMenu()
+            let trusted = Trust.all.sorted { $0.value.localizedCaseInsensitiveCompare($1.value) == .orderedAscending }
+            if trusted.isEmpty {
+                trustMenu.addItem(NSMenuItem(title: "Nothing yet. Trust from a card's clock.", action: nil, keyEquivalent: ""))
+            } else {
+                let head = NSMenuItem(title: "Choose one to stop trusting it", action: nil, keyEquivalent: "")
+                trustMenu.addItem(head)
+                for (key, name) in trusted {
+                    let it = NSMenuItem(title: name, action: #selector(untrust(_:)), keyEquivalent: "")
+                    it.target = self; it.representedObject = key
+                    trustMenu.addItem(it)
+                }
+            }
+            let trustItem = NSMenuItem(title: "Trusted", action: nil, keyEquivalent: "")
+            trustItem.submenu = trustMenu
+            menu.addItem(trustItem)
+            menu.addItem(.separator())
             menu.addItem(withTitle: "Report a Problem…", action: #selector(report), keyEquivalent: "").target = self
             menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
             menu.addItem(.separator())
@@ -90,6 +111,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         } else {
             panel.show(under: button)
         }
+    }
+
+    @objc func untrust(_ sender: NSMenuItem) {
+        guard let key = sender.representedObject as? String else { return }
+        Watcher.shared.untrust(key: key)
     }
 
     @objc func about() { About.show() }
@@ -245,7 +271,7 @@ enum MenuIcon {
     }
 
     /// Problem: it got so hot the snowflake burst into flames. A flame with a wide base, a curving main tip and two
-    /// smaller licks, and inside it the white snowflake it used to be. (Chosen by Phil, 16 November 2026, after
+    /// smaller licks, and inside it the white snowflake it used to be. (Chosen by Phil, 15 November 2026, after
     /// several other ideas.)
     static func onFire() {
         let f = NSBezierPath()

@@ -67,11 +67,36 @@ public struct Card {
 
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation
-        // recommended first
-        self.fixes = fixes.filter(\.recommended) + fixes.filter { !$0.recommended }
+        // Waiting isn't an option in the list: each card has a clock in its corner for that (10 minutes, 30 minutes or
+        // an hour, never "until it's done"). The rest in one fixed order (Phil, 15 November 2026).
+        var seen = false
+        let kept = fixes.filter { if case .wait = $0.kind { return false }; return true }.map { f -> Fix in
+            var f = f
+            if f.recommended { if seen { f.recommended = false }; seen = true }    // one recommendation at most
+            return f
+        }
+        self.fixes = kept.enumerated().sorted { (Card.rank($0.element), $0.offset) < (Card.rank($1.element), $1.offset) }.map(\.element)
+    }
+
+    /// The order every card's options are shown in, so they read the same way everywhere: the recommended option;
+    /// then options you can undo, most helpful first; then options that close or lose something, least loss first;
+    /// then sharing; then notes with nothing to press.
+    public static func rank(_ f: Fix) -> Int {
+        if f.recommended { return 0 }
+        switch f.kind {
+        case .cooler: return 1
+        case .info: return f.id == "nostop" ? 7 : 2
+        case .lookUp: return 3
+        case .quitApp: return 4
+        case .stop: return 5
+        case .share: return 6
+        case .wait: return 8
+        }
     }
 
     public var recommended: Fix? { fixes.first { $0.recommended } }
+    /// Has something to press that acts on the cause (not only advice or sharing).
+    public var hasAction: Bool { fixes.contains { [.cooler, .stop].contains($0.kind) || { if case .quitApp = $0.kind { return true }; if case .lookUp = $0.kind { return true }; return false }($0) } }
 
     /// Who the card is about, in a word or two: the project ("Photo Export"), the script, or the app.
     public static func subject(_ e: Evidence) -> String {
@@ -163,16 +188,18 @@ public struct Card {
         }
 
         let cool = cooler.map { var c = $0; c.recommended = warm; return c }
+        // while the Mac is warm, a busy job says it is part of why
+        let heat = warm && e.coresNow >= 0.5 ? " It's adding to the heat." : ""
         switch state {
         case .working:
             if let p = e.progress {
                 var head = "\(who) is " + (p.fraction.map { "\(Fmt.percent($0)) done." } ?? "making progress.")
                 if let fin = p.finish { head += fin > now ? " Ready around \(Fmt.time(fin))." : " Almost done." }
-                return Card(state: state, headline: head, explanation: "Its log says \u{201C}\(p.line)\u{201D}.",
+                return Card(state: state, headline: head, explanation: "Its log says \u{201C}\(p.line)\u{201D}." + heat,
                             fixes: [wait(until: p.finish, now: now, recommended: !warm || cooler == nil), cool, stop].compactMap { $0 })
             }
             return Card(state: state, headline: "\(who) is busy and still saving its work.",
-                        explanation: "It doesn't say how far along it is.",
+                        explanation: "It doesn't say how far along it is." + heat,
                         fixes: [wait(until: nil, now: now, recommended: !warm || cooler == nil), cool, stop].compactMap { $0 })
         case .waiting:
             return Card(state: state, headline: "\(who) is waiting for another job.",
@@ -185,7 +212,7 @@ public struct Card {
                         fixes: [stop ?? lookUp(e.name, recommended: true), wait(until: nil, now: now, recommended: false), share])
         case .unknown:
             return Card(state: state, headline: "\(who) has been busy for \(Fmt.duration(busyFor)). We can't tell why.",
-                        explanation: "It isn't saying what it's doing.",
+                        explanation: "It isn't saying what it's doing." + heat,
                         fixes: [lookUp(e.name, recommended: true), wait(until: nil, now: now, recommended: false), cooler,
                                 stop.map { var f = $0; f = Fix(id: f.id, title: f.title, consequence: "Only if you know what it is. " + f.consequence, kind: f.kind); return f },
                                 share].compactMap { $0 })

@@ -82,7 +82,7 @@ public enum MemoryAdvice {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
-                        fixes: [Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.", kind: .wait(now.addingTimeInterval(1800)), recommended: true)])
+                        fixes: [Fix(id: "quitunused", title: "Quit apps you aren't using", consequence: "Frees memory. Each asks to save first.", kind: .info, recommended: true)])
         }
         let size = Fmt.bytes(top.bytes)
         let head = "\(tight) \(label(top)) is using the most (\(size))."

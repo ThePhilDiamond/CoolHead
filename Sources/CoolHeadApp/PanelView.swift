@@ -67,7 +67,7 @@ struct PanelView: View {
 
     /// The heat word appears only when the Mac is warm or hot; otherwise the line is about what needs watching.
     var status: String {
-        let n = shownCards.filter(\.needsLook).count
+        let n = shownCards.filter { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }.count
         let stuck = shownCards.filter { $0.card.state == .stalled }.count
         let jobs = shownCards.filter { $0.card.state == .working || $0.card.state == .starting }.count
         var watch: String?
@@ -104,9 +104,36 @@ struct CardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(live.card.headline)
-                .font(.body.weight(.medium))
-                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(live.card.headline)
+                    .font(.body.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                // waiting is a reminder, not an option: hide the card for a while; it comes back sooner if it gets worse
+                Menu {
+                    Text("Check back in…")
+                    ForEach([(10, "10 minutes"), (30, "30 minutes"), (60, "1 hour")], id: \.0) { m, label in
+                        Button(label) { watcher.snooze(live, until: Date().addingTimeInterval(Double(m) * 60)) }
+                    }
+                    if live.trustKey != nil {
+                        Divider()
+                        if Trust.contains(live.trustKey) {
+                            Button("Stop trusting \(live.trustName)") { watcher.setTrusted(live, false) }
+                        } else {
+                            Button("Always trust \(live.trustName)") { watcher.setTrusted(live, true) }
+                        }
+                    }
+                } label: { Image(systemName: "clock").foregroundStyle(Ink.muted) }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .help("Check back later")
+                .accessibilityLabel("Check back later")
+            }
+            if let t = live.trustNote {
+                Label(t, systemImage: live.trusted ? "checkmark.shield" : "exclamationmark.shield")
+                    .font(.caption)
+                    .foregroundStyle(live.trusted ? Ink.muted : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if !live.card.fixes.isEmpty {
                 // a warning offers fixes; a calm card only explains, with options if you want them anyway
                 Button(open ? "Hide" : (live.needsLook ? "Explore fixes" : "Learn more")) {
@@ -123,9 +150,8 @@ struct CardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    let coolerWasRecommended = live.card.fixes.contains { $0.kind == .cooler && $0.recommended }
                     ForEach(live.card.fixes) { f in
-                        FixRow(fix: f, cooled: watcher.isCooled(live), run: { act($0) }, cooledCardRecommendedCooler: coolerWasRecommended)
+                        FixRow(fix: f, cooled: watcher.isCooled(live), run: { act($0) })
                     }
                     if let n = note {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -431,6 +457,12 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.4.1": [
+            "A warm Mac now shows what's warming it, with something to do.",
+            "The recommended option comes first and is marked.",
+            "Check back later from the clock on any card.",
+            "Always trust an app or job from the clock. It's still flagged if it looks stuck, your Mac gets hot, or it runs for 8 hours.",
+        ],
         "0.4.0": [
             "Shorter cards: one sentence, then Explore fixes or Learn more.",
             "A green note says what changed after you act.",
@@ -522,7 +554,6 @@ struct PinnedRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "tortoise.fill").foregroundStyle(Color.accentColor).padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(item.name) is running cooler").font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                 Text("Since \(Fmt.time(item.since)). Slower, but cooler.").font(.caption).foregroundStyle(Ink.muted)
@@ -537,14 +568,19 @@ struct PinnedRow: View {
                 Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
             }
         }
-        .padding(.horizontal, 14).padding(.vertical, 14)
+        .padding(.horizontal, 36).padding(.vertical, 20)       // text sits in the clear middle, well off the frost
+        // the icon as a large, faint watermark, well inside the frost (Phil, 15 November 2026)
+        .background(alignment: .leading) {
+            Image(systemName: "tortoise.fill").font(.system(size: 56)).foregroundStyle(Color.primary.opacity(0.2))
+                .padding(.leading, 40).accessibilityHidden(true)
+        }
         .frozen()
     }
 }
 
 /// A "frozen" frame for things Cool Head has cooled: frost growing in from the edges, as on a cold window, on an ice
-/// tint, with a snowflake or two for accents. All vector lines,
-/// drawn from a fixed pattern, so it looks the same every time and costs almost nothing.
+/// tint. No snowflake symbols: Phil, 15 November 2026, "We don't want too many "snowflakes" in the frame as it will
+/// look like Christmas season - we want cold/chill/frozen vibes". All vector lines, drawn from a fixed pattern, so it looks the same every time and costs almost nothing.
 struct Frozen: ViewModifier {
     static let ice = Color(red: 0.55, green: 0.82, blue: 1.0)
 
@@ -557,14 +593,6 @@ struct Frozen: ViewModifier {
                 }
             )
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(red: 0.70, green: 0.88, blue: 1.0).opacity(0.9), lineWidth: 1))
-            .overlay(alignment: .topTrailing) { flake(12).padding(.trailing, 9).padding(.top, 6) }
-            .overlay(alignment: .bottomTrailing) { flake(15).padding(.trailing, 22).padding(.bottom, 5) }
-            .overlay(alignment: .bottomLeading) { flake(10).padding(.leading, 30).padding(.bottom, 4) }
-    }
-
-    func flake(_ size: CGFloat) -> some View {
-        Image(systemName: "snowflake").font(.system(size: size, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
-            .shadow(color: Frozen.ice.opacity(0.6), radius: 1).allowsHitTesting(false)
     }
 }
 
@@ -591,10 +619,11 @@ struct Frost: View {
                 seed = seed &* 6364136223846793005 &+ 1442695040888963407
                 return CGFloat((seed >> 33) % 10_000) / 10_000
             }
-            let phases = (0..<3).map { _ in rnd() * 6.28 }
+            let phases = (0..<4).map { _ in rnd() * 6.28 }
             // smooth, uneven variation along the edge, 0 to 1
             func wobble(_ s: CGFloat) -> CGFloat {
-                let v = 0.5 * sin(s * 0.19 + phases[0]) + 0.3 * sin(s * 0.43 + phases[1]) + 0.2 * sin(s * 1.07 + phases[2])
+                // long drifts plus smaller bumps, so the frost line rises and dips along each side
+                let v = 0.4 * sin(s * 0.05 + phases[3]) + 0.3 * sin(s * 0.17 + phases[0]) + 0.2 * sin(s * 0.43 + phases[1]) + 0.1 * sin(s * 1.07 + phases[2])
                 return (v + 1) / 2
             }
             // closeness to the nearest corner, 1 at the corner, 0 beyond `reach`
@@ -632,42 +661,68 @@ struct Frost: View {
             // blurred, so the frost fades into the glass instead of stepping like a contour map
             ctx.drawLayer { layer in
                 layer.addFilter(.blur(radius: 3))
-                layer.fill(band(base: 11, vary: 8, corner: 22, bottomExtra: 7), with: .color(.white.opacity(0.32)), style: even)   // haze
-                layer.fill(band(base: 6, vary: 6, corner: 16, bottomExtra: 4), with: .color(.white.opacity(0.5)), style: even)
+                layer.fill(band(base: 8, vary: 11, corner: 24, bottomExtra: 6), with: .color(.white.opacity(0.32)), style: even)   // haze
+                layer.fill(band(base: 4, vary: 8, corner: 18, bottomExtra: 3), with: .color(.white.opacity(0.5)), style: even)
             }
             ctx.drawLayer { layer in
                 layer.addFilter(.blur(radius: 0.8))
-                layer.fill(band(base: 2.5, vary: 3.5, corner: 11, bottomExtra: 2), with: .color(.white.opacity(0.92)), style: even) // the rim
+                layer.fill(band(base: 2, vary: 6, corner: 12, bottomExtra: 2), with: .color(.white.opacity(0.92)), style: even) // the rim
             }
 
-            // feather crystals: a long, gently curving stem with fine, close barbs angled toward its tip
+            // fern frost: a gently curving stem with side branches that alternate and shorten toward the tip, each
+            // branch feathered with fine barbs, as frost grows across a cold pane
+            func feather(_ from: CGPoint, _ angle: CGFloat, _ length: CGFloat, into path: inout Path) {
+                let n = max(2, Int(length / 1.4))
+                var p = from
+                path.move(to: p)
+                for i in 0..<n {
+                    let t = CGFloat(i) / CGFloat(n)
+                    let next = CGPoint(x: p.x + cos(angle) * 1.4, y: p.y + sin(angle) * 1.4)
+                    path.addLine(to: next)
+                    if i > 0 {
+                        let barb = (1 - t) * length * 0.36 + 0.6
+                        for side in [-1.0, 1.0] as [CGFloat] {
+                            let ba = angle + side * 0.7
+                            path.move(to: next)
+                            path.addLine(to: CGPoint(x: next.x + cos(ba) * barb, y: next.y + sin(ba) * barb))
+                            path.move(to: next)
+                        }
+                    }
+                    p = next
+                }
+            }
             func fern(from: CGPoint, angle: CGFloat, length: CGFloat, curl: CGFloat) {
-                var stem = Path(), barbs = Path()
-                let n = Int(length / 1.7)
+                var stem = Path(), branches = Path()
+                let n = Int(length / 1.6)
                 var p = from, a = angle
                 stem.move(to: p)
                 for i in 0..<n {
                     let t = CGFloat(i) / CGFloat(n)
                     a += curl / CGFloat(n)
-                    let next = CGPoint(x: p.x + cos(a) * 1.7, y: p.y + sin(a) * 1.7)
+                    let next = CGPoint(x: p.x + cos(a) * 1.6, y: p.y + sin(a) * 1.6)
                     stem.addLine(to: next)
-                    let barb = (1 - t) * (length * 0.24) * (0.75 + rnd() * 0.25)
-                    for side in [-1.0, 1.0] as [CGFloat] {
-                        let ba = a + side * 0.8
-                        barbs.move(to: next)
-                        barbs.addLine(to: CGPoint(x: next.x + cos(ba) * barb, y: next.y + sin(ba) * barb))
+                    if i % 2 == 1 && t < 0.94 {
+                        for side in [-1.0, 1.0] as [CGFloat] {
+                            let len = ((1 - t) * length * 0.4 + 2) * (0.7 + rnd() * 0.3)
+                            feather(next, a + side * (0.7 + rnd() * 0.25), len, into: &branches)
+                        }
                     }
                     p = next
                 }
-                ctx.stroke(barbs, with: .color(.white.opacity(0.8)), style: StrokeStyle(lineWidth: 0.6, lineCap: .round))
-                ctx.stroke(stem, with: .color(.white.opacity(0.95)), style: StrokeStyle(lineWidth: 1.1, lineCap: .round))
+                ctx.drawLayer { glow in
+                    glow.addFilter(.blur(radius: 1.4))
+                    glow.stroke(branches, with: .color(.white.opacity(0.55)), style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                }
+                ctx.stroke(branches, with: .color(.white.opacity(0.8)), style: StrokeStyle(lineWidth: 0.5, lineCap: .round))
+                ctx.stroke(stem, with: .color(.white.opacity(0.95)), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
             }
-            fern(from: CGPoint(x: 5, y: h - 5), angle: -.pi / 3.4, length: min(42, h * 0.62), curl: 0.4)
-            fern(from: CGPoint(x: w - 6, y: h - 4), angle: -.pi + .pi / 4.2, length: min(36, h * 0.56), curl: -0.35)
-            fern(from: CGPoint(x: w * 0.38, y: h - 3), angle: -.pi / 2 - 0.3, length: min(22, h * 0.36), curl: 0.25)
-            fern(from: CGPoint(x: w * 0.66, y: h - 3), angle: -.pi / 2 + 0.35, length: min(18, h * 0.3), curl: -0.2)
-            fern(from: CGPoint(x: 4, y: 5), angle: .pi / 4, length: min(20, h * 0.34), curl: 0.25)
-            fern(from: CGPoint(x: w - 4, y: 5), angle: .pi - .pi / 4, length: min(16, h * 0.28), curl: -0.25)
+            // in the corners only, where frost gathers; the middle stays clear (Phil, 15 November 2026)
+            fern(from: CGPoint(x: 4, y: h - 4), angle: -.pi / 3.2, length: min(50, h * 0.72), curl: 0.45)
+            fern(from: CGPoint(x: 6, y: h - 3), angle: -0.35, length: min(30, h * 0.42), curl: -0.3)
+            fern(from: CGPoint(x: w - 5, y: h - 4), angle: -.pi + .pi / 4, length: min(42, h * 0.62), curl: -0.4)
+            fern(from: CGPoint(x: w - 6, y: h - 3), angle: -.pi + 0.3, length: min(24, h * 0.36), curl: 0.3)
+            fern(from: CGPoint(x: 4, y: 4), angle: .pi / 4.5, length: min(26, h * 0.4), curl: 0.3)
+            fern(from: CGPoint(x: w - 4, y: 4), angle: .pi - .pi / 4, length: min(22, h * 0.36), curl: -0.3)
 
             // sparkles near the frost: dots, and a few four-pointed glints
             for i in 0..<14 {
@@ -675,8 +730,8 @@ struct Frost: View {
                 let pt = side < 0.45 ? CGPoint(x: rnd() * w, y: h - 6 - rnd() * 12)
                     : side < 0.6 ? CGPoint(x: rnd() * w, y: 4 + rnd() * 8)
                     : CGPoint(x: side < 0.8 ? 4 + rnd() * 12 : w - 4 - rnd() * 12, y: rnd() * h)
-                if i % 4 == 0 {
-                    let r = 2.2 + rnd() * 1.6
+                if i % 7 == 6 {
+                    let r = 1.6 + rnd() * 0.8
                     var star = Path()
                     star.move(to: CGPoint(x: pt.x, y: pt.y - r))
                     star.addQuadCurve(to: CGPoint(x: pt.x + r, y: pt.y), control: pt)
@@ -716,39 +771,62 @@ struct FixRow: View {
     var opensBrowser: Bool { if case .lookUp = fix.kind { return true }; return false }
 
     /// Once it is already running cooler, "Back to full speed" isn't the recommendation.
-    var recommended: Bool {
-        if fix.kind == .cooler && cooled { return false }
-        if case .wait = fix.kind, cooled, cooledCardRecommendedCooler { return true }     // waiting takes over
-        return fix.recommended
-    }
-    /// Set by the card: it is running cooler and cooling was what had been recommended.
-    var cooledCardRecommendedCooler = false
+    var recommended: Bool { fix.kind == .cooler && cooled ? false : fix.recommended }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             if fix.kind == .info {
-                Label(fix.title, systemImage: "lightbulb").font(.callout.weight(.medium))
+                HStack(spacing: 6) {
+                    Label(fix.title, systemImage: "lightbulb").font(.callout.weight(recommended ? .bold : .medium))
+                    if recommended { RecommendedTag(onAccent: false) }
+                }
             } else {
-                Button { run(fix) } label: {
+                // the recommended option is the filled button, in bold, tagged; the rest are plain
+                let button = Button { run(fix) } label: {
                     HStack(spacing: 8) {
                         Image(systemName: icon).frame(width: 18)
-                        Text(fix.kind == .cooler && cooled ? "Back to full speed" : fix.title)
+                        Text(fix.kind == .cooler && cooled ? "Back to full speed" : fix.title).fontWeight(recommended ? .bold : .regular)
+                        if recommended { RecommendedTag(onAccent: true) }
                         Spacer(minLength: 0)
-                        if opensBrowser { Image(systemName: "arrow.up.right.square").foregroundStyle(Ink.muted).help("Opens in your browser") }
+                        if opensBrowser { Image(systemName: "arrow.up.right.square").opacity(0.7).help("Opens in your browser") }
                     }
                 }
-                .buttonStyle(.bordered)
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(recommended ? Color.accentColor : .clear, lineWidth: 1.5))
                 .controlSize(.regular)
+                if recommended { button.buttonStyle(RecommendedButton()) } else { button.buttonStyle(.bordered) }
             }
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                if recommended { Text("Recommended").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor) }
                 let line = fix.kind == .cooler && cooled ? "Runs at normal speed again." : fix.consequence
                 if !line.isEmpty {
                     Text(line).font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
+    }
+}
+
+/// The recommended option: filled with the accent colour, white text, whether or not the panel is the active window
+/// (macOS greys its own prominent buttons in an inactive window).
+struct RecommendedButton: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .foregroundStyle(.white)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(configuration.isPressed ? 0.75 : 1)))
+            .opacity(enabled ? 1 : 0.5)
+            .contentShape(Rectangle())
+    }
+}
+
+/// "Recommended", as a small rounded tag beside the option's name.
+struct RecommendedTag: View {
+    let onAccent: Bool
+    var body: some View {
+        Text("Recommended")
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6).padding(.vertical, 1.5)
+            .foregroundStyle(onAccent ? Color.accentColor : .white)
+            .background(Capsule().fill(onAccent ? Color.white.opacity(0.92) : Color.accentColor))
     }
 }
 

@@ -2,7 +2,15 @@
 
 Short notes for each version. The newest is first. Each release's notes on GitHub come from this file, and the app shows the notes for a version once, after it updates to it.
 
-## v0.4.0 (16 November 2026)
+## v0.4.1 (15 November 2026)
+
+- A warm Mac now shows what's warming it. Each cause gets a card that says it's adding to the heat, with something to do, and the icon turns yellow. If nothing is working hard, a card says so and what usually explains it.
+- Options come in one order everywhere: the recommended one first, marked **Recommended**; then ones you can undo; then ones that close or lose something; then sharing.
+- Waiting is now a clock in each card's corner: check back in 10 minutes, 30 minutes or an hour.
+- **Always trust** an app or job from the same clock. It stays listed but calm, and is flagged anyway if it looks stuck, your Mac gets hot, or it has been busy for 8 hours without a break. See and remove trusted items from the right-click menu.
+- The frozen border is frost on glass: crystals in the corners, a clear middle, no snowflakes.
+
+## v0.4.0 (15 November 2026)
 
 - Cards say less: one short sentence, then **Explore fixes** for anything worth watching, or **Learn more** for calm ones.
 - Every option has an icon and a few plain words on what it does.

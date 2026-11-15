@@ -17,7 +17,18 @@ public struct LiveCard: Identifiable {
     /// The anonymised case report, for cards that offer "Share this case".
     public var report: (title: String, body: String)? = nil
     /// True for cards that should notify when they last: stalled, or busy with no explanation.
-    public var needsLook: Bool { card.state == .stalled || card.state == .unknown }
+    public var needsLook: Bool { card.state == .stalled || (card.state == .unknown && !trusted) }
+    /// What trusting this card would trust (see `Trust`), and the name to show; nil for what can't be trusted.
+    public var trustKey: String? = nil
+    public var trustName = ""
+    /// Trusted and within its limits: shown, but calm.
+    public var trusted = false
+    /// A line about trust for the card: the promise while it is trusted, or why it is flagged anyway.
+    public var trustNote: String? = nil
+    /// True while the Mac is warm or hot and this card is a cause: a busy process, fast charging, or the heat itself
+    /// when nothing explains it. Heat with a cause turns the badge yellow, so the cause is flagged rather than
+    /// left green under "Running warm". It doesn't notify on its own.
+    public var heatCause = false
     /// What the card is about, whatever its state: the process, or the Mac-wide condition.
     public var cause: String { causeKey ?? pid.map { "pid-\($0)" } ?? id }
     /// Overrides the cause, so a card keeps one identity as it changes (the memory card, warning or critical).
@@ -26,7 +37,7 @@ public struct LiveCard: Identifiable {
     /// 2 for stuck or critical memory, 1 for something that needs a look, 0 otherwise.
     public var severity: Int {
         if card.state == .stalled || id.hasPrefix("memory-critical") { return 2 }
-        return needsLook ? 1 : 0
+        return needsLook || heatCause ? 1 : 0
     }
 }
 
@@ -103,6 +114,48 @@ public final class Watcher {
         t.setEventHandler { [weak self] in self?.tick() }
         timer = t
         t.resume()
+    }
+
+    /// Marks a card trusted, or flagged anyway with the reason, from the trust list and its limits.
+    static func applyTrust(_ lc: inout LiveCard, thermal: String, busyFor: TimeInterval) {
+        guard Trust.contains(lc.trustKey) else { lc.trusted = false; lc.trustNote = nil; return }
+        if let why = Trust.overLimit(state: lc.card.state, thermal: thermal, busyFor: busyFor) {
+            lc.trusted = false
+            lc.trustNote = "You trust \(lc.trustName), but \(why)."
+        } else {
+            lc.trusted = true
+            lc.heatCause = false
+            lc.trustNote = Trust.promise
+        }
+    }
+
+    /// Trusts what a card is about, or stops trusting it. Applies at once; the limits are checked again each sample.
+    public func setTrusted(_ c: LiveCard, _ on: Bool) {
+        guard let k = c.trustKey else { return }
+        if on { Trust.add(k, name: c.trustName) } else { Trust.remove(k) }
+        log((on ? "Trusted " : "Stopped trusting ") + c.reportSubject)
+        refreshTrust()
+    }
+
+    public func untrust(key: String) {
+        Trust.remove(key)
+        log("Stopped trusting an item from the trusted list")
+        refreshTrust()
+    }
+
+    private func refreshTrust() {
+        cards = cards.map { c in
+            var c = c
+            if c.trustKey != nil, c.causeKey != "memory" {
+                c.heatCause = mac.thermal != "nominal" && [.working, .starting, .unknown].contains(c.card.state) && c.card.hasAction
+                Watcher.applyTrust(&c, thermal: mac.thermal, busyFor: 0)
+            } else if c.causeKey == "memory" {
+                c.trusted = Trust.contains(c.trustKey) && mac.memoryPressure != "critical"
+                c.trustNote = Trust.contains(c.trustKey) ? (c.trusted ? Trust.promise : "You trust \(c.trustName), but memory is very tight.") : nil
+            }
+            return c
+        }
+        onPublish?()
     }
 
     public func dismiss(_ id: String) {
@@ -200,7 +253,8 @@ public final class Watcher {
     public enum Level { case good, warning, issue }
     public var level: Level {
         if cards.contains(where: { $0.severity >= 2 }) || mac.thermal == "serious" || mac.thermal == "critical" { return .issue }
-        if cards.contains(where: { $0.needsLook }) { return .warning }
+        // a warm Mac with a cause on screen needs a look; a cause already running cooler has been dealt with
+        if cards.contains(where: { $0.needsLook || ($0.heatCause && !isCooled($0)) }) { return .warning }
         return .good
     }
 
@@ -258,13 +312,18 @@ public final class Watcher {
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)
             lc.displaySubject = Card.subject(e)
+            // flagged only when there's something to press; normal macOS work is still shown, as the explanation
+            lc.heatCause = warm && [.working, .starting, .unknown].contains(c.state) && c.hasAction
+            lc.trustKey = Trust.key(e)
+            lc.trustName = Card.subject(e)
+            Watcher.applyTrust(&lc, thermal: state.thermal, busyFor: now.timeIntervalSince(tr.busySince ?? now))
             if let pr = Proc.schedulingPriority(pid), pr > 4 { lastPriority[pid] = pr }
             if c.fixes.contains(where: { $0.kind == .share }) {
                 lc.report = (CaseReport.title(e, card: c), CaseReport.make(e, card: c, mac: state, busySince: tr.busySince, now: now))
             }
             live.append(lc)
         }
-        live += macCards(state, now: now)
+        live += macCards(state, now: now, explained: !live.isEmpty)
         if ProcessInfo.processInfo.environment["COOLHEAD_DEBUG"] != nil {
             let top = tracks.sorted { $0.value.cores > $1.value.cores }.prefix(3)
                 .map { "\($0.key):\(String(format: "%.2f", $0.value.cores)) since \($0.value.busySince.map { Int(now.timeIntervalSince($0)) } ?? -1)s" }
@@ -275,16 +334,36 @@ public final class Watcher {
     }
 
     /// Cards about the Mac as a whole, which no single process explains.
-    private func macCards(_ s: MacState, now: Date) -> [LiveCard] {
+    private func macCards(_ s: MacState, now: Date, explained: Bool) -> [LiveCard] {
         var out: [LiveCard] = []
-        if s.charging, let w = s.batteryWatts, w > 15, s.thermal != "nominal" {
-            out.append(LiveCard(id: "charging", pid: nil, card: Card(
+        let warm = s.thermal != "nominal"
+        let fastCharging = s.charging && (s.batteryWatts ?? 0) > 15
+        if fastCharging, let w = s.batteryWatts, warm {
+            var lc = LiveCard(id: "charging", pid: nil, card: Card(
                 state: .working,
                 headline: "Fast charging is adding heat.",
                 explanation: "It's charging at about \(Int(w.rounded())) W. That slows down after 80%.",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
-                        Fix(id: "unplug", title: "Unplug for a bit", consequence: "Charging stops until you plug back in.", kind: .info)]),
-                details: s.lines(), reportSubject: "fast charging adding heat"))
+                        Fix(id: "unplug", title: "Unplug for a bit", consequence: "Charging stops until you plug back in.", kind: .info, recommended: true)]),
+                details: s.lines(), reportSubject: "fast charging adding heat")
+            lc.heatCause = true
+            out.append(lc)
+        }
+        // warm, and no busy process or charging to point to: say so, and what usually explains it
+        if warm && !explained && !fastCharging {
+            let me = getpid()
+            let top = tracks.filter { $0.key != me && $0.value.cores >= 0.25 }.max { $0.value.cores < $1.value.cores }
+            let busiest = top.flatMap { t in Proc.path(t.key).map { (($0 as NSString).lastPathComponent, t.value.cores) } }
+            var lc = LiveCard(id: "heat", pid: nil, card: Card(
+                state: .working,
+                headline: "Your Mac is warm, but nothing is working hard right now.",
+                explanation: (busiest.map { "The busiest is \($0.0), at about \(Fmt.cores($0.1)). " } ?? "")
+                    + "Heat can linger after heavy work, or come from a warm room or a soft surface.",
+                fixes: [Card.wait(until: nil, now: now, recommended: true),
+                        Fix(id: "air", title: "Give it air", consequence: "A hard surface, out of the sun, helps it cool.", kind: .info, recommended: true)]),
+                details: s.lines(), reportSubject: "warm with no single cause")
+            lc.heatCause = true
+            out.append(lc)
         }
         if s.memoryPressure == "warning" || s.memoryPressure == "critical" {
             // count memory the way a person thinks of it: each app with all its helpers, each job on its own
@@ -305,6 +384,15 @@ public final class Watcher {
                               card: card, details: s.lines(), reportSubject: subject)
             mc.causeKey = "memory"
             if let e = top?.evidence { mc.displaySubject = Card.subject(e) }
+            // trusting the biggest user calms tight memory, but never critical memory
+            if let t = top {
+                mc.trustKey = t.bundle.map { Trust.key(appPath: $0) } ?? t.evidence.flatMap { Trust.key($0) }
+                mc.trustName = t.evidence.map { Card.subject($0) } ?? t.name
+                if Trust.contains(mc.trustKey) {
+                    if s.memoryPressure == "critical" { mc.trustNote = "You trust \(mc.trustName), but memory is very tight." }
+                    else { mc.trusted = true; mc.trustNote = Trust.promise }
+                }
+            }
             out.append(mc)
         }
         return out
