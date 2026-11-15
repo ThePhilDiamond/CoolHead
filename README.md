@@ -60,4 +60,4 @@ The most useful help is teaching Cool Head a pattern it doesn't know, or reporti
 
 ## License
 
-MIT. See [LICENSE](LICENSE). The name and logo are covered separately: see [TRADEMARKS.md](TRADEMARKS.md).
+Free and open source under the [GNU AGPL v3.0](LICENSE), with a commercial license for closed-source use: see [COMMERCIAL.md](COMMERCIAL.md). The name and logo are covered separately: see [TRADEMARKS.md](TRADEMARKS.md).

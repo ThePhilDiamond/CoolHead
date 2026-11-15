@@ -1,5 +1,5 @@
 // Draws Cool Head's logo options as PNGs, and the app icon set.
-// Usage: swift scripts/make-icon.swift <output folder> [ice|flat|line|all]
+// Usage: swift scripts/make-icon.swift <output folder> [ice|flat|line|all|sheet]
 import AppKit
 
 let args = CommandLine.arguments
@@ -87,19 +87,23 @@ func drawLine(_ s: CGFloat) {
     color(0x1F9BD7).setStroke(); b.stroke()
 }
 
-func render(_ draw: (CGFloat) -> Void, size: Int) -> Data {
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size, bitsPerSample: 8,
+func render(_ draw: (CGFloat) -> Void, size: Int) -> Data { render(draw, width: size, height: size, scale: CGFloat(size)) }
+
+func render(_ draw: (CGFloat) -> Void, width: Int, height: Int, scale: CGFloat = 0) -> Data {
+    let size = width
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
                                samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
                                bytesPerRow: 0, bitsPerPixel: 0)!
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    draw(CGFloat(size))
+    draw(scale > 0 ? scale : CGFloat(size))
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])!
 }
 
 let options: [(String, (CGFloat) -> Void)] = [("ice", drawIce), ("flat", drawFlat), ("line", drawLine)]
 for (name, draw) in options where which == "all" || which == name {
+    if which == "sheet" { break }
     try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo-\(name).png"))
     // the app icon set, for iconutil
     let set = out.appendingPathComponent("AppIcon-\(name).iconset")
@@ -108,5 +112,36 @@ for (name, draw) in options where which == "all" || which == name {
         try! render(draw, size: base).write(to: set.appendingPathComponent("icon_\(base)x\(base).png"))
         try! render(draw, size: base * 2).write(to: set.appendingPathComponent("icon_\(base)x\(base)@2x.png"))
     }
+}
+// "sheet": the three options side by side, large and at Dock and Finder sizes, on light and dark.
+if which == "sheet" {
+    let w = 1200, h = 760
+    try! render({ _ in
+        for (row, bg) in [(0, color(0xF5F5F7)), (1, color(0x1E1E1E))] {
+            bg.setFill(); NSBezierPath(rect: NSRect(x: 0, y: CGFloat(h) - CGFloat(row + 1) * 380, width: CGFloat(w), height: 380)).fill()
+        }
+        for (i, (name, draw)) in options.enumerated() {
+            let x = CGFloat(60 + i * 380)
+            for row in 0..<2 {
+                let top = CGFloat(h) - CGFloat(row) * 380
+                // large
+                NSGraphicsContext.saveGraphicsState()
+                let t = NSAffineTransform(); t.translateX(by: x, yBy: top - 300); t.scale(by: 240.0 / 1024.0); t.concat()
+                draw(1024)
+                NSGraphicsContext.restoreGraphicsState()
+                // Dock (64) and Finder list (32) sizes
+                for (j, size) in [64.0, 32.0].enumerated() {
+                    NSGraphicsContext.saveGraphicsState()
+                    let t2 = NSAffineTransform(); t2.translateX(by: x + 250, yBy: top - 120 - CGFloat(j) * 90); t2.scale(by: size / 1024.0); t2.concat()
+                    draw(1024)
+                    NSGraphicsContext.restoreGraphicsState()
+                }
+                let label = name.prefix(1).uppercased() + name.dropFirst()
+                (label as NSString).draw(at: NSPoint(x: x + 90, y: top - 350), withAttributes: [
+                    .font: NSFont.systemFont(ofSize: 26, weight: .semibold),
+                    .foregroundColor: row == 0 ? color(0x1D1D1F) : color(0xF5F5F7)])
+            }
+        }
+    }, width: w, height: h).write(to: out.appendingPathComponent("logo-options.png"))
 }
 print("wrote \(out.path)")

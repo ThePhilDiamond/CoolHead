@@ -1,6 +1,6 @@
 # The Cool Head name and logo
 
-"Cool Head" and the Cool Head logo identify the official project and the builds published on this repository's Releases page. The MIT License covers the code, not the name or logo.
+"Cool Head" and the Cool Head logo identify the official project and the builds published on this repository's Releases page. The code licenses (AGPL-3.0, or a commercial license) cover the code, not the name or logo.
 
 You are welcome to fork Cool Head. If you publish a fork or your own build:
 

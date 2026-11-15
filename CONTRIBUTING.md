@@ -19,6 +19,7 @@ The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns 
 1. Read [BUILDING.md](BUILDING.md) and get a build running.
 2. Make your change on a branch and open a pull request. Say what it fixes and how you tested it.
 3. `coolhead selftest` must pass; the CI runs it on every pull request.
+4. The first time, the CLA bot asks you to sign the [Contributor License Agreement](CLA.md) by leaving a comment. You only do this once. It lets the project offer Cool Head under both licenses (see [COMMERCIAL.md](COMMERCIAL.md)); you keep your copyright.
 
 ### How the code is meant to work
 
@@ -28,7 +29,7 @@ The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns 
 - **Everything stays on the Mac.** No network calls, no analytics. The only exception is Look it up, which the user presses, and which sends the process name only.
 - **Light on the Mac.** Cool Head's own CPU use is shown in its panel. Keep it under 0.5% on average.
 - **No administrator password.** Everything Cool Head reads is readable by the signed-in user.
-- **License-clean dependencies.** MIT, BSD, Apache-2.0 and similar only; the project has no dependencies today.
+- **License-clean dependencies.** MIT, BSD, Apache-2.0 and similar only. No GPL, AGPL or LGPL code linked into what ships, because it would stop Cool Head from being offered under a commercial license. The project has no dependencies today.
 - **Comments explain why**, especially for kernel calls (`proc_pidinfo`, `proc_pid_rusage`) and IOKit keys.
 
 ## Security problems
