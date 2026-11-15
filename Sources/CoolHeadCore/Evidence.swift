@@ -218,6 +218,23 @@ extension Evidence {
         return nil
     }
 
+    /// Which part of a Chromium browser (Chrome, Edge, Brave, Arc) this is, from its launch arguments: Chrome
+    /// renames its helper programs between versions ("Google Chrome Helper (Aperitif Renderer)" in version 157),
+    /// but the --type argument stays. nil for anything else.
+    public enum BrowserPart: Equatable { case tab, extensionPart, graphics }
+    public var browserPart: BrowserPart? {
+        guard script == nil, path?.contains(".app/") == true else { return nil }
+        if args.contains("--type=renderer") { return args.contains("--extension-process") ? .extensionPart : .tab }
+        if args.contains("--type=gpu-process") { return .graphics }
+        return nil
+    }
+
+    /// The outermost app bundle this process belongs to, wherever it is installed.
+    public var appBundle: String? {
+        guard let p = path, let r = p.range(of: ".app/") else { return nil }
+        return String(p[..<r.lowerBound]) + ".app"
+    }
+
     /// The game this process belongs to, by its app bundle, wherever it is installed (Steam keeps games in its own
     /// folder): an app whose details say it is a game (any of macOS's game categories), or anything Steam installed.
     public var gameBundle: String? {

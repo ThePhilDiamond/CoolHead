@@ -49,6 +49,7 @@ public struct Fix: Identifiable {
         case quitApp(String)     // a normal quit of the app at this bundle path, so it can ask to save
         case info                // advice with nothing to press
         case share               // show the anonymised case report, then offer to open it as a GitHub issue
+        case openPage(String, String)   // open a page of an app's own settings in that app: bundle path, address
     }
     public let id: String
     public let title: String
@@ -85,10 +86,10 @@ public struct Card {
         if f.recommended { return 0 }
         switch f.kind {
         case .cooler: return 1
-        case .info: return f.id == "nostop" ? 7 : 2
+        case .info, .openPage: return f.id == "nostop" ? 7 : 2
         case .lookUp: return 3
         case .quitApp: return 4
-        case .stop: return 5
+        case .stop: return f.id == "stop" ? 5 : 4      // closing one tab or extension loses less than quitting its browser
         case .share: return 6
         case .wait: return 8
         }
@@ -96,12 +97,22 @@ public struct Card {
 
     public var recommended: Fix? { fixes.first { $0.recommended } }
     /// Has something to press that acts on the cause (not only advice or sharing).
-    public var hasAction: Bool { fixes.contains { [.cooler, .stop].contains($0.kind) || { if case .quitApp = $0.kind { return true }; if case .lookUp = $0.kind { return true }; return false }($0) } }
+    public var hasAction: Bool {
+        fixes.contains { f in
+            switch f.kind {
+            case .cooler, .stop, .quitApp, .lookUp, .openPage: return true
+            default: return false
+            }
+        }
+    }
 
     /// Who the card is about, in a word or two: the project ("Photo Export"), the script, or the app.
     public static func subject(_ e: Evidence) -> String {
         // a script names the job better than its runtime (Homebrew's Python is itself an app bundle)
         if e.script != nil { return e.project ?? e.task }
+        if let part = e.browserPart, let app = e.app {
+            return part == .tab ? "\(app) tab" : part == .extensionPart ? "\(app) extension" : app
+        }
         if let app = e.app { return app }
         return e.name
     }
@@ -121,7 +132,8 @@ public struct Card {
         Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(name)\u{201D}.", kind: .lookUp(name), recommended: recommended)
     }
 
-    public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil) -> Card {
+    public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
+                            frontApp: String? = nil) -> Card {
         let who = subject(e)
         let since = busySince ?? e.start ?? now
         let busyFor = now.timeIntervalSince(since)
@@ -172,6 +184,45 @@ public struct Card {
                 : long ? "\(k.doing), for \(Fmt.duration(busyFor)). That's longer than usual."
                 : "\(k.doing). That's normal."
             return Card(state: e.coresNow < 0.25 ? .quiet : long ? .unknown : .working, headline: head, explanation: explanation, fixes: fixes)
+        }
+
+        // Chrome and other Chromium browsers, without quitting them (Phil, 15 November 2026: "Chrome is one of the
+        // biggest causes, so we should look into if there are ways we can improve performance without killing it when a
+        // user is using it"). A process can be told apart as a tab, an extension or the graphics process, but not which
+        // tab: only the browser's Task Manager knows that.
+        if let part = e.browserPart, let app = e.app, let bundle = e.appBundle {
+            let inFront = frontApp == bundle                 // you're using the browser: the busy tab may be the one you're on
+            let what = part == .tab ? "One tab" : part == .extensionPart ? "One extension" : "Its graphics process"
+            let explanation = "\(what) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
+                + (part == .graphics ? " Usually video or animation." : " Only \(app) knows which.")
+                + (warm && e.coresNow >= 0.5 ? " It's adding to the heat." : "")
+            let canCool = e.mine && e.coresNow >= 0.5 && part != .graphics     // slowing graphics would slow all of it
+            let page = { (url: String, title: String, why: String, rec: Bool) in
+                Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
+            let find = Fix(id: "find", title: part == .extensionPart ? "Find the busy extension" : "Find the busy tab", consequence: "In \(app): Window ▸ Task Manager, sort by CPU.", kind: .info)
+            let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle))
+            var fixes: [Fix?]
+            switch part {
+            case .tab:
+                fixes = [canCool ? Fix(id: "cooler", title: "Run this tab cooler", consequence: "Only this tab slows. Undo any time.", kind: .cooler, recommended: !inFront) : nil,
+                         page("chrome://settings/performance", "Turn on Energy Saver", "Opens \(app)'s Performance settings. Less background work, lower frame rates.", inFront || !canCool),
+                         find,
+                         e.mine ? Fix(id: "closetab", title: "Close just that tab", consequence: "It shows a crash page; Reload brings it back. Anything typed in it is lost.", kind: .stop) : nil,
+                         quit]
+            case .extensionPart:
+                fixes = [page("chrome://extensions", "Turn off the extension", "Opens \(app)'s extensions page. Switch off the one you don't need.", true),
+                         canCool ? Fix(id: "cooler", title: "Run it cooler", consequence: "Only this extension slows. Undo any time.", kind: .cooler) : nil,
+                         find,
+                         e.mine ? Fix(id: "stopext", title: "Stop the extension", consequence: "\(app) says it crashed. Reload it from the extensions page.", kind: .stop) : nil,
+                         quit]
+            case .graphics:
+                fixes = [page("chrome://settings/performance", "Turn on Energy Saver", "Opens \(app)'s Performance settings. Lower frame rates, less heat.", true),
+                         find, quit]
+            }
+            let head = part == .tab ? "A \(app) tab is working hard." : part == .extensionPart ? "A \(app) extension is working hard."
+                : "\(app) is drawing a lot: video or animation in a tab."
+            return Card(state: e.coresNow < 0.25 ? .quiet : busyFor > 20 * 60 ? .unknown : .starting,
+                        headline: head, explanation: explanation, fixes: fixes.compactMap { $0 })
         }
 
         // web pages: the busy process is a tab or extension, and only the browser knows which

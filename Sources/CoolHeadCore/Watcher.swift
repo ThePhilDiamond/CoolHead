@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import AppKit
 import Observation
 
 /// A card on screen, with the facts behind it.
@@ -64,7 +65,10 @@ public final class Watcher {
     public var showReport = false
     /// Changes each time the panel closes, so it reopens clean: nothing left expanded, no form left open.
     public private(set) var panelSession = 0
-    public func panelClosed() { showReport = false; panelSession += 1 }
+    public func panelClosed() { showReport = false; panelSession += 1; notices = [] }
+    /// Short notes about something Cool Head noticed on its own (an app put a slowed process back to full speed),
+    /// shown at the top of the panel until it next closes.
+    public private(set) var notices: [String] = []
     /// Processes put on background priority by "Run it cooler", by process number and start time.
     public private(set) var cooled: [String: CooledItem] = [:]
     /// A process running at background priority because the person chose "Run it cooler": pinned at the top of
@@ -309,8 +313,9 @@ public final class Watcher {
         // a game being played comes first: other busy work is offered to run cooler to leave it more room
         let game = gathered.first { $0.2.gameBundle != nil }.flatMap { $0.2.gameBundle }
             .map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
+        let front = NSWorkspace.shared.frontmostApplication?.bundleURL?.path
         for (pid, tr, e) in gathered {
-            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game)
+            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front)
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)
@@ -318,7 +323,7 @@ public final class Watcher {
             // flagged only when there's something to press; normal macOS work is still shown, as the explanation
             lc.heatCause = warm && [.working, .starting, .unknown].contains(c.state) && c.hasAction
             lc.trustKey = Trust.key(e)
-            lc.trustName = Card.subject(e)
+            lc.trustName = e.browserPart != nil ? (e.app ?? Card.subject(e)) : Card.subject(e)   // trusting a tab trusts the browser
             Watcher.applyTrust(&lc, thermal: state.thermal, busyFor: now.timeIntervalSince(tr.busySince ?? now))
             if let pr = Proc.schedulingPriority(pid), pr > 4 { lastPriority[pid] = pr }
             if c.fixes.contains(where: { $0.kind == .share }) {
@@ -429,10 +434,16 @@ public final class Watcher {
             }
             firstSeen = firstSeen.filter { ids.contains($0.key) }
             alerted = alerted.filter { ids.contains($0) }
-            // a pinned (cooled) process that has ended is unpinned
+            // a pinned (cooled) process that has ended is unpinned; so is one its app put back to full speed (Chrome
+            // sets its own tabs' priority, and may when you switch to the tab)
             for (k, item) in cooled {
                 let alive = Proc.bsd(item.pid).map { b in item.start.map { abs(b.start.timeIntervalSince($0)) < 1 } ?? true } ?? false
-                if !alive { cooled.removeValue(forKey: k); log("\(item.reportSubject) finished while running cooler") }
+                if !alive { cooled.removeValue(forKey: k); log("\(item.reportSubject) finished while running cooler"); continue }
+                if let pri = Proc.schedulingPriority(item.pid), pri > 4 {
+                    cooled.removeValue(forKey: k)
+                    log("\(item.reportSubject) was put back to full speed by its app (priority \(pri))")
+                    notices.append("\(item.name) is back to full speed: its app sped it up again, probably because you're using it.")
+                }
             }
             onPublish?()
         }

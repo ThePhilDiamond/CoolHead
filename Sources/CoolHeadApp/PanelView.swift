@@ -30,6 +30,9 @@ struct PanelView: View {
                     if !welcomed { WelcomeCard { welcomed = true; WhatsNew.markSeen() } }
                     else if let notes = whatsNew { WhatsNewCard(notes: notes) { WhatsNew.markSeen(); whatsNew = nil } }
                     UpdateBanner()
+                    ForEach(watcher.notices, id: \.self) { n in
+                        Label(n, systemImage: "hare").font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                    }
                     ForEach(watcher.cooledList) { PinnedRow(item: $0, watcher: watcher) }
                     if watcher.showReport {
                         ProblemView(watcher: watcher)
@@ -207,7 +210,7 @@ struct CardView: View {
         .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
         .confirmationDialog(stopTitle, isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
-            Button("Stop it", role: .destructive) { show(watcher.stop(live)); confirmStop = nil }
+            Button(confirmStop?.title ?? "Stop it", role: .destructive) { show(watcher.stop(live)); confirmStop = nil }
             Button("Cancel", role: .cancel) { confirmStop = nil }
         } message: {
             Text(confirmStop?.consequence ?? "")
@@ -216,6 +219,8 @@ struct CardView: View {
 
     /// Names the process, so the person knows exactly what they are stopping.
     var stopTitle: String {
+        // a browser tab or extension: say exactly that, not "Stop Google Chrome?"
+        if let t = confirmStop?.title, t != "Stop it" { return t + "?" }
         let s = live.displaySubject
         guard !s.isEmpty else { return "Stop this process?" }
         return "Stop " + (s.hasPrefix("Your ") ? "your " + s.dropFirst(5) : s) + "?"
@@ -256,6 +261,11 @@ struct CardView: View {
         case .share:
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
+        case .openPage(let bundle, let address):
+            // the browser's own settings page, opened in that browser; nothing is changed until the person switches it
+            guard let url = URL(string: address) else { return }
+            NSWorkspace.shared.open([url], withApplicationAt: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
+            watcher.log("Opened a settings page for \(live.reportSubject)")
         case .info:
             break
         }
@@ -457,6 +467,10 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.4.3": [
+            "Chrome without quitting it: slow just the busy tab, turn on Energy Saver, or turn off an extension.",
+            "Close just one tab before ever quitting the whole browser.",
+        ],
         "0.4.2": [
             "Games are recognised as games, and never slowed down.",
             "While you play, other busy work is offered to run cooler, to leave the game more power.",
@@ -769,6 +783,7 @@ struct FixRow: View {
         case .quitApp: return "xmark.circle"
         case .share: return "square.and.arrow.up"
         case .info: return "lightbulb"
+        case .openPage: return "gearshape"
         }
     }
 

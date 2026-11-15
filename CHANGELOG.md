@@ -2,6 +2,13 @@
 
 Short notes for each version. The newest is first. Each release's notes on GitHub come from this file, and the app shows the notes for a version once, after it updates to it.
 
+## v0.4.3 (15 November 2026)
+
+- Chrome without quitting it. Cool Head tells a busy tab, a busy extension and Chrome's graphics work apart (also in Edge, Brave and Arc), and offers what fits: run just that tab cooler, turn on Energy Saver (one click opens Chrome's Performance settings), turn off an extension, or close just that tab, before ever suggesting Quit.
+- If you're using Chrome, Energy Saver comes first, since the busy tab may be the one you're on.
+- If an app speeds a slowed process back up (Chrome does when you switch to the tab), it's unpinned and Cool Head says so.
+- Works with Chrome 157, which renamed its helper programs.
+
 ## v0.4.2 (15 November 2026)
 
 - Games are recognised as games, wherever they're installed (Steam included), instead of "We can't tell why". A game is never slowed down: while your Mac is warm it suggests lower graphics settings, and Quit warns you to save first.

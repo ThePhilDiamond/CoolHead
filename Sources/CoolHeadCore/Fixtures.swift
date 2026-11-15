@@ -166,6 +166,29 @@ public struct Fixture {
                        && rival.fixes.first { $0.kind == .cooler }?.consequence.contains("more power for BloonsTD6") == true
                        && rival.explanation.contains("competing with BloonsTD6"),
                        rival.explanation))
+        // Chrome without quitting (Phil, 15 November 2026): a tab, an extension and the graphics process are told apart
+        // by their launch arguments; a tab in the background is slowed, a tab in the browser you're using gets Energy
+        // Saver instead; Close just that tab comes before Quit; the graphics process is never slowed
+        let chromeApp = "/Applications/Google Chrome.app"
+        let tabExe = chromeApp + "/Contents/Frameworks/Google Chrome Framework.framework/Versions/157.0.8103.51/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        let tabE = Evidence.sample(name: "Google Chrome Helper (Aperitif Renderer)", path: tabExe, args: [tabExe, "--type=renderer", "--renderer-client-id=5"], start: now.addingTimeInterval(-3600), cores: 1.5)
+        let extE = Evidence.sample(name: "Google Chrome Helper (Aperitif Renderer)", path: tabExe, args: [tabExe, "--type=renderer", "--extension-process"], start: now.addingTimeInterval(-3600), cores: 0.8)
+        let gpuE = Evidence.sample(name: "Google Chrome Helper (Aperitif)", path: tabExe, args: [tabExe, "--type=gpu-process"], start: now.addingTimeInterval(-3600), cores: 0.9)
+        let busy10 = now.addingTimeInterval(-600)
+        let tabBack = Card.make(tabE, now: now, busySince: busy10)
+        let tabFront = Card.make(tabE, now: now, busySince: busy10, frontApp: chromeApp)
+        let extCard = Card.make(extE, now: now, busySince: busy10)
+        let gpuCard = Card.make(gpuE, now: now, busySince: busy10)
+        func ids(_ c: Card) -> String { c.fixes.map(\.id).joined(separator: " ") }
+        let stopTitle = tabBack.fixes.first { (f: Fix) in f.kind == Fix.Kind.stop }?.title
+        let c1 = tabBack.headline == "A Google Chrome tab is working hard." && tabBack.recommended?.title == "Run this tab cooler"
+        let c2 = tabFront.recommended?.title == "Turn on Energy Saver"
+        let c3 = tabBack.fixes.contains { $0.kind == Fix.Kind.openPage(chromeApp, "chrome://settings/performance") }
+        let c4 = ids(tabBack).hasSuffix("closetab quit") && ids(extCard).hasSuffix("stopext quit") && stopTitle == "Close just that tab"
+        let c5 = extCard.recommended?.kind == Fix.Kind.openPage(chromeApp, "chrome://extensions") && extCard.headline.contains("extension")
+        let c6 = gpuCard.recommended?.title == "Turn on Energy Saver" && !gpuCard.fixes.contains { $0.kind == Fix.Kind.cooler }
+        let chromeOK = c1 && c2 && c3 && c4 && c5 && c6 && Card.subject(tabE) == "Google Chrome tab"
+        review.append(("chrome-without-quitting", chromeOK, "background tab: \(ids(tabBack)); in front: \(tabFront.recommended?.title ?? "none"); extension: \(ids(extCard)); graphics: \(ids(gpuCard))"))
         // Trust (Phil, 15 November 2026): a trusted item is calm, but flagged anyway if it looks stuck, the Mac is hot,
         // or it has been busy nonstop for 8 hours, so nothing is hidden indefinitely
         let scriptJob = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
