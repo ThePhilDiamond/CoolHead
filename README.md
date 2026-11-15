@@ -29,7 +29,7 @@ It also connects the dots across the Mac: fast charging that adds heat, memory r
 
 ## Privacy
 
-Everything runs on your Mac. No account, no analytics, no network connections, and nothing stored about what happened. Three buttons reach outside, and only when you press them:
+Everything runs on your Mac. No account, no analytics, and nothing stored about what happened. The only automatic network use is a daily check with GitHub for a newer version of Cool Head (turn it off from the right-click menu; see [docs/UPDATES.md](docs/UPDATES.md)). Three buttons reach outside, and only when you press them:
 
 - **Look it up** opens a web search for the process name.
 - **Share this case**, on cards Cool Head can't explain, shows you an anonymised report of that process.
@@ -46,6 +46,8 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 1. Download the latest `Cool-Head-….zip` from [Releases](../../releases), and unzip it.
 2. Move **Cool Head** to Applications and open it. The first time, macOS may say it can't check the app (it isn't notarized yet): open **System Settings ▸ Privacy & Security** and choose **Open Anyway**.
 3. Look for the snowflake in the menu bar. Its badge shows the state by shape and colour: a green circle when all is well, a yellow triangle when something needs a look, a red octagon for a problem. Click it for the panel; right-click for About and Quit.
+
+After that, Cool Head keeps itself up to date: when a new version is out, the panel offers to install it, and checks the download is genuine first.
 
 Or build it yourself: see [BUILDING.md](BUILDING.md).
 

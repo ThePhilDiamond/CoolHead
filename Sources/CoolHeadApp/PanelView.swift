@@ -15,6 +15,7 @@ struct PanelView: View {
                 Spacer()
                 Text("Cool Head v\(CoolHead.version)").font(.caption2).foregroundStyle(Ink.muted)
             }
+            UpdateBanner()
             if watcher.showReport {
                 ProblemView(watcher: watcher)
             } else if shownCards.isEmpty {
@@ -269,6 +270,36 @@ struct ProblemView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
+    }
+}
+
+/// A line at the top of the panel about updates: shown only when there is something to say.
+struct UpdateBanner: View {
+    let updater = Updater.shared
+
+    var body: some View {
+        switch updater.phase {
+        case .available(let v):
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.circle").foregroundStyle(Color.accentColor)
+                Text("Cool Head \(v) is available.").font(.callout.weight(.medium))
+                Spacer()
+                if let page = updater.releasePage {
+                    Button("What's new") { NSWorkspace.shared.open(page) }.buttonStyle(.plain).font(.callout).foregroundStyle(Ink.muted)
+                }
+                Button("Install") { Task { await updater.install() } }.buttonStyle(.borderedProminent).controlSize(.small)
+            }
+        case .installing:
+            Label("Downloading and checking the update…", systemImage: "arrow.down.circle").font(.callout)
+        case .checking:
+            Label("Checking for updates…", systemImage: "arrow.triangle.2.circlepath").font(.callout).foregroundStyle(Ink.muted)
+        case .upToDate:
+            Label("Cool Head is up to date.", systemImage: "checkmark.circle").font(.callout).foregroundStyle(Ink.muted)
+        case .failed(let why):
+            Label(why, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true)
+        case .idle:
+            EmptyView()
+        }
     }
 }
 

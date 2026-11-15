@@ -13,6 +13,7 @@ struct CoolHeadApp: App {
     var body: some Scene { Settings { EmptyView() } }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var item: NSStatusItem!
     private let popover = NSPopover()
@@ -43,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             self.item.button?.image = MenuIcon.image(level: watcher.level)
         }
         watcher.start()
+        Updater.shared.schedule()
         if let path = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] { Snapshot.take(to: path) }
     }
 
@@ -52,6 +54,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
             popover.performClose(nil)
             let menu = NSMenu()
+            menu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "").target = self
+            let auto = NSMenuItem(title: "Check for Updates Automatically", action: #selector(toggleAutoUpdates), keyEquivalent: "")
+            auto.target = self
+            auto.state = Updater.shared.automatic ? .on : .off
+            menu.addItem(auto)
+            menu.addItem(.separator())
             menu.addItem(withTitle: "Report a Problem…", action: #selector(report), keyEquivalent: "").target = self
             menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
             menu.addItem(.separator())
@@ -70,6 +78,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     @objc func about() { About.show() }
 
+    @objc func checkUpdates() {
+        showPanel()
+        Task { await Updater.shared.check(quiet: false) }
+    }
+
+    @objc func toggleAutoUpdates() { Updater.shared.automatic.toggle() }
+
+    func showPanel() {
+        guard let button = item.button, !popover.isShown else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+    }
+
     @objc func report() {
         Watcher.shared.showReport = true
         guard let button = item.button else { return }
@@ -78,7 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         popover.contentViewController?.view.window?.makeKey()
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
         done([.banner])
     }
@@ -226,6 +248,7 @@ extension NSBezierPath {
 /// COOLHEAD_SNAPSHOT=/path/prefix "Cool Head.app/Contents/MacOS/Cool Head"
 enum Snapshot {
     static func take(to prefix: String) {
+        if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CHECK"] != nil { Task { await Updater.shared.check(quiet: false) } }
         let after = Double(ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_AFTER"] ?? "") ?? 25
         DispatchQueue.main.asyncAfter(deadline: .now() + after) {
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] != nil { Watcher.shared.showReport = true }

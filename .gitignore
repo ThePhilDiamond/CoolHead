@@ -3,3 +3,5 @@
 # Working notes kept on this Mac only: they describe the owner's other projects
 PLAN.md
 build/
+# The update-signing private key: never committed (see docs/UPDATES.md)
+.secrets/

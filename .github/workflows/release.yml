@@ -17,9 +17,19 @@ jobs:
       - run: scripts/build-app.sh
       - name: Zip the app
         run: cd build && ditto -c -k --keepParent "Cool Head.app" "Cool-Head-${GITHUB_REF_NAME}.zip" && shasum -a 256 "Cool-Head-${GITHUB_REF_NAME}.zip" > SHA256SUMS.txt
+      - name: Sign the update for the in-app updater
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -z "$UPDATE_SIGNING_KEY" ]; then
+            echo "::warning::UPDATE_SIGNING_KEY is not set, so the in-app updater will refuse this release"
+          else
+            swift scripts/sign-update.swift "build/Cool-Head-${GITHUB_REF_NAME}.zip"
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             build/Cool-Head-${{ github.ref_name }}.zip
+            build/Cool-Head-${{ github.ref_name }}.zip.sig
             build/SHA256SUMS.txt
           generate_release_notes: true
