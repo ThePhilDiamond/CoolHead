@@ -1,5 +1,6 @@
 // Draws Cool Head's logo options as PNGs, and the app icon set.
-// Usage: swift scripts/make-icon.swift <output folder> [ice|flat|line|all|sheet]
+// Usage: swift scripts/make-icon.swift <output folder> [app|ice|flat|line|all|sheet|linesheet|facesheet|facesheet2]
+// "app" draws the chosen logo (a smiley with snowflakes behind, chosen 15 November 2026) and its icon set.
 import AppKit
 
 let args = CommandLine.arguments
@@ -435,7 +436,7 @@ func render(_ draw: (CGFloat) -> Void, width: Int, height: Int, scale: CGFloat =
 
 let options: [(String, (CGFloat) -> Void)] = [("ice", drawIce), ("flat", drawFlat), ("line", drawLine)]
 for (name, draw) in options where which == "all" || which == name {
-    if ["sheet", "linesheet", "facesheet", "facesheet2"].contains(which) { break }
+    if ["sheet", "linesheet", "facesheet", "facesheet2", "app"].contains(which) { break }
     try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo-\(name).png"))
     // the app icon set, for iconutil
     let set = out.appendingPathComponent("AppIcon-\(name).iconset")
@@ -560,5 +561,15 @@ if which == "sheet" {
             }
         }
     }, width: w, height: h).write(to: out.appendingPathComponent("logo-options.png"))
+}
+if which == "app" {
+    let draw: (CGFloat) -> Void = { face2($0, style: "flurry") }
+    try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo.png"))
+    let set = out.appendingPathComponent("AppIcon.iconset")
+    try? FileManager.default.createDirectory(at: set, withIntermediateDirectories: true)
+    for base in [16, 32, 128, 256, 512] {
+        try! render(draw, size: base).write(to: set.appendingPathComponent("icon_\(base)x\(base).png"))
+        try! render(draw, size: base * 2).write(to: set.appendingPathComponent("icon_\(base)x\(base)@2x.png"))
+    }
 }
 print("wrote \(out.path)")

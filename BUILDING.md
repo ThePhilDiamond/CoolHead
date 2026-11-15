@@ -34,15 +34,17 @@ COOLHEAD_SNAPSHOT=/tmp/panel "build/Cool Head.app/Contents/MacOS/Cool Head"
 
 ## The icon
 
-The icon and logo options are drawn in code. To redraw them:
+The logo and app icon are drawn in code. To redraw them:
 
 ```bash
-swift scripts/make-icon.swift build/icon all
+swift scripts/make-icon.swift build/icon app
 ```
 
 ```bash
-iconutil -c icns build/icon/AppIcon-ice.iconset -o Resources/AppIcon.icns
+iconutil -c icns build/icon/AppIcon.iconset -o Resources/AppIcon.icns
 ```
+
+The menu bar icon is drawn in `Sources/CoolHeadApp/CoolHeadApp.swift` (`MenuIcon`). The logo ideas that weren't chosen can still be drawn: `sheet`, `linesheet`, `facesheet` and `facesheet2`.
 
 ## Layout
 

@@ -61,29 +61,27 @@ enum LoginItem {
     }
 }
 
-/// The menu bar icon: an ice cube with a bolt, drawn as a template so it follows the menu bar's colour;
-/// a small dot appears when something needs a look.
+/// The menu bar icon: the logo's smiley in line form, drawn as a template so it follows the menu bar's colour;
+/// a small dot appears at its top right when something needs a look.
 enum MenuIcon {
     static func image(alert: Bool) -> NSImage {
-        let size = NSSize(width: 18, height: 18)
-        let img = NSImage(size: size, flipped: false) { _ in
-            let cube = NSBezierPath(roundedRect: NSRect(x: 2, y: 2, width: 14, height: 14), xRadius: 4, yRadius: 4)
-            cube.lineWidth = 1.6
+        let img = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
             NSColor.black.setStroke()
-            cube.stroke()
-            let bolt = NSBezierPath()
-            bolt.move(to: NSPoint(x: 10.2, y: 14))
-            bolt.line(to: NSPoint(x: 5.6, y: 8.2))
-            bolt.line(to: NSPoint(x: 8.8, y: 8.2))
-            bolt.line(to: NSPoint(x: 7.8, y: 4))
-            bolt.line(to: NSPoint(x: 12.4, y: 9.8))
-            bolt.line(to: NSPoint(x: 9.2, y: 9.8))
-            bolt.close()
-            NSColor.black.setFill()
-            bolt.fill()
+            let head = NSBezierPath(ovalIn: NSRect(x: 2, y: 2, width: 14, height: 14))
+            head.lineWidth = 1.5
+            head.stroke()
+            // eyes closed in a smile, and a wide smile
+            for x in [6.6, 11.4] as [CGFloat] {
+                let eye = NSBezierPath()
+                eye.appendArc(withCenter: NSPoint(x: x, y: 9.6), radius: 1.5, startAngle: 20, endAngle: 160)
+                eye.lineWidth = 1.3; eye.lineCapStyle = .round; eye.stroke()
+            }
+            let smile = NSBezierPath()
+            smile.appendArc(withCenter: NSPoint(x: 9, y: 8.6), radius: 3.6, startAngle: 215, endAngle: 325)
+            smile.lineWidth = 1.4; smile.lineCapStyle = .round; smile.stroke()
             if alert {
                 NSColor.black.setFill()
-                NSBezierPath(ovalIn: NSRect(x: 13, y: 13, width: 5, height: 5)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 13, y: 12.5, width: 5, height: 5)).fill()
             }
             return true
         }
@@ -111,6 +109,21 @@ enum Snapshot {
                 host.cacheDisplay(in: host.bounds, to: rep)
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(prefix)-\(name).png"))
             }
+            // the menu bar icon, calm and with its dot, on a light and a dark menu bar, at 4x
+            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 320, pixelsHigh: 160, bitsPerSample: 8, samplesPerPixel: 4,
+                                       hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            for (row, (bg, fg)) in [(NSColor(white: 0.93, alpha: 1), NSColor.black), (NSColor(white: 0.17, alpha: 1), NSColor.white)].enumerated() {
+                bg.setFill(); NSRect(x: 0, y: CGFloat(row) * 80, width: 320, height: 80).fill()
+                for (i, alert) in [false, true].enumerated() {
+                    let icon = MenuIcon.image(alert: alert)
+                    let tinted = NSImage(size: icon.size, flipped: false) { r in icon.draw(in: r); fg.set(); r.fill(using: .sourceAtop); return true }
+                    tinted.draw(in: NSRect(x: 40 + CGFloat(i) * 160, y: CGFloat(row) * 80 + 4, width: 72, height: 72))
+                }
+            }
+            NSGraphicsContext.restoreGraphicsState()
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(prefix)-menu.png"))
             NSApp.terminate(nil)
         }
     }
