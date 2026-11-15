@@ -4,6 +4,7 @@ import SwiftUI
 
 struct PanelView: View {
     let watcher: Watcher
+    @AppStorage("welcomed") private var welcomed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -15,6 +16,7 @@ struct PanelView: View {
                 Spacer()
                 VersionButton()
             }
+            if !welcomed { WelcomeCard { welcomed = true } }
             UpdateBanner()
             if watcher.showReport {
                 ProblemView(watcher: watcher)
@@ -326,6 +328,41 @@ struct VersionButton: View {
             .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: spin)
             .onAppear { spin = true }
             .onDisappear { spin = false }
+    }
+}
+
+/// Shown once, on first launch, when the panel opens by itself: Cool Head has no window, and this is where it lives.
+struct WelcomeCard: View {
+    let done: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "snowflake").font(.title3).foregroundStyle(Color.accentColor)
+                Text("Cool Head lives up here, in your menu bar.").font(.body.weight(.semibold))
+            }
+            Text("There's no window to keep open. It's designed to be small, light and out of the way: it watches quietly, and when your Mac runs hot or slow it tells you why in one sentence, with options you can act on in one click.")
+                .font(.callout).foregroundStyle(Ink.text).fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 5) {
+                badgeLine("circle.fill", .systemGreen, "All well")
+                badgeLine("exclamationmark.triangle.fill", NSColor(srgbRed: 1.0, green: 0.74, blue: 0.0, alpha: 1), "Something needs a look")
+                badgeLine("xmark.octagon.fill", .systemRed, "A problem, such as a stuck job or serious heat")
+            }
+            Text("Click the snowflake to open this panel; right-click it for updates, reporting a problem, and Quit. Turn on Open at login below to have it there every time.")
+                .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+            Button("Got it", action: done).buttonStyle(.borderedProminent).controlSize(.small)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
+    }
+
+    func badgeLine(_ symbol: String, _ color: NSColor, _ meaning: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol).foregroundStyle(Color(nsColor: color)).frame(width: 16)
+            Text(meaning).font(.callout).foregroundStyle(Ink.text)
+        }
     }
 }
 

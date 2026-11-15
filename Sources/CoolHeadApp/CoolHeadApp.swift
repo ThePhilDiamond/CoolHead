@@ -45,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         watcher.start()
         Updater.shared.schedule()
+        // first launch: there's no window, so open the panel under the icon with a welcome, once
+        if !UserDefaults.standard.bool(forKey: "welcomed") && ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.showPanel() }
+        }
         // for testing the whole update path: check and install at launch (COOLHEAD_UPDATE_TEST=1)
         if ProcessInfo.processInfo.environment["COOLHEAD_UPDATE_TEST"] != nil {
             Task { await Updater.shared.check(quiet: false); if case .available = Updater.shared.phase { await Updater.shared.install() } }
