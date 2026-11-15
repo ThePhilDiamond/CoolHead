@@ -4,6 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VERSION=$(cat VERSION)
+grep -q "version = \"$VERSION\"" Sources/CoolHeadCore/CaseReport.swift || { echo "VERSION ($VERSION) and CoolHead.version in CaseReport.swift differ"; exit 1; }
 APP="build/Cool Head.app"
 
 swift build -c release --product CoolHeadApp

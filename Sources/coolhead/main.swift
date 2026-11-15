@@ -7,6 +7,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
 
   coolhead now              the Mac's state and a card for each busy process
   coolhead why <pid|name>   the card and the evidence for one process
+  coolhead case <pid|name>  what "Share this case" would show for a process (nothing is sent)
   coolhead selftest         checks every recorded example gives the card it should
 """
 
@@ -70,6 +71,18 @@ func printCard(_ c: Card) {
     for f in c.fixes { print("  \(f.recommended ? "→" : "·") \(f.title)" + (f.consequence.isEmpty ? "" : ": \(f.consequence)")) }
 }
 
+/// A process by number, or by name: of the processes whose name or command contains it, the busiest.
+func find(_ target: String) -> pid_t? {
+    if let p = pid_t(target) { return p }
+    let want = target.lowercased()
+    let all = Proc.allPIDs().filter { $0 != getpid() }
+    // a match on the process name wins; only if none, look in command lines
+    var matches = all.filter { Proc.bsd($0)?.name.lowercased().contains(want) ?? false }
+    if matches.isEmpty { matches = all.filter { Proc.args($0).joined(separator: " ").lowercased().contains(want) } }
+    let busy = Dictionary(busiest(limit: 5000, interval: 0.5).map { ($0.0, $0.1) }, uniquingKeysWith: { a, _ in a })
+    return matches.max { (busy[$0] ?? 0) < (busy[$1] ?? 0) }
+}
+
 let argv = CommandLine.arguments.dropFirst()
 switch argv.first {
 case "now":
@@ -82,20 +95,19 @@ case "now":
     }
 case "why":
     guard let target = argv.dropFirst().first else { print(usage); exit(64) }
-    var pid: pid_t? = pid_t(target)
-    if pid == nil {
-        let want = target.lowercased()
-        pid = busiest(limit: 2000, interval: 0.5).first { p, _ in
-            (Proc.bsd(p)?.name.lowercased().contains(want) ?? false)
-                || Proc.args(p).joined(separator: " ").lowercased().contains(want)
-        }?.0
-    }
-    guard let p = pid, let e = Evidence.gather(pid: p) else { print("coolhead: no process matches \(target)"); exit(1) }
+    guard let p = find(target), let e = Evidence.gather(pid: p) else { print("coolhead: no process matches \(target)"); exit(1) }
     printCard(Card.make(e, now: testNow))
     print("\nEvidence")
     printEvidence(e)
     print("\nThe Mac")
     printState(MacState.read())
+case "case":
+    guard let target = argv.dropFirst().first else { print(usage); exit(64) }
+    guard let p = find(target), let e = Evidence.gather(pid: p) else { print("coolhead: no process matches \(target)"); exit(1) }
+    let c = Card.make(e)
+    print(CaseReport.title(e, card: c))
+    print("")
+    print(CaseReport.make(e, card: c, mac: MacState.read(), busySince: nil))
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }

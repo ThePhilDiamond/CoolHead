@@ -20,7 +20,7 @@ Every card comes from the same steps.
 6. **Card.** One sentence: what it is and whether that is fine. One action. If acting would cost something, one line saying what.
 7. **Afterwards.** Whether the action helped. *(Planned: power and heat before and after.)*
 
-Where these steps cannot reach an answer, the card says so plainly ("Can't tell whether it is working or stuck") and offers **Look it up**, a web search for the process name only. That is the only time Cool Head goes online, and only when you press it.
+Where these steps cannot reach an answer, the card says so plainly ("Can't tell whether it is working or stuck") and offers **Look it up**, a web search for the process name only. Cards that can't reach an answer, or that look stuck, also offer **Share this case**: an anonymised report of what Cool Head saw, shown in full first, which you can open as a GitHub issue. Shared cases are reviewed and become catalogue entries through pull requests; nothing reaches the catalogue automatically, and the catalogue only changes with app releases.
 
 ## What each state allows
 

@@ -43,6 +43,7 @@ public struct Fix: Identifiable {
         case lookUp(String)      // a web search for this process name only
         case quitApp(String)     // a normal quit, so the app can ask to save
         case info                // advice with nothing to press
+        case share               // show the anonymised case report, then offer to open it as a GitHub issue
     }
     public let id: String
     public let title: String
@@ -86,6 +87,10 @@ public struct Card {
         return Fix(id: "wait", title: "Do nothing; check back in 30 minutes", consequence: "Nothing changes. Cool Head keeps watching, and the card returns if it is still busy.",
                    kind: .wait(now.addingTimeInterval(1800)), recommended: recommended)
     }
+
+    static let share = Fix(id: "share", title: "Share this case",
+                           consequence: "Shows you exactly what would be shared first: no names, paths or files. Nothing leaves your Mac unless you submit it on GitHub.",
+                           kind: .share)
 
     static func lookUp(_ name: String, recommended: Bool) -> Fix {
         Fix(id: "lookup", title: "Look it up", consequence: "Opens a web search for \u{201C}\(name)\u{201D} in your browser. Nothing else is sent.",
@@ -134,6 +139,7 @@ public struct Card {
                 if k.whenLong == "Look it up" { fixes.append(lookUp(e.name, recommended: true)) }
                 else { fixes.append(Fix(id: "advice", title: k.whenLong, consequence: k.risk ?? "", kind: .info, recommended: true)) }
                 fixes.append(wait(until: nil, now: now, recommended: false))
+                fixes.append(share)
             } else {
                 fixes.append(wait(until: nil, now: now, recommended: true))
             }
@@ -181,13 +187,13 @@ public struct Card {
             let at = e.progress.map { Fmt.time($0.lineTime) } ?? "a while"
             let doing = e.coresNow >= 0.25 ? "busy" : "idle"
             return Card(state: state, headline: "\(who) has been \(doing) with no progress since \(at). It looks stuck.",
-                        explanation: "Its last progress line, \u{201C}\(e.progress?.line ?? "")\u{201D}, was written at \(at). It usually reports more often than that. \(started)",
-                        fixes: [stop ?? lookUp(e.name, recommended: true), wait(until: nil, now: now, recommended: false)])
+                        explanation: "Its last progress line, \u{201C}\(e.progress?.line ?? "")\u{201D}, was written at \(at)." + (e.progress?.typicalGapMinutes.map { " It usually reports every \(Fmt.duration($0 * 60))." } ?? "") + " \(started)",
+                        fixes: [stop ?? lookUp(e.name, recommended: true), wait(until: nil, now: now, recommended: false), share])
         case .unknown:
             return Card(state: state,
                         headline: "\(who) has used about \(Fmt.cores(max(e.coresNow, e.coresAverage))) for \(Fmt.duration(busyFor)). Can't tell whether it is working or stuck.",
                         explanation: "It reports no progress and isn't writing any files, so there is nothing to judge it by. \(started)",
-                        fixes: [lookUp(e.script ?? e.name, recommended: true), wait(until: nil, now: now, recommended: false), cooler, stop].compactMap { $0 })
+                        fixes: [lookUp(e.script ?? e.name, recommended: true), wait(until: nil, now: now, recommended: false), cooler, stop, share].compactMap { $0 })
         case .starting:
             return Card(state: state, headline: "\(who) is busy, and only started \(Fmt.duration(busyFor)) ago.",
                         explanation: started, fixes: [wait(until: nil, now: now, recommended: true), cooler, stop].compactMap { $0 })

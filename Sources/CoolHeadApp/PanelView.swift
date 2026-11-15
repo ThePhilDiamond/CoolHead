@@ -8,20 +8,32 @@ struct PanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
+                Image(systemName: Badge.symbol(watcher.level))
+                    .foregroundStyle(Color(nsColor: Badge.color(watcher.level)))
+                    .accessibilityLabel(watcher.level == .good ? "All well" : watcher.level == .warning ? "Needs a look" : "Problem")
                 Text(status).font(.headline)
                 Spacer()
-                SettingsMenu(watcher: watcher)
+                Button {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
+                } label: {
+                    Image(systemName: "waveform.path.ecg").font(.body)
+                }
+                .buttonStyle(.plain).foregroundStyle(Ink.muted)
+                .help("Launch Activity Monitor")
+                .accessibilityLabel("Launch Activity Monitor")
             }
             if shownCards.isEmpty {
                 Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Ink.muted)
             } else {
                 ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
             }
-            Text(footer).font(.caption2).foregroundStyle(.tertiary)
+            Divider()
+            Text(footer).font(.caption).foregroundStyle(Ink.muted)
+            BottomBar()
         }
         .padding(16)
-        .frame(width: 360)
+        .frame(width: 380)
     }
 
     /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase,
@@ -39,6 +51,8 @@ struct PanelView: View {
         case "fair": heat = "Running warm"
         default: heat = n > 0 ? "Running cool" : "All calm"
         }
+        let stuck = shownCards.filter { $0.card.state == .stalled }.count
+        if stuck > 0 { return "\(heat): \(stuck) looks stuck" + (n > stuck ? ", \(n - stuck) to look at" : "") }
         if n > 0 { return "\(heat): \(n) to look at" }
         let jobs = shownCards.filter { $0.card.state == .working || $0.card.state == .starting }.count
         return jobs == 0 ? heat : "\(heat) · \(jobs == 1 ? "1 job" : "\(jobs) jobs") running"
@@ -49,7 +63,7 @@ struct PanelView: View {
         if let h = watcher.mac.healthPercent, let c = watcher.mac.cycles {
             parts.append("Battery holds \(h)% of its original charge (\(c) cycles)")
         }
-        parts.append(String(format: "Cool Head uses %.1f%%", watcher.overhead * 100))
+        parts.append(String(format: "Cool Head %@ uses %.1f%%", CoolHead.version, watcher.overhead * 100))
         return parts.joined(separator: " · ")
     }
 }
@@ -61,6 +75,7 @@ struct CardView: View {
     @State private var facts = false
     @State private var confirmStop: Fix?
     @State private var cooled = false
+    @State private var sharing = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SHARE"] != nil  // screenshots
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -75,17 +90,18 @@ struct CardView: View {
             }
             if open {
                 Text(live.card.explanation)
-                    .font(.callout).foregroundStyle(.secondary)
+                    .font(.callout).foregroundStyle(Ink.text)
                     .fixedSize(horizontal: false, vertical: true)
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(live.card.fixes) { FixRow(fix: $0, cooled: cooled) { act($0) } }
                 }
+                if sharing, let r = live.report { ShareView(title: r.title, report: r.body) { sharing = false } }
                 DisclosureGroup("The facts", isExpanded: $facts) {
                     VStack(alignment: .leading, spacing: 3) {
                         ForEach(live.details, id: \.self) { Text($0) }
                     }
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Ink.muted)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
@@ -95,7 +111,8 @@ struct CardView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+        .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
         .confirmationDialog("Stop it?", isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
             Button("Stop it", role: .destructive) { if let p = live.pid { kill(p, SIGTERM) }; confirmStop = nil }
             Button("Cancel", role: .cancel) { confirmStop = nil }
@@ -122,9 +139,54 @@ struct CardView: View {
             cooled.toggle()
         case .quitApp(let name):
             NSWorkspace.shared.runningApplications.first { $0.localizedName == name }?.terminate()
+        case .share:
+            withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
         case .info:
             break
         }
+    }
+}
+
+/// Exactly what would be shared, before anything happens. Opening it in GitHub is the person's choice, and they
+/// can still edit or abandon the issue there; Cool Head sends nothing itself.
+struct ShareView: View {
+    let title: String
+    let report: String
+    let done: () -> Void
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("This is everything that would be shared. Read it first.")
+                .font(.caption.weight(.semibold))
+            ScrollView {
+                Text(report.replacingOccurrences(of: "**", with: ""))
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 150)
+            .padding(8)
+            .background(.background.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+            HStack(spacing: 8) {
+                Button("Open in GitHub") {
+                    if let u = CaseReport.issueURL(title: title, report: report) { NSWorkspace.shared.open(u) }
+                    done()
+                }
+                .buttonStyle(.borderedProminent).controlSize(.small)
+                Button(copied ? "Copied" : "Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString("\(title)\n\n\(report)", forType: .string)
+                    copied = true
+                }
+                .buttonStyle(.bordered).controlSize(.small)
+                Button("Cancel", action: done).buttonStyle(.plain).font(.caption).foregroundStyle(Ink.muted)
+            }
+            Text("GitHub opens in your browser with this filled in. You can edit it there, and nothing is posted until you press Submit.")
+                .font(.caption2).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -148,39 +210,44 @@ struct FixRow: View {
                 .controlSize(.regular)
             }
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                if fix.recommended { Text("Recommended").font(.caption2.weight(.semibold)).foregroundStyle(Color.accentColor) }
+                if fix.recommended { Text("Recommended").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor) }
                 if !fix.consequence.isEmpty {
-                    Text(fix.consequence).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Text(fix.consequence).font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
     }
 }
 
-struct SettingsMenu: View {
-    let watcher: Watcher
+/// Along the bottom: the two settings as switches, and Quit. No settings menu.
+struct BottomBar: View {
     @State private var login = LoginItem.on
     @State private var notify = Alerts.enabled
 
     var body: some View {
-        Menu {
-            Toggle("Open at login", isOn: $login).onChange(of: login) { _, v in LoginItem.set(v) }
+        HStack(spacing: 14) {
             Toggle("Notifications", isOn: $notify).onChange(of: notify) { _, v in Alerts.enabled = v }
-            Divider()
-            Button("Open Activity Monitor") {
-                NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
-            }
-            Button("About Cool Head") {
-                NSApp.activate(ignoringOtherApps: true)
-                NSApp.orderFrontStandardAboutPanel(nil)
-            }
-            Divider()
-            Button("Quit Cool Head") { NSApp.terminate(nil) }
-        } label: {
-            Image(systemName: "gearshape").foregroundStyle(.secondary)
+            Toggle("Open at login", isOn: $login).onChange(of: login) { _, v in LoginItem.set(v); login = LoginItem.on }
+            Spacer()
+            Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.bordered).controlSize(.small)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
+        .toggleStyle(.switch)
+        .controlSize(.mini)
+        .font(.caption)
     }
+}
+
+/// Text and surface colours chosen for contrast in both light and dark, instead of macOS's paler secondary greys.
+enum Ink {
+    /// Main text.
+    static let text = Color.primary
+    /// Supporting text: still well above 7:1 contrast on the card in light and dark.
+    static let muted = Color.primary.opacity(0.82)
+    /// A card: a slightly raised surface with a visible edge.
+    static let card = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.19, alpha: 1) : NSColor(white: 0.965, alpha: 1)
+    })
+    static let edge = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1, alpha: 0.14) : NSColor(white: 0, alpha: 0.08)
+    })
 }

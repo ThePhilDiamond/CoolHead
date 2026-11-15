@@ -24,7 +24,7 @@ It also connects the dots across the Mac: fast charging that adds heat, memory r
 
 ## Privacy
 
-Everything runs on your Mac. No account, no analytics, no network connections. The one exception is **Look it up**, which you press, and which opens a web search for the process name only.
+Everything runs on your Mac. No account, no analytics, no network connections, and nothing stored about what happened. Two buttons reach outside, and only when you press them: **Look it up** opens a web search for the process name only, and **Share this case**, on cards Cool Head can't explain, shows you an anonymised report (no names, paths or files) and can open it as a GitHub issue that you choose whether to submit.
 
 ## System requirements
 

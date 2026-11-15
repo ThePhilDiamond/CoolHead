@@ -10,6 +10,10 @@ Most of the work on Cool Head starts with a report. [Open an issue](../../issues
 - what you saw on the card, and what you think was really going on,
 - what `coolhead why <name>` printed for that process. Read it over before posting: it shows command lines and folder names.
 
+## Share a case it couldn't explain
+
+When a card says "Can't tell" or "looks stuck", **Share this case** shows you an anonymised report and opens it as a GitHub issue for you to submit. You see every word first. `coolhead case <name>` prints the same report in Terminal.
+
 ## Teach it a pattern
 
 The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns what processes are and when they are normal. Adding to it is the most useful contribution, and it needs no app-building knowledge. [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md) explains how, step by step.

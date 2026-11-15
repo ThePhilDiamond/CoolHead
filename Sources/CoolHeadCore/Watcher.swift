@@ -8,6 +8,8 @@ public struct LiveCard: Identifiable {
     public let pid: pid_t?
     public let card: Card
     public let details: [String]
+    /// The anonymised case report, for cards that offer "Share this case".
+    public var report: (title: String, body: String)? = nil
     /// True for cards that should notify when they last: stalled, or busy with no explanation.
     public var needsLook: Bool { card.state == .stalled || card.state == .unknown }
     /// What the card is about, whatever its state: the process, or the Mac-wide condition.
@@ -69,7 +71,17 @@ public final class Watcher {
         cards.removeAll { $0.cause == card.cause }
     }
 
-    public var needsLook: Bool { cards.contains { $0.needsLook } || mac.thermal == "serious" || mac.thermal == "critical" }
+    public var needsLook: Bool { level != .good }
+
+    /// What the menu bar shows, by shape and colour, so it reads without relying on colour alone:
+    /// a green circle when all is well, a yellow triangle when something needs a look, a red octagon for a problem.
+    public enum Level { case good, warning, issue }
+    public var level: Level {
+        if cards.contains(where: { $0.card.state == .stalled }) || mac.thermal == "serious" || mac.thermal == "critical"
+            || mac.memoryPressure == "critical" { return .issue }
+        if cards.contains(where: { $0.needsLook }) { return .warning }
+        return .good
+    }
 
     // MARK: - Sampling
 
@@ -108,7 +120,11 @@ public final class Watcher {
             guard let e = Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten)) else { continue }
             let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm)
             guard c.state != .quiet else { continue }
-            live.append(LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, card: c, details: e.lines()))
+            var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, card: c, details: e.lines())
+            if c.fixes.contains(where: { $0.kind == .share }) {
+                lc.report = (CaseReport.title(e, card: c), CaseReport.make(e, card: c, mac: state, busySince: tr.busySince, now: now))
+            }
+            live.append(lc)
         }
         live += macCards(state, now: now)
         if ProcessInfo.processInfo.environment["COOLHEAD_DEBUG"] != nil {

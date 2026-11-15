@@ -19,7 +19,28 @@ public struct Fixture {
         let chrome = Evidence.sample(name: "Google Chrome", path: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", start: now, cores: 1)
         let quit = [("never-quit-python", py.quittableApp == nil, "Python.app is not offered to quit"),
                     ("quit-real-app", chrome.quittableApp == "Google Chrome", "Google Chrome can be offered to quit")]
-        return quit + all(now).map { f in
+        // the shared case report must never carry anything private
+        let secret = "/Users/alice/Secret Project"
+        let leaky = Evidence(pid: 4242, name: "Python", path: "\(secret)/.venv/bin/python3",
+                             args: ["python3", "\(secret)/run_payroll.py", "--token=abc123"], cwd: secret,
+                             start: now.addingTimeInterval(-7200), mine: true, coresNow: 2, coresAverage: 2, performanceShare: 0.6,
+                             memoryBytes: 2_000_000_000,
+                             ancestors: [.init(pid: 4100, name: "zsh", path: "/bin/zsh", args: ["zsh", "-c", "cd '\(secret)' && ./go.sh"])],
+                             writing: ["\(secret)/payroll-out.log"], locks: [.init(path: "\(secret)/.lock", note: "held by alice for payroll")],
+                             progress: Progress(file: "\(secret)/payroll-out.log", line: "alice: 40/100 payslips", done: 40, total: 100,
+                                                unit: "payslips", minutesLeft: nil, lineTime: now.addingTimeInterval(-5400)),
+                             bytesWrittenDuringSample: 0, lastOutput: now.addingTimeInterval(-5400), lastLine: "alice: 40/100 payslips",
+                             savesAsItGoes: false, workStart: now.addingTimeInterval(-7200))
+        let leakyCard = Card.make(leaky, now: now, busySince: now.addingTimeInterval(-7200))
+        let report = CaseReport.make(leaky, card: leakyCard, mac: MacState(), busySince: now.addingTimeInterval(-7200), now: now)
+            + CaseReport.title(leaky, card: leakyCard)
+        let found = ["alice", "Secret", "payroll", "payslips", "abc123", "go.sh", "4242", ".venv", "/Users"].filter { report.contains($0) }
+        let mds = Evidence.sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Support/mds_stores",
+                                  start: now, cores: 1)
+        let mdsReport = CaseReport.make(mds, card: Card.make(mds, now: now), mac: MacState(), busySince: now, now: now)
+        let privacy = [("case-report-leaks-nothing", found.isEmpty, found.isEmpty ? "no private detail in the report" : "leaked: \(found)"),
+                       ("case-report-names-macos", mdsReport.contains("mds_stores (part of macOS)"), "macOS processes keep their name")]
+        return quit + privacy + all(now).map { f in
             let c = Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor))
             var problems: [String] = []
             if c.state != f.expectState { problems.append("state \(c.state.rawValue), expected \(f.expectState.rawValue)") }
