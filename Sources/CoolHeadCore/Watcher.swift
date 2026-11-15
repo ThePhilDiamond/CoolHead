@@ -228,28 +228,22 @@ public final class Watcher {
                 details: s.lines(), reportSubject: "fast charging adding heat"))
         }
         if s.memoryPressure == "warning" || s.memoryPressure == "critical" {
-            let top = tracks.max { $0.value.footprint < $1.value.footprint }
-            var who = "One process"
-            var size = ""
-            var quit: Fix?
-            if let (pid, tr) = top, let e = Evidence.gather(pid: pid, measured: (tr.cores, 0)) {
-                who = Card.subject(e)
-                size = Fmt.bytes(tr.footprint)
-                // Quit only the main program of a real app; a catalogue entry's risk (Docker stops its containers)
-                // is the consequence, and then it isn't recommended
-                if let bundle = e.quittableBundle, let app = e.quittableApp {
-                    let risk = Pattern.match(name: e.name, path: e.path)?.risk
-                    quit = Fix(id: "quit", title: "Quit \(app)", consequence: risk ?? "It quits normally and asks you to save anything open.",
-                               kind: .quitApp(bundle), recommended: risk == nil)
-                }
+            // count memory the way a person thinks of it: each app with all its helpers, each job on its own
+            var groups = MemoryAdvice.merge(tracks.compactMap { pid, tr in
+                MemoryAdvice.group(pid: pid, path: Proc.path(pid), args: Proc.args(pid), footprint: tr.footprint)
+            })
+            for i in groups.indices.prefix(3) where groups[i].kind == .job {
+                if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, measured: (tracks[p]?.cores ?? 0, 0)) }
             }
-            var fixes = [Card.wait(until: nil, now: now, recommended: !(quit?.recommended ?? false))]
-            if let q = quit { fixes.append(q) }
-            out.append(LiveCard(id: "memory-\(s.memoryPressure)", pid: nil, card: Card(
-                state: .unknown,
-                headline: "Memory is \(s.memoryPressure == "critical" ? "very " : "")tight. \(who) is using the most, \(size).",
-                explanation: String(format: "macOS reports memory pressure as %@, and %.1f GB of %.1f GB of swap is in use, so it is moving memory to the disk, which slows everything down.", s.memoryPressure, s.swapUsedMB / 1024, s.swapTotalMB / 1024),
-                fixes: fixes), details: s.lines(), reportSubject: "memory running short (\(s.memoryPressure))"))
+            let card = MemoryAdvice.card(groups, mac: s, now: now)
+            let top = groups.first
+            let subject = top.map { g -> String in
+                if let e = g.evidence { return "memory running short (\(s.memoryPressure)); most used by \(CaseReport.subject(e))" }
+                return "memory running short (\(s.memoryPressure)); most used by " + (g.kind == .macOS || g.bundle != nil ? g.name : "a program (its name is withheld)")
+            } ?? "memory running short (\(s.memoryPressure))"
+            out.append(LiveCard(id: "memory-\(s.memoryPressure)", pid: top?.kind == .job ? top?.pid : nil,
+                                start: top?.kind == .job ? top?.evidence?.start : nil,
+                                card: card, details: s.lines(), reportSubject: subject))
         }
         return out
     }

@@ -8,6 +8,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead now              the Mac's state and a card for each busy process
   coolhead why <pid|name>   the card and the evidence for one process
   coolhead case <pid|name>  what "Share this case" would show for a process (nothing is sent)
+  coolhead memory           who is using the memory, counted by app, and what could be done
   coolhead selftest         checks every recorded example gives the card it should
 """
 
@@ -113,6 +114,20 @@ case "case":
     print(CaseReport.title(e, card: c))
     print("")
     print(CaseReport.make(e, card: c, mac: MacState.read(), busySince: nil))
+case "memory":
+    let s = MacState.read()
+    var groups = MemoryAdvice.merge(Proc.allPIDs().compactMap { p in
+        MemoryAdvice.group(pid: p, path: Proc.path(p), args: Proc.args(p), footprint: Proc.usage(p)?.footprint ?? 0)
+    })
+    for i in groups.indices.prefix(3) where groups[i].kind == .job {
+        if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, interval: 0.5) }
+    }
+    print("Memory pressure: \(s.memoryPressure)" + String(format: " · swap %.1f of %.1f GB", s.swapUsedMB / 1024, s.swapTotalMB / 1024))
+    for g in groups.prefix(6) {
+        print("  \(Fmt.bytes(g.bytes).padding(toLength: 8, withPad: " ", startingAt: 0)) \(MemoryAdvice.label(g))" + (g.count > 1 ? " (\(g.count) processes)" : ""))
+    }
+    print("")
+    printCard(MemoryAdvice.card(groups, mac: s))
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }

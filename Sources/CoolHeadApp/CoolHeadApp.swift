@@ -157,7 +157,7 @@ enum MenuIcon {
             // clear a ring for the badge so it stands apart from the flake
             let box = NSRect(x: 12, y: 10.5, width: 7.5, height: 7.5)
             NSGraphicsContext.current?.compositingOperation = .clear
-            NSBezierPath(ovalIn: box.insetBy(dx: -1, dy: -1)).fill()
+            NSBezierPath(ovalIn: box.insetBy(dx: level == .warning ? -1.6 : -1, dy: level == .warning ? -1.6 : -1)).fill()
             NSGraphicsContext.current?.compositingOperation = .sourceOver
             Badge.path(level, in: box).fill(with: level)
             return true
@@ -174,8 +174,18 @@ enum Badge {
         case .good:
             return NSBezierPath(ovalIn: r.insetBy(dx: 0.5, dy: 0.5))
         case .warning:
+            // an equilateral caution triangle with rounded corners, centred in the box
+            // a little larger than the box, so it carries the same weight as the circle and octagon
+            let side = r.width * 1.22, h = side * sqrt(3) / 2, cy = r.midY + r.height * 0.04
+            let top = NSPoint(x: r.midX, y: cy + h / 2)
+            let right = NSPoint(x: r.midX + side / 2, y: cy - h / 2), left = NSPoint(x: r.midX - side / 2, y: cy - h / 2)
+            let radius = side * 0.16
             let p = NSBezierPath()
-            p.move(to: NSPoint(x: r.midX, y: r.maxY)); p.line(to: NSPoint(x: r.maxX, y: r.minY)); p.line(to: NSPoint(x: r.minX, y: r.minY)); p.close()
+            p.move(to: NSPoint(x: r.midX, y: left.y))
+            p.appendArc(from: right, to: top, radius: radius)
+            p.appendArc(from: top, to: left, radius: radius)
+            p.appendArc(from: left, to: right, radius: radius)
+            p.close()
             return p
         case .issue:
             let p = NSBezierPath()
@@ -190,7 +200,12 @@ enum Badge {
     }
 
     static func color(_ level: Watcher.Level) -> NSColor {
-        switch level { case .good: return .systemGreen; case .warning: return .systemYellow; case .issue: return .systemRed }
+        // a deeper, more vivid yellow than macOS's systemYellow, which looks pale on a light menu bar
+        switch level {
+        case .good: return .systemGreen
+        case .warning: return NSColor(srgbRed: 1.0, green: 0.74, blue: 0.0, alpha: 1)
+        case .issue: return .systemRed
+        }
     }
 
     /// The panel's version, as SF Symbols with the same shapes.
@@ -203,7 +218,7 @@ extension NSBezierPath {
     func fill(with level: Watcher.Level) {
         Badge.color(level).setFill(); fill()
         // a fine dark edge keeps yellow and green visible on a light menu bar
-        NSColor.black.withAlphaComponent(0.35).setStroke(); lineWidth = 0.6; stroke()
+        NSColor.black.withAlphaComponent(0.45).setStroke(); lineWidth = 0.6; stroke()
     }
 }
 

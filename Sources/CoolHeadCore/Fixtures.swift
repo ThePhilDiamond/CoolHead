@@ -84,6 +84,26 @@ public struct Fixture {
         // F22: secrets in command lines are hidden
         let shown = Redact.args(["tool", "--token=abc123", "--password", "hunter2", "https://me:pw123@example.com/x"]).joined(separator: " ")
         review.append(("F22-secrets-hidden", !shown.contains("abc123") && !shown.contains("hunter2") && !shown.contains("pw123"), shown))
+        // memory advice: grouping and options with their risks
+        let chromeHelper = MemoryAdvice.group(pid: 10, path: "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)", args: [], footprint: 300)
+        let pyJob = MemoryAdvice.group(pid: 11, path: "/opt/homebrew/Cellar/python@3.13/3.13.16/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python", args: ["python3", "index.py"], footprint: 300)
+        review.append(("memory-groups", chromeHelper?.key == "/Applications/Google Chrome.app" && chromeHelper?.kind == .browser && pyJob?.kind == .job,
+                       "Chrome's helpers count as Chrome; a Python script counts as a job"))
+        var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
+        let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now)
+        review.append(("memory-browser", browserCard.recommended?.title.hasPrefix("Find the heaviest tabs") == true
+                       && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("every tab") }
+                       && browserCard.headline.contains("across 41 processes"), browserCard.headline))
+        let dockerCard = MemoryAdvice.card([MemGroup(key: "d", name: "Docker", kind: .app, bundle: "/Applications/Docker.app", bytes: 4_000_000_000, count: 3)], mac: tight, now: now)
+        let dockerQuit = dockerCard.fixes.first { $0.id == "quit" }
+        review.append(("memory-app-risk", dockerQuit?.consequence.contains("stops every container") == true && dockerQuit?.recommended == false,
+                       "Quit Docker says it stops every container, and isn't recommended"))
+        var jobGroup = MemGroup(key: "job-1", name: "job", kind: .job, bundle: nil, bytes: 3_000_000_000, count: 1)
+        jobGroup.evidence = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "index.py"], cwd: "/Users/x/Archive",
+                                            start: now.addingTimeInterval(-3 * 3600), cores: 4)
+        let jobCard = MemoryAdvice.card([jobGroup], mac: tight, now: now)
+        review.append(("memory-job-stop", jobCard.fixes.contains { $0.kind == .stop && $0.consequence.contains("Frees about") && $0.consequence.contains("lose up to") },
+                       "a memory-heavy job can be stopped, with what that frees and costs"))
         return quit + privacy + review + all(now).map { f in
             let c = Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor))
             var problems: [String] = []
