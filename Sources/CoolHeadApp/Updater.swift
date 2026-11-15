@@ -60,7 +60,11 @@ final class Updater {
             if Updater.newer(version, than: CoolHead.version) {
                 phase = .available(version)
                 Watcher.shared.log("Update available: \(version)")
-            } else if !quiet { phase = .upToDate }
+            } else if !quiet {
+                phase = .upToDate
+                // say it briefly, then go back to showing the version
+                Task { try? await Task.sleep(for: .seconds(4)); if self.phase == .upToDate { self.phase = .idle } }
+            }
         } catch {
             if !quiet { phase = .failed("Couldn't check for updates: \(error.localizedDescription)") }
         }

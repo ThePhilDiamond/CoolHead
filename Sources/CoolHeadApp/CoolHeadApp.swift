@@ -45,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         watcher.start()
         Updater.shared.schedule()
+        // for testing the whole update path: check and install at launch (COOLHEAD_UPDATE_TEST=1)
+        if ProcessInfo.processInfo.environment["COOLHEAD_UPDATE_TEST"] != nil {
+            Task { await Updater.shared.check(quiet: false); if case .available = Updater.shared.phase { await Updater.shared.install() } }
+        }
         if let path = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] { Snapshot.take(to: path) }
     }
 

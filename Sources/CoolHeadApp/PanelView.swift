@@ -13,7 +13,7 @@ struct PanelView: View {
                     .accessibilityLabel(watcher.level == .good ? "All well" : watcher.level == .warning ? "Needs a look" : "Problem")
                 Text(status).font(.headline)
                 Spacer()
-                Text("Cool Head v\(CoolHead.version)").font(.caption2).foregroundStyle(Ink.muted)
+                VersionButton()
             }
             UpdateBanner()
             if watcher.showReport {
@@ -273,6 +273,62 @@ struct ProblemView: View {
     }
 }
 
+/// The name and version at the top right, which is also the "check for updates" button: click it to check, and if
+/// there is a newer version it downloads, verifies and installs it. It says what it is doing in place, briefly.
+struct VersionButton: View {
+    let updater = Updater.shared
+    @State private var hovering = false
+    @State private var spin = false
+
+    var body: some View {
+        Button {
+            Task {
+                await updater.check(quiet: false)
+                if case .available = updater.phase { await updater.install() }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                switch updater.phase {
+                case .checking:
+                    spinner
+                    Text("Checking for updates…")
+                case .installing:
+                    spinner
+                    Text("Downloading the update…")
+                case .upToDate:
+                    Image(systemName: "checkmark.circle")
+                    Text("Up to date")
+                case .failed:
+                    Image(systemName: "exclamationmark.circle")
+                    Text("Couldn't update")
+                case .available(let v):
+                    Image(systemName: "arrow.down.circle")
+                    Text("v\(v) available")
+                case .idle:
+                    if hovering { Image(systemName: "arrow.triangle.2.circlepath") }
+                    Text("Cool Head v\(CoolHead.version)")
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(hovering ? Ink.text : Ink.muted)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Check for updates")
+        .accessibilityLabel("Cool Head \(CoolHead.version). Check for updates")
+        .disabled(updater.phase == .checking || updater.phase == .installing)
+    }
+
+    var spinner: some View {
+        Image(systemName: "arrow.triangle.2.circlepath")
+            .rotationEffect(.degrees(spin ? 360 : 0))
+            .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: spin)
+            .onAppear { spin = true }
+            .onDisappear { spin = false }
+    }
+}
+
 /// A line at the top of the panel about updates: shown only when there is something to say.
 struct UpdateBanner: View {
     let updater = Updater.shared
@@ -289,12 +345,8 @@ struct UpdateBanner: View {
                 }
                 Button("Install") { Task { await updater.install() } }.buttonStyle(.borderedProminent).controlSize(.small)
             }
-        case .installing:
-            Label("Downloading and checking the update…", systemImage: "arrow.down.circle").font(.callout)
-        case .checking:
-            Label("Checking for updates…", systemImage: "arrow.triangle.2.circlepath").font(.callout).foregroundStyle(Ink.muted)
-        case .upToDate:
-            Label("Cool Head is up to date.", systemImage: "checkmark.circle").font(.callout).foregroundStyle(Ink.muted)
+        case .installing, .checking, .upToDate:
+            EmptyView()          // the version label at the top right says these
         case .failed(let why):
             Label(why, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true)
         case .idle:

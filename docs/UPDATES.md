@@ -1,6 +1,6 @@
 # How Cool Head updates itself
 
-Cool Head checks GitHub for a newer release a minute after it opens and then once a day. When one exists, the panel says so, with **Install** and **What's new**. Right-click the menu bar icon for **Check for Updates…** and to turn **Check for Updates Automatically** off.
+Cool Head checks GitHub for a newer release a minute after it opens and then once a day. When one exists, the panel says so, with **Install** and **What's new**. To check now, click **Cool Head v…** at the top right of the panel: it says "Up to date" for a moment, or downloads, verifies and installs the update. The right-click menu also has **Check for Updates…**, and **Check for Updates Automatically** to turn the daily check off.
 
 ## What it sends
 
@@ -21,6 +21,10 @@ A release without a signature can't be installed from inside the app; the panel 
 - The private key lives in two places only: the repository secret `UPDATE_SIGNING_KEY`, used by the release workflow, and the maintainer's password manager. It is never committed.
 - Make a key pair once, with `swift scripts/update-key.swift <folder>`; it prints the public key for `Updater.swift`.
 - If the private key is ever lost or exposed, make a new pair and ship a release with the new public key. Versions with the old key can't verify updates signed with the new one, so those users download that one release by hand.
+
+## Tested
+
+On 15 November 2026 a copy labelled 0.2.9 found v0.3.0 on GitHub, verified its signature, replaced itself and reopened as 0.3.0 (`COOLHEAD_UPDATE_TEST=1` makes a copy check and install at launch).
 
 ## Not covered
 
