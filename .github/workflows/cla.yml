@@ -28,4 +28,7 @@ jobs:
           path-to-signatures: 'signatures/cla.json'
           path-to-document: 'https://github.com/ThePhilDiamond/CoolHead/blob/main/CLA.md'
           branch: 'cla-signatures'
-          allowlist: ThePhilDiamond,dependabot[bot],github-actions[bot],*[bot]
+          # The action names a commit's author by their account, or, when the author has none (a bot such as
+          # Dependabot isn't a user account), by the account that committed it: web-flow, GitHub's own committer for
+          # commits made on its website and API. People with an account are always named by their own.
+          allowlist: ThePhilDiamond,dependabot[bot],github-actions[bot],*[bot],web-flow
