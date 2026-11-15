@@ -67,6 +67,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             auto.state = Updater.shared.automatic ? .on : .off
             menu.addItem(auto)
             menu.addItem(.separator())
+            let iconMenu = NSMenu()
+            for (title, key) in [("Status Badge", "badge"), ("Melting Snowflake", "melting")] {
+                let it = NSMenuItem(title: title, action: #selector(setIconStyle(_:)), keyEquivalent: "")
+                it.target = self; it.representedObject = key; it.state = MenuIcon.style == key ? .on : .off
+                iconMenu.addItem(it)
+            }
+            let iconItem = NSMenuItem(title: "Menu Bar Icon", action: nil, keyEquivalent: "")
+            iconItem.submenu = iconMenu
+            menu.addItem(iconItem)
+            menu.addItem(.separator())
             menu.addItem(withTitle: "Report a Problem…", action: #selector(report), keyEquivalent: "").target = self
             menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
             menu.addItem(.separator())
@@ -89,6 +99,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     @objc func toggleAutoUpdates() { Updater.shared.automatic.toggle() }
+
+    @objc func setIconStyle(_ sender: NSMenuItem) {
+        guard let key = sender.representedObject as? String else { return }
+        MenuIcon.style = key
+        item.button?.image = MenuIcon.image(level: Watcher.shared.level)
+    }
 
     func showPanel() {
         guard let button = item.button, !panel.isVisible else { return }
@@ -158,35 +174,98 @@ enum LoginItem {
 /// look; red octagon, a problem. The flake is drawn in the menu bar's text colour at draw time, so it follows light
 /// and dark menu bars even though the image isn't a template (templates can't hold colour).
 enum MenuIcon {
-    static func image(level: Watcher.Level) -> NSImage {
+    /// "badge": the snowflake with a status badge. "melting": the snowflake itself melts as things get worse.
+    static var style: String {
+        get { UserDefaults.standard.string(forKey: "iconStyle") ?? "badge" }
+        set { UserDefaults.standard.set(newValue, forKey: "iconStyle") }
+    }
+
+    static func image(level: Watcher.Level, style: String = MenuIcon.style) -> NSImage {
         let img = NSImage(size: NSSize(width: 20, height: 18), flipped: false) { _ in
-            NSColor.labelColor.setStroke()
-            let c = NSPoint(x: 8.5, y: 8.5), r: CGFloat = 7
-            for i in 0..<6 {
-                let a = CGFloat(i) * .pi / 3 + .pi / 2
-                let spoke = NSBezierPath()
-                spoke.move(to: c)
-                spoke.line(to: NSPoint(x: c.x + cos(a) * r, y: c.y + sin(a) * r))
+            if style == "melting" { melting(level) } else { badged(level) }
+            return true
+        }
+        img.isTemplate = false
+        return img
+    }
+
+    static let ice = NSColor(srgbRed: 0.35, green: 0.72, blue: 1.0, alpha: 1)
+
+    /// The snowflake's spokes; `keep` chooses which spokes are drawn, and `length` how much of each.
+    static func flake(center c: NSPoint, r: CGFloat, keep: (Int) -> CGFloat = { _ in 1 }) {
+        NSColor.labelColor.setStroke()
+        for i in 0..<6 {
+            let len = keep(i)
+            guard len > 0 else { continue }
+            let a = CGFloat(i) * .pi / 3 + .pi / 2
+            let spoke = NSBezierPath()
+            spoke.move(to: c)
+            spoke.line(to: NSPoint(x: c.x + cos(a) * r * len, y: c.y + sin(a) * r * len))
+            if len >= 0.7 {
                 let m = NSPoint(x: c.x + cos(a) * r * 0.58, y: c.y + sin(a) * r * 0.58)
                 for side in [-1.0, 1.0] as [CGFloat] {
                     let b = a + side * .pi / 4
                     spoke.move(to: m)
                     spoke.line(to: NSPoint(x: m.x + cos(b) * r * 0.36, y: m.y + sin(b) * r * 0.36))
                 }
-                spoke.lineWidth = 1.4
-                spoke.lineCapStyle = .round
-                spoke.stroke()
             }
-            // clear a ring for the badge so it stands apart from the flake
-            let box = NSRect(x: 12, y: 10.5, width: 7.5, height: 7.5)
-            NSGraphicsContext.current?.compositingOperation = .clear
-            NSBezierPath(ovalIn: box.insetBy(dx: level == .warning ? -1.6 : -1, dy: level == .warning ? -1.6 : -1)).fill()
-            NSGraphicsContext.current?.compositingOperation = .sourceOver
-            Badge.path(level, in: box).fill(with: level)
-            return true
+            spoke.lineWidth = 1.4
+            spoke.lineCapStyle = .round
+            spoke.stroke()
         }
-        img.isTemplate = false
-        return img
+    }
+
+    static func badged(_ level: Watcher.Level) {
+        flake(center: NSPoint(x: 8.5, y: 8.5), r: 7)
+        // clear a ring for the badge so it stands apart from the flake
+        let box = NSRect(x: 12, y: 10.5, width: 7.5, height: 7.5)
+        NSGraphicsContext.current?.compositingOperation = .clear
+        NSBezierPath(ovalIn: box.insetBy(dx: level == .warning ? -1.6 : -1, dy: level == .warning ? -1.6 : -1)).fill()
+        NSGraphicsContext.current?.compositingOperation = .sourceOver
+        Badge.path(level, in: box).fill(with: level)
+    }
+
+    /// Calm: a whole snowflake. Worth watching: its lower half has melted, dripping into a small puddle.
+    /// Problem: only a big puddle is left, with a flame on top.
+    static func melting(_ level: Watcher.Level) {
+        switch level {
+        case .good:
+            flake(center: NSPoint(x: 10, y: 9), r: 7.5)
+        case .warning:
+            // spokes 0 (up), 1 (upper left) and 5 (upper right) stay whole; the lower three have melted to stubs
+            flake(center: NSPoint(x: 10, y: 10), r: 7) { i in [0, 1, 5].contains(i) ? 1 : 0.38 }
+            ice.setFill()
+            for (x, y, d) in [(6.6, 4.4, 1.6), (10.0, 3.6, 1.9), (13.4, 4.6, 1.4)] as [(CGFloat, CGFloat, CGFloat)] {
+                drop(at: NSPoint(x: x, y: y), size: d)
+            }
+            NSBezierPath(ovalIn: NSRect(x: 4.5, y: 0.6, width: 11, height: 2.2)).fill()
+        case .issue:
+            // a big puddle, and a flame where the snowflake was
+            ice.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 1.5, y: 0.5, width: 17, height: 3.4)).fill()
+            let flame = NSBezierPath()
+            flame.move(to: NSPoint(x: 10, y: 3.2))
+            flame.curve(to: NSPoint(x: 10.6, y: 16.5), controlPoint1: NSPoint(x: 4.2, y: 4.6), controlPoint2: NSPoint(x: 6.0, y: 12.0))
+            flame.curve(to: NSPoint(x: 10, y: 3.2), controlPoint1: NSPoint(x: 15.6, y: 12.0), controlPoint2: NSPoint(x: 15.8, y: 4.6))
+            flame.close()
+            NSGradient(colors: [NSColor.systemRed, NSColor.systemOrange, NSColor(srgbRed: 1, green: 0.82, blue: 0.2, alpha: 1)])!
+                .draw(in: flame, angle: 90)
+            let core = NSBezierPath()
+            core.move(to: NSPoint(x: 10, y: 3.6))
+            core.curve(to: NSPoint(x: 10.2, y: 10.5), controlPoint1: NSPoint(x: 7.2, y: 4.6), controlPoint2: NSPoint(x: 8.2, y: 8.6))
+            core.curve(to: NSPoint(x: 10, y: 3.6), controlPoint1: NSPoint(x: 12.6, y: 8.0), controlPoint2: NSPoint(x: 12.8, y: 4.6))
+            core.close()
+            NSColor(srgbRed: 1, green: 0.93, blue: 0.55, alpha: 1).setFill(); core.fill()
+        }
+    }
+
+    /// A falling drop: round at the bottom, pointed at the top.
+    static func drop(at p: NSPoint, size d: CGFloat) {
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: p.x, y: p.y + d * 1.4))
+        path.curve(to: NSPoint(x: p.x, y: p.y - d * 0.5), controlPoint1: NSPoint(x: p.x - d * 0.9, y: p.y), controlPoint2: NSPoint(x: p.x - d * 0.6, y: p.y - d * 0.5))
+        path.curve(to: NSPoint(x: p.x, y: p.y + d * 1.4), controlPoint1: NSPoint(x: p.x + d * 0.6, y: p.y - d * 0.5), controlPoint2: NSPoint(x: p.x + d * 0.9, y: p.y))
+        path.fill()
     }
 }
 
@@ -276,15 +355,17 @@ enum Snapshot {
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(prefix)-\(name).png"))
             }
             // the menu bar icon at each level, on a light and a dark menu bar, at 4x
-            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 360, pixelsHigh: 160, bitsPerSample: 8, samplesPerPixel: 4,
+            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 360, pixelsHigh: 320, bitsPerSample: 8, samplesPerPixel: 4,
                                        hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
             NSGraphicsContext.saveGraphicsState()
             NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-            for (row, (bg, look)) in [(NSColor(white: 0.93, alpha: 1), NSAppearance.Name.aqua), (NSColor(white: 0.17, alpha: 1), .darkAqua)].enumerated() {
+            let rows: [(NSColor, NSAppearance.Name, String)] = [(NSColor(white: 0.93, alpha: 1), .aqua, "badge"), (NSColor(white: 0.17, alpha: 1), .darkAqua, "badge"),
+                                                                (NSColor(white: 0.93, alpha: 1), .aqua, "melting"), (NSColor(white: 0.17, alpha: 1), .darkAqua, "melting")]
+            for (row, (bg, look, style)) in rows.enumerated() {
                 bg.setFill(); NSRect(x: 0, y: CGFloat(row) * 80, width: 360, height: 80).fill()
                 NSAppearance(named: look)!.performAsCurrentDrawingAppearance {
                     for (i, level) in [Watcher.Level.good, .warning, .issue].enumerated() {
-                        MenuIcon.image(level: level).draw(in: NSRect(x: 20 + CGFloat(i) * 120, y: CGFloat(row) * 80 + 4, width: 80, height: 72))
+                        MenuIcon.image(level: level, style: style).draw(in: NSRect(x: 20 + CGFloat(i) * 120, y: CGFloat(row) * 80 + 4, width: 80, height: 72))
                     }
                 }
             }

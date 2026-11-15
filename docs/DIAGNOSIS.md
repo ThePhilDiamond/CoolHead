@@ -24,7 +24,7 @@ Where these steps cannot reach an answer, the card says so plainly ("Can't tell 
 
 ## What each state allows
 
-Every card has one button, **Explore fixes**. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause. One option is recommended, from the state:
+Every card has one button: **Explore fixes** on a card worth watching, **Learn more** on a calm one. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause. One option is recommended, from the state:
 
 | State | Card says | Recommended | Stopping |
 | --- | --- | --- | --- |

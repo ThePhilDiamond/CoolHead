@@ -13,19 +13,19 @@
 
 ## What it is
 
-Activity Monitor shows numbers. Cool Head reads what a busy process is actually doing (its command, what started it, the files it writes, the progress it reports, and the Mac's heat, power and memory at the time) and tells you in one sentence whether that is fine:
+Activity Monitor shows numbers. Cool Head reads what a busy process is actually doing (its command, what started it, the files it writes, the progress it reports) and tells you, in one short sentence, whether that's fine:
 
-> **Your Photo Export job export.py is 16% done. Done around 1:14am.**
+> **Photo Export is 16% done. Ready around 1:14am.**
 
-> **Spotlight is indexing your files. That's normal after a macOS update or when many files change, and it finishes on its own.**
+> **Spotlight is indexing your files. That's normal.**
 
-> **Your Model job train.py has been busy with no progress since 9:46pm. It looks stuck.**
+> **Video Render hasn't moved since 9:46pm. It looks stuck.**
 
-Each card has one button, **Explore fixes**. It shows how Cool Head knows (for example, the job's own last progress line) and the options, each with what it would cause, one of them recommended: do nothing and check back when it should be done, run it cooler, stop it, quit the app, or look it up.
+> **Memory is tight. Google Chrome is using the most (3.7 GB).**
 
-It keeps a cool head: a big job is not a problem just because it is big. Stopping is recommended only when a job has stalled, and every option says what it would cost, such as how much work stopping could lose. When Cool Head can't tell, it says so.
+A card that needs watching has **Explore fixes**; a calm one has **Learn more**. Each option says, in a few words, what it would do, and one is recommended: wait, run it cooler, stop it, quit an app, close a browser's heaviest tabs, or look it up. Anything you slow down stays pinned at the top, frozen, until it finishes or you set it back.
 
-It also connects the dots across the Mac: fast charging that adds heat, memory running short, and macOS's own background work (Spotlight, Photos, iCloud, Time Machine and more), each explained in plain words.
+It keeps a cool head: a big job isn't a problem just because it's big. Stopping is recommended only when a job has stalled. When Cool Head can't tell, it says so.
 
 ## Privacy
 
@@ -45,7 +45,7 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 1. Download the latest `Cool-Head-….zip` from [Releases](../../releases), and unzip it.
 2. Move **Cool Head** to Applications and open it. The first time, macOS may say it can't check the app (it isn't notarized yet): open **System Settings ▸ Privacy & Security** and choose **Open Anyway**.
-3. Look for the snowflake in the menu bar. Its badge shows the state by shape and colour: a green circle when all is well, a yellow triangle when something needs a look, a red octagon for a problem. Click it for the panel; right-click for About and Quit.
+3. Look for the snowflake in the menu bar. Its badge shows the state by shape and colour: a green circle when all is good, a yellow triangle when something is worth watching, a red octagon for a problem. Prefer something sillier? Right-click it and choose **Menu Bar Icon ▸ Melting Snowflake**: it melts into a puddle as things heat up. Click the snowflake for the panel; right-click for updates, reporting a problem, and Quit.
 
 After that, Cool Head keeps itself up to date: when a new version is out, the panel offers to install it, and checks the download is genuine first.
 
