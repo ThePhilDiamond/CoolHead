@@ -305,9 +305,12 @@ public final class Watcher {
         let busy = tracks.filter { $0.key != me && $0.value.cores >= 0.5 && now.timeIntervalSince($0.value.busySince ?? now) >= 60 }
             .sorted { $0.value.cores > $1.value.cores }.prefix(5)
         var live: [LiveCard] = []
-        for (pid, tr) in busy {
-            guard let e = Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten)) else { continue }
-            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm)
+        let gathered = busy.compactMap { pid, tr in Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten)).map { (pid, tr, $0) } }
+        // a game being played comes first: other busy work is offered to run cooler to leave it more room
+        let game = gathered.first { $0.2.gameBundle != nil }.flatMap { $0.2.gameBundle }
+            .map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
+        for (pid, tr, e) in gathered {
+            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game)
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)

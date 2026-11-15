@@ -2,6 +2,11 @@
 
 Short notes for each version. The newest is first. Each release's notes on GitHub come from this file, and the app shows the notes for a version once, after it updates to it.
 
+## v0.4.2 (15 November 2026)
+
+- Games are recognised as games, wherever they're installed (Steam included), instead of "We can't tell why". A game is never slowed down: while your Mac is warm it suggests lower graphics settings, and Quit warns you to save first.
+- While a game is running, other busy work is offered to run cooler first, to leave the game more power.
+
 ## v0.4.1 (15 November 2026)
 
 - A warm Mac now shows what's warming it. Each cause gets a card that says it's adding to the heat, with something to do, and the icon turns yellow. If nothing is working hard, a card says so and what usually explains it.

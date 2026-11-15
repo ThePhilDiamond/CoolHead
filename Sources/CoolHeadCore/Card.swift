@@ -121,7 +121,7 @@ public struct Card {
         Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(name)\u{201D}.", kind: .lookUp(name), recommended: recommended)
     }
 
-    public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false) -> Card {
+    public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil) -> Card {
         let who = subject(e)
         let since = busySince ?? e.start ?? now
         let busyFor = now.timeIntervalSince(since)
@@ -187,9 +187,28 @@ public struct Card {
                                 wait(until: nil, now: now, recommended: false)].compactMap { $0 })
         }
 
-        let cool = cooler.map { var c = $0; c.recommended = warm; return c }
+        // games are protected (Phil, 15 November 2026: "if we "run it cooler" with a game, couldn't it adversely impact
+        // performance? We may wish to protect games as a class we know will usually be busy and suggest killing other
+        // tasks first to improve game performance"): busy is what a game does, so it's calm and never slowed down;
+        // when the Mac is warm, lower settings is the fix that keeps play smooth
+        if let game = e.gameBundle {
+            let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
+            if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }
+            return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
+                        explanation: "That's normal while you play." + (warm ? " It's adding to the heat." : ""),
+                        fixes: [Fix(id: "settings", title: "Lower its graphics settings", consequence: "In the game's settings: lower quality or frame rate. Less heat, still smooth.", kind: .info, recommended: warm),
+                                Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game))])
+        }
+
+        // while a game is being played, other busy work is the thing to slow, so the game runs smoothly
+        let forGame = gameRunning != nil && cooler != nil
+        let cool = cooler.map { c -> Fix in
+            var c = c; c.recommended = warm || forGame
+            if let g = gameRunning { c = Fix(id: c.id, title: c.title, consequence: "Leaves more power for \(g). Undo any time.", kind: c.kind, recommended: c.recommended) }
+            return c
+        }
         // while the Mac is warm, a busy job says it is part of why
-        let heat = warm && e.coresNow >= 0.5 ? " It's adding to the heat." : ""
+        let heat = (warm && e.coresNow >= 0.5 ? " It's adding to the heat." : "") + (forGame ? " It's competing with \(gameRunning!)." : "")
         switch state {
         case .working:
             if let p = e.progress {
@@ -213,12 +232,13 @@ public struct Card {
         case .unknown:
             return Card(state: state, headline: "\(who) has been busy for \(Fmt.duration(busyFor)). We can't tell why.",
                         explanation: "It isn't saying what it's doing." + heat,
-                        fixes: [lookUp(e.name, recommended: true), wait(until: nil, now: now, recommended: false), cooler,
+                        fixes: [lookUp(e.name, recommended: !forGame), wait(until: nil, now: now, recommended: false),
+                                forGame ? cool : cooler,
                                 stop.map { var f = $0; f = Fix(id: f.id, title: f.title, consequence: "Only if you know what it is. " + f.consequence, kind: f.kind); return f },
                                 share].compactMap { $0 })
         case .starting:
             return Card(state: state, headline: "\(who) just started. Give it a minute.", explanation: "Started at \(Fmt.time(e.start ?? now)).",
-                        fixes: [wait(until: nil, now: now, recommended: true), cooler, stop].compactMap { $0 })
+                        fixes: [wait(until: nil, now: now, recommended: true), forGame ? cool : cooler, stop].compactMap { $0 })
         case .quiet:
             return Card(state: state, headline: "\(who) is quiet now.", explanation: "", fixes: [])
         }

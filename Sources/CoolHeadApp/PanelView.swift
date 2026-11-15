@@ -457,6 +457,10 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.4.2": [
+            "Games are recognised as games, and never slowed down.",
+            "While you play, other busy work is offered to run cooler, to leave the game more power.",
+        ],
         "0.4.1": [
             "A warm Mac now shows what's warming it, with something to do.",
             "The recommended option comes first and is marked.",

@@ -153,6 +153,19 @@ public struct Fixture {
             c.fixes.map(Card.rank) == c.fixes.map(Card.rank).sorted() && !c.fixes.contains { if case .wait = $0.kind { return true }; return false }
                 && c.fixes.filter(\.recommended).count <= 1 }
         review.append(("option-order", order == "lookup cooler find quit stop share" && allSorted, order))
+        // Games are protected (Phil, 15 November 2026): a game is calm and never offered Run it cooler; while warm it
+        // recommends lower settings; quitting warns about unsaved progress; other busy work is offered to run cooler
+        let game = Evidence.sample(name: "BloonsTD6", path: "/Users/x/Library/Application Support/Steam/steamapps/common/BloonsTD6/BloonsTD6.app/Contents/MacOS/BloonsTD6",
+                                   start: now.addingTimeInterval(-2 * 3600), cores: 0.6)
+        let gameCalm = Card.make(game, now: now, busySince: now.addingTimeInterval(-7200))
+        let gameWarm = Card.make(game, now: now, busySince: now.addingTimeInterval(-7200), warm: true)
+        let rival = Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), gameRunning: "BloonsTD6")
+        review.append(("games-are-protected", gameCalm.state == .working && gameCalm.headline.contains("is a game") && gameCalm.recommended == nil
+                       && !gameWarm.fixes.contains { $0.kind == .cooler } && gameWarm.recommended?.id == "settings"
+                       && gameWarm.fixes.contains { $0.kind == .quitApp("/Users/x/Library/Application Support/Steam/steamapps/common/BloonsTD6/BloonsTD6.app") && $0.consequence.contains("Save your game") }
+                       && rival.fixes.first { $0.kind == .cooler }?.consequence.contains("more power for BloonsTD6") == true
+                       && rival.explanation.contains("competing with BloonsTD6"),
+                       rival.explanation))
         // Trust (Phil, 15 November 2026): a trusted item is calm, but flagged anyway if it looks stuck, the Mac is hot,
         // or it has been busy nonstop for 8 hours, so nothing is hidden indefinitely
         let scriptJob = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",

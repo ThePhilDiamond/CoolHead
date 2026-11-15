@@ -218,6 +218,16 @@ extension Evidence {
         return nil
     }
 
+    /// The game this process belongs to, by its app bundle, wherever it is installed (Steam keeps games in its own
+    /// folder): an app whose details say it is a game (any of macOS's game categories), or anything Steam installed.
+    public var gameBundle: String? {
+        guard script == nil, let p = path, let r = p.range(of: ".app/") else { return nil }
+        let bundle = String(p[..<r.lowerBound]) + ".app"
+        if p.contains("/steamapps/common/") { return bundle }
+        let category = Bundle(path: bundle)?.infoDictionary?["LSApplicationCategoryType"] as? String ?? ""
+        return category.hasPrefix("public.app-category.") && category.hasSuffix("games") ? bundle : nil
+    }
+
     /// The app bundle the process belongs to, from its own path or its parents': "Claude", "Terminal".
     public var app: String? { Evidence.appName(path) }
 
