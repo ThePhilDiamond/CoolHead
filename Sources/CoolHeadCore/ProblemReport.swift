@@ -8,7 +8,7 @@ import Foundation
 /// the case report would name them). The person's own words are theirs; the form asks them to leave out anything
 /// private, because the issue will be public.
 public enum ProblemReport {
-    public static let kinds = ["A fix caused a problem", "Cool Head isn't working right", "Something else"]
+    public static let kinds = ["A fix caused trouble", "Cool Head isn't working right", "Something else"]
 
     public static func make(kind: String, words: String, activity: [Watcher.LogEntry], cards: [LiveCard], mac: MacState,
                             now: Date = Date()) -> String {

@@ -16,7 +16,7 @@ struct CoolHeadApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var item: NSStatusItem!
-    private let popover = NSPopover()
+    private let panel = MenuPanel()
     private var lastLevel: Watcher.Level?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -34,8 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         let host = NSHostingController(rootView: PanelView(watcher: watcher))
         host.sizingOptions = [.preferredContentSize]
-        popover.contentViewController = host
-        popover.behavior = .transient
+        panel.setContent(host)
 
         // redraw the icon when the status level changes
         watcher.onPublish = { [weak self] in
@@ -60,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard let button = item.button else { return }
         let event = NSApp.currentEvent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
-            popover.performClose(nil)
+            panel.close()
             let menu = NSMenu()
             menu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "").target = self
             let auto = NSMenuItem(title: "Check for Updates Automatically", action: #selector(toggleAutoUpdates), keyEquivalent: "")
@@ -75,12 +74,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             item.menu = menu
             button.performClick(nil)          // shows the menu under the icon
             item.menu = nil                   // so the next left-click opens the panel again
-        } else if popover.isShown {
-            popover.performClose(nil)
+        } else if panel.isVisible {
+            panel.close()
         } else {
-            NSApp.activate(ignoringOtherApps: true)
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
+            panel.show(under: button)
         }
     }
 
@@ -94,18 +91,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     @objc func toggleAutoUpdates() { Updater.shared.automatic.toggle() }
 
     func showPanel() {
-        guard let button = item.button, !popover.isShown else { return }
-        NSApp.activate(ignoringOtherApps: true)
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        popover.contentViewController?.view.window?.makeKey()
+        guard let button = item.button, !panel.isVisible else { return }
+        panel.show(under: button)
     }
 
     @objc func report() {
         Watcher.shared.showReport = true
         guard let button = item.button else { return }
-        NSApp.activate(ignoringOtherApps: true)
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        popover.contentViewController?.view.window?.makeKey()
+        if !panel.isVisible { panel.show(under: button) }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
@@ -260,15 +253,24 @@ enum Snapshot {
         let after = Double(ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_AFTER"] ?? "") ?? 25
         DispatchQueue.main.asyncAfter(deadline: .now() + after) {
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] != nil { Watcher.shared.showReport = true }
+            // screenshots: run the card whose headline contains this phrase cooler first, to show the pinned row
+            if let phrase = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_COOL"],
+               let c = Watcher.shared.cards.first(where: { $0.card.headline.contains(phrase) }) {
+                _ = Watcher.shared.setCooler(c, on: true)
+            }
             for (name, look) in [("light", NSAppearance.Name.aqua), ("dark", NSAppearance.Name.darkAqua)] {
                 let host = NSHostingView(rootView: PanelView(watcher: Watcher.shared).background(.background))
                 host.appearance = NSAppearance(named: look)
-                let size = host.fittingSize
-                let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: .borderless,
+                let window = NSWindow(contentRect: NSRect(origin: .zero, size: host.fittingSize), styleMask: .borderless,
                                       backing: .buffered, defer: false)
                 window.appearance = NSAppearance(named: look)
                 window.contentView = host
                 host.layoutSubtreeIfNeeded()
+                // the scrolling middle measures itself after the first layout; let that land, then size again
+                RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+                window.setContentSize(host.fittingSize)
+                host.layoutSubtreeIfNeeded()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
                 guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { continue }
                 host.cacheDisplay(in: host.bounds, to: rep)
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(prefix)-\(name).png"))
@@ -291,4 +293,85 @@ enum Snapshot {
             NSApp.terminate(nil)
         }
     }
+}
+
+/// The panel under the menu bar icon: a plain rounded rectangle with the system's translucent menu background, like
+/// macOS's own menu bar items (the Battery menu, for one). It replaces NSPopover, which always draws an arrow.
+/// It closes when you click elsewhere or press Escape, and follows its content's size up to a maximum height.
+@MainActor
+final class MenuPanel: NSPanel {
+    private let effect = NSVisualEffectView()
+    private var host: NSHostingController<PanelView>?
+    private var monitor: Any?
+    private var sizeObservation: NSKeyValueObservation?
+    private weak var anchor: NSStatusBarButton?
+
+    init() {
+        super.init(contentRect: NSRect(x: 0, y: 0, width: 412, height: 300), styleMask: [.borderless, .nonactivatingPanel],
+                   backing: .buffered, defer: true)
+        isFloatingPanel = true
+        level = .popUpMenu
+        hasShadow = true
+        backgroundColor = .clear
+        isOpaque = false
+        hidesOnDeactivate = false
+        collectionBehavior = [.canJoinAllSpaces, .transient]
+        effect.material = .popover
+        effect.blendingMode = .behindWindow
+        effect.state = .active
+        effect.wantsLayer = true
+        effect.layer?.cornerRadius = 12
+        effect.layer?.masksToBounds = true
+        effect.layer?.borderWidth = 0.5
+        effect.layer?.borderColor = NSColor.separatorColor.cgColor
+        contentView = effect
+    }
+
+    override var canBecomeKey: Bool { true }      // for typing in Report a problem
+
+    func setContent(_ controller: NSHostingController<PanelView>) {
+        host = controller
+        controller.sizingOptions = [.preferredContentSize]
+        controller.view.translatesAutoresizingMaskIntoConstraints = false
+        effect.addSubview(controller.view)
+        NSLayoutConstraint.activate([
+            controller.view.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
+            controller.view.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
+            controller.view.topAnchor.constraint(equalTo: effect.topAnchor),
+            controller.view.bottomAnchor.constraint(equalTo: effect.bottomAnchor),
+        ])
+        // keep the top edge under the icon as the content grows or shrinks
+        sizeObservation = controller.observe(\.preferredContentSize, options: [.new]) { [weak self] c, _ in
+            Task { @MainActor in self?.fit(c.preferredContentSize) }
+        }
+    }
+
+    func show(under button: NSStatusBarButton) {
+        anchor = button
+        if let size = host?.preferredContentSize, size.height > 0 { fit(size) } else { fit(NSSize(width: 412, height: 300)) }
+        NSApp.activate(ignoringOtherApps: true)
+        makeKeyAndOrderFront(nil)
+        // close on a click anywhere else
+        monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            Task { @MainActor in self?.close() }
+        }
+    }
+
+    private func fit(_ size: NSSize) {
+        guard let button = anchor, let bw = button.window, let screen = bw.screen ?? NSScreen.main else { return }
+        let iconFrame = bw.convertToScreen(button.convert(button.bounds, to: nil))
+        let visible = screen.visibleFrame
+        let w = size.width, h = min(size.height, visible.height - 16)
+        var x = iconFrame.midX - w / 2
+        x = min(max(x, visible.minX + 8), visible.maxX - w - 8)
+        let top = iconFrame.minY - 6
+        setFrame(NSRect(x: x, y: top - h, width: w, height: h), display: true)
+    }
+
+    override func close() {
+        if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
+        super.close()
+    }
+
+    override func cancelOperation(_ sender: Any?) { close() }     // Escape
 }

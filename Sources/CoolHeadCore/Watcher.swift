@@ -10,6 +10,8 @@ public struct LiveCard: Identifiable {
     public var start: Date? = nil
     public let card: Card
     public let details: [String]
+    /// What the panel calls this card's process ("Your Photo Export job export.py", "WhatsApp").
+    public var displaySubject = ""
     /// What a report may call this card's process: anonymised as in the case report.
     public var reportSubject = "the Mac as a whole"
     /// The anonymised case report, for cards that offer "Share this case".
@@ -50,7 +52,21 @@ public final class Watcher {
     /// Set to open the "Report a problem" form (from the bottom row, the right-click menu, or after a fix).
     public var showReport = false
     /// Processes put on background priority by "Run it cooler", by process number and start time.
-    public private(set) var cooled: Set<String> = []
+    public private(set) var cooled: [String: CooledItem] = [:]
+    /// A process running at background priority because the person chose "Run it cooler": pinned at the top of
+    /// the panel until it ends or they set it back.
+    public struct CooledItem: Identifiable {
+        public var id: String { key }
+        public let key: String
+        public let pid: pid_t
+        public let start: Date?
+        public let name: String
+        public let reportSubject: String
+        public let since: Date
+        public let before: Int?
+        public let after: Int?
+    }
+    public var cooledList: [CooledItem] { cooled.values.sorted { $0.since < $1.since } }
     /// Called on the main thread when a card has needed a look for 10 minutes, once per card.
     @ObservationIgnored public var onAlert: ((LiveCard) -> Void)?
     /// Called on the main thread after every update.
@@ -62,6 +78,7 @@ public final class Watcher {
     @ObservationIgnored private var firstSeen: [String: Date] = [:]
     @ObservationIgnored private var alerted: Set<String> = []
     @ObservationIgnored private var seenIDs: Set<String> = []
+    @ObservationIgnored private var lastPriority: [pid_t: Int] = [:]
     @ObservationIgnored private let queue = DispatchQueue(label: "coolhead.watcher", qos: .utility)
     @ObservationIgnored private var timer: DispatchSourceTimer?
 
@@ -109,7 +126,8 @@ public final class Watcher {
     }
 
     /// The result of acting on a card, to show the person.
-    public enum Outcome { case done, gone, failed(String) }
+    /// The result of acting on a card, with a sentence saying what changed when it worked.
+    public enum Outcome { case done(String), gone, failed(String) }
 
     /// True if this process number still belongs to the process the card was about (numbers are reused).
     func sameProcess(_ c: LiveCard) -> Bool {
@@ -123,10 +141,18 @@ public final class Watcher {
         let ok = kill(p, SIGTERM) == 0
         let why = ok ? "" : String(cString: strerror(errno))
         log("Stop pressed for \(c.reportSubject): " + (ok ? "stopped" : "failed (\(why))"))
-        return ok ? .done : .failed(why)
+        return ok ? .done("Stopped \(c.displaySubject.isEmpty ? "it" : c.displaySubject).") : .failed(why)
     }
 
-    public func isCooled(_ c: LiveCard) -> Bool { cooled.contains(Watcher.key(c)) }
+    public func isCooled(_ c: LiveCard) -> Bool { cooled[Watcher.key(c)] != nil }
+
+    /// "Back to full speed" from a pinned item.
+    public func restore(_ item: CooledItem) -> Outcome {
+        var c = LiveCard(id: "pinned", pid: item.pid, start: item.start,
+                         card: Card(state: .working, headline: "", explanation: "", fixes: []), details: [], reportSubject: item.reportSubject)
+        c.displaySubject = item.name
+        return setCooler(c, on: false)
+    }
 
     /// Background priority on or off; checks macOS accepted it by reading it back.
     public func setCooler(_ c: LiveCard, on: Bool) -> Outcome {
@@ -139,17 +165,27 @@ public final class Watcher {
         }
         // confirm by its scheduling priority: the background band is 4 (getpriority can't report this setting for
         // another process, so it isn't used). macOS may take a moment to move it, so look twice.
+        var pri: Int?
+        let before = cooled[Watcher.key(c)]?.before ?? lastPriority[p]
         if let first = Proc.schedulingPriority(p) {
-            var pri = first
-            if (pri <= 4) != on { usleep(300_000); pri = Proc.schedulingPriority(p) ?? pri }
-            guard (pri <= 4) == on else {
-                log("\(what) pressed for \(c.reportSubject): set, but its priority stayed at \(pri)")
-                return .failed("macOS accepted it, but the process's priority didn't change (\(pri))")
+            var pri0 = first
+            defer { pri = pri0 }
+            if (pri0 <= 4) != on { usleep(300_000); pri0 = Proc.schedulingPriority(p) ?? pri0 }
+            guard (pri0 <= 4) == on else {
+                log("\(what) pressed for \(c.reportSubject): set, but its priority stayed at \(pri0)")
+                return .failed("macOS accepted it, but the process's priority didn't change (\(pri0))")
             }
         }
-        if on { cooled.insert(Watcher.key(c)) } else { cooled.remove(Watcher.key(c)) }
-        log((on ? "Run it cooler" : "Back to full speed") + " pressed for \(c.reportSubject): applied")
-        return .done
+        let name = c.displaySubject.isEmpty ? "It" : c.displaySubject
+        log("\(what) pressed for \(c.reportSubject): applied")
+        if on {
+            cooled[Watcher.key(c)] = CooledItem(key: Watcher.key(c), pid: p, start: c.start, name: name, reportSubject: c.reportSubject,
+                                                since: Date(), before: before, after: pri)
+            let change = (before != nil && pri != nil) ? " (priority \(before!) → \(pri!))" : ""
+            return .done("Done. \(name) is running cooler\(change). It's pinned at the top.")
+        }
+        cooled.removeValue(forKey: Watcher.key(c))
+        return .done("\(name) is back to full speed.")
     }
 
     static func key(_ c: LiveCard) -> String { "\(c.pid ?? 0)-\(c.start?.timeIntervalSince1970 ?? 0)" }
@@ -218,6 +254,8 @@ public final class Watcher {
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)
+            lc.displaySubject = Card.subject(e)
+            if let pr = Proc.schedulingPriority(pid), pr > 4 { lastPriority[pid] = pr }
             if c.fixes.contains(where: { $0.kind == .share }) {
                 lc.report = (CaseReport.title(e, card: c), CaseReport.make(e, card: c, mac: state, busySince: tr.busySince, now: now))
             }
@@ -239,10 +277,10 @@ public final class Watcher {
         if s.charging, let w = s.batteryWatts, w > 15, s.thermal != "nominal" {
             out.append(LiveCard(id: "charging", pid: nil, card: Card(
                 state: .working,
-                headline: "The battery is fast-charging at about \(Int(w.rounded())) W, which adds heat.",
-                explanation: "Charging is fastest when the battery is low and slows once it passes about 80%. The Mac itself is using \(s.macWatts.map { "\(Int($0.rounded())) W" } ?? "less").",
+                headline: "Fast charging is adding heat.",
+                explanation: "It's charging at about \(Int(w.rounded())) W. That slows down after 80%.",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
-                        Fix(id: "unplug", title: "Unplug for a while if the heat bothers you", consequence: "The battery stops charging; plug back in later.", kind: .info)]),
+                        Fix(id: "unplug", title: "Unplug for a bit", consequence: "Charging stops until you plug back in.", kind: .info)]),
                 details: s.lines(), reportSubject: "fast charging adding heat"))
         }
         if s.memoryPressure == "warning" || s.memoryPressure == "critical" {
@@ -263,6 +301,7 @@ public final class Watcher {
                               start: top?.kind == .job ? top?.evidence?.start : nil,
                               card: card, details: s.lines(), reportSubject: subject)
             mc.causeKey = "memory"
+            if let e = top?.evidence { mc.displaySubject = Card.subject(e) }
             out.append(mc)
         }
         return out
@@ -296,6 +335,11 @@ public final class Watcher {
             }
             firstSeen = firstSeen.filter { ids.contains($0.key) }
             alerted = alerted.filter { ids.contains($0) }
+            // a pinned (cooled) process that has ended is unpinned
+            for (k, item) in cooled {
+                let alive = Proc.bsd(item.pid).map { b in item.start.map { abs(b.start.timeIntervalSince($0)) < 1 } ?? true } ?? false
+                if !alive { cooled.removeValue(forKey: k); log("\(item.reportSubject) finished while running cooler") }
+            }
             onPublish?()
         }
     }

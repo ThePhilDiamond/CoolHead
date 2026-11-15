@@ -91,18 +91,18 @@ public struct Fixture {
                        "Chrome's helpers count as Chrome; a Python script counts as a job"))
         var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
         let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now)
-        review.append(("memory-browser", browserCard.recommended?.title.hasPrefix("Find the heaviest tabs") == true
-                       && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("every tab") }
-                       && browserCard.headline.contains("across 41 processes"), browserCard.headline))
+        review.append(("memory-browser", browserCard.recommended?.title.hasPrefix("Close Google Chrome's heaviest tabs") == true
+                       && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("Closes all tabs") }
+                       && browserCard.headline.contains("Google Chrome is using the most"), browserCard.headline))
         let dockerCard = MemoryAdvice.card([MemGroup(key: "d", name: "Docker", kind: .app, bundle: "/Applications/Docker.app", bytes: 4_000_000_000, count: 3)], mac: tight, now: now)
         let dockerQuit = dockerCard.fixes.first { $0.id == "quit" }
-        review.append(("memory-app-risk", dockerQuit?.consequence.contains("stops every container") == true && dockerQuit?.recommended == false,
+        review.append(("memory-app-risk", dockerQuit?.consequence.contains("Stops all containers") == true && dockerQuit?.recommended == false,
                        "Quit Docker says it stops every container, and isn't recommended"))
         var jobGroup = MemGroup(key: "job-1", name: "job", kind: .job, bundle: nil, bytes: 3_000_000_000, count: 1)
         jobGroup.evidence = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "index.py"], cwd: "/Users/x/Archive",
                                             start: now.addingTimeInterval(-3 * 3600), cores: 4)
         let jobCard = MemoryAdvice.card([jobGroup], mac: tight, now: now)
-        review.append(("memory-job-stop", jobCard.fixes.contains { $0.kind == .stop && $0.consequence.contains("Frees about") && $0.consequence.contains("lose up to") },
+        review.append(("memory-job-stop", jobCard.fixes.contains { $0.kind == .stop && $0.consequence.contains("Frees") && $0.consequence.contains("lose up to") },
                        "a memory-heavy job can be stopped, with what that frees and costs"))
         // Phil's rule (15 November 2026): no warning offers only "wait". Every card that needs a look must have an
         // option that does something (stop, slow, quit, look up or share).
@@ -135,7 +135,7 @@ public struct Fixture {
             let on = w.setCooler(lc, on: true), down = Proc.schedulingPriority(cpid) ?? -1
             let off = w.setCooler(lc, on: false), up = Proc.schedulingPriority(cpid) ?? -1
             child.terminate()
-            func ok(_ o: Watcher.Outcome) -> Bool { if case .done = o { return true }; return false }
+            func ok(_ o: Watcher.Outcome) -> Bool { if case .done(_) = o { return true }; return false }
             review.append(("run-it-cooler-really-works", ok(on) && ok(off) && down <= 4 && up > 4,
                            "background priority \(down), back to \(up)"))
         }
@@ -160,7 +160,7 @@ public struct Fixture {
                         start: ago(2 * hour), cores: 6,
                         progress: Progress(file: "/tmp/build.log", line: "25600/26512 passages, 178.4 min, about 6 min left",
                                            done: 25600, total: 26512, unit: "passages", minutesLeft: 6, lineTime: ago(60))),
-                    busyFor: 2 * hour, expectState: .working, expectHeadline: "96% done", expectAction: "Do nothing; check back"),
+                    busyFor: 2 * hour, expectState: .working, expectHeadline: "96% done", expectAction: "Wait until"),
             Fixture(id: "job-stalled", evidence: .sample(
                         name: "python3", path: "/usr/bin/python3", args: ["python3", "train.py"], cwd: "/Users/x/Model",
                         start: ago(5 * hour), cores: 1,
@@ -170,14 +170,14 @@ public struct Fixture {
             Fixture(id: "job-waiting", evidence: .sample(
                         name: "python3", path: "/usr/bin/python3", args: ["python3", "sync.py"], cwd: "/Users/x/Sync",
                         start: ago(hour), cores: 0, lastLine: "waiting for the compute lock (pid 999)"),
-                    busyFor: 0, expectState: .waiting, expectHeadline: "waiting for another job", expectAction: "Do nothing"),
+                    busyFor: 0, expectState: .waiting, expectHeadline: "waiting for another job", expectAction: "Wait"),
             Fixture(id: "job-no-signs", evidence: .sample(
                         name: "node", path: "/opt/homebrew/bin/node", args: ["node", "server.js"], cwd: "/Users/x/Site",
                         start: ago(3 * hour), cores: 1.2),
-                    busyFor: 3 * hour, expectState: .unknown, expectHeadline: "Can't tell", expectAction: "Look it up"),
+                    busyFor: 3 * hour, expectState: .unknown, expectHeadline: "can't tell why", expectAction: "Look it up"),
             Fixture(id: "spotlight-normal", evidence: .sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores",
                                                              start: ago(48 * hour), cores: 1.5),
-                    busyFor: 0.5 * hour, expectState: .working, expectHeadline: "Spotlight is indexing", expectAction: "Do nothing"),
+                    busyFor: 0.5 * hour, expectState: .working, expectHeadline: "Spotlight is indexing", expectAction: "Wait"),
             Fixture(id: "spotlight-long", evidence: .sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores",
                                                            start: ago(48 * hour), cores: 1.5),
                     busyFor: 5 * hour, expectState: .unknown, expectHeadline: "longer than usual", expectAction: "Look it up"),
@@ -188,11 +188,11 @@ public struct Fixture {
                         name: "Google Chrome Helper (Renderer)",
                         path: "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)",
                         start: ago(4 * hour), cores: 1),
-                    busyFor: hour, expectState: .unknown, expectHeadline: "A tab or extension in Google Chrome", expectAction: "Find it"),
+                    busyFor: hour, expectState: .unknown, expectHeadline: "A Google Chrome tab", expectAction: "Find the busy tab"),
             Fixture(id: "docker-vm", evidence: .sample(name: "com.docker.virtualization",
                                                       path: "/Applications/Docker.app/Contents/MacOS/com.docker.virtualization",
                                                       start: ago(10 * hour), cores: 1),
-                    busyFor: 10 * hour, expectState: .working, expectHeadline: "keeps running after they stop.", expectAction: "Do nothing"),
+                    busyFor: 10 * hour, expectState: .working, expectHeadline: "Docker's virtual machine is running. That's normal.", expectAction: "Wait"),
         ]
     }
 }
