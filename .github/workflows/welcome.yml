@@ -17,6 +17,6 @@ jobs:
     steps:
       - uses: actions/first-interaction@v3
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: "Thanks for your first report. If it's about a process Cool Head got wrong, the output of `coolhead why <name>` helps most; please check it for anything private first."
-          pr-message: "Thanks for your first pull request. `coolhead selftest` runs on it automatically; if you added a catalogue pattern, please link its source in the description (see docs/DIAGNOSIS.md)."
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: "Thanks for your first report. If it's about a process Cool Head got wrong, the output of `coolhead why <name>` helps most; please check it for anything private first."
+          pr_message: "Thanks for your first pull request. `coolhead selftest` runs on it automatically; if you added a catalogue pattern, please link its source in the description (see docs/DIAGNOSIS.md)."
