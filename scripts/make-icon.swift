@@ -335,6 +335,88 @@ func face(_ s: CGFloat, style: String, line: Bool = false) {
     }
 }
 
+/// A snowflake drawn as white lines with a dark edge, so it shows on any colour.
+func outlinedFlake(_ c: NSPoint, _ r: CGFloat, _ sw: CGFloat, line: Bool) {
+    if line { snowflake(c, r, sw, .black); return }
+    snowflake(c, r, sw * 1.9, ink)
+    snowflake(c, r, sw, color(0xFFFFFF))
+}
+
+/// Round 2 of faces: a blue smiley, with icicles, snowflake "sweat", snowflakes behind, or made of the letters C and H.
+func face2(_ s: CGFloat, style: String, line: Bool = false) {
+    let k = s / 1024
+    let col: NSColor = line ? .black : ink
+    let sw = (line ? 64 : 30) * k
+    let c = NSPoint(x: 512 * k, y: (style == "sweat" ? 470 : 500) * k)
+    let r: CGFloat = (line ? 380 : (style == "sweat" ? 270 : 290)) * k
+    if !line {
+        let bg: [NSColor] = style == "flurry" ? [color(0x6CC4F0), color(0x2F86D0)] : [color(0xEAF6FD), color(0xD7EEFB)]
+        NSGradient(colors: bg)!.draw(in: NSBezierPath(roundedRect: tile(s), xRadius: s * 0.18, yRadius: s * 0.18), angle: -90)
+        if style == "flurry" {
+            for (x, y, rr) in [(250.0, 800.0, 55.0), (790.0, 820.0, 40.0), (830.0, 300.0, 50.0), (205.0, 330.0, 35.0), (700.0, 180.0, 30.0)] as [(CGFloat, CGFloat, CGFloat)] {
+                snowflake(NSPoint(x: x * k, y: y * k), rr * k, 12 * k, color(0xFFFFFF, 0.85))
+            }
+        }
+    } else if style == "flurry" {
+        snowflake(NSPoint(x: 120 * k, y: 900 * k), 90 * k, 40 * k, .black)
+    }
+    let head = NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+    if style == "ch" {
+        // the C is the head: an open circle, its gap on the right
+        stroke(arc(c, r, 40, 320), sw * 1.5, col)
+        // the H is the face: its legs are the eyes, its bar a smile between them
+        let ex = r * 0.34, top = c.y + r * 0.36, bottom = c.y - r * 0.12
+        for side in [-1.0, 1.0] as [CGFloat] {
+            stroke(poly([NSPoint(x: c.x + side * ex, y: top), NSPoint(x: c.x + side * ex, y: bottom)], closed: false), sw * 1.5, col)
+        }
+        let smile = NSBezierPath(); smile.move(to: NSPoint(x: c.x - ex, y: c.y + r * 0.12))
+        smile.curve(to: NSPoint(x: c.x + ex, y: c.y + r * 0.12), controlPoint1: NSPoint(x: c.x - ex * 0.5, y: c.y - r * 0.12), controlPoint2: NSPoint(x: c.x + ex * 0.5, y: c.y - r * 0.12))
+        smile.lineCapStyle = .round
+        stroke(smile, sw * 1.5, line ? col : color(0x2E9BD6))
+        return
+    }
+    if !line {
+        NSGradient(colors: style == "flurry" ? [color(0xFFFFFF), color(0xD9F0FC)] : [color(0x9BD8F6), color(0x4DB2E6)])!.draw(in: head, angle: -90)
+    }
+    if style == "icicles" {
+        // a frozen band across the top of the head, with pointed icicles hanging from it
+        NSGraphicsContext.saveGraphicsState()
+        head.addClip()
+        let y0 = c.y + r * 0.42
+        let ice = NSBezierPath()
+        ice.move(to: NSPoint(x: c.x - r, y: c.y + r))
+        ice.line(to: NSPoint(x: c.x - r, y: y0))
+        let n = 7
+        for i in 0..<n {
+            let x0 = c.x - r + CGFloat(i) * 2 * r / CGFloat(n), x1 = x0 + 2 * r / CGFloat(n)
+            let len: CGFloat = [0.22, 0.12, 0.3, 0.15, 0.26, 0.1, 0.2][i] * r
+            ice.line(to: NSPoint(x: (x0 + x1) / 2, y: y0 - len))
+            ice.line(to: NSPoint(x: x1, y: y0))
+        }
+        ice.line(to: NSPoint(x: c.x + r, y: c.y + r)); ice.close(); ice.lineJoinStyle = .round
+        if line { stroke(ice, sw * 0.7, col) } else { color(0xFFFFFF).setFill(); ice.fill(); stroke(ice, sw * 0.6, col) }
+        NSGraphicsContext.restoreGraphicsState()
+    }
+    stroke(head, sw, col)
+    // happy eyes and a wide smile
+    let ex = r * 0.34, ey = c.y + (style == "icicles" ? r * 0.02 : r * 0.12)
+    for side in [-1.0, 1.0] as [CGFloat] {
+        stroke(arc(NSPoint(x: c.x + side * ex, y: ey - r * 0.1), r * 0.12, 20, 160), sw, col)
+    }
+    let mouth = NSBezierPath()
+    mouth.move(to: NSPoint(x: c.x - r * 0.42, y: c.y - r * 0.2))
+    mouth.curve(to: NSPoint(x: c.x + r * 0.42, y: c.y - r * 0.2), controlPoint1: NSPoint(x: c.x - r * 0.25, y: c.y - r * 0.62), controlPoint2: NSPoint(x: c.x + r * 0.25, y: c.y - r * 0.62))
+    mouth.close()
+    if line { stroke(mouth, sw, col) } else { color(0xFFFFFF).setFill(); mouth.fill(); stroke(mouth, sw, col) }
+    if style == "sweat" {
+        // snowflakes where sweat drops would be: hot work, kept cool
+        outlinedFlake(NSPoint(x: c.x + r * 0.95, y: c.y + r * 0.85), r * 0.28, sw * 0.7, line: line)
+        if !line { outlinedFlake(NSPoint(x: c.x + r * 1.18, y: c.y + r * 0.32), r * 0.16, sw * 0.55, line: false) }
+    }
+}
+
+let face2Options = ["icicles", "sweat", "flurry", "ch"]
+
 let faceOptions = ["calm", "snowflake-mind", "frosty", "shades", "cube"]
 
 func render(_ draw: (CGFloat) -> Void, size: Int) -> Data { render(draw, width: size, height: size, scale: CGFloat(size)) }
@@ -353,7 +435,7 @@ func render(_ draw: (CGFloat) -> Void, width: Int, height: Int, scale: CGFloat =
 
 let options: [(String, (CGFloat) -> Void)] = [("ice", drawIce), ("flat", drawFlat), ("line", drawLine)]
 for (name, draw) in options where which == "all" || which == name {
-    if ["sheet", "linesheet", "facesheet"].contains(which) { break }
+    if ["sheet", "linesheet", "facesheet", "facesheet2"].contains(which) { break }
     try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo-\(name).png"))
     // the app icon set, for iconutil
     let set = out.appendingPathComponent("AppIcon-\(name).iconset")
@@ -364,13 +446,16 @@ for (name, draw) in options where which == "all" || which == name {
     }
 }
 // "facesheet": the face ideas, large, at Dock and Finder sizes, and as the menu bar icon, on light and dark.
-if which == "facesheet" {
-    let n = faceOptions.count, w = 40 + n * 380, h = 820
+if which == "facesheet" || which == "facesheet2" {
+    let second = which == "facesheet2"
+    let names = second ? face2Options : faceOptions
+    func drawFace(_ s: CGFloat, _ style: String, _ line: Bool) { second ? face2(s, style: style, line: line) : face(s, style: style, line: line) }
+    let n = names.count, w = 40 + n * 380, h = 820
     try! render({ _ in
         for (row, bg) in [(0, color(0xF5F5F7)), (1, color(0x1E1E1E))] {
             bg.setFill(); NSBezierPath(rect: NSRect(x: 0, y: CGFloat(h) - CGFloat(row + 1) * 410, width: CGFloat(w), height: 410)).fill()
         }
-        for (i, style) in faceOptions.enumerated() {
+        for (i, style) in names.enumerated() {
             let x = CGFloat(40 + i * 380)
             for row in 0..<2 {
                 let top = CGFloat(h) - CGFloat(row) * 410
@@ -378,10 +463,10 @@ if which == "facesheet" {
                     NSGraphicsContext.saveGraphicsState()
                     let t = NSAffineTransform(); t.translateX(by: px, yBy: py); t.scale(by: size / 1024.0); t.concat()
                     if line {
-                        let img = NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { _ in face(1024, style: style, line: true); return true }
+                        let img = NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { _ in drawFace(1024, style, true); return true }
                         let tinted = NSImage(size: img.size, flipped: false) { r in img.draw(in: r); (row == 0 ? NSColor.black : NSColor.white).set(); r.fill(using: .sourceAtop); return true }
                         tinted.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024))
-                    } else { face(1024, style: style) }
+                    } else { drawFace(1024, style, false) }
                     NSGraphicsContext.restoreGraphicsState()
                 }
                 place(x, top - 300, 240, line: false)
@@ -390,13 +475,13 @@ if which == "facesheet" {
                 let bar = NSRect(x: x + 240, y: top - 260, width: 84, height: 48)
                 (row == 0 ? color(0xE8E8EA) : color(0x2C2C2E)).setFill(); NSBezierPath(roundedRect: bar, xRadius: 8, yRadius: 8).fill()
                 place(x + 264, top - 254, 36, line: true)
-                let label = ["Calm", "Snowflake mind", "Frosty", "Shades", "Ice cube face"][i]
+                let label = (second ? ["Icicles", "Snowflake sweat", "Snowflakes behind", "C + H"] : ["Calm", "Snowflake mind", "Frosty", "Shades", "Ice cube face"])[i]
                 (label as NSString).draw(at: NSPoint(x: x + 20, y: top - 360), withAttributes: [
                     .font: NSFont.systemFont(ofSize: 26, weight: .semibold),
                     .foregroundColor: row == 0 ? color(0x1D1D1F) : color(0xF5F5F7)])
             }
         }
-    }, width: w, height: h).write(to: out.appendingPathComponent("logo-face-options.png"))
+    }, width: w, height: h).write(to: out.appendingPathComponent(second ? "logo-face-options-2.png" : "logo-face-options.png"))
 }
 
 // "linesheet": the four line-art cubes, large, at Dock and Finder sizes, and as the menu bar icon, on light and dark.
