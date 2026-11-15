@@ -15,7 +15,9 @@ struct PanelView: View {
                 Spacer()
                 Text("Cool Head v\(CoolHead.version)").font(.caption2).foregroundStyle(Ink.muted)
             }
-            if shownCards.isEmpty {
+            if watcher.showReport {
+                ProblemView(watcher: watcher)
+            } else if shownCards.isEmpty {
                 Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
                     .foregroundStyle(Ink.muted)
             } else {
@@ -23,7 +25,7 @@ struct PanelView: View {
             }
             Divider()
             if !footer.isEmpty { Text(footer).font(.caption).foregroundStyle(Ink.muted) }
-            BottomBar()
+            BottomBar(watcher: watcher)
         }
         .padding(16)
         .frame(width: 380)
@@ -67,6 +69,7 @@ struct CardView: View {
     @State private var facts = false
     @State private var confirmStop: Fix?
     @State private var note: String?          // what happened after a button, when it didn't simply work
+    @State private var acted = false          // a fix was applied, so offer a way to report trouble
     @State private var sharing = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SHARE"] != nil  // screenshots
 
     var body: some View {
@@ -87,6 +90,10 @@ struct CardView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(live.card.fixes) { FixRow(fix: $0, cooled: watcher.isCooled(live)) { act($0) } }
                     if let n = note { Text(n).font(.callout.weight(.medium)).foregroundStyle(Color.orange) }
+                    if acted {
+                        Button("Something went wrong? Report it") { watcher.showReport = true }
+                            .buttonStyle(.link).font(.callout)
+                    }
                 }
                 if sharing, let r = live.report { ShareView(title: r.title, report: r.body) { sharing = false } }
                 DisclosureGroup("The facts", isExpanded: $facts) {
@@ -107,7 +114,7 @@ struct CardView: View {
         .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
         .confirmationDialog(stopTitle, isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
-            Button("Stop it", role: .destructive) { show(watcher.stop(live), done: "Stopped."); confirmStop = nil }
+            Button("Stop it", role: .destructive) { show(watcher.stop(live), done: "Stopped."); acted = true; confirmStop = nil }
             Button("Cancel", role: .cancel) { confirmStop = nil }
         } message: {
             Text(confirmStop?.consequence ?? "")
@@ -135,6 +142,7 @@ struct CardView: View {
         case .stop:
             confirmStop = fix
         case .lookUp(let name):
+            watcher.log("Look it up pressed for \(live.reportSubject)")
             // only the process name is searched for: no paths, nothing about this Mac
             var u = URLComponents(string: "https://duckduckgo.com/")!
             u.queryItems = [URLQueryItem(name: "q", value: "macOS \(name) high CPU")]
@@ -142,12 +150,17 @@ struct CardView: View {
         case .cooler:
             // background priority: macOS runs it on the efficiency cores and slows its disk use; checked and undoable
             show(watcher.setCooler(live, on: !watcher.isCooled(live)), done: nil)
+            acted = true
         case .quitApp(let bundle):
             // found by where the app is installed, not by its display name (which can differ, or be shared)
             if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }) {
-                if !app.terminate() { note = "It didn't quit; it may be showing a dialog." }
+                let ok = app.terminate()
+                if !ok { note = "It didn't quit; it may be showing a dialog." }
+                watcher.log("Quit pressed for \(live.reportSubject): " + (ok ? "asked to quit" : "didn't quit"))
             } else { note = "That app isn't running any more." }
+            acted = true
         case .share:
+            if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
         case .info:
             break
@@ -198,6 +211,67 @@ struct ShareView: View {
     }
 }
 
+/// "Report a problem": what kind, what happened in the person's words, and the full report shown before anything
+/// leaves. Open in GitHub sends it to GitHub in the link and opens the form there; Copy keeps it on the Mac.
+struct ProblemView: View {
+    let watcher: Watcher
+    @State private var kind = ProblemReport.kinds[0]
+    @State private var words = ""
+    @State private var copied = false
+
+    var report: String { ProblemReport.make(kind: kind, words: words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Report a problem").font(.body.weight(.semibold))
+            Picker("What happened", selection: $kind) { ForEach(ProblemReport.kinds, id: \.self) { Text($0) } }
+                .pickerStyle(.radioGroup).font(.callout)
+            Text("In your words (optional). This will be public, so leave out names, files and anything private.")
+                .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+            TextEditor(text: $words)
+                .font(.callout)
+                .frame(height: 64)
+                .scrollContentBackground(.hidden)
+                .padding(4)
+                .background(Ink.card, in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Ink.edge, lineWidth: 1))
+            Text("Also shared: Cool Head's own activity from the last 6 hours (shown below). It names processes only by kind, as \"Share this case\" does, and is kept in memory only.")
+                .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                Text(report.replacingOccurrences(of: "**", with: ""))
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Ink.text)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 130)
+            .padding(8)
+            .background(Ink.card, in: RoundedRectangle(cornerRadius: 6))
+            HStack(spacing: 8) {
+                Button("Open in GitHub") {
+                    watcher.log("Report a problem sent to GitHub")
+                    if let u = ProblemReport.issueURL(kind: kind, words: words, report: report) { NSWorkspace.shared.open(u) }
+                    watcher.showReport = false
+                }
+                .buttonStyle(.borderedProminent).controlSize(.small)
+                Button(copied ? "Copied" : "Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString("Problem: \(kind)\n\n\(words)\n\n\(report)", forType: .string)
+                    copied = true
+                }
+                .buttonStyle(.bordered).controlSize(.small)
+                Button("Cancel") { watcher.showReport = false }.buttonStyle(.plain).font(.callout).foregroundStyle(Ink.muted)
+            }
+            Text("Open in GitHub sends this text to GitHub in the link and opens it in your browser. It is posted, under your GitHub account, only when you press Submit. No GitHub account? Copy it and email it to anyone helping you.")
+                .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
+    }
+}
+
 /// One option: a button with what it would cause underneath. The recommended one stands out.
 struct FixRow: View {
     let fix: Fix
@@ -229,6 +303,7 @@ struct FixRow: View {
 
 /// Along the bottom: the two settings as switches, then Activity Monitor, About and Quit as line icons.
 struct BottomBar: View {
+    let watcher: Watcher
     @State private var login = LoginItem.on
     @State private var notify = Alerts.enabled
 
@@ -241,6 +316,7 @@ struct BottomBar: View {
                 IconButton(symbol: "waveform.path.ecg", tip: "Launch Activity Monitor") {
                     NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
                 }
+                IconButton(symbol: "exclamationmark.bubble", tip: "Report a problem") { watcher.showReport.toggle() }
                 IconButton(symbol: "info.circle", tip: "About Cool Head") { About.show() }
                 IconButton(symbol: "power", tip: "Quit") { NSApp.terminate(nil) }
             }

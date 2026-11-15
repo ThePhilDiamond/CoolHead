@@ -29,7 +29,13 @@ It also connects the dots across the Mac: fast charging that adds heat, memory r
 
 ## Privacy
 
-Everything runs on your Mac. No account, no analytics, no network connections, and nothing stored about what happened. Two buttons reach outside, and only when you press them: **Look it up** opens a web search for the process name, and **Share this case**, on cards Cool Head can't explain, shows you an anonymised report (no file names, paths or project names) that you can open as a GitHub issue and choose whether to submit. Details: [SECURITY.md](SECURITY.md).
+Everything runs on your Mac. No account, no analytics, no network connections, and nothing stored about what happened. Three buttons reach outside, and only when you press them:
+
+- **Look it up** opens a web search for the process name.
+- **Share this case**, on cards Cool Head can't explain, shows you an anonymised report of that process.
+- **Report a problem**, at the bottom of the panel and in the right-click menu, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way.
+
+Reports never hold file names, paths or project names. You see every word first; then **Open in GitHub** opens it as an issue for you to submit (posted under your GitHub account, only if you press Submit), or **Copy** keeps it on your Mac to send however you like. Details: [SECURITY.md](SECURITY.md).
 
 ## System requirements
 

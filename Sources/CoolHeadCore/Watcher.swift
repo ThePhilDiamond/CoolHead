@@ -10,6 +10,8 @@ public struct LiveCard: Identifiable {
     public var start: Date? = nil
     public let card: Card
     public let details: [String]
+    /// What a report may call this card's process: anonymised as in the case report.
+    public var reportSubject = "the Mac as a whole"
     /// The anonymised case report, for cards that offer "Share this case".
     public var report: (title: String, body: String)? = nil
     /// True for cards that should notify when they last: stalled, or busy with no explanation.
@@ -31,6 +33,13 @@ public final class Watcher {
     public private(set) var dismissed: Set<String> = []
     /// Cards put off until a time, by their cause (a process, or a Mac-wide condition).
     public private(set) var snoozed: [String: Date] = [:]
+    /// Cool Head's own recent activity, for "Report a problem": which cards appeared and cleared, which buttons
+    /// were pressed and what happened. Anonymised as it is written, kept in memory only, never on disk, and
+    /// limited to the last 6 hours.
+    public private(set) var activity: [LogEntry] = []
+    public struct LogEntry { public let t: Date; public let text: String }
+    /// Set to open the "Report a problem" form (from the bottom row, the right-click menu, or after a fix).
+    public var showReport = false
     /// Processes put on background priority by "Run it cooler", by process number and start time.
     public private(set) var cooled: Set<String> = []
     /// Called on the main thread when a card has needed a look for 10 minutes, once per card.
@@ -43,6 +52,7 @@ public final class Watcher {
     @ObservationIgnored private var lastTick: Date?
     @ObservationIgnored private var firstSeen: [String: Date] = [:]
     @ObservationIgnored private var alerted: Set<String> = []
+    @ObservationIgnored private var seenIDs: Set<String> = []
     @ObservationIgnored private let queue = DispatchQueue(label: "coolhead.watcher", qos: .utility)
     @ObservationIgnored private var timer: DispatchSourceTimer?
 
@@ -73,8 +83,20 @@ public final class Watcher {
 
     /// Hides a card until a time; it comes back then if its cause is still there.
     public func snooze(_ card: LiveCard, until: Date) {
+        log("Chose to wait on \(card.reportSubject) until \(Fmt.clock(until))")
         snoozed[card.cause] = until
         cards.removeAll { $0.cause == card.cause }
+    }
+
+    /// Adds to the activity log. `text` must already be anonymised (use `reportSubject`, never paths or names).
+    public func log(_ text: String) {
+        let now = Date()
+        let add = { [self] in
+            activity.append(LogEntry(t: now, text: text))
+            activity.removeAll { now.timeIntervalSince($0.t) > 6 * 3600 }
+            if activity.count > 300 { activity.removeFirst(activity.count - 300) }
+        }
+        if Thread.isMainThread { add() } else { DispatchQueue.main.async(execute: add) }
     }
 
     /// The result of acting on a card, to show the person.
@@ -88,15 +110,18 @@ public final class Watcher {
     }
 
     public func stop(_ c: LiveCard) -> Outcome {
-        guard let p = c.pid, sameProcess(c) else { return .gone }
-        return kill(p, SIGTERM) == 0 ? .done : .failed(String(cString: strerror(errno)))
+        guard let p = c.pid, sameProcess(c) else { log("Stop pressed for \(c.reportSubject): it had already gone"); return .gone }
+        let ok = kill(p, SIGTERM) == 0
+        let why = ok ? "" : String(cString: strerror(errno))
+        log("Stop pressed for \(c.reportSubject): " + (ok ? "stopped" : "failed (\(why))"))
+        return ok ? .done : .failed(why)
     }
 
     public func isCooled(_ c: LiveCard) -> Bool { cooled.contains(Watcher.key(c)) }
 
     /// Background priority on or off; checks macOS accepted it by reading it back.
     public func setCooler(_ c: LiveCard, on: Bool) -> Outcome {
-        guard let p = c.pid, sameProcess(c) else { return .gone }
+        guard let p = c.pid, sameProcess(c) else { log("Run it cooler pressed for \(c.reportSubject): it had already gone"); return .gone }
         guard setpriority(4 /* PRIO_DARWIN_PROCESS */, id_t(p), on ? 0x1000 /* PRIO_DARWIN_BG */ : 0) == 0 else {
             return .failed(String(cString: strerror(errno)))
         }
@@ -104,6 +129,7 @@ public final class Watcher {
         let now = getpriority(4, id_t(p))
         guard errno == 0, (now == 0x1000) == on else { return .failed("macOS didn't apply it") }
         if on { cooled.insert(Watcher.key(c)) } else { cooled.remove(Watcher.key(c)) }
+        log((on ? "Run it cooler" : "Back to full speed") + " pressed for \(c.reportSubject): applied")
         return .done
     }
 
@@ -173,6 +199,7 @@ public final class Watcher {
             let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm)
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
+            lc.reportSubject = CaseReport.subject(e)
             if c.fixes.contains(where: { $0.kind == .share }) {
                 lc.report = (CaseReport.title(e, card: c), CaseReport.make(e, card: c, mac: state, busySince: tr.busySince, now: now))
             }
@@ -198,7 +225,7 @@ public final class Watcher {
                 explanation: "Charging is fastest when the battery is low and slows once it passes about 80%. The Mac itself is using \(s.macWatts.map { "\(Int($0.rounded())) W" } ?? "less").",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix(id: "unplug", title: "Unplug for a while if the heat bothers you", consequence: "The battery stops charging; plug back in later.", kind: .info)]),
-                details: s.lines()))
+                details: s.lines(), reportSubject: "fast charging adding heat"))
         }
         if s.memoryPressure == "warning" || s.memoryPressure == "critical" {
             let top = tracks.max { $0.value.footprint < $1.value.footprint }
@@ -222,7 +249,7 @@ public final class Watcher {
                 state: .unknown,
                 headline: "Memory is \(s.memoryPressure == "critical" ? "very " : "")tight. \(who) is using the most, \(size).",
                 explanation: String(format: "macOS reports memory pressure as %@, and %.1f GB of %.1f GB of swap is in use, so it is moving memory to the disk, which slows everything down.", s.memoryPressure, s.swapUsedMB / 1024, s.swapTotalMB / 1024),
-                fixes: fixes), details: s.lines()))
+                fixes: fixes), details: s.lines(), reportSubject: "memory running short (\(s.memoryPressure))"))
         }
         return out
     }
@@ -233,6 +260,14 @@ public final class Watcher {
             mac = state
             overhead = own
             snoozed = snoozed.filter { $0.value > now }
+            let before = Dictionary(cards.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            let after = Dictionary(live.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            for (id, c) in after where before[id] == nil && seenIDs.insert(id).inserted {
+                log(c.pid == nil ? "Card: \(c.reportSubject)" : "Card: \(c.reportSubject), \(CaseReport.stateWords(c.card.state))")
+            }
+            for (id, c) in before where after[id] == nil && !live.contains(where: { $0.cause == c.cause }) {
+                log("Cleared: \(c.reportSubject)"); seenIDs.remove(id)
+            }
             cards = live.filter { !dismissed.contains($0.id) && snoozed[$0.cause] == nil }
             // notify once for a card that has needed a look for 10 minutes; forget cards that went away
             let ids = Set(live.filter(\.needsLook).map(\.id))

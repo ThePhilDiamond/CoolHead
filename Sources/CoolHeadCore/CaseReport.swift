@@ -46,6 +46,9 @@ public enum CaseReport {
     /// developer: those are software anyone can have. Anything else is described only by its kind, because its
     /// name could be the person's own work (their own builds and their employer's tools are often signed too).
     /// No Team ID is ever included: for an individual developer it leads to their name.
+    /// What a report may call this process (see `identity`).
+    public static func subject(_ e: Evidence) -> String { identity(e, short: false) }
+
     static func identity(_ e: Evidence, short: Bool = false) -> String {
         if let p = e.path, isMacOS(p) { return short ? e.name : "\(e.name) (part of macOS)" }
         if let p = e.path, let app = e.app, inApplications(p), teamID(p) != nil {
@@ -79,7 +82,7 @@ public enum CaseReport {
         return team
     }
 
-    static func stateWords(_ s: JobState) -> String {
+    public static func stateWords(_ s: JobState) -> String {
         switch s {
         case .working: return "working"
         case .waiting: return "waiting"
@@ -109,7 +112,7 @@ public enum CaseReport {
         return g < 1 ? "\(max(100, Int((g * 10).rounded()) * 100)) MB" : String(format: "%.0f GB", g.rounded())
     }
 
-    static func model() -> String {
+    public static func model() -> String {
         var size = 0
         sysctlbyname("hw.model", nil, &size, nil, 0)
         var buf = [CChar](repeating: 0, count: max(size, 1))
@@ -123,7 +126,7 @@ public enum CaseReport {
         return "\(m), \(c)"
     }
 
-    static func macOS() -> String {
+    public static func macOS() -> String {
         let v = ProcessInfo.processInfo.operatingSystemVersion
         return "\(v.majorVersion).\(v.minorVersion)"
     }

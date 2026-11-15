@@ -52,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
             popover.performClose(nil)
             let menu = NSMenu()
+            menu.addItem(withTitle: "Report a Problem…", action: #selector(report), keyEquivalent: "").target = self
             menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
             menu.addItem(.separator())
             menu.addItem(withTitle: "Quit Cool Head", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -68,6 +69,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     @objc func about() { About.show() }
+
+    @objc func report() {
+        Watcher.shared.showReport = true
+        guard let button = item.button else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+    }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -204,6 +213,7 @@ enum Snapshot {
     static func take(to prefix: String) {
         let after = Double(ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_AFTER"] ?? "") ?? 25
         DispatchQueue.main.asyncAfter(deadline: .now() + after) {
+            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] != nil { Watcher.shared.showReport = true }
             for (name, look) in [("light", NSAppearance.Name.aqua), ("dark", NSAppearance.Name.darkAqua)] {
                 let host = NSHostingView(rootView: PanelView(watcher: Watcher.shared).background(.background))
                 host.appearance = NSAppearance(named: look)

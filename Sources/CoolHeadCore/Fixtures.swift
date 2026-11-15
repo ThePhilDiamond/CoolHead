@@ -38,7 +38,16 @@ public struct Fixture {
         let mds = Evidence.sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Support/mds_stores",
                                   start: now, cores: 1)
         let mdsReport = CaseReport.make(mds, card: Card.make(mds, now: now), mac: MacState(), busySince: now, now: now)
-        let privacy = [("case-report-leaks-nothing", found.isEmpty, found.isEmpty ? "no private detail in the report" : "leaked: \(found)"),
+        // the problem report's activity log names processes only as the case report would
+        var leakyCardLive = LiveCard(id: "x", pid: 4242, card: leakyCard, details: leaky.lines())
+        leakyCardLive.reportSubject = CaseReport.subject(leaky)
+        let problem = ProblemReport.make(kind: ProblemReport.kinds[0], words: "",
+                                         activity: [.init(t: now, text: "Card: \(leakyCardLive.reportSubject), can't tell"),
+                                                    .init(t: now, text: "Stop pressed for \(leakyCardLive.reportSubject): stopped")],
+                                         cards: [leakyCardLive], mac: MacState(), now: now)
+        let problemFound = ["alice", "Secret", "payroll", "payslips", "abc123", "go.sh", "4242", ".venv", "/Users"].filter { problem.contains($0) }
+        let privacy = [("problem-report-leaks-nothing", problemFound.isEmpty, problemFound.isEmpty ? "no private detail in the problem report" : "leaked: \(problemFound)"),
+                       ("case-report-leaks-nothing", found.isEmpty, found.isEmpty ? "no private detail in the report" : "leaked: \(found)"),
                        ("case-report-names-macos", mdsReport.contains("mds_stores (part of macOS)"), "macOS processes keep their name")]
         // review of 15 November 2026: each finding that was fixed keeps a check here
         var review: [(String, Bool, String)] = []

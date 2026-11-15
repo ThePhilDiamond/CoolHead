@@ -10,6 +10,10 @@ Most of the work on Cool Head starts with a report. [Open an issue](../../issues
 - what you saw on the card, and what you think was really going on,
 - what `coolhead why <name>` printed for that process. Read it over before posting: it shows command lines and folder names.
 
+## Report a problem from the app
+
+If a fix caused trouble, or Cool Head isn't working right, use **Report a problem** (the speech-bubble icon at the bottom of the panel, or right-click the menu bar icon). It shows you everything it would share, and opens a GitHub issue for you to submit.
+
 ## Share a case it couldn't explain
 
 When a card says "Can't tell" or "looks stuck", **Share this case** shows you an anonymised report and opens it as a GitHub issue for you to submit. You see every word first. `coolhead case <name>` prints the same report in Terminal.
