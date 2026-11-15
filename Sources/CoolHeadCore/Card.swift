@@ -147,7 +147,10 @@ public struct Card {
             var fixes: [Fix] = []
             if long {
                 if k.whenLong == "Look it up" { fixes.append(lookUp(e.name, recommended: true)) }
-                else { fixes.append(Fix(id: "advice", title: k.whenLong, consequence: k.risk ?? "", kind: .info, recommended: true)) }
+                else {
+                    fixes.append(Fix(id: "advice", title: k.whenLong, consequence: k.risk ?? "", kind: .info, recommended: true))
+                    fixes.append(lookUp(e.name, recommended: false))
+                }
                 fixes.append(wait(until: nil, now: now, recommended: false))
                 fixes.append(share)
             } else {
@@ -172,7 +175,8 @@ public struct Card {
                         explanation: "Each tab and extension runs as its own process. macOS can't see which one this is, but \(app) can.",
                         fixes: [Fix(id: "find", title: "Find it: in \(app), choose \(tm)", consequence: "Sort by CPU, then close just that tab or extension.", kind: .info, recommended: true),
                                 wait(until: nil, now: now, recommended: false),
-                                e.quittableBundle.map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes every tab and window; most browsers can reopen them.", kind: .quitApp($0)) }].compactMap { $0 })
+                                (e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes every tab and window; most browsers can reopen them, but text typed into a page and not yet sent is lost.", kind: .quitApp($0)) },
+                                lookUp(e.name, recommended: false)].compactMap { $0 })
         }
 
         switch state {

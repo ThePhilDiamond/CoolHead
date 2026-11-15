@@ -123,11 +123,14 @@ public enum MemoryAdvice {
             }
         case .macOS:
             expl += " That is part of macOS, so the way to free memory is to close apps you aren't using."
+            fixes.append(Fix(id: "lookup", title: "Look it up", consequence: "Opens a web search for \u{201C}\(top.name)\u{201D} in your browser. Nothing else is sent.",
+                             kind: .lookUp(top.name)))
         case .other:
-            break
+            fixes.append(Fix(id: "lookup", title: "Look it up", consequence: "Opens a web search for \u{201C}\(top.name)\u{201D} in your browser. Nothing else is sent.",
+                             kind: .lookUp(top.name)))
         }
         // the next largest app that can be quit, as a second way to free memory
-        if let alt = groups.dropFirst().prefix(3).first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil }), let b = alt.bundle {
+        if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil }), let b = alt.bundle {
             let risk = alt.kind == .browser ? "Closes every tab and window." : (quitRisks[alt.name] ?? "It asks you to save anything open.")
             fixes.append(Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees about \(Fmt.bytes(alt.bytes)). " + risk, kind: .quitApp(b)))
         }

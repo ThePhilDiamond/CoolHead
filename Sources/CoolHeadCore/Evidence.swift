@@ -198,6 +198,14 @@ extension Evidence {
     /// helper inside it and not a script runtime (Homebrew's Python is an app bundle too; quitting it stops a job).
     public var quittableApp: String? { quittableBundle.map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension } }
 
+    /// The installed app this process belongs to, even when it is a helper deep inside it (a browser's tab process):
+    /// the outermost .app in an Applications folder. For offering to quit the whole app.
+    public var outerBundle: String? {
+        guard script == nil, let p = path, let r = p.range(of: ".app/") else { return nil }
+        let bundle = String(p[..<r.lowerBound]) + ".app"
+        return bundle.hasPrefix("/Applications/") || bundle.hasPrefix(NSHomeDirectory() + "/Applications/") ? bundle : nil
+    }
+
     /// The bundle path of that app, used to find it among running apps.
     public var quittableBundle: String? {
         guard script == nil, let p = path else { return nil }

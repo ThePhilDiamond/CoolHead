@@ -17,7 +17,15 @@ public struct LiveCard: Identifiable {
     /// True for cards that should notify when they last: stalled, or busy with no explanation.
     public var needsLook: Bool { card.state == .stalled || card.state == .unknown }
     /// What the card is about, whatever its state: the process, or the Mac-wide condition.
-    public var cause: String { pid.map { "pid-\($0)" } ?? id }
+    public var cause: String { causeKey ?? pid.map { "pid-\($0)" } ?? id }
+    /// Overrides the cause, so a card keeps one identity as it changes (the memory card, warning or critical).
+    public var causeKey: String? = nil
+    /// How bad it is, to tell whether a card the person chose to wait on has got meaningfully worse:
+    /// 2 for stuck or critical memory, 1 for something that needs a look, 0 otherwise.
+    public var severity: Int {
+        if card.state == .stalled || id.hasPrefix("memory-critical") { return 2 }
+        return needsLook ? 1 : 0
+    }
 }
 
 /// Samples every process on a timer and turns sustained load into cards.
@@ -32,7 +40,8 @@ public final class Watcher {
     public private(set) var overhead: Double = 0
     public private(set) var dismissed: Set<String> = []
     /// Cards put off until a time, by their cause (a process, or a Mac-wide condition).
-    public private(set) var snoozed: [String: Date] = [:]
+    /// Each waited-on cause: until when, and how bad it was when the person chose to wait.
+    public private(set) var snoozed: [String: (until: Date, severity: Int)] = [:]
     /// Cool Head's own recent activity, for "Report a problem": which cards appeared and cleared, which buttons
     /// were pressed and what happened. Anonymised as it is written, kept in memory only, never on disk, and
     /// limited to the last 6 hours.
@@ -84,7 +93,7 @@ public final class Watcher {
     /// Hides a card until a time; it comes back then if its cause is still there.
     public func snooze(_ card: LiveCard, until: Date) {
         log("Chose to wait on \(card.reportSubject) until \(Fmt.clock(until))")
-        snoozed[card.cause] = until
+        snoozed[card.cause] = (until, card.severity)
         cards.removeAll { $0.cause == card.cause }
     }
 
@@ -141,8 +150,7 @@ public final class Watcher {
     /// a green circle when all is well, a yellow triangle when something needs a look, a red octagon for a problem.
     public enum Level { case good, warning, issue }
     public var level: Level {
-        if cards.contains(where: { $0.card.state == .stalled }) || mac.thermal == "serious" || mac.thermal == "critical"
-            || mac.memoryPressure == "critical" { return .issue }
+        if cards.contains(where: { $0.severity >= 2 }) || mac.thermal == "serious" || mac.thermal == "critical" { return .issue }
         if cards.contains(where: { $0.needsLook }) { return .warning }
         return .good
     }
@@ -241,9 +249,11 @@ public final class Watcher {
                 if let e = g.evidence { return "memory running short (\(s.memoryPressure)); most used by \(CaseReport.subject(e))" }
                 return "memory running short (\(s.memoryPressure)); most used by " + (g.kind == .macOS || g.bundle != nil ? g.name : "a program (its name is withheld)")
             } ?? "memory running short (\(s.memoryPressure))"
-            out.append(LiveCard(id: "memory-\(s.memoryPressure)", pid: top?.kind == .job ? top?.pid : nil,
-                                start: top?.kind == .job ? top?.evidence?.start : nil,
-                                card: card, details: s.lines(), reportSubject: subject))
+            var mc = LiveCard(id: "memory-\(s.memoryPressure)", pid: top?.kind == .job ? top?.pid : nil,
+                              start: top?.kind == .job ? top?.evidence?.start : nil,
+                              card: card, details: s.lines(), reportSubject: subject)
+            mc.causeKey = "memory"
+            out.append(mc)
         }
         return out
     }
@@ -253,7 +263,9 @@ public final class Watcher {
         DispatchQueue.main.async { [self] in
             mac = state
             overhead = own
-            snoozed = snoozed.filter { $0.value > now }
+            snoozed = snoozed.filter { $0.value.until > now }
+            // a waited-on card stays hidden (and the badge green) until its time, unless it gets meaningfully worse
+            func waitingOn(_ c: LiveCard) -> Bool { snoozed[c.cause].map { c.severity <= $0.severity } ?? false }
             let before = Dictionary(cards.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             let after = Dictionary(live.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             for (id, c) in after where before[id] == nil && seenIDs.insert(id).inserted {
@@ -262,12 +274,12 @@ public final class Watcher {
             for (id, c) in before where after[id] == nil && !live.contains(where: { $0.cause == c.cause }) {
                 log("Cleared: \(c.reportSubject)"); seenIDs.remove(id)
             }
-            cards = live.filter { !dismissed.contains($0.id) && snoozed[$0.cause] == nil }
+            cards = live.filter { !dismissed.contains($0.id) && !waitingOn($0) }
             // notify once for a card that has needed a look for 10 minutes; forget cards that went away
             let ids = Set(live.filter(\.needsLook).map(\.id))
             for c in live where c.needsLook {
                 if firstSeen[c.id] == nil { firstSeen[c.id] = now }
-                if !alerted.contains(c.id), now.timeIntervalSince(firstSeen[c.id]!) >= 600, !dismissed.contains(c.id), snoozed[c.cause] == nil {
+                if !alerted.contains(c.id), now.timeIntervalSince(firstSeen[c.id]!) >= 600, !dismissed.contains(c.id), !waitingOn(c) {
                     alerted.insert(c.id)
                     onAlert?(c)
                 }

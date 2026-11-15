@@ -104,6 +104,24 @@ public struct Fixture {
         let jobCard = MemoryAdvice.card([jobGroup], mac: tight, now: now)
         review.append(("memory-job-stop", jobCard.fixes.contains { $0.kind == .stop && $0.consequence.contains("Frees about") && $0.consequence.contains("lose up to") },
                        "a memory-heavy job can be stopped, with what that frees and costs"))
+        // Phil's rule (15 November 2026): no warning offers only "wait". Every card that needs a look must have an
+        // option that does something (stop, slow, quit, look up or share).
+        func actionable(_ c: Card) -> Bool {
+            c.fixes.contains { f in if case .wait = f.kind { return false }; return f.kind != .info }
+        }
+        let warnings = all(now).map { f in Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)) }
+            .filter { $0.state == .stalled || $0.state == .unknown } + [browserCard, dockerCard, jobCard,
+            MemoryAdvice.card([MemGroup(key: "m", name: "WindowServer", kind: .macOS, bundle: nil, bytes: 3_000_000_000, count: 1)], mac: tight, now: now)]
+        let bare = warnings.filter { !actionable($0) }.map(\.headline)
+        review.append(("no-warning-only-waits", bare.isEmpty, bare.isEmpty ? "all \(warnings.count) warnings have a real option" : "only wait: \(bare)"))
+        // waiting on a card hides it until its time unless it gets worse: a "needs a look" card that becomes
+        // "stuck" (or tight memory that becomes critical) outranks what was waited on
+        let unknownCard = LiveCard(id: "1-unknown", pid: 1, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
+        let stuckCard = LiveCard(id: "1-stalled", pid: 1, card: Card(state: .stalled, headline: "", explanation: "", fixes: []), details: [])
+        let memWarn = LiveCard(id: "memory-warning", pid: nil, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
+        let memCrit = LiveCard(id: "memory-critical", pid: nil, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
+        review.append(("wait-returns-only-if-worse", unknownCard.severity == 1 && stuckCard.severity == 2 && memWarn.severity == 1 && memCrit.severity == 2
+                       && unknownCard.cause == stuckCard.cause, "waited at 1; returns at 2 for the same cause"))
         return quit + privacy + review + all(now).map { f in
             let c = Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor))
             var problems: [String] = []
