@@ -122,6 +122,23 @@ public struct Fixture {
         let memCrit = LiveCard(id: "memory-critical", pid: nil, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
         review.append(("wait-returns-only-if-worse", unknownCard.severity == 1 && stuckCard.severity == 2 && memWarn.severity == 1 && memCrit.severity == 2
                        && unknownCard.cause == stuckCard.cause, "waited at 1; returns at 2 for the same cause"))
+        // Run it cooler, for real, on a child process of our own (problem report, 15 November 2026: it said "macOS
+        // didn't apply it" because getpriority can't report the setting; it is confirmed by scheduling priority now)
+        let child = Process()
+        child.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        child.arguments = ["20"]
+        if (try? child.run()) != nil {
+            let cpid = child.processIdentifier
+            usleep(200_000)
+            let lc = LiveCard(id: "t", pid: cpid, start: Proc.bsd(cpid)?.start, card: Card(state: .working, headline: "", explanation: "", fixes: []), details: [])
+            let w = Watcher()
+            let on = w.setCooler(lc, on: true), down = Proc.schedulingPriority(cpid) ?? -1
+            let off = w.setCooler(lc, on: false), up = Proc.schedulingPriority(cpid) ?? -1
+            child.terminate()
+            func ok(_ o: Watcher.Outcome) -> Bool { if case .done = o { return true }; return false }
+            review.append(("run-it-cooler-really-works", ok(on) && ok(off) && down <= 4 && up > 4,
+                           "background priority \(down), back to \(up)"))
+        }
         return quit + privacy + review + all(now).map { f in
             let c = Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor))
             var problems: [String] = []

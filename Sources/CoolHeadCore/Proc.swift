@@ -56,6 +56,16 @@ public enum Proc {
         return out
     }
 
+    /// The process's scheduling priority (what `ps -o pri` shows): about 31 normally, 4 in macOS's background
+    /// band. This is how to confirm "Run it cooler" took effect: getpriority(PRIO_DARWIN_PROCESS) always reports 0
+    /// for other processes, whatever their setting.
+    public static func schedulingPriority(_ pid: pid_t) -> Int? {
+        var info = proc_taskinfo()
+        let size = Int32(MemoryLayout<proc_taskinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, size) == size else { return nil }
+        return Int(info.pti_priority)
+    }
+
     public static func allPIDs() -> [pid_t] {
         let n = proc_listallpids(nil, 0)
         guard n > 0 else { return [] }

@@ -130,13 +130,23 @@ public final class Watcher {
 
     /// Background priority on or off; checks macOS accepted it by reading it back.
     public func setCooler(_ c: LiveCard, on: Bool) -> Outcome {
-        guard let p = c.pid, sameProcess(c) else { log("Run it cooler pressed for \(c.reportSubject): it had already gone"); return .gone }
+        let what = on ? "Run it cooler" : "Back to full speed"
+        guard let p = c.pid, sameProcess(c) else { log("\(what) pressed for \(c.reportSubject): it had already gone"); return .gone }
         guard setpriority(4 /* PRIO_DARWIN_PROCESS */, id_t(p), on ? 0x1000 /* PRIO_DARWIN_BG */ : 0) == 0 else {
-            return .failed(String(cString: strerror(errno)))
+            let why = String(cString: strerror(errno))
+            log("\(what) pressed for \(c.reportSubject): failed (\(why))")
+            return .failed(why)
         }
-        errno = 0
-        let now = getpriority(4, id_t(p))
-        guard errno == 0, (now == 0x1000) == on else { return .failed("macOS didn't apply it") }
+        // confirm by its scheduling priority: the background band is 4 (getpriority can't report this setting for
+        // another process, so it isn't used). macOS may take a moment to move it, so look twice.
+        if let first = Proc.schedulingPriority(p) {
+            var pri = first
+            if (pri <= 4) != on { usleep(300_000); pri = Proc.schedulingPriority(p) ?? pri }
+            guard (pri <= 4) == on else {
+                log("\(what) pressed for \(c.reportSubject): set, but its priority stayed at \(pri)")
+                return .failed("macOS accepted it, but the process's priority didn't change (\(pri))")
+            }
+        }
         if on { cooled.insert(Watcher.key(c)) } else { cooled.remove(Watcher.key(c)) }
         log((on ? "Run it cooler" : "Back to full speed") + " pressed for \(c.reportSubject): applied")
         return .done
