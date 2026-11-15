@@ -17,19 +17,23 @@ Every card comes from the same steps.
    - **stalled**: it has reported no progress for longer than 30 minutes and longer than three of its own usual gaps between progress lines;
    - **can't tell**: it has been busy for a long time with no sign either way.
 5. **Match.** It is looked up in the [catalogue](../Sources/CoolHeadCore/Catalogue.swift) of known patterns: what it is, when it is normal, how long is normal, and the risk of stopping it.
-6. **Card.** One sentence: what it is and whether that is fine. One action. If acting would cost something, one line saying what.
+6. **Card.** One sentence: what it is and whether that is fine. Behind **Explore fixes**: how we know, and the options, each with its consequence, one recommended.
 7. **Afterwards.** Whether the action helped. *(Planned: power and heat before and after.)*
 
 Where these steps cannot reach an answer, the card says so plainly ("Can't tell whether it is working or stuck") and offers **Look it up**, a web search for the process name only. Cards that can't reach an answer, or that look stuck, also offer **Share this case**: an anonymised report of what Cool Head saw, shown in full first, which you can open as a GitHub issue. Shared cases are reviewed and become catalogue entries through pull requests; nothing reaches the catalogue automatically, and the catalogue only changes with app releases.
 
 ## What each state allows
 
-| State | Card says | Action offered | Stopping |
+Every card has one button, **Explore fixes**. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause. One option is recommended, from the state:
+
+| State | Card says | Recommended | Stopping |
 | --- | --- | --- | --- |
-| working | how far along, and when it should finish | Let it finish (and Run it cooler, when the Mac is warm) | not offered; the card says how much work stopping would lose |
-| waiting | what it is waiting for | Nothing to do | not offered |
-| stalled | no progress since when | Stop it | offered, with what it would lose (nothing since its last progress) |
-| can't tell | how long it has been busy | Look it up | not offered; the card warns against stopping it unknown |
+| working | how far along, and when it should finish | do nothing and check back when it should be done (or run it cooler, when the Mac is warm) | offered, saying how much work would be lost and what may be left half-written |
+| waiting | what it is waiting for | do nothing | offered, with the same warning |
+| stalled | no progress since when | stop it (nothing since its last progress is lost) | recommended |
+| can't tell | how long it has been busy | look it up, or share the case | offered, with a warning not to stop something unknown |
+
+Stopping, running cooler and quitting are offered only for the person's own processes, and quitting only for apps installed in an Applications folder.
 
 ## The catalogue
 
