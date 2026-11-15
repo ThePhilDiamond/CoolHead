@@ -18,7 +18,7 @@ The menu bar panel, about 360 points wide, nothing else:
 - Status line: "Running warm: 1 cause" or "All calm".
 - Cards: one sentence each, and Explore fixes.
 - "N things today": past causes, with times.
-- Along the bottom: battery health, then switches for notifications and open at login, and icons for Activity Monitor, About and Quit. The version sits small at the top right. Right-clicking the menu bar icon shows About and Quit.
+- Along the bottom: battery health, then switches for notifications and open at login, and icons for Activity Monitor, About and Quit. The name and version ("Cool Head v0.1.0") sit small at the top right. Right-clicking the menu bar icon shows About and Quit.
 
 No tabs, no tables, no process list. Activity Monitor is one click away, from the icon at the bottom of the panel, for anyone who wants the raw list.
 

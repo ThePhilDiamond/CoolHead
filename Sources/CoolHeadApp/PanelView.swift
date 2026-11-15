@@ -13,7 +13,7 @@ struct PanelView: View {
                     .accessibilityLabel(watcher.level == .good ? "All well" : watcher.level == .warning ? "Needs a look" : "Problem")
                 Text(status).font(.headline)
                 Spacer()
-                Text("v\(CoolHead.version)").font(.caption2).foregroundStyle(Ink.muted)
+                Text("Cool Head v\(CoolHead.version)").font(.caption2).foregroundStyle(Ink.muted)
             }
             if shownCards.isEmpty {
                 Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
