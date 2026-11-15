@@ -38,7 +38,7 @@ jobs:
           echo "**Downloads:** \`Cool-Head-${GITHUB_REF_NAME}.zip\` is the app; \`.sig\` is its signature, which the in-app updater checks; \`SHA256SUMS.txt\` is its checksum. All changes: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)." >> build/notes.md
           echo "TITLE=Cool Head $v" >> "$GITHUB_ENV"
           cat build/notes.md
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             build/Cool-Head-${{ github.ref_name }}.zip
