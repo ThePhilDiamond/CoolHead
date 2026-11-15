@@ -99,10 +99,15 @@ enum Alerts {
 enum About {
     static func show() {
         NSApp.activate(ignoringOtherApps: true)
-        let credits = NSMutableAttributedString(string: "Why is my Mac hot? One sentence, one action.\nFree and open source under the GNU AGPL v3.0.\n\n")
+        let body = NSFont.systemFont(ofSize: 11)
+        let italic = NSFontManager.shared.convert(NSFont.systemFont(ofSize: 12), toHaveTrait: .italicFontMask)
+        let center = NSMutableParagraphStyle(); center.alignment = .center
+        let credits = NSMutableAttributedString(string: "Let cooler heads prevail.\n\n", attributes: [.font: italic])
+        credits.append(NSAttributedString(string: "Why is my Mac hot or slow? One sentence, one action.\nFree and open source under the GNU AGPL v3.0.\n\n",
+                                          attributes: [.font: body]))
         credits.append(NSAttributedString(string: "github.com/ThePhilDiamond/CoolHead",
-                                          attributes: [.link: URL(string: "https://github.com/ThePhilDiamond/CoolHead")!]))
-        credits.addAttribute(.font, value: NSFont.systemFont(ofSize: 11), range: NSRange(location: 0, length: credits.length))
+                                          attributes: [.font: body, .link: URL(string: "https://github.com/ThePhilDiamond/CoolHead")!]))
+        credits.addAttribute(.paragraphStyle, value: center, range: NSRange(location: 0, length: credits.length))
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Cool Head"])
     }
 }

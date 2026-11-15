@@ -2,7 +2,7 @@
 
 <h1 align="center">Cool Head</h1>
 
-<p align="center">Why is my Mac hot? One sentence, one action.<br>A free, open-source menu bar app for macOS.</p>
+<p align="center"><em>Let cooler heads prevail.</em><br>Why is my Mac hot or slow? One sentence, one action.<br>A free, open-source menu bar app for macOS.</p>
 
 <p align="center"><img src="docs/images/panel-light.png" width="380" alt="The Cool Head panel: a card saying a photo export job is 45% done and when it should finish, with a Let it finish button"></p>
 
