@@ -87,6 +87,156 @@ func drawLine(_ s: CGFloat) {
     color(0x1F9BD7).setStroke(); b.stroke()
 }
 
+// MARK: - Line-art ice cubes (original drawings; drawn on a 1024 canvas, scaled by `s`)
+
+let ink = color(0x1F3B57), iceFill = color(0xFFFFFF), water = color(0x9ED8EE), amber = color(0xF5A623)
+
+struct Iso {
+    let top, l, r, mid, lb, rb, bot: NSPoint
+    init(cx: CGFloat, cy: CGFloat, w: CGFloat, h: CGFloat) {
+        let d = w * 0.58
+        top = NSPoint(x: cx, y: cy + h / 2 + d); l = NSPoint(x: cx - w, y: cy + h / 2); r = NSPoint(x: cx + w, y: cy + h / 2)
+        mid = NSPoint(x: cx, y: cy + h / 2 - d); lb = NSPoint(x: cx - w, y: cy - h / 2); rb = NSPoint(x: cx + w, y: cy - h / 2)
+        bot = NSPoint(x: cx, y: cy - h / 2 - d)
+    }
+    func outline() -> NSBezierPath { poly([top, r, rb, bot, lb, l]) }
+}
+
+func poly(_ pts: [NSPoint], closed: Bool = true) -> NSBezierPath {
+    let p = NSBezierPath(); p.move(to: pts[0]); pts.dropFirst().forEach { p.line(to: $0) }
+    if closed { p.close() }
+    p.lineJoinStyle = .round; p.lineCapStyle = .round; return p
+}
+
+func stroke(_ p: NSBezierPath, _ width: CGFloat, _ c: NSColor = ink) { p.lineWidth = width; c.setStroke(); p.stroke() }
+
+/// The front vertical edge as a lightning bolt: the ice has cracked into a bolt.
+func boltEdge(_ c: Iso) -> NSBezierPath {
+    let h = c.mid.y - c.bot.y, x = c.mid.x, j = h * 0.26
+    return poly([c.mid, NSPoint(x: x - j, y: c.mid.y - h * 0.5), NSPoint(x: x + j, y: c.mid.y - h * 0.5), c.bot], closed: false)
+}
+
+/// A puddle under the cube: a wavy, flattened blob.
+func puddle(cx: CGFloat, y: CGFloat, w: CGFloat) -> NSBezierPath {
+    let p = NSBezierPath()
+    p.move(to: NSPoint(x: cx - w, y: y))
+    p.curve(to: NSPoint(x: cx - w * 0.2, y: y - w * 0.22), controlPoint1: NSPoint(x: cx - w * 1.05, y: y - w * 0.2), controlPoint2: NSPoint(x: cx - w * 0.55, y: y - w * 0.12))
+    p.curve(to: NSPoint(x: cx + w * 0.95, y: y - w * 0.05), controlPoint1: NSPoint(x: cx + w * 0.25, y: y - w * 0.32), controlPoint2: NSPoint(x: cx + w * 0.9, y: y - w * 0.25))
+    p.curve(to: NSPoint(x: cx + w * 0.5, y: y + w * 0.16), controlPoint1: NSPoint(x: cx + w * 1.05, y: y + w * 0.08), controlPoint2: NSPoint(x: cx + w * 0.8, y: y + w * 0.16))
+    p.curve(to: NSPoint(x: cx - w, y: y), controlPoint1: NSPoint(x: cx, y: y + w * 0.16), controlPoint2: NSPoint(x: cx - w * 0.85, y: y + w * 0.14))
+    p.close(); p.lineJoinStyle = .round; return p
+}
+
+/// Drips running down the faces from the lower edges.
+func drips(_ c: Iso, _ sw: CGFloat) {
+    for (t, len) in [(0.3, 0.16), (0.72, 0.1)] as [(CGFloat, CGFloat)] {
+        for (a, b) in [(c.lb, c.bot), (c.bot, c.rb)] {
+            let x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t
+            let drop = NSBezierPath(); drop.move(to: NSPoint(x: x, y: y + (c.mid.y - c.bot.y) * len)); drop.line(to: NSPoint(x: x, y: y))
+            drop.lineCapStyle = .round; stroke(drop, sw * 0.9)
+        }
+    }
+}
+
+func lineCube(_ s: CGFloat, boltCrack: Bool, melting: Bool, glints: Bool, tileBG: Bool = true) {
+    let k = s / 1024
+    if tileBG {
+        let t = tile(s)
+        color(0xF5F9FC).setFill(); NSBezierPath(roundedRect: t, xRadius: s * 0.18, yRadius: s * 0.18).fill()
+    }
+    let c = Iso(cx: 512 * k, cy: (melting ? 545 : 515) * k, w: 225 * k, h: 245 * k)
+    let sw = 34 * k
+    if melting {
+        let pd = puddle(cx: 512 * k, y: c.bot.y + 18 * k, w: 330 * k)
+        water.setFill(); pd.fill(); stroke(pd, sw)
+    }
+    iceFill.setFill(); c.outline().fill()
+    stroke(poly([c.l, c.mid, c.r], closed: false), sw)
+    if boltCrack {
+        stroke(boltEdge(c), sw * 1.25, amber)
+    } else {
+        stroke(poly([c.mid, c.bot], closed: false), sw)
+    }
+    if glints {
+        // two short shine marks on the right face
+        let ax = c.mid.x + (c.r.x - c.mid.x) * 0.45, ay = c.mid.y - (c.mid.y - c.bot.y) * 0.35
+        for (i, len) in [CGFloat(70), 45].enumerated() {
+            let o = CGFloat(i) * 38 * k
+            stroke(poly([NSPoint(x: ax + o, y: ay - 30 * k), NSPoint(x: ax + o + len * 0.5 * k, y: ay - 30 * k + len * k)], closed: false), sw * 0.75)
+        }
+    }
+    if melting { drips(c, sw) }
+    stroke(c.outline(), sw)
+}
+
+func lerp(_ a: NSPoint, _ b: NSPoint, _ t: CGFloat) -> NSPoint { NSPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t) }
+
+/// The broken-line style: an outline with one gap near the top-left (where light catches the edge), a short
+/// shine dash beside it, and inner edges that stop short of the outline. `clearInside` empties the cube first,
+/// so a cube drawn in front hides the one behind.
+func gapCube(_ c: Iso, _ sw: CGFloat, _ inkColor: NSColor, clearInside: Bool) {
+    if clearInside {
+        NSGraphicsContext.current?.compositingOperation = .clear
+        c.outline().fill()
+        NSGraphicsContext.current?.compositingOperation = .sourceOver
+        if inkColor != .black { iceFill.setFill(); c.outline().fill() }
+    }
+    // outline, leaving a gap on the top-left edge between 35% and 55% of the way from l to top
+    stroke(poly([lerp(c.l, c.top, 0.55), c.top, c.r, c.rb, c.bot, c.lb, c.l, lerp(c.l, c.top, 0.35)], closed: false), sw, inkColor)
+    // a shine dash inside, parallel to that edge
+    let inset = NSPoint(x: (c.mid.x - c.l.x) * 0.16, y: (c.mid.y - c.l.y) * 0.16)
+    let a = lerp(c.l, c.top, 0.62), b = lerp(c.l, c.top, 0.82)
+    stroke(poly([NSPoint(x: a.x + inset.x, y: a.y + inset.y), NSPoint(x: b.x + inset.x, y: b.y + inset.y)], closed: false), sw, inkColor)
+    // inner edges, stopping short of the outline; the vertical one broken near its foot
+    stroke(poly([lerp(c.mid, c.l, 0.82), c.mid, lerp(c.mid, c.r, 0.82)], closed: false), sw, inkColor)
+    stroke(poly([c.mid, lerp(c.mid, c.bot, 0.55)], closed: false), sw, inkColor)
+    stroke(poly([lerp(c.mid, c.bot, 0.72), lerp(c.mid, c.bot, 0.8)], closed: false), sw, inkColor)
+}
+
+func gapTile(_ s: CGFloat, pair: Bool) {
+    let k = s / 1024
+    color(0xF5F9FC).setFill(); NSBezierPath(roundedRect: tile(s), xRadius: s * 0.18, yRadius: s * 0.18).fill()
+    if pair {
+        gapCube(Iso(cx: 430 * k, cy: 560 * k, w: 190 * k, h: 205 * k), 30 * k, ink, clearInside: true)
+        gapCube(Iso(cx: 640 * k, cy: 410 * k, w: 135 * k, h: 145 * k), 30 * k, ink, clearInside: true)
+    } else {
+        gapCube(Iso(cx: 512 * k, cy: 512 * k, w: 225 * k, h: 245 * k), 34 * k, ink, clearInside: true)
+    }
+}
+
+let lineOptions: [(String, (CGFloat) -> Void)] = [
+    ("cube", { lineCube($0, boltCrack: false, melting: false, glints: true) }),
+    ("crack", { lineCube($0, boltCrack: true, melting: false, glints: true) }),
+    ("melt", { lineCube($0, boltCrack: false, melting: true, glints: false) }),
+    ("crack-melt", { lineCube($0, boltCrack: true, melting: true, glints: false) }),
+    ("gap", { gapTile($0, pair: false) }),
+    ("pair", { gapTile($0, pair: true) }),
+]
+
+/// A template image for the menu bar: the same drawing in one colour, no tile.
+func menuTemplate(_ name: String) -> (CGFloat) -> Void {
+    return { s in
+        let bolt = name.contains("crack"), melt = name.contains("melt")
+        let k = s / 1024
+        if name == "gap" { gapCube(Iso(cx: 512 * k, cy: 512 * k, w: 330 * k, h: 360 * k), 80 * k, .black, clearInside: true); return }
+        if name == "pair" {
+            gapCube(Iso(cx: 400 * k, cy: 580 * k, w: 280 * k, h: 300 * k), 75 * k, .black, clearInside: true)
+            gapCube(Iso(cx: 700 * k, cy: 370 * k, w: 200 * k, h: 215 * k), 75 * k, .black, clearInside: true)
+            return
+        }
+        let c = Iso(cx: 512 * k, cy: (melt ? 560 : 512) * k, w: 330 * k, h: 360 * k)
+        let sw = 90 * k
+        if melt { stroke(puddle(cx: 512 * k, y: c.bot.y + 30 * k, w: 470 * k), sw * 0.8, .black) }
+        // clear the cube's inside rather than filling it, so the menu bar shows lines, not a solid shape
+        NSGraphicsContext.current?.compositingOperation = .clear
+        c.outline().fill()
+        NSGraphicsContext.current?.compositingOperation = .sourceOver
+        stroke(poly([c.l, c.mid, c.r], closed: false), sw, .black)
+        stroke(bolt ? boltEdge(c) : poly([c.mid, c.bot], closed: false), sw, .black)
+        stroke(c.outline(), sw, .black)
+    }
+}
+
 func render(_ draw: (CGFloat) -> Void, size: Int) -> Data { render(draw, width: size, height: size, scale: CGFloat(size)) }
 
 func render(_ draw: (CGFloat) -> Void, width: Int, height: Int, scale: CGFloat = 0) -> Data {
@@ -103,7 +253,7 @@ func render(_ draw: (CGFloat) -> Void, width: Int, height: Int, scale: CGFloat =
 
 let options: [(String, (CGFloat) -> Void)] = [("ice", drawIce), ("flat", drawFlat), ("line", drawLine)]
 for (name, draw) in options where which == "all" || which == name {
-    if which == "sheet" { break }
+    if which == "sheet" || which == "linesheet" { break }
     try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo-\(name).png"))
     // the app icon set, for iconutil
     let set = out.appendingPathComponent("AppIcon-\(name).iconset")
@@ -113,6 +263,52 @@ for (name, draw) in options where which == "all" || which == name {
         try! render(draw, size: base * 2).write(to: set.appendingPathComponent("icon_\(base)x\(base)@2x.png"))
     }
 }
+// "linesheet": the four line-art cubes, large, at Dock and Finder sizes, and as the menu bar icon, on light and dark.
+if which == "linesheet" {
+    let w = 2320, h = 820
+    try! render({ _ in
+        for (row, bg) in [(0, color(0xF5F5F7)), (1, color(0x1E1E1E))] {
+            bg.setFill(); NSBezierPath(rect: NSRect(x: 0, y: CGFloat(h) - CGFloat(row + 1) * 410, width: CGFloat(w), height: 410)).fill()
+        }
+        for (i, (name, draw)) in lineOptions.enumerated() {
+            let x = CGFloat(40 + i * 380)
+            for row in 0..<2 {
+                let top = CGFloat(h) - CGFloat(row) * 410
+                func place(_ d: (CGFloat) -> Void, _ px: CGFloat, _ py: CGFloat, _ size: CGFloat) {
+                    NSGraphicsContext.saveGraphicsState()
+                    let t = NSAffineTransform(); t.translateX(by: px, yBy: py); t.scale(by: size / 1024.0); t.concat()
+                    d(1024); NSGraphicsContext.restoreGraphicsState()
+                }
+                place(draw, x, top - 300, 240)
+                place(draw, x + 250, top - 110, 64)
+                place(draw, x + 266, top - 170, 32)
+                // the menu bar icon at its real size (18 points, drawn at 2x), in the menu bar's colour
+                let bar = NSRect(x: x + 240, y: top - 260, width: 84, height: 48)
+                (row == 0 ? color(0xE8E8EA) : color(0x2C2C2E)).setFill(); NSBezierPath(roundedRect: bar, xRadius: 8, yRadius: 8).fill()
+                NSGraphicsContext.saveGraphicsState()
+                let t = NSAffineTransform(); t.translateX(by: x + 264, yBy: top - 254); t.scale(by: 36.0 / 1024.0); t.concat()
+                if row == 1 {
+                    // white glyph on a dark bar: draw the template, then recolour by drawing with a light ink
+                    let img = NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { _ in menuTemplate(name)(1024); return true }
+                    let tinted = NSImage(size: img.size, flipped: false) { r in
+                        img.draw(in: r); NSColor.white.set(); r.fill(using: .sourceAtop); return true }
+                    tinted.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024))
+                } else {
+                    let img = NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { _ in menuTemplate(name)(1024); return true }
+                    let tinted = NSImage(size: img.size, flipped: false) { r in
+                        img.draw(in: r); NSColor.black.set(); r.fill(using: .sourceAtop); return true }
+                    tinted.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024))
+                }
+                NSGraphicsContext.restoreGraphicsState()
+                let label = ["Cube", "Crack", "Melt", "Crack and melt", "Gap", "Pair"][i]
+                (label as NSString).draw(at: NSPoint(x: x + 20, y: top - 360), withAttributes: [
+                    .font: NSFont.systemFont(ofSize: 26, weight: .semibold),
+                    .foregroundColor: row == 0 ? color(0x1D1D1F) : color(0xF5F5F7)])
+            }
+        }
+    }, width: w, height: h).write(to: out.appendingPathComponent("logo-line-options.png"))
+}
+
 // "sheet": the three options side by side, large and at Dock and Finder sizes, on light and dark.
 if which == "sheet" {
     let w = 1200, h = 760

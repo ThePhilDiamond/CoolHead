@@ -4,20 +4,20 @@ Drafted 14 November 2026 for Phil's review, at his request: *"we also should pos
 
 ## Journeys
 
-1. **"Why is my Mac hot?"** Click the menu bar icon. The panel opens on the answer: one card per cause, worst first. If all is calm, it says so in one line, with the last 24 hours as a strip.
+1. **"Why is my Mac hot?"** Click the menu bar icon. The panel opens on the answer: one card per cause, worst first. If all is calm, it says so in one line.
 2. **It tells you first.** Something has been abnormal for a while (default 10 minutes): the icon gets a dot, and a notification gives the card's one sentence. Clicking opens the panel on that card. No sound, at most one notification per cause.
 3. **Act.** The card's one button does the obvious thing (let it finish, run it cooler, close the tab, quit the app). Stopping anything asks once.
 4. **Look closer.** Tapping the card opens its evidence in place: the facts that led to the sentence, in plain lines. Nothing else to navigate.
 5. **Unknown.** The card says it is not sure and offers Look it up, which opens a web search for the process name in the browser. That is the only network use.
-6. **Looking back.** "What happened today?" is the 24-hour strip: heat, power and CPU on one line, with each past card as a mark you can tap.
+6. **Looking back.** "What happened today?" is a short list under the cards: each past cause with its time. (A 24-hour chart was tried and removed on 15 November 2026. Phil: *"I don't know what that chart/bar is at the bottom. Is it meant to be temperature? Speed? System resource load? It's not clear or actionable, which just adds confusing clutter."*)
 
 ## Layout
 
 The menu bar panel, about 360 points wide, nothing else:
 
 - Status line: "Running warm: 1 cause" or "All calm".
-- Cards, each two lines plus one button.
-- The 24-hour strip.
+- Cards: one sentence each, and Explore fixes.
+- "N things today": past causes, with times.
 - A small gear for settings (launch at login, notifications on or off).
 
 No tabs, no tables, no process list. Activity Monitor is one click away in the gear menu for anyone who wants the raw list.

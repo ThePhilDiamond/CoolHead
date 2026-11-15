@@ -1,5 +1,4 @@
 import AppKit
-import Charts
 import CoolHeadCore
 import SwiftUI
 
@@ -20,7 +19,6 @@ struct PanelView: View {
             } else {
                 ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
             }
-            Strip(history: watcher.strip, incidents: watcher.incidents)
             if !today.isEmpty {
                 DisclosureGroup(isExpanded: $showToday) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -174,53 +172,6 @@ struct FixRow: View {
             }
         }
     }
-}
-
-/// The last 24 hours on one line: how busy the Mac was, shaded where it ran warm, with each incident marked.
-struct Strip: View {
-    let history: [Sample]
-    let incidents: [Incident]
-
-    /// The last 24 hours, or since Cool Head first ran if that is more recent.
-    var from: Date { max(Date().addingTimeInterval(-86400), history.first?.t ?? Date()) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(Date().timeIntervalSince(from) > 23 * 3600 ? "Last 24 hours" : "Since \(Fmt.time(from))")
-                .font(.caption).foregroundStyle(.secondary)
-            if history.count < 2 {
-                Text("Builds up as Cool Head runs.").font(.caption2).foregroundStyle(.tertiary)
-            } else {
-                Chart {
-                    ForEach(Array(history.enumerated()), id: \.offset) { _, s in
-                        if s.thermal > 0 {
-                            RectangleMark(x: .value("Time", s.t), yStart: .value("", 0), yEnd: .value("", maxCores))
-                                .foregroundStyle(s.thermal >= 2 ? Color.red.opacity(0.18) : Color.orange.opacity(0.12))
-                        }
-                        AreaMark(x: .value("Time", s.t), y: .value("Cores", s.cores))
-                            .foregroundStyle(Color.accentColor.opacity(0.35))
-                            .interpolationMethod(.monotone)
-                    }
-                    ForEach(incidents.filter { $0.start > from }) { i in
-                        RuleMark(x: .value("Incident", i.start))
-                            .foregroundStyle(Color.orange)
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 2]))
-                    }
-                }
-                .chartXScale(domain: from...Date())
-                .chartYScale(domain: 0...maxCores)
-                .chartYAxis(.hidden)
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 3)) { v in
-                        AxisValueLabel { if let d = v.as(Date.self) { Text(Fmt.clock(d)) } }
-                    }
-                }
-                .frame(height: 54)
-            }
-        }
-    }
-
-    var maxCores: Double { max(1, (history.map(\.cores).max() ?? 1) * 1.1) }
 }
 
 struct SettingsMenu: View {

@@ -20,7 +20,7 @@ Activity Monitor shows numbers. Cool Head reads what a busy process is actually 
 
 It keeps a cool head: a big job is not a problem just because it is big. Stopping is only suggested when a job has stalled, and the card says what stopping would cost. When it can't tell, it says so and offers to look the process up.
 
-It also connects the dots across the Mac: fast charging that adds heat, memory running short, and the last 24 hours of load and heat on one line.
+It also connects the dots across the Mac: fast charging that adds heat, memory running short, and what needed a look earlier today.
 
 ## Privacy
 
