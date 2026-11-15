@@ -33,10 +33,12 @@ struct PanelView: View {
                     ForEach(watcher.notices, id: \.self) { n in
                         Label(n, systemImage: "hare").font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                     }
+                    ForEach(watcher.pausedJobs) { PausedJobRow(job: $0, watcher: watcher) }
+                    ForEach(watcher.syncPauses) { SyncPauseRow(pause: $0, watcher: watcher) }
                     ForEach(watcher.cooledList) { PinnedRow(item: $0, watcher: watcher) }
                     if watcher.showReport {
                         ProblemView(watcher: watcher)
-                    } else if shownCards.isEmpty {
+                    } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
                         Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
                             .foregroundStyle(Ink.muted)
                     } else {
@@ -71,6 +73,7 @@ struct PanelView: View {
     /// The heat word appears only when the Mac is warm or hot; otherwise the line is about what needs watching.
     var status: String {
         let n = shownCards.filter { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }.count
+            + watcher.syncPauses.filter { $0.until <= Date() }.count                    // syncing to resume
         let stuck = shownCards.filter { $0.card.state == .stalled }.count
         let jobs = shownCards.filter { $0.card.state == .working || $0.card.state == .starting }.count
         var watch: String?
@@ -154,7 +157,7 @@ struct CardView: View {
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(live.card.fixes) { f in
-                        FixRow(fix: f, cooled: watcher.isCooled(live), run: { act($0) })
+                        FixRow(fix: f, cooled: watcher.isCooled(live), run: { act($0) }, runUntil: { act($0, until: $1) })
                     }
                     if let n = note {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -234,8 +237,16 @@ struct CardView: View {
         }
     }
 
-    func act(_ fix: Fix) {
+    func act(_ fix: Fix, until: Date? = nil) {
         switch fix.kind {
+        case .pauseJob:
+            show(watcher.pauseJob(live))
+        case .pauseSync(let bundle, let name):
+            // Cool Head can't pause a sync app itself: it opens it, and reminds you to resume (saved, so it survives a restart)
+            guard let until else { return }
+            NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
+            watcher.addSyncPause(name: name, bundle: bundle, until: until)
+            note = "Now pause it from \(name)'s menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false
         case .wait(let until):
             watcher.snooze(live, until: until)
         case .stop:
@@ -467,6 +478,11 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.4.4": [
+            "Security software is never stopped or slowed.",
+            "Pause syncing for a set time, with a reminder to resume.",
+            "On battery, pause a heavy job until you plug in. Nothing is lost. Turn this off from the right-click menu.",
+        ],
         "0.4.3": [
             "Chrome without quitting it: slow just the busy tab, turn on Energy Saver, or turn off an extension.",
             "Close just one tab before ever quitting the whole browser.",
@@ -593,6 +609,51 @@ struct PinnedRow: View {
                 .padding(.leading, 40).accessibilityHidden(true)
         }
         .frozen()
+    }
+}
+
+/// A job paused until the Mac is plugged in: frozen, literally, so it wears the frost.
+struct PausedJobRow: View {
+    let job: PausedJob
+    let watcher: Watcher
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(job.name) is paused until you plug in").font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                Text("Since \(Fmt.time(job.since)). Nothing is lost.").font(.caption).foregroundStyle(Ink.muted)
+            }
+            Spacer(minLength: 4)
+            Button { watcher.resumeJob(job, why: "Resume now pressed") } label: { Label("Resume now", systemImage: "play") }
+                .buttonStyle(.bordered).controlSize(.small)
+        }
+        .padding(.horizontal, 36).padding(.vertical, 20)
+        .background(alignment: .leading) {
+            Image(systemName: "pause.circle.fill").font(.system(size: 56)).foregroundStyle(Color.primary.opacity(0.2))
+                .padding(.leading, 40).accessibilityHidden(true)
+        }
+        .frozen()
+    }
+}
+
+/// A sync app the person paused from Cool Head: when to resume, and once that time comes, a nudge.
+struct SyncPauseRow: View {
+    let pause: SyncPause
+    let watcher: Watcher
+    var body: some View {
+        let due = pause.until <= Date()
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: due ? "exclamationmark.circle" : "pause.circle").foregroundStyle(due ? Color.orange : Ink.muted)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(due ? "Time to resume \(pause.name) syncing" : "\(pause.name) is paused").font(.callout.weight(.semibold))
+                Text(due ? "Resume it from its menu bar icon." : "We'll remind you to resume at \(Fmt.time(pause.until)).")
+                    .font(.caption).foregroundStyle(due ? Color.orange : Ink.muted)
+            }
+            Spacer(minLength: 4)
+            Button("Resumed") { watcher.syncResumed(pause.name) }.buttonStyle(.bordered).controlSize(.small)
+        }
+        .padding(12)
+        .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(due ? Color.orange.opacity(0.6) : Ink.edge, lineWidth: 1))
     }
 }
 
@@ -784,7 +845,21 @@ struct FixRow: View {
         case .share: return "square.and.arrow.up"
         case .info: return "lightbulb"
         case .openPage: return "gearshape"
+        case .pauseJob, .pauseSync: return "pause.circle"
         }
+    }
+    /// For Pause syncing: how long, before anything happens.
+    var runUntil: (Fix, Date) -> Void = { _, _ in }
+    @State private var choosing = false
+    var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
+    /// 1 hour, 3 hours, and until 8pm while that is more than an hour away.
+    var pauseChoices: [(String, Date)] {
+        let now = Date()
+        var out: [(String, Date)] = [("1 hour", now.addingTimeInterval(3600)), ("3 hours", now.addingTimeInterval(3 * 3600))]
+        if let eight = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: now), eight.timeIntervalSince(now) > 3600 * 3.5 {
+            out.append(("Until \(Fmt.time(eight))", eight))
+        }
+        return out
     }
 
     var opensBrowser: Bool { if case .lookUp = fix.kind { return true }; return false }
@@ -801,7 +876,7 @@ struct FixRow: View {
                 }
             } else {
                 // the recommended option is the filled button, in bold, tagged; the rest are plain
-                let button = Button { run(fix) } label: {
+                let button = Button { if isSyncPause { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } } else { run(fix) } } label: {
                     HStack(spacing: 8) {
                         Image(systemName: icon).frame(width: 18)
                         Text(fix.kind == .cooler && cooled ? "Back to full speed" : fix.title).fontWeight(recommended ? .bold : .regular)
@@ -812,6 +887,14 @@ struct FixRow: View {
                 }
                 .controlSize(.regular)
                 if recommended { button.buttonStyle(RecommendedButton()) } else { button.buttonStyle(.bordered) }
+                if choosing {
+                    HStack(spacing: 6) {
+                        Text("For").font(.callout).foregroundStyle(Ink.muted)
+                        ForEach(pauseChoices, id: \.0) { label, until in
+                            Button(label) { choosing = false; runUntil(fix, until) }.buttonStyle(.bordered).controlSize(.small)
+                        }
+                    }
+                }
             }
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 let line = fix.kind == .cooler && cooled ? "Runs at normal speed again." : fix.consequence

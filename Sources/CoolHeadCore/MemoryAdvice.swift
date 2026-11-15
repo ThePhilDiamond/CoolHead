@@ -103,7 +103,7 @@ public enum MemoryAdvice {
                 fixes.append(Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). Closes all tabs.", kind: .quitApp(b)))
             }
         case .app:
-            if let b = top.bundle {
+            if let b = top.bundle, SecuritySoftware.product(path: b + "/", name: top.name) == nil {   // never security software
                 let risk = quitRisks[top.name]
                 fixes.append(Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). " + (risk ?? "It'll ask to save first."),
                                  kind: .quitApp(b), recommended: risk == nil))
@@ -116,7 +116,8 @@ public enum MemoryAdvice {
             fixes.append(Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(top.name)\u{201D}.", kind: .lookUp(top.name)))
         }
         // the next largest app that can be quit, as a second way to free memory
-        if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil }), let b = alt.bundle {
+        if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
+                                                        && SecuritySoftware.product(path: $0.bundle! + "/", name: $0.name) == nil }), let b = alt.bundle {
             let risk = alt.kind == .browser ? "Closes all tabs." : (quitRisks[alt.name] ?? "It'll ask to save first.")
             fixes.append(Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees \(Fmt.bytes(alt.bytes)). " + risk, kind: .quitApp(b)))
         }

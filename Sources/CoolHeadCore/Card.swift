@@ -50,6 +50,8 @@ public struct Fix: Identifiable {
         case info                // advice with nothing to press
         case share               // show the anonymised case report, then offer to open it as a GitHub issue
         case openPage(String, String)   // open a page of an app's own settings in that app: bundle path, address
+        case pauseJob            // SIGSTOP until the Mac is plugged in; resumed then, or on request, or when Cool Head quits
+        case pauseSync(String, String)  // open a sync app (bundle path, name) to pause it, with a reminder to resume
     }
     public let id: String
     public let title: String
@@ -85,7 +87,8 @@ public struct Card {
     public static func rank(_ f: Fix) -> Int {
         if f.recommended { return 0 }
         switch f.kind {
-        case .cooler: return 1
+        case .cooler, .pauseJob: return 1
+        case .pauseSync: return 2
         case .info, .openPage: return f.id == "nostop" ? 7 : 2
         case .lookUp: return 3
         case .quitApp: return 4
@@ -100,7 +103,7 @@ public struct Card {
     public var hasAction: Bool {
         fixes.contains { f in
             switch f.kind {
-            case .cooler, .stop, .quitApp, .lookUp, .openPage: return true
+            case .cooler, .stop, .quitApp, .lookUp, .openPage, .pauseJob, .pauseSync: return true
             default: return false
             }
         }
@@ -133,7 +136,8 @@ public struct Card {
     }
 
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
-                            frontApp: String? = nil) -> Card {
+                            frontApp: String? = nil, battery: Int? = nil) -> Card {
+        let onBattery = battery != nil
         let who = subject(e)
         let since = busySince ?? e.start ?? now
         let busyFor = now.timeIntervalSince(since)
@@ -184,6 +188,30 @@ public struct Card {
                 : long ? "\(k.doing), for \(Fmt.duration(busyFor)). That's longer than usual."
                 : "\(k.doing). That's normal."
             return Card(state: e.coresNow < 0.25 ? .quiet : long ? .unknown : .working, headline: head, explanation: explanation, fixes: fixes)
+        }
+
+        // security, device management and VPN software: never stopped, slowed or quit (from System Sentinel's review,
+        // 15 November 2026): stopping one can leave the Mac unprotected or break an employer's rules
+        if let product = SecuritySoftware.product(path: e.path, name: e.name) {
+            if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(product.name) is quiet now.", explanation: "", fixes: []) }
+            let vpn = product.kind == .vpn
+            return Card(state: .working,
+                        headline: vpn ? "\(product.name) is your VPN, handling your network traffic." : "\(product.name) is security software, checking files as they're used.",
+                        explanation: "Cool Head won't stop or slow it: that could leave your Mac unprotected or break your organization's rules.",
+                        fixes: [vpn ? Fix(id: "disconnect", title: "Disconnect when you don't need it", consequence: "From its menu bar icon.", kind: .info)
+                                    : Fix(id: "tellit", title: "Tell whoever manages this Mac", consequence: "If it's busy for hours. It may be stuck scanning a big folder.", kind: .info)])
+        }
+
+        // sync apps: catching up is normal, and pausing loses nothing; slowing or quitting come after
+        if let sync = SyncApps.app(bundle: e.appBundle), let bundle = e.appBundle {
+            if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(sync) is quiet now.", explanation: "", fixes: []) }
+            return Card(state: .working, headline: "\(sync) is syncing your files.",
+                        explanation: "It uploads and checks every change, and stops when it's caught up." + (warm && e.coresNow >= 0.5 ? " It's adding to the heat." : ""),
+                        fixes: [Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
+                                    kind: .pauseSync(bundle, sync), recommended: warm || gameRunning != nil
+                                        || (onBattery && (e.coresNow >= 2 || ((battery ?? 100) < 50 && e.coresNow >= 1)))),
+                                e.mine && e.coresNow >= 0.5 ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
+                                Fix(id: "quit", title: "Quit \(sync)", consequence: "Stops syncing until you open it again.", kind: .quitApp(bundle))].compactMap { $0 })
         }
 
         // Chrome and other Chromium browsers, without quitting them (Phil, 15 November 2026: "Chrome is one of the
@@ -253,6 +281,18 @@ public struct Card {
 
         // while a game is being played, other busy work is the thing to slow, so the game runs smoothly
         let forGame = gameRunning != nil && cooler != nil
+        // on battery, with Save Battery When Unplugged on: a heavy job (a script or command-line tool, never an app)
+        // can be frozen until the Mac is plugged in. Nothing is lost, unlike stopping it (Phil's rule: stopping is
+        // recommended only when a job has stalled).
+        let pausable = e.mine && (e.script != nil || (e.appBundle == nil && !(e.path.map(CaseReport.isMacOS) ?? true)))
+        // only the really hungry or long-running while the battery is healthy; any steady load once it's under half
+        // (Phil, 15 November 2026: "only be aggressive to really hungry /extended processes or when battery is below 50%")
+        let hungry = (e.coresNow >= 2 && busyFor >= 600) || (e.coresNow >= 1 && busyFor >= 1800)
+        let drains = onBattery && pausable && state != .stalled && e.coresNow >= 1 && busyFor >= 600
+            && (hungry || (battery ?? 100) < 50)
+        let pauseFix: Fix? = drains ? Fix(id: "pausejob", title: "Pause until you plug in",
+                                          consequence: "Frozen, nothing lost; it carries on when you plug in. A download may time out.",
+                                          kind: .pauseJob, recommended: true) : nil
         let cool = cooler.map { c -> Fix in
             var c = c; c.recommended = warm || forGame
             if let g = gameRunning { c = Fix(id: c.id, title: c.title, consequence: "Leaves more power for \(g). Undo any time.", kind: c.kind, recommended: c.recommended) }
@@ -260,17 +300,18 @@ public struct Card {
         }
         // while the Mac is warm, a busy job says it is part of why
         let heat = (warm && e.coresNow >= 0.5 ? " It's adding to the heat." : "") + (forGame ? " It's competing with \(gameRunning!)." : "")
+            + (drains ? " It's draining your battery." : "")
         switch state {
         case .working:
             if let p = e.progress {
                 var head = "\(who) is " + (p.fraction.map { "\(Fmt.percent($0)) done." } ?? "making progress.")
                 if let fin = p.finish { head += fin > now ? " Ready around \(Fmt.time(fin))." : " Almost done." }
                 return Card(state: state, headline: head, explanation: "Its log says \u{201C}\(p.line)\u{201D}." + heat,
-                            fixes: [wait(until: p.finish, now: now, recommended: !warm || cooler == nil), cool, stop].compactMap { $0 })
+                            fixes: [pauseFix, wait(until: p.finish, now: now, recommended: !warm || cooler == nil), cool, stop].compactMap { $0 })
             }
             return Card(state: state, headline: "\(who) is busy and still saving its work.",
                         explanation: "It doesn't say how far along it is." + heat,
-                        fixes: [wait(until: nil, now: now, recommended: !warm || cooler == nil), cool, stop].compactMap { $0 })
+                        fixes: [pauseFix, wait(until: nil, now: now, recommended: !warm || cooler == nil), cool, stop].compactMap { $0 })
         case .waiting:
             return Card(state: state, headline: "\(who) is waiting for another job.",
                         explanation: "It isn't using your Mac's power while it waits.",
@@ -283,13 +324,13 @@ public struct Card {
         case .unknown:
             return Card(state: state, headline: "\(who) has been busy for \(Fmt.duration(busyFor)). We can't tell why.",
                         explanation: "It isn't saying what it's doing." + heat,
-                        fixes: [lookUp(e.name, recommended: !forGame), wait(until: nil, now: now, recommended: false),
+                        fixes: [pauseFix, lookUp(e.name, recommended: !forGame), wait(until: nil, now: now, recommended: false),
                                 forGame ? cool : cooler,
                                 stop.map { var f = $0; f = Fix(id: f.id, title: f.title, consequence: "Only if you know what it is. " + f.consequence, kind: f.kind); return f },
                                 share].compactMap { $0 })
         case .starting:
-            return Card(state: state, headline: "\(who) just started. Give it a minute.", explanation: "Started at \(Fmt.time(e.start ?? now)).",
-                        fixes: [wait(until: nil, now: now, recommended: true), forGame ? cool : cooler, stop].compactMap { $0 })
+            return Card(state: state, headline: "\(who) just started. Give it a minute.", explanation: "Started at \(Fmt.time(e.start ?? now))." + heat,
+                        fixes: [pauseFix, wait(until: nil, now: now, recommended: true), forGame ? cool : cooler, stop].compactMap { $0 })
         case .quiet:
             return Card(state: state, headline: "\(who) is quiet now.", explanation: "", fixes: [])
         }

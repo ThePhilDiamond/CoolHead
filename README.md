@@ -29,7 +29,7 @@ It keeps a cool head: a big job isn't a problem just because it's big. Stopping 
 
 ## Privacy
 
-Everything runs on your Mac. No account, no analytics, and nothing stored about what happened. The only thing it remembers is your own choice: apps and jobs you mark Always trust, kept on this Mac and listed in the right-click menu. The only automatic network use is a daily check with GitHub for a newer version of Cool Head (turn it off from the right-click menu; see [docs/UPDATES.md](docs/UPDATES.md)). Three buttons reach outside, and only when you press them:
+Everything runs on your Mac. No account, no analytics, and nothing stored about what happened. The only things it remembers are your own choices, kept on this Mac: apps and jobs you mark Always trust (listed in the right-click menu), reminders to resume a sync app you paused, and jobs it paused for you until you plug in. The only automatic network use is a daily check with GitHub for a newer version of Cool Head (turn it off from the right-click menu; see [docs/UPDATES.md](docs/UPDATES.md)). Three buttons reach outside, and only when you press them:
 
 - **Look it up** opens a web search for the process name.
 - **Share this case**, on cards Cool Head can't explain, shows you an anonymised report of that process.

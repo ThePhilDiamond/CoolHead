@@ -111,8 +111,71 @@ public final class Watcher {
 
     public init() {}
 
+    // MARK: - Paused jobs and sync reminders (saved, see PauseStore)
+
+    public private(set) var pausedJobs: [PausedJob] = PauseStore.load("pausedJobs")
+    public private(set) var syncPauses: [SyncPause] = PauseStore.load("syncPauses")
+    /// Called on the main thread with a short line to show as a notification (a sync reminder, low battery).
+    @ObservationIgnored public var onReminder: ((String) -> Void)?
+    private var batteryAlerted: Set<String> = []
+
+    /// Freezes a job until the Mac is plugged in. Checked by reading back the process's state.
+    public func pauseJob(_ c: LiveCard) -> Outcome {
+        guard let p = c.pid, sameProcess(c) else { log("Pause pressed for \(c.reportSubject): it had already gone"); return .gone }
+        guard kill(p, SIGSTOP) == 0 else {
+            let why = String(cString: strerror(errno)); log("Pause pressed for \(c.reportSubject): failed (\(why))"); return .failed(why)
+        }
+        usleep(150_000)
+        guard Proc.bsd(p)?.stopped == true else {
+            kill(p, SIGCONT); log("Pause pressed for \(c.reportSubject): it didn't stay paused"); return .failed("it didn't stay paused")
+        }
+        let name = c.displaySubject.isEmpty ? "It" : c.displaySubject
+        pausedJobs.append(PausedJob(key: Watcher.key(c), pid: p, start: c.start?.timeIntervalSince1970, name: name,
+                                    reportSubject: c.reportSubject, since: Date()))
+        PauseStore.save(pausedJobs, "pausedJobs")
+        cards.removeAll { $0.cause == c.cause }
+        log("Paused \(c.reportSubject) until plugged in")
+        return .done("Paused \(name). It carries on when you plug in.")
+    }
+
+    /// Lets a paused job carry on. Only the same process is ever resumed (its number and start time match).
+    @discardableResult
+    public func resumeJob(_ j: PausedJob, why: String) -> Outcome {
+        pausedJobs.removeAll { $0.key == j.key }
+        PauseStore.save(pausedJobs, "pausedJobs")
+        guard let b = Proc.bsd(j.pid), j.start.map({ abs(b.start.timeIntervalSince1970 - $0) < 1 }) ?? true else {
+            log("\(j.reportSubject) had gone while paused"); return .gone
+        }
+        let ok = kill(j.pid, SIGCONT) == 0
+        log("Resumed \(j.reportSubject) (\(why))" + (ok ? "" : ": failed"))
+        return ok ? .done("\(j.name) carries on.") : .failed(String(cString: strerror(errno)))
+    }
+
+    /// Resumes every paused job: on plugging in, when Cool Head quits, and when it starts (in case it last quit
+    /// without the chance), so nothing is ever left frozen.
+    public func resumeAllPaused(why: String) {
+        for j in pausedJobs { resumeJob(j, why: why) }
+    }
+
+    /// The person paused a sync app from Cool Head; remind them to resume it at `until`.
+    public func addSyncPause(name: String, bundle: String, until: Date) {
+        syncPauses.removeAll { $0.name == name }
+        syncPauses.append(SyncPause(name: name, bundle: bundle, until: until))
+        PauseStore.save(syncPauses, "syncPauses")
+        log("Sync pause reminder set for \(name) until \(Fmt.clock(until))")
+        onPublish?()
+    }
+
+    public func syncResumed(_ name: String) {
+        syncPauses.removeAll { $0.name == name }
+        PauseStore.save(syncPauses, "syncPauses")
+        log("\(name) marked resumed")
+        onPublish?()
+    }
+
     public func start() {
         guard timer == nil else { return }
+        resumeAllPaused(why: "Cool Head started")
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now(), repeating: interval, leeway: .seconds(2))
         t.setEventHandler { [weak self] in self?.tick() }
@@ -259,6 +322,7 @@ public final class Watcher {
         if cards.contains(where: { $0.severity >= 2 }) || mac.thermal == "serious" || mac.thermal == "critical" { return .issue }
         // a warm Mac with a cause on screen needs a look; a cause already running cooler has been dealt with
         if cards.contains(where: { $0.needsLook || ($0.heatCause && !isCooled($0)) }) { return .warning }
+        if syncPauses.contains(where: { $0.until <= Date() }) { return .warning }          // time to resume syncing
         return .good
     }
 
@@ -314,14 +378,16 @@ public final class Watcher {
         let game = gathered.first { $0.2.gameBundle != nil }.flatMap { $0.2.gameBundle }
             .map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
         let front = NSWorkspace.shared.frontmostApplication?.bundleURL?.path
+        let battery = BatteryMode.enabled && !state.onPower ? state.batteryPercent : nil       // a desktop has no battery
         for (pid, tr, e) in gathered {
-            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front)
+            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery)
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)
             lc.displaySubject = Card.subject(e)
             // flagged only when there's something to press; normal macOS work is still shown, as the explanation
-            lc.heatCause = warm && [.working, .starting, .unknown].contains(c.state) && c.hasAction
+            lc.heatCause = (warm && [.working, .starting, .unknown].contains(c.state) && c.hasAction)
+                || c.fixes.contains { $0.kind == .pauseJob }                  // draining the battery counts too
             lc.trustKey = Trust.key(e)
             lc.trustName = e.browserPart != nil ? (e.app ?? Card.subject(e)) : Card.subject(e)   // trusting a tab trusts the browser
             Watcher.applyTrust(&lc, thermal: state.thermal, busyFor: now.timeIntervalSince(tr.busySince ?? now))
@@ -433,6 +499,30 @@ public final class Watcher {
                 }
             }
             firstSeen = firstSeen.filter { ids.contains($0.key) }
+            // battery under 20% while a job drains it: say so once per job
+            let low = (state.batteryPercent ?? 100) < 20 && !state.onPower
+            let draining = live.filter { c in c.card.fixes.contains { $0.kind == .pauseJob } && !waitingOn(c) && !c.trusted }
+            for c in draining where low && batteryAlerted.insert(c.id).inserted {
+                onReminder?("Your battery is low and a job is draining it. Open Cool Head to pause it until you plug in.")
+            }
+            batteryAlerted = batteryAlerted.filter { id in draining.contains { $0.id == id } }
+            // plugged in: paused jobs carry on
+            if state.onPower && !pausedJobs.isEmpty {
+                let names = pausedJobs.map(\.name)
+                resumeAllPaused(why: "plugged in")
+                notices.append(ListFormatter.localizedString(byJoining: names) + (names.count == 1 ? " carries" : " carry") + " on: you plugged in.")
+            }
+            // paused jobs that have ended are forgotten
+            let pausedBefore = pausedJobs.count
+            pausedJobs.removeAll { j in Proc.bsd(j.pid).map { b in j.start.map { abs(b.start.timeIntervalSince1970 - $0) >= 1 } ?? false } ?? true }
+            if pausedJobs.count != pausedBefore { PauseStore.save(pausedJobs, "pausedJobs") }
+            // sync reminders that are due: notify once
+            var reminded = false
+            for i in syncPauses.indices where syncPauses[i].until <= now && !syncPauses[i].reminded {
+                syncPauses[i].reminded = true; reminded = true
+                onReminder?("Time to resume \(syncPauses[i].name) syncing.")
+            }
+            if reminded { PauseStore.save(syncPauses, "syncPauses") }
             alerted = alerted.filter { ids.contains($0) }
             // a pinned (cooled) process that has ended is unpinned; so is one its app put back to full speed (Chrome
             // sets its own tabs' priority, and may when you switch to the tab)

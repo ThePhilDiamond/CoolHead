@@ -189,6 +189,63 @@ public struct Fixture {
         let c6 = gpuCard.recommended?.title == "Turn on Energy Saver" && !gpuCard.fixes.contains { $0.kind == Fix.Kind.cooler }
         let chromeOK = c1 && c2 && c3 && c4 && c5 && c6 && Card.subject(tabE) == "Google Chrome tab"
         review.append(("chrome-without-quitting", chromeOK, "background tab: \(ids(tabBack)); in front: \(tabFront.recommended?.title ?? "none"); extension: \(ids(extCard)); graphics: \(ids(gpuCard))"))
+        // Security software is never stopped, slowed or quit; sync apps recommend pausing (System Sentinel review,
+        // 15 November 2026)
+        let falcon = Evidence.sample(name: "falcond", path: "/Library/CS/falcond", start: now.addingTimeInterval(-3600), cores: 1)
+        let warp = Evidence.sample(name: "Cloudflare WARP", path: "/Applications/Cloudflare WARP.app/Contents/MacOS/Cloudflare WARP", start: now, cores: 0.8)
+        let reset = Evidence.sample(name: "Reset", path: "/Users/x/bin/Reset", start: now, cores: 1)
+        let fc = Card.make(falcon, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
+        let wc = Card.make(warp, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
+        let noHarm = { (c: Card) in !c.fixes.contains { f in
+            switch f.kind { case .stop, .cooler, .quitApp: return true; default: return false } } && !c.hasAction }
+        let secOK = fc.headline.contains("CrowdStrike Falcon is security software") && noHarm(fc) && wc.headline.contains("VPN") && noHarm(wc)
+            && SecuritySoftware.product(path: reset.path, name: reset.name) == nil
+        let drive = "/Applications/Google Drive.app"
+        let gd = Evidence.sample(name: "Google Drive", path: drive + "/Contents/MacOS/Google Drive", args: [drive + "/Contents/MacOS/Google Drive", "--single_process"],
+                                 start: now.addingTimeInterval(-3 * 3600), cores: 2)
+        let gdWarm = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
+        let gdCool = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600))
+        let syncOK = gdWarm.headline == "Google Drive is syncing your files." && gdWarm.recommended?.id == "pause"
+            && gdWarm.fixes.map(\.id) == ["pause", "cooler", "quit"] && gdCool.recommended == nil && !gdWarm.fixes.contains { $0.id == "stop" }
+        review.append(("protected-and-sync", secOK && syncOK, "security \(secOK), sync \(syncOK): \(gdWarm.fixes.map(\.id))"))
+        // Battery (Phil, 15 November 2026): on battery, a heavy job (a script or tool, never an app) recommends Pause until
+        // you plug in and says it's draining the battery; plugged in, it doesn't; a stuck job isn't paused
+        let heavy = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
+                                    start: now.addingTimeInterval(-2 * 3600), cores: 2)
+        let steady = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "index.py"], cwd: "/Users/x/Notes",
+                                     start: now.addingTimeInterval(-2 * 3600), cores: 1.2)
+        let min15 = now.addingTimeInterval(-900), hour = now.addingTimeInterval(-3600)
+        func pauses(_ c: Card) -> Bool { c.recommended?.kind == Fix.Kind.pauseJob }
+        // Phil (15 November 2026): only the really hungry or long-running above 50% battery; any steady load below it
+        let hungryAt80 = Card.make(heavy, now: now, busySince: min15, battery: 80)          // 2 cores, 15 minutes: yes
+        let steadyAt80 = Card.make(steady, now: now, busySince: min15, battery: 80)         // 1.2 cores, 15 minutes: no
+        let longAt80 = Card.make(steady, now: now, busySince: hour, battery: 80)            // 1.2 cores, an hour: yes
+        let steadyAt40 = Card.make(steady, now: now, busySince: min15, battery: 40)         // below half: yes
+        let plugged = Card.make(heavy, now: now, busySince: min15)
+        let appMain = Evidence.sample(name: "Xcode", path: "/Applications/Xcode.app/Contents/MacOS/Xcode", start: now.addingTimeInterval(-7200), cores: 2)
+        let appOnBat = Card.make(appMain, now: now, busySince: min15, battery: 30)
+        let gdBat = Card.make(gd, now: now, busySince: min15, battery: 40)
+        let syncKind: Bool = { if case .pauseSync = gdBat.recommended?.kind { return true }; return false }()
+        let batteryLimits = pauses(hungryAt80) && !pauses(steadyAt80) && pauses(longAt80) && pauses(steadyAt40)
+        let batteryOK = batteryLimits && hungryAt80.explanation.contains("draining your battery")
+            && !plugged.fixes.contains { $0.kind == Fix.Kind.pauseJob } && !appOnBat.fixes.contains { $0.kind == Fix.Kind.pauseJob } && syncKind
+        review.append(("battery-pauses-jobs", batteryOK, "hungry at 80%: \(pauses(hungryAt80)), steady at 80%: \(pauses(steadyAt80)), long at 80%: \(pauses(longAt80)), steady at 40%: \(pauses(steadyAt40))"))
+        // and pausing for real: a child process is frozen, then carries on, and nothing is left on the list
+        let sleeper = Process()
+        sleeper.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        sleeper.arguments = ["20"]
+        if (try? sleeper.run()) != nil {
+            let spid = sleeper.processIdentifier
+            usleep(200_000)
+            let pw = Watcher()
+            let lc = LiveCard(id: "p", pid: spid, start: Proc.bsd(spid)?.start, card: Card(state: .working, headline: "", explanation: "", fixes: []), details: [])
+            let paused = { if case .done = pw.pauseJob(lc) { return true }; return false }() && Proc.bsd(spid)?.stopped == true
+            pw.resumeAllPaused(why: "selftest")
+            usleep(100_000)
+            let resumed = Proc.bsd(spid)?.stopped == false && pw.pausedJobs.isEmpty
+            sleeper.terminate()
+            review.append(("pause-and-resume", paused && resumed, "paused \(paused), resumed \(resumed)"))
+        }
         // Trust (Phil, 15 November 2026): a trusted item is calm, but flagged anyway if it looks stuck, the Mac is hot,
         // or it has been busy nonstop for 8 hours, so nothing is hidden indefinitely
         let scriptJob = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",

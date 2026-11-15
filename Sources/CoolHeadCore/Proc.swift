@@ -10,6 +10,8 @@ public enum Proc {
         public let uid: uid_t
         public let name: String
         public let start: Date
+        /// Frozen with SIGSTOP (Cool Head's "Pause until you plug in").
+        public var stopped = false
     }
 
     public struct Usage {
@@ -83,7 +85,9 @@ public enum Proc {
         var name = cstr(info.pbi_name)
         if name.isEmpty { name = cstr(info.pbi_comm) }
         let start = Date(timeIntervalSince1970: Double(info.pbi_start_tvsec) + Double(info.pbi_start_tvusec) / 1e6)
-        return BSD(pid: pid, ppid: pid_t(info.pbi_ppid), uid: info.pbi_uid, name: name, start: start)
+        var b = BSD(pid: pid, ppid: pid_t(info.pbi_ppid), uid: info.pbi_uid, name: name, start: start)
+        b.stopped = info.pbi_status == 4      // SSTOP
+        return b
     }
 
     public static func path(_ pid: pid_t) -> String? {

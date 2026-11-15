@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if Bundle.main.bundleIdentifier != nil { UNUserNotificationCenter.current().delegate = self }  // crashes outside an app bundle
         let watcher = Watcher.shared
         watcher.onAlert = { card in Alerts.send(card) }
+        watcher.onReminder = { text in Alerts.remind(text) }
 
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = MenuIcon.image(level: .good)
@@ -70,6 +71,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             auto.target = self
             auto.state = Updater.shared.automatic ? .on : .off
             menu.addItem(auto)
+            let battery = NSMenuItem(title: "Save Battery When Unplugged", action: #selector(toggleBatteryMode), keyEquivalent: "")
+            battery.target = self
+            battery.state = BatteryMode.enabled ? .on : .off
+            battery.toolTip = "On battery, flag heavy jobs and offer to pause them until you plug in."
+            menu.addItem(battery)
             menu.addItem(.separator())
             let iconMenu = NSMenu()
             for (title, key) in [("Status Badge", "badge"), ("Melting Snowflake", "melting")] {
@@ -127,6 +133,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     @objc func toggleAutoUpdates() { Updater.shared.automatic.toggle() }
 
+    @objc func toggleBatteryMode() { BatteryMode.enabled.toggle() }
+
+    /// Nothing is left frozen: paused jobs carry on when Cool Head quits.
+    func applicationWillTerminate(_ notification: Notification) {
+        Watcher.shared.resumeAllPaused(why: "Cool Head quit")
+    }
+
     @objc func setIconStyle(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String else { return }
         MenuIcon.style = key
@@ -155,6 +168,19 @@ enum Alerts {
     static var enabled: Bool {
         get { UserDefaults.standard.object(forKey: "notifications") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "notifications") }
+    }
+
+    /// A short reminder (sync to resume, low battery). Never names a project or script.
+    static func remind(_ text: String) {
+        guard enabled, Bundle.main.bundleIdentifier != nil else { return }
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert]) { ok, _ in
+            guard ok else { return }
+            let c = UNMutableNotificationContent()
+            c.title = "Cool Head"
+            c.body = text
+            center.add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
+        }
     }
 
     static func send(_ card: LiveCard) {
@@ -411,6 +437,11 @@ enum Snapshot {
             if let phrase = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_COOL"],
                let c = Watcher.shared.cards.first(where: { $0.card.headline.contains(phrase) }) {
                 _ = Watcher.shared.setCooler(c, on: true)
+            }
+            // and pause the card whose headline contains this phrase, to show the paused row
+            if let phrase = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_PAUSE"],
+               let c = Watcher.shared.cards.first(where: { $0.card.headline.contains(phrase) }) {
+                _ = Watcher.shared.pauseJob(c)
             }
             for (name, look) in [("light", NSAppearance.Name.aqua), ("dark", NSAppearance.Name.darkAqua)] {
                 let host = NSHostingView(rootView: PanelView(watcher: Watcher.shared).background(.background))
