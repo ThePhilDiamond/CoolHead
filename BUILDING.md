@@ -44,7 +44,7 @@ swift scripts/make-icon.swift build/icon app
 iconutil -c icns build/icon/AppIcon.iconset -o Resources/AppIcon.icns
 ```
 
-The menu bar icon is drawn in `Sources/CoolHeadApp/CoolHeadApp.swift` (`MenuIcon`). The logo ideas that weren't chosen can still be drawn: `sheet`, `linesheet`, `facesheet` and `facesheet2`.
+The menu bar icon, a snowflake, is drawn in `Sources/CoolHeadApp/CoolHeadApp.swift` (`MenuIcon`). The logo ideas that weren't chosen can still be drawn: `sheet`, `linesheet`, `facesheet` and `facesheet2`.
 
 ## Layout
 

@@ -61,27 +61,36 @@ enum LoginItem {
     }
 }
 
-/// The menu bar icon: the logo's smiley in line form, drawn as a template so it follows the menu bar's colour;
-/// a small dot appears at its top right when something needs a look.
+/// The menu bar icon: a snowflake, drawn as a template so it follows the menu bar's colour; a small dot appears
+/// at its top right when something needs a look. (A smiley was tried first; at 18 points its face didn't read.)
 enum MenuIcon {
     static func image(alert: Bool) -> NSImage {
         let img = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
             NSColor.black.setStroke()
-            let head = NSBezierPath(ovalIn: NSRect(x: 2, y: 2, width: 14, height: 14))
-            head.lineWidth = 1.5
-            head.stroke()
-            // eyes closed in a smile, and a wide smile
-            for x in [6.6, 11.4] as [CGFloat] {
-                let eye = NSBezierPath()
-                eye.appendArc(withCenter: NSPoint(x: x, y: 9.6), radius: 1.5, startAngle: 20, endAngle: 160)
-                eye.lineWidth = 1.3; eye.lineCapStyle = .round; eye.stroke()
+            let c = NSPoint(x: 9, y: 9), r: CGFloat = 7.2
+            for i in 0..<6 {
+                let a = CGFloat(i) * .pi / 3 + .pi / 2
+                let spoke = NSBezierPath()
+                spoke.move(to: c)
+                spoke.line(to: NSPoint(x: c.x + cos(a) * r, y: c.y + sin(a) * r))
+                // one pair of short branches on each spoke
+                let m = NSPoint(x: c.x + cos(a) * r * 0.58, y: c.y + sin(a) * r * 0.58)
+                for side in [-1.0, 1.0] as [CGFloat] {
+                    let b = a + side * .pi / 4
+                    spoke.move(to: m)
+                    spoke.line(to: NSPoint(x: m.x + cos(b) * r * 0.36, y: m.y + sin(b) * r * 0.36))
+                }
+                spoke.lineWidth = 1.4
+                spoke.lineCapStyle = .round
+                spoke.stroke()
             }
-            let smile = NSBezierPath()
-            smile.appendArc(withCenter: NSPoint(x: 9, y: 8.6), radius: 3.6, startAngle: 215, endAngle: 325)
-            smile.lineWidth = 1.4; smile.lineCapStyle = .round; smile.stroke()
             if alert {
+                // clear a ring around the dot so it stands apart from the flake
+                NSGraphicsContext.current?.compositingOperation = .clear
+                NSBezierPath(ovalIn: NSRect(x: 11.5, y: 11, width: 7, height: 7)).fill()
+                NSGraphicsContext.current?.compositingOperation = .sourceOver
                 NSColor.black.setFill()
-                NSBezierPath(ovalIn: NSRect(x: 13, y: 12.5, width: 5, height: 5)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 12.5, y: 12, width: 5, height: 5)).fill()
             }
             return true
         }

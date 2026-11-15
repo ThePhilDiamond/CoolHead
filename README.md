@@ -34,7 +34,7 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 1. Download the latest `Cool-Head-….zip` from [Releases](../../releases), and unzip it.
 2. Move **Cool Head** to Applications and open it. The first time, macOS may say it can't check the app (it isn't notarized yet): open **System Settings ▸ Privacy & Security** and choose **Open Anyway**.
-3. Look for the smiley in the menu bar. A dot appears on it when something needs a look.
+3. Look for the snowflake in the menu bar. A dot appears on it when something needs a look.
 
 Or build it yourself: see [BUILDING.md](BUILDING.md).
 
