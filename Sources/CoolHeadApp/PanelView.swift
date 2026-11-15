@@ -321,7 +321,7 @@ struct CardView: View {
                 let ok = ChromeLimit.set(mb)
                 watcher.refreshChromeLimit()
                 acted = ok
-                note = ok ? "Chrome is now limited to \(ChromeLimit.gb(mb)). It applies within 15 minutes, or when you reopen Chrome. Restore it from the top of this panel."
+                note = ok ? "Chrome is now limited to \(ChromeLimit.gb(mb)). It applies within 15 minutes, or when you reopen Chrome. Remove it from the top of this panel."
                           : "That didn't work: Chrome's settings didn't change."
                 noteFailed = !ok
                 watcher.log("Limit Chrome pressed: " + (ok ? "set" : "failed"))
@@ -534,7 +534,10 @@ struct WhatsNewCard: View {
 enum WhatsNew {
     static let notes: [String: [String]] = [
         "0.5.0": [
-            "When memory is tight and Chrome uses the most, Limit Chrome sets Chrome's own memory limit. Undo from the right-click menu.",
+            "Click anywhere on a card to open it, and again to close it. Each option is a clear button that says what it does.",
+            "After an option works, it says what was done, instead of leaving the options to press again.",
+            "Anything Cool Head is slowing, pausing or limiting is one line at the top, with Speed up, Resume or Remove.",
+            "When memory is tight, Limit Chrome sets Chrome's own memory limit.",
         ],
         "0.4.4": [
             "Security software is never stopped or slowed.",
@@ -708,7 +711,9 @@ enum FrozenItem: Identifiable {
     }
     var line: String {
         switch self {
-        case .cooled(let c): return "\(c.name) is running cooler"
+        // says what's happening, in the present tense, so a slowed job never reads as frozen or stuck (Phil, 15 November
+        // 2026: "If we just say "running cooler" and it's got ice and a restore button it may be perceived as frozen")
+        case .cooled(let c): return "Slowing \(c.name) to keep your Mac cool"
         case .paused(let p): return "\(p.name) is paused until you plug in"
         case .sync(let s): return due ? "Time to resume \(s.name) syncing" : "\(s.name) syncing is paused"
         case .chrome(let mb): return "Chrome is limited to \(ChromeLimit.gb(mb))"
@@ -716,8 +721,8 @@ enum FrozenItem: Identifiable {
     }
     var detail: String {
         switch self {
-        case .cooled(let c): return "Since \(Fmt.time(c.since)). Slower, but cooler."
-        case .paused(let p): return "Since \(Fmt.time(p.since)). Nothing is lost."
+        case .cooled(let c): return "It's still working, just more slowly, since \(Fmt.time(c.since))."
+        case .paused(let p): return "Paused since \(Fmt.time(p.since)). Nothing is lost, and it carries on by itself when you plug in."
         case .sync(let s): return due ? "Resume it from its menu bar icon, then press Resumed."
                                       : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
         case .chrome(let mb): return "Past \(ChromeLimit.gb(mb)), Chrome unloads tabs you aren't using. While it's on, Chrome says it's \u{201C}managed by your organization\u{201D}."
@@ -727,8 +732,16 @@ enum FrozenItem: Identifiable {
         switch self {
         case .cooled: return ("Back to full speed", "hare")
         case .paused: return ("Resume now", "play")
-        case .sync: return ("Resumed", "checkmark")
+        case .sync: return ("I resumed it", "checkmark")
         case .chrome: return ("Remove the limit", "xmark")
+        }
+    }
+    /// The line's own label names what you can do, not a general "Restore" (Phil, 15 November 2026).
+    var verb: String {
+        switch self {
+        case .cooled: return "Speed up"
+        case .paused, .sync: return "Resume"
+        case .chrome: return "Remove"
         }
     }
 }
@@ -762,10 +775,10 @@ struct FrozenLine: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Image(systemName: item.icon).frame(width: 18)
-                Text(item.line).font(.callout.weight(.semibold)).lineLimit(1).truncationMode(.middle)
+                Text(item.line).font(.callout.weight(.semibold)).lineLimit(2).truncationMode(.middle)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
-                // "Restore": puts it back as it was (Phil, 15 November 2026, asked for something clearer than "Undo")
-                Disclosure(title: open ? "Less" : "Restore", open: open, tint: item.due ? .orange : Ink.text) { toggle() }
+                Disclosure(title: open ? "Less" : item.verb, open: open, tint: item.due ? .orange : Ink.text) { toggle() }
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
             if open {

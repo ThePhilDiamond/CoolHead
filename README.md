@@ -32,7 +32,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 ## What it knows
 
 - **A warm Mac has a cause.** When your Mac warms up, each thing warming it gets a card with something to do, and the menu bar icon turns yellow.
-- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Everything Cool Head is holding back is one frosted line at the top of the panel, with **Restore** to put it back.
+- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing is one frosted line at the top of the panel ("Slowing Photo Export to keep your Mac cool"), with **Speed up** to put it back.
 - **Chrome without quitting it.** It tells a busy tab, a busy extension, and Chrome's graphics work apart (also in Edge, Brave, and Arc), and offers what fits: run just that tab cooler, Energy Saver, turn off an extension, or close just that tab, before ever suggesting Quit. When memory is tight, **Limit Chrome** sets Chrome's own memory limit (Chrome then says it's "managed by your organization"; restore it from the top of the panel).
 - **Games come first.** A game is never slowed down; other busy work is offered to run cooler instead, to leave the game more power.
 - **Sync apps can wait.** Google Drive, Dropbox, OneDrive, and Box: **Pause syncing** for a set time, with a reminder to resume.
@@ -43,7 +43,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/pinned-dark.png">
-    <img src="docs/images/pinned-light.png" width="400" alt="A job running cooler, pinned at the top of the panel in a frosted frame, with a Back to full speed button">
+    <img src="docs/images/pinned-light.png" width="400" alt="A frosted line at the top of the panel saying Slowing Photo Export to keep your Mac cool, with Speed up, above the job's card">
   </picture>
 </p>
 

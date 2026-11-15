@@ -319,7 +319,7 @@ public final class Watcher {
             cooled[Watcher.key(c)] = CooledItem(key: Watcher.key(c), pid: p, start: c.start, name: name, reportSubject: c.reportSubject,
                                                 since: Date(), before: before, after: pri)
             let change = (before != nil && pri != nil) ? " (priority \(before!) → \(pri!))" : ""
-            return .done("\(name) is now running cooler\(change): slower, but less heat. It's listed at the top, to restore any time.")
+            return .done("Slowing \(name)\(change) to keep your Mac cool. It's still working, just more slowly. Speed it up any time from the top of this panel.")
         }
         cooled.removeValue(forKey: Watcher.key(c))
         return .done("\(name) is back to full speed.")

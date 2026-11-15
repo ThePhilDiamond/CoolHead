@@ -4,10 +4,12 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-15
+
 ### Added
 
 - **Limit Chrome**: when memory is tight and Chrome is one of the three biggest users, one click sets Chrome's own memory limit, with Memory Saver at Maximum. Past the limit, Chrome unloads tabs you aren't using; they reload when you click them. The limit is a quarter of your Mac's memory or what Chrome is using now, whichever is lower, so it frees memory straight away, and never below 2 GB. Chrome will then say it's "managed by your organization"; that's how Chrome shows any setting made this way. It isn't offered if Chrome already has these settings, and Cool Head only removes what it set.
-- Everything Cool Head is holding back (jobs running cooler, jobs paused until you plug in, sync apps you paused, the Chrome limit) is one line at the top of the panel. **Restore** opens it, with the button that puts it back.
+- Anything Cool Head is slowing, pausing or limiting (a job it's slowing to keep your Mac cool, a job paused until you plug in, a sync app you paused, the Chrome limit) is one line at the top of the panel saying so, with **Speed up**, **Resume** or **Remove** to open it and put it back.
 
 ### Changed
 
@@ -17,6 +19,7 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 - Putting something back now happens only at the top of the panel, never in the right-click menu, which is for settings.
 - When memory is tight and the Chrome limit is already on, the card says whether Chrome is within it, instead of offering to remove it.
 - A warm Mac with nothing working hard says when tight memory is adding to the work.
+- New screenshots for this version.
 
 ### Fixed
 
@@ -146,7 +149,8 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.4.5...v0.5.0
 [0.4.5]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.4.2...v0.4.3
