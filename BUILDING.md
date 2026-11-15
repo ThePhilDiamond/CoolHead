@@ -46,7 +46,7 @@ iconutil -c icns build/icon/AppIcon-ice.iconset -o Resources/AppIcon.icns
 
 ## Layout
 
-- `Sources/CoolHeadCore`: everything that reads the Mac and decides what a card says. `Proc.swift` (kernel calls), `MacState.swift` (heat, power, battery, memory), `Evidence.swift` (the facts about one process), `Progress.swift` (reading a job's own progress lines), `Catalogue.swift` (known patterns), `Card.swift` (the decision), `Watcher.swift` (sampling and history), `Fixtures.swift` (examples for selftest).
+- `Sources/CoolHeadCore`: everything that reads the Mac and decides what a card says. `Proc.swift` (kernel calls), `MacState.swift` (heat, power, battery, memory), `Evidence.swift` (the facts about one process), `Progress.swift` (reading a job's own progress lines), `Catalogue.swift` (known patterns), `Card.swift` (the decision), `Watcher.swift` (sampling, in memory only), `Fixtures.swift` (examples for selftest).
 - `Sources/coolhead`: the command-line tool.
 - `Sources/CoolHeadApp`: the SwiftUI menu bar app.
 - `scripts`: packaging and icon drawing.

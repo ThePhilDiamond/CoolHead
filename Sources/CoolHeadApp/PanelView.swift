@@ -4,7 +4,6 @@ import SwiftUI
 
 struct PanelView: View {
     let watcher: Watcher
-    @State private var showToday = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -14,22 +13,10 @@ struct PanelView: View {
                 SettingsMenu(watcher: watcher)
             }
             if shownCards.isEmpty {
-                Text(watcher.history.isEmpty && watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
+                Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
-            }
-            if !today.isEmpty {
-                DisclosureGroup(isExpanded: $showToday) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(today.prefix(8)) { i in
-                            Text("\(Fmt.time(i.start))  \(i.headline)").font(.caption).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }.padding(.top, 4)
-                } label: {
-                    Text(today.count == 1 ? "1 thing today" : "\(today.count) things today").font(.caption)
-                }
             }
             Text(footer).font(.caption2).foregroundStyle(.tertiary)
         }
@@ -55,10 +42,6 @@ struct PanelView: View {
         if n > 0 { return "\(heat): \(n) to look at" }
         let jobs = shownCards.filter { $0.card.state == .working || $0.card.state == .starting }.count
         return jobs == 0 ? heat : "\(heat) · \(jobs == 1 ? "1 job" : "\(jobs) jobs") running"
-    }
-
-    var today: [Incident] {
-        watcher.incidents.filter { Calendar.current.isDateInToday($0.start) }.sorted { $0.start > $1.start }
     }
 
     var footer: String {

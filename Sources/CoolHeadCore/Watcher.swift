@@ -2,24 +2,6 @@ import Darwin
 import Foundation
 import Observation
 
-/// One point on the 24-hour strip: the Mac's load, heat and power for one minute.
-public struct Sample: Codable {
-    public let t: Date
-    public let cores: Double          // cores in use across the Mac
-    public let thermal: Int           // 0 nominal, 1 fair, 2 serious, 3 critical
-    public let watts: Double?
-    public let battery: Int?
-    public let charging: Bool
-}
-
-/// Something worth remembering on the strip: a card that needed a look, with when it began and ended.
-public struct Incident: Codable, Identifiable {
-    public let id: String
-    public let headline: String
-    public let start: Date
-    public var end: Date?
-}
-
 /// A card on screen, with the facts behind it.
 public struct LiveCard: Identifiable {
     public let id: String
@@ -32,17 +14,14 @@ public struct LiveCard: Identifiable {
     public var cause: String { pid.map { "pid-\($0)" } ?? id }
 }
 
-/// Samples every process on a timer, keeps history, and turns sustained load into cards.
+/// Samples every process on a timer and turns sustained load into cards.
+/// Nothing is written to disk: what it needs while running stays in memory and is gone when it quits.
 @Observable
 public final class Watcher {
     public static let shared = Watcher()
 
     public private(set) var cards: [LiveCard] = []
     public private(set) var mac = MacState()
-    public private(set) var history: [Sample] = []
-    /// The strip's points: the saved minutes plus the latest reading, so it starts drawing at once.
-    public private(set) var strip: [Sample] = []
-    public private(set) var incidents: [Incident] = []
     /// Share of the whole Mac that Cool Head itself used over the last tick.
     public private(set) var overhead: Double = 0
     public private(set) var dismissed: Set<String> = []
@@ -54,10 +33,8 @@ public final class Watcher {
     @ObservationIgnored public var interval: TimeInterval = 10
     @ObservationIgnored private var tracks: [pid_t: Track] = [:]
     @ObservationIgnored private var lastTick: Date?
-    @ObservationIgnored private var minute: [Sample] = []
     @ObservationIgnored private var firstSeen: [String: Date] = [:]
     @ObservationIgnored private var alerted: Set<String> = []
-    @ObservationIgnored private var ownLast: Double?
     @ObservationIgnored private let queue = DispatchQueue(label: "coolhead.watcher", qos: .utility)
     @ObservationIgnored private var timer: DispatchSourceTimer?
 
@@ -70,9 +47,7 @@ public final class Watcher {
         var footprint: UInt64 = 0
     }
 
-    public init() {
-        load()
-    }
+    public init() {}
 
     public func start() {
         guard timer == nil else { return }
@@ -104,7 +79,6 @@ public final class Watcher {
         lastTick = now
         let me = getpid()
         var seen = Set<pid_t>()
-        var total = 0.0
         var own = 0.0
         for pid in Proc.allPIDs() {
             guard let u = Proc.usage(pid) else { continue }
@@ -114,7 +88,6 @@ public final class Watcher {
                 let c = max(0, u.cpuSeconds - tr.cpu) / dt
                 tr.cores = tr.cores == 0 ? c : 0.5 * tr.cores + 0.5 * c
                 tr.lastWritten = u.diskWritten &- tr.written
-                total += c
                 if pid == me { own = c }
             }
             tr.cpu = u.cpuSeconds
@@ -125,7 +98,7 @@ public final class Watcher {
         }
         tracks = tracks.filter { seen.contains($0.key) }
         let state = MacState.read()
-        guard dt > 0 else { publish(state, [], nil, own: 0); return }
+        guard dt > 0 else { publish(state, [], own: 0); return }
 
         let warm = state.thermal != "nominal"
         let busy = tracks.filter { $0.key != me && $0.value.cores >= 0.5 && now.timeIntervalSince($0.value.busySince ?? now) >= 60 }
@@ -144,9 +117,7 @@ public final class Watcher {
             FileHandle.standardError.write("tick busy=\(busy.count) cards=\(live.map { $0.card.headline.prefix(50) }) top=\(top)\n".data(using: .utf8)!)
         }
 
-        let sample = Sample(t: now, cores: total, thermal: Watcher.level(state.thermal), watts: state.macWatts,
-                            battery: state.batteryPercent, charging: state.charging)
-        publish(state, live, sample, own: own / Double(max(1, state.cores)))
+        publish(state, live, own: own / Double(max(1, state.cores)))
     }
 
     /// Cards about the Mac as a whole, which no single process explains.
@@ -184,71 +155,25 @@ public final class Watcher {
         return out
     }
 
-    private func publish(_ state: MacState, _ live: [LiveCard], _ sample: Sample?, own: Double) {
+    private func publish(_ state: MacState, _ live: [LiveCard], own: Double) {
         let now = Date()
         DispatchQueue.main.async { [self] in
             mac = state
             overhead = own
             snoozed = snoozed.filter { $0.value > now }
-            let shown = live.filter { !dismissed.contains($0.id) && snoozed[$0.cause] == nil }
-            cards = shown
-            // incidents: open one for each card that needs a look; close those that went away
+            cards = live.filter { !dismissed.contains($0.id) && snoozed[$0.cause] == nil }
+            // notify once for a card that has needed a look for 10 minutes; forget cards that went away
             let ids = Set(live.filter(\.needsLook).map(\.id))
             for c in live where c.needsLook {
                 if firstSeen[c.id] == nil { firstSeen[c.id] = now }
-                if !incidents.contains(where: { $0.id == c.id && $0.end == nil }) {
-                    incidents.append(Incident(id: c.id, headline: c.card.headline, start: now, end: nil))
-                }
                 if !alerted.contains(c.id), now.timeIntervalSince(firstSeen[c.id]!) >= 600, !dismissed.contains(c.id) {
                     alerted.insert(c.id)
                     onAlert?(c)
                 }
             }
-            for i in incidents.indices where incidents[i].end == nil && !ids.contains(incidents[i].id) { incidents[i].end = now }
             firstSeen = firstSeen.filter { ids.contains($0.key) }
-            incidents.removeAll { now.timeIntervalSince($0.start) > 7 * 86400 }
-            if let s = sample { addSample(s); strip = history + [s] }
+            alerted = alerted.filter { ids.contains($0) }
         }
-    }
-
-    /// Keeps one averaged sample per minute for 24 hours.
-    private func addSample(_ s: Sample) {
-        minute.append(s)
-        guard let first = minute.first, history.isEmpty || s.t.timeIntervalSince(first.t) >= 60 else { return }
-        let n = Double(minute.count)
-        let w = minute.compactMap(\.watts)
-        history.append(Sample(t: s.t, cores: minute.map(\.cores).reduce(0, +) / n, thermal: minute.map(\.thermal).max() ?? 0,
-                              watts: w.isEmpty ? nil : w.reduce(0, +) / Double(w.count), battery: s.battery, charging: s.charging))
-        minute.removeAll()
-        history.removeAll { s.t.timeIntervalSince($0.t) > 86400 }
-        if history.count % 5 == 0 { save() }
-    }
-
-    static func level(_ thermal: String) -> Int {
-        ["nominal": 0, "fair": 1, "serious": 2, "critical": 3][thermal] ?? 0
-    }
-
-    // MARK: - Saving
-
-    struct Saved: Codable { var history: [Sample]; var incidents: [Incident] }
-
-    static var file: URL {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Cool Head", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("history.json")
-    }
-
-    private func save() {
-        let s = Saved(history: history, incidents: incidents)
-        queue.async { if let d = try? JSONEncoder().encode(s) { try? d.write(to: Watcher.file, options: .atomic) } }
-    }
-
-    private func load() {
-        guard let d = try? Data(contentsOf: Watcher.file), let s = try? JSONDecoder().decode(Saved.self, from: d) else { return }
-        history = s.history.filter { Date().timeIntervalSince($0.t) <= 86400 }
-        incidents = s.incidents.filter { Date().timeIntervalSince($0.start) <= 7 * 86400 }
-        for i in incidents.indices where incidents[i].end == nil { incidents[i].end = incidents[i].start }
     }
 }
 

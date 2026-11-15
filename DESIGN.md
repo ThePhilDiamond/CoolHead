@@ -34,7 +34,7 @@ Alternatives considered: a web app in a native shell (Tauri or Electron) would m
 
 ## Other choices
 
-- **History:** 7 days, kept on this Mac, sampled every 10 seconds when calm and every 2 seconds while a cause is open; a cause's evidence is kept with it.
+- **No history (Phil, 15 November 2026):** Cool Head is not a record of the past. It samples every 10 seconds and keeps only what it needs in memory (recent readings, which cards have already notified); nothing is written to disk. Diagnostic logs exist only inside a case the user chooses to share, or where the law requires.
 - **Overhead target:** under 0.5% of the Mac on average, measured and shown in the gear menu.
 - **Permissions:** none required. Full Disk Access is optional, only for reading other users' or system processes' files.
 - **Distribution:** for Phil's Mac only at first, ad-hoc signed. Public release later is a separate decision.
