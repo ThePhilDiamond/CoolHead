@@ -1,0 +1,19 @@
+name: Teach it a pattern
+description: "A process Cool Head should know about: what it is, when it is normal, and what to do."
+labels: [pattern]
+body:
+  - type: input
+    id: process
+    attributes: { label: Process name, placeholder: "mds_stores" }
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: "What it is doing, in plain words", placeholder: "Spotlight is indexing your files" }
+    validations: { required: true }
+  - type: textarea
+    id: normal
+    attributes: { label: "When it is normal, and how long is usual" }
+  - type: input
+    id: source
+    attributes: { label: Source, description: "An Apple support article, a man page, or a test anyone can repeat." }
+    validations: { required: true }

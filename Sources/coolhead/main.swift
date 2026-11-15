@@ -7,6 +7,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
 
   coolhead now              the Mac's state and a card for each busy process
   coolhead why <pid|name>   the card and the evidence for one process
+  coolhead selftest         checks every recorded example gives the card it should
 """
 
 func busiest(limit: Int, interval: TimeInterval = 1.0) -> [(pid_t, Double)] {
@@ -64,7 +65,9 @@ func printEvidence(_ e: Evidence) {
 let testNow = Date().addingTimeInterval(60 * (Double(ProcessInfo.processInfo.environment["COOLHEAD_NOW_PLUS_MINUTES"] ?? "") ?? 0))
 
 func printCard(_ c: Card) {
-    print("\(c.headline)\n→ \(c.action)" + (c.caution.map { "\n  \($0)" } ?? ""))
+    print(c.headline)
+    print("  \(c.explanation)")
+    for f in c.fixes { print("  \(f.recommended ? "→" : "·") \(f.title)" + (f.consequence.isEmpty ? "" : ": \(f.consequence)")) }
 }
 
 let argv = CommandLine.arguments.dropFirst()
@@ -93,6 +96,12 @@ case "why":
     printEvidence(e)
     print("\nThe Mac")
     printState(MacState.read())
+case "selftest":
+    let results = Fixture.runAll()
+    for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }
+    let failed = results.filter { !$0.1 }.count
+    print("\(results.count - failed) of \(results.count) passed")
+    exit(failed == 0 ? 0 : 1)
 default:
     print(usage)
 }

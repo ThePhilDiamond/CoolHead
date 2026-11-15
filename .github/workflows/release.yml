@@ -1,0 +1,25 @@
+# On a version tag (v0.1.0), builds the app and attaches a zip to the GitHub release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build -c release && .build/release/coolhead selftest
+      - run: scripts/build-app.sh
+      - name: Zip the app
+        run: cd build && ditto -c -k --keepParent "Cool Head.app" "Cool-Head-${GITHUB_REF_NAME}.zip" && shasum -a 256 "Cool-Head-${GITHUB_REF_NAME}.zip" > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/Cool-Head-${{ github.ref_name }}.zip
+            build/SHA256SUMS.txt
+          generate_release_notes: true

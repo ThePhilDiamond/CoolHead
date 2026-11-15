@@ -1,0 +1,27 @@
+# Builds the command-line tool and the app, and runs every recorded example, on each push and pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build -c release
+      - name: Check every recorded example gives the card it should
+        run: .build/release/coolhead selftest
+      - name: Package the app
+        run: scripts/build-app.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cool-Head-app
+          path: build/Cool Head.app
+          retention-days: 14

@@ -45,16 +45,18 @@ public struct Evidence {
     public let workStart: Date?
 
     /// Samples the process twice, `interval` seconds apart, to measure CPU now.
-    public static func gather(pid: pid_t, interval: TimeInterval = 1.0) -> Evidence? {
+    /// With `measured`, uses CPU and disk writes the caller already measured (the watcher) and does not wait.
+    public static func gather(pid: pid_t, interval: TimeInterval = 1.0,
+                              measured: (cores: Double, written: UInt64)? = nil) -> Evidence? {
         guard let b = Proc.bsd(pid) else { return nil }
-        let u1 = Proc.usage(pid)
+        let u1 = measured == nil ? Proc.usage(pid) : nil
         let t1 = Date()
-        Thread.sleep(forTimeInterval: interval)
+        if measured == nil { Thread.sleep(forTimeInterval: interval) }
         let u2 = Proc.usage(pid)
-        let dt = Date().timeIntervalSince(t1)
-        var now = 0.0, avg = 0.0, pshare: Double?
-        if let a = u1, let z = u2 {
-            now = max(0, z.cpuSeconds - a.cpuSeconds) / dt
+        let dt = max(0.001, Date().timeIntervalSince(t1))
+        var now = measured?.cores ?? 0, avg = 0.0, pshare: Double?
+        if let z = u2 {
+            if let a = u1 { now = max(0, z.cpuSeconds - a.cpuSeconds) / dt }
             let life = Date().timeIntervalSince(b.start)
             if life > 0 { avg = z.cpuSeconds / life }
             if z.cpuSeconds > 0 { pshare = min(1, z.pCoreSeconds / z.cpuSeconds) }
@@ -77,7 +79,7 @@ public struct Evidence {
             Lock(path: $0, note: smallText($0))
         }
         let progress = Progress.find(in: writing)
-        let written = max(0, Int64(bitPattern: (u2?.diskWritten ?? 0) &- (u1?.diskWritten ?? 0)))
+        let written = measured?.written ?? UInt64(max(0, Int64(bitPattern: (u2?.diskWritten ?? 0) &- (u1?.diskWritten ?? 0))))
         var newest: (Date, String)?
         var saves = false
         for w in writing {
@@ -96,7 +98,7 @@ public struct Evidence {
                         start: b.start, mine: b.uid == getuid(), coresNow: now, coresAverage: avg,
                         performanceShare: pshare, memoryBytes: u2?.footprint ?? 0, ancestors: chain,
                         writing: writing, locks: locks, progress: progress,
-                        bytesWrittenDuringSample: UInt64(written), lastOutput: newest?.0, lastLine: last,
+                        bytesWrittenDuringSample: written, lastOutput: newest?.0, lastLine: last,
                         savesAsItGoes: saves, workStart: workStart)
     }
 
@@ -105,7 +107,7 @@ public struct Evidence {
             || path.hasPrefix("/System/") || path.hasPrefix("/usr/lib/") || path.hasPrefix("/private/var/db/")
     }
 
-    static func isLog(_ path: String) -> Bool {
+    public static func isLog(_ path: String) -> Bool {
         let ext = (path as NSString).pathExtension.lowercased()
         return ["log", "txt", "out", "err", ""].contains(ext) || path.contains("/Logs/")
     }
@@ -170,10 +172,18 @@ extension Evidence {
         return (start as NSString).lastPathComponent
     }
 
+    /// An app it is safe to offer to quit: one installed in an Applications folder and not running a script.
+    /// (Homebrew's Python is an app bundle too; quitting "Python" would stop someone's job.)
+    public var quittableApp: String? {
+        guard script == nil, let p = path, let a = app,
+              p.hasPrefix("/Applications/") || p.hasPrefix(NSHomeDirectory() + "/Applications/") else { return nil }
+        return a
+    }
+
     /// The app bundle the process belongs to, from its own path or its parents': "Claude", "Terminal".
     public var app: String? { Evidence.appName(path) }
 
-    static func appName(_ path: String?) -> String? {
+    public static func appName(_ path: String?) -> String? {
         guard let path, let r = path.range(of: ".app/") else { return nil }
         let bundle = String(path[..<r.lowerBound])
         return (bundle as NSString).lastPathComponent
@@ -188,7 +198,7 @@ extension Evidence {
                 let detached = ancestors.last?.pid == 1 && ancestors.count <= ancestors.firstIndex(where: { $0.pid == a.pid })! + 2
                 return detached ? "a background command whose launcher has exited" : "a shell command"
             }
-            if a.pid == 1 { return "macOS (launchd)" }
+            if a.pid == 1 { return mine && script != nil ? "a command whose launcher has exited" : "macOS (launchd)" }
         }
         return "macOS (launchd)"
     }

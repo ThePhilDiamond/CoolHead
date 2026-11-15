@@ -1,0 +1,22 @@
+# Thanks first-time contributors and points them at the guide.
+name: Welcome
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: "Thanks for your first report. If it's about a process Cool Head got wrong, the output of `coolhead why <name>` helps most; please check it for anything private first."
+          pr-message: "Thanks for your first pull request. `coolhead selftest` runs on it automatically; if you added a catalogue pattern, please link its source in the description (see docs/DIAGNOSIS.md)."

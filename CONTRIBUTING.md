@@ -1,0 +1,36 @@
+# Contributing to Cool Head
+
+Thanks for helping. There are three easy ways in.
+
+## Report a process Cool Head got wrong, or couldn't explain
+
+Most of the work on Cool Head starts with a report. [Open an issue](../../issues/new/choose) with:
+
+- the Cool Head version and your macOS version,
+- what you saw on the card, and what you think was really going on,
+- what `coolhead why <name>` printed for that process. Read it over before posting: it shows command lines and folder names.
+
+## Teach it a pattern
+
+The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns what processes are and when they are normal. Adding to it is the most useful contribution, and it needs no app-building knowledge. [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md) explains how, step by step.
+
+## Send code
+
+1. Read [BUILDING.md](BUILDING.md) and get a build running.
+2. Make your change on a branch and open a pull request. Say what it fixes and how you tested it.
+3. `coolhead selftest` must pass; the CI runs it on every pull request.
+
+### How the code is meant to work
+
+- **One sentence, one action.** A card says what something is and whether it is fine, then offers one thing to do. Detail goes behind "Details", never on the card.
+- **Big is not broken.** Never suggest stopping a job just because it is big or long. Stopping is for stalled jobs, and the card must say what it would cost.
+- **Say "can't tell" when you can't.** A plain admission beats a guess.
+- **Everything stays on the Mac.** No network calls, no analytics. The only exception is Look it up, which the user presses, and which sends the process name only.
+- **Light on the Mac.** Cool Head's own CPU use is shown in its panel. Keep it under 0.5% on average.
+- **No administrator password.** Everything Cool Head reads is readable by the signed-in user.
+- **License-clean dependencies.** MIT, BSD, Apache-2.0 and similar only; the project has no dependencies today.
+- **Comments explain why**, especially for kernel calls (`proc_pidinfo`, `proc_pid_rusage`) and IOKit keys.
+
+## Security problems
+
+See [SECURITY.md](SECURITY.md). Please don't open a public issue for those.

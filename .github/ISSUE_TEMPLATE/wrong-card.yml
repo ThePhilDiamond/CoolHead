@@ -1,0 +1,21 @@
+name: A card was wrong or unclear
+description: Cool Head said something about a process that wasn't right, or couldn't explain it.
+labels: [wrong card]
+body:
+  - type: input
+    id: versions
+    attributes: { label: "Cool Head and macOS versions", placeholder: "Cool Head 0.1.0, macOS 26.1" }
+    validations: { required: true }
+  - type: textarea
+    id: card
+    attributes: { label: What the card said }
+    validations: { required: true }
+  - type: textarea
+    id: reality
+    attributes: { label: What was really going on, if you know }
+  - type: textarea
+    id: evidence
+    attributes:
+      label: What `coolhead why <name>` printed
+      description: Read it first. It shows command lines and folder names; remove anything private.
+      render: text
