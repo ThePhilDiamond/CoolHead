@@ -218,8 +218,8 @@ struct BottomBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Toggle("Notifications", isOn: $notify).onChange(of: notify) { _, v in Alerts.enabled = v }.fixedSize()
-            Toggle("Open at login", isOn: $login).onChange(of: login) { _, v in LoginItem.set(v); login = LoginItem.on }.fixedSize()
+            SmallSwitch(label: "Notifications", isOn: $notify).onChange(of: notify) { _, v in Alerts.enabled = v }
+            SmallSwitch(label: "Open at login", isOn: $login).onChange(of: login) { _, v in LoginItem.set(v); login = LoginItem.on }
             Spacer(minLength: 4)
             HStack(spacing: 8) {
                 IconButton(symbol: "waveform.path.ecg", tip: "Launch Activity Monitor") {
@@ -232,6 +232,25 @@ struct BottomBar: View {
         .toggleStyle(.switch)
         .controlSize(.mini)
         .font(.caption)
+    }
+}
+
+/// A switch smaller than macOS's smallest ("mini"), with its label at normal size. Clicking the label toggles it too.
+struct SmallSwitch: View {
+    let label: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Text(label).fixedSize().onTapGesture { isOn.toggle() }
+            Toggle(label, isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .scaleEffect(0.78)
+                .frame(width: 30, height: 14)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
