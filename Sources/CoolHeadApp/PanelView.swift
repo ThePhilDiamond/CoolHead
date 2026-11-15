@@ -99,7 +99,21 @@ struct CardView: View {
                     }
                 }
                 if sharing, let r = live.report { ShareView(title: r.title, report: r.body) { sharing = false } }
-                DisclosureGroup("The facts", isExpanded: $facts) {
+                // the whole line opens it, not just the arrow
+                Button { withAnimation(.easeOut(duration: 0.15)) { facts.toggle() } } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                            .rotationEffect(.degrees(facts ? 90 : 0))
+                        Text("The facts").font(.caption)
+                        Spacer()
+                    }
+                    .foregroundStyle(Ink.text)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(facts ? "Hide the facts" : "Show the facts")
+                if facts {
                     VStack(alignment: .leading, spacing: 3) {
                         ForEach(live.details, id: \.self) { Text($0) }
                     }
@@ -107,9 +121,7 @@ struct CardView: View {
                     .foregroundStyle(Ink.muted)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 4)
                 }
-                .font(.caption)
             }
         }
         .padding(12)
