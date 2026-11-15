@@ -22,8 +22,13 @@ public enum Health {
         let ran = now.timeIntervalSince(busySince ?? e.start ?? now)
         if let l = e.lastLine?.lowercased(), l.contains("waiting"), e.coresNow < 0.1 { return .waiting }
         if let p = e.progress {
-            // stalled: quiet for longer than the limit and than three of its own usual gaps between progress lines
+            // stalled: quiet for longer than the limit and than three of its own usual gaps between progress lines,
+            // and not writing anything now. A job that reports itself done, or is still writing (saving a large
+            // result, say), is working, however long ago its last progress line was.
             let limit = max(stallMinutes, 3 * (p.typicalGapMinutes ?? 0))
+            let writingNow = e.bytesWrittenDuringSample > 0 || (e.lastOutput.map { now.timeIntervalSince($0) < limit * 60 } ?? false)
+                && e.lastOutput != p.lineTime
+            if p.fraction == 1 || writingNow { return .working }
             return now.timeIntervalSince(p.lineTime) > limit * 60 ? .stalled : .working
         }
         if e.bytesWrittenDuringSample > 0 || (e.lastOutput.map { now.timeIntervalSince($0) < 600 } ?? false) {
@@ -41,7 +46,7 @@ public struct Fix: Identifiable {
         case stop                // SIGTERM, after asking; only the user's own processes
         case cooler              // background priority: slower CPU and disk access, less heat
         case lookUp(String)      // a web search for this process name only
-        case quitApp(String)     // a normal quit, so the app can ask to save
+        case quitApp(String)     // a normal quit of the app at this bundle path, so it can ask to save
         case info                // advice with nothing to press
         case share               // show the anonymised case report, then offer to open it as a GitHub issue
     }
@@ -89,7 +94,7 @@ public struct Card {
     }
 
     static let share = Fix(id: "share", title: "Share this case",
-                           consequence: "Shows you exactly what would be shared first: no names, paths or files. Nothing leaves your Mac unless you submit it on GitHub.",
+                           consequence: "Shows you exactly what would be shared first: no names, paths or files. It goes to GitHub only if you open it there, and is posted, under your GitHub account, only if you press Submit.",
                            kind: .share)
 
     static func lookUp(_ name: String, recommended: Bool) -> Fix {
@@ -113,18 +118,23 @@ public struct Card {
             }
             var parts: [String] = []
             if atStake >= 10 * 60 {
-                parts.append(e.savesAsItGoes ? "It saves as it goes, so you would lose only the latest part."
-                                             : "You would lose about \(Fmt.duration(atStake)) of work, and have to run it again from the start.")
+                parts.append("You could lose up to \(Fmt.duration(atStake)) of work (less if it saves as it goes), and have to run it again.")
             } else {
-                parts.append("It started recently, so little work is lost; you would have to run it again.")
+                parts.append("It started recently, so little work would be lost; you would have to run it again.")
             }
             if let o = output { parts.append("\(o) may be left half-written.") }
             return parts.joined(separator: " ")
         }
-        let stop: Fix? = e.mine ? Fix(id: "stop", title: "Stop it", consequence: stopConsequence(), kind: .stop, recommended: state == .stalled) : nil
+        // never macOS's own programs (stopping loginwindow logs you out), and never an app's main program: an app
+        // should be quit, which lets it ask to save, not stopped
+        let appMain = e.script == nil && (e.path.map { $0.components(separatedBy: ".app/").count == 2 && $0.contains(".app/Contents/MacOS/") } ?? false)
+        // a script run by macOS's own interpreter (/usr/bin/python3) is still the person's job
+        let macOSProgram = e.script == nil && (e.path.map(CaseReport.isMacOS) ?? true)
+        let stoppable = e.mine && !macOSProgram && !appMain
+        let stop: Fix? = stoppable ? Fix(id: "stop", title: "Stop it", consequence: stopConsequence(), kind: .stop, recommended: state == .stalled) : nil
         let cooler: Fix? = e.mine && e.coresNow >= 0.5
             ? Fix(id: "cooler", title: "Run it cooler",
-                  consequence: "Moves it to the low-power cores and slows its disk use. It takes longer, but the Mac stays cooler and more responsive. You can undo it.",
+                  consequence: "Gives it background priority: macOS runs it on the low-power cores (on Apple silicon) and slows its disk use. It takes longer, but the Mac stays cooler and more responsive. You can undo it.",
                   kind: .cooler, recommended: false)
             : nil
 
@@ -143,8 +153,8 @@ public struct Card {
             } else {
                 fixes.append(wait(until: nil, now: now, recommended: true))
             }
-            if let app = e.quittableApp, k.risk != nil, k.whenLong.hasPrefix("Quit") {
-                fixes.append(Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(app)))
+            if let bundle = e.quittableBundle, let app = e.quittableApp, k.risk != nil, k.whenLong.hasPrefix("Quit") {
+                fixes.append(Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(bundle)))
             }
             if !e.mine { fixes.append(Fix(id: "nostop", title: "Stopping it isn't offered", consequence: "It belongs to macOS, which would start it again.", kind: .info)) }
             let head = e.coresNow < 0.25 ? "\(k.doing). It is quiet now."
@@ -154,14 +164,15 @@ public struct Card {
         }
 
         // web pages: the busy process is a tab or extension, and only the browser knows which
-        if let app = e.app, e.name.contains("Renderer") || e.name.contains("Web Content") || e.name.contains("(Plugin)") {
+        let webkit = e.name == "com.apple.WebKit.WebContent" || (e.path?.contains("com.apple.WebKit.WebContent") ?? false)
+        if let app = webkit ? "Safari" : e.app, webkit || e.name.contains("Renderer") || e.name.contains("Web Content") || e.name.contains("(Plugin)") {
             let tm = app.contains("Safari") ? "Window ▸ Activity" : "Window ▸ Task Manager"
             return Card(state: e.coresNow < 0.25 ? .quiet : busyFor > 20 * 60 ? .unknown : .starting,
                         headline: "A tab or extension in \(app) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor)).",
                         explanation: "Each tab and extension runs as its own process. macOS can't see which one this is, but \(app) can.",
                         fixes: [Fix(id: "find", title: "Find it: in \(app), choose \(tm)", consequence: "Sort by CPU, then close just that tab or extension.", kind: .info, recommended: true),
                                 wait(until: nil, now: now, recommended: false),
-                                e.quittableApp.map { Fix(id: "quit", title: "Quit \($0)", consequence: "Closes every tab and window; most browsers can reopen them.", kind: .quitApp($0)) }].compactMap { $0 })
+                                e.quittableBundle.map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes every tab and window; most browsers can reopen them.", kind: .quitApp($0)) }].compactMap { $0 })
         }
 
         switch state {
@@ -193,7 +204,7 @@ public struct Card {
             return Card(state: state,
                         headline: "\(who) has used about \(Fmt.cores(max(e.coresNow, e.coresAverage))) for \(Fmt.duration(busyFor)). Can't tell whether it is working or stuck.",
                         explanation: "It reports no progress and isn't writing any files, so there is nothing to judge it by. \(started)",
-                        fixes: [lookUp(e.script ?? e.name, recommended: true), wait(until: nil, now: now, recommended: false), cooler, stop, share].compactMap { $0 })
+                        fixes: [lookUp(e.name, recommended: true), wait(until: nil, now: now, recommended: false), cooler, stop, share].compactMap { $0 })
         case .starting:
             return Card(state: state, headline: "\(who) is busy, and only started \(Fmt.duration(busyFor)) ago.",
                         explanation: started, fixes: [wait(until: nil, now: now, recommended: true), cooler, stop].compactMap { $0 })

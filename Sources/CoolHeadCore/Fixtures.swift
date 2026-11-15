@@ -40,7 +40,42 @@ public struct Fixture {
         let mdsReport = CaseReport.make(mds, card: Card.make(mds, now: now), mac: MacState(), busySince: now, now: now)
         let privacy = [("case-report-leaks-nothing", found.isEmpty, found.isEmpty ? "no private detail in the report" : "leaked: \(found)"),
                        ("case-report-names-macos", mdsReport.contains("mds_stores (part of macOS)"), "macOS processes keep their name")]
-        return quit + privacy + all(now).map { f in
+        // review of 15 November 2026: each finding that was fixed keeps a check here
+        var review: [(String, Bool, String)] = []
+        // F2: a job whose progress line is old but which is writing now is working, not stuck
+        let saving = Evidence(pid: 1, name: "python3", path: "/usr/bin/python3", args: ["python3", "train.py"], cwd: "/Users/x/Model",
+                              start: now.addingTimeInterval(-4 * 3600), mine: true, coresNow: 1, coresAverage: 1, performanceShare: nil,
+                              memoryBytes: 0, ancestors: [], writing: ["/Users/x/Model/train.log", "/Users/x/Model/checkpoint.bin"], locks: [],
+                              progress: Progress(file: "/Users/x/Model/train.log", line: "500/500 epochs done", done: 500, total: 500,
+                                                 unit: "epochs", minutesLeft: nil, lineTime: now.addingTimeInterval(-7200)),
+                              bytesWrittenDuringSample: 50_000_000, lastOutput: now, lastLine: nil, savesAsItGoes: false, workStart: nil)
+        let sc = Card.make(saving, now: now, busySince: now.addingTimeInterval(-7200))
+        review.append(("F2-writing-is-not-stuck", sc.state == .working, "a job saving its result is \(sc.state.rawValue)"))
+        // F5: dates and battery figures are not progress
+        let date = Progress.parse("11/15/2026 10:00:01 server started", file: "", time: now)
+        let battery = Progress.parse("Battery 38% · Mac using 21 W", file: "", time: now)
+        let real = Progress.parse("25600/26512 passages, 178.4 min, about 6 min left", file: "", time: now)
+        review.append(("F5-dates-and-battery-not-progress", date == nil && battery == nil && real?.fraction != nil,
+                       "date \(date == nil ? "ignored" : "misread"), battery \(battery == nil ? "ignored" : "misread"), real progress \(real?.fraction != nil ? "read" : "missed")"))
+        // F6: never Stop for macOS's own programs or an app's main program
+        let login = Evidence.sample(name: "loginwindow", path: "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow",
+                                    start: now.addingTimeInterval(-86400), cores: 1)
+        let xcode = Evidence.sample(name: "Xcode", path: "/Applications/Xcode.app/Contents/MacOS/Xcode", start: now.addingTimeInterval(-86400), cores: 1)
+        let noStop = [login, xcode].allSatisfy { !Card.make($0, now: now, busySince: now.addingTimeInterval(-7200)).fixes.contains { $0.kind == .stop } }
+        review.append(("F6-no-stop-for-macos-or-apps", noStop, "loginwindow and Xcode are not offered Stop"))
+        // F7: Quit only for an app's own main program, not a helper inside another app
+        let helper = Evidence.sample(name: "Simulator", path: "/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator",
+                                     start: now, cores: 1)
+        review.append(("F7-quit-only-main-programs", helper.quittableBundle == nil && xcode.quittableBundle == "/Applications/Xcode.app",
+                       "a helper inside Xcode can't be quit as Xcode"))
+        // F18: a catalogue name only counts for macOS's own copy
+        review.append(("F18-name-needs-macos-path", Pattern.match(name: "bird", path: "/Users/x/bin/bird") == nil
+                       && Pattern.match(name: "bird", path: "/System/Library/PrivateFrameworks/CloudDocsDaemon.framework/Versions/A/Support/bird") != nil,
+                       "someone's own program called bird isn't taken for iCloud"))
+        // F22: secrets in command lines are hidden
+        let shown = Redact.args(["tool", "--token=abc123", "--password", "hunter2", "https://me:pw123@example.com/x"]).joined(separator: " ")
+        review.append(("F22-secrets-hidden", !shown.contains("abc123") && !shown.contains("hunter2") && !shown.contains("pw123"), shown))
+        return quit + privacy + review + all(now).map { f in
             let c = Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor))
             var problems: [String] = []
             if c.state != f.expectState { problems.append("state \(c.state.rawValue), expected \(f.expectState.rawValue)") }

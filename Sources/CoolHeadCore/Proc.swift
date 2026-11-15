@@ -36,6 +36,26 @@ public enum Proc {
         return Double(tb.numer) / Double(tb.denom)
     }()
 
+    /// Recent CPU use, in percent of one core, for every process, from /bin/ps (which can read other users'
+    /// processes where our own calls can't). Used only for processes our own calls can't read.
+    public static func psCPU() -> [pid_t: Double] {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/ps")
+        task.arguments = ["-A", "-o", "pid=,%cpu="]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+        guard (try? task.run()) != nil else { return [:] }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        var out: [pid_t: Double] = [:]
+        for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
+            let f = line.split(separator: " ", omittingEmptySubsequences: true)
+            if f.count >= 2, let p = pid_t(f[0]), let c = Double(f[1].replacingOccurrences(of: ",", with: ".")) { out[p] = c }
+        }
+        return out
+    }
+
     public static func allPIDs() -> [pid_t] {
         let n = proc_listallpids(nil, 0)
         guard n > 0 else { return [] }

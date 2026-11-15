@@ -1,5 +1,5 @@
 name: A case Cool Head couldn't explain
-description: Sent from Cool Head's "Share this case". It holds no names, paths or files.
+description: Sent from Cool Head's "Share this case". It holds no file names, paths or project names; it is posted under your GitHub account.
 title: "Case: "
 labels: [case]
 body:
@@ -10,7 +10,7 @@ body:
     id: report
     attributes:
       label: What Cool Head saw
-      description: Filled in by Cool Head. It holds the kind of process, how it behaved and the kind of Mac, and nothing that identifies you or your work.
+      description: Filled in by Cool Head. It holds the kind of process, how it behaved and the kind of Mac, and nothing about your files or work. It will be posted under your GitHub account.
     validations: { required: true }
   - type: textarea
     id: context

@@ -39,11 +39,11 @@ func printState(_ s: MacState) {
 func printEvidence(_ e: Evidence) {
     func row(_ k: String, _ v: String?) { if let v, !v.isEmpty { print("  \(k.padding(toLength: 12, withPad: " ", startingAt: 0)) \(v)") } }
     row("process", "\(e.name) (pid \(e.pid))\(e.mine ? "" : ", another user's or the system's")")
-    row("command", e.args.joined(separator: " "))
+    row("command", Redact.args(e.args).joined(separator: " "))
     row("folder", e.cwd)
     row("started", e.start.map { "\(Fmt.time($0)), \(Fmt.duration(Date().timeIntervalSince($0))) ago" })
     row("started by", e.startedBy)
-    row("launched as", e.launchCommand)
+    row("launched as", e.launchCommand.map(Redact.text))
     row("parents", e.ancestors.map { "\($0.name) (\($0.pid))" }.joined(separator: " ← "))
     row("CPU now", Fmt.cores(e.coresNow))
     row("CPU average", Fmt.cores(e.coresAverage) + " since it started")
@@ -55,7 +55,6 @@ func printEvidence(_ e: Evidence) {
     row("work began", e.workStart.map { Fmt.time($0) })
     row("last output", e.lastOutput.map { Fmt.time($0) })
     row("last line", e.lastLine)
-    row("saves as it goes", e.savesAsItGoes ? "yes" : "no sign of it")
     if let p = e.progress {
         row("progress", p.line)
         row("  from", "\(p.file), written \(Fmt.time(p.lineTime))")
@@ -75,9 +74,15 @@ func printCard(_ c: Card) {
 func find(_ target: String) -> pid_t? {
     if let p = pid_t(target) { return p }
     let want = target.lowercased()
-    let all = Proc.allPIDs().filter { $0 != getpid() }
-    // a match on the process name wins; only if none, look in command lines
-    var matches = all.filter { Proc.bsd($0)?.name.lowercased().contains(want) ?? false }
+    // leave out coolhead itself and the shell that ran it (its command line contains the name searched for)
+    var mine: Set<pid_t> = [getpid()]
+    var p = getppid()
+    while p > 1, let b = Proc.bsd(p) { mine.insert(p); p = b.ppid }
+    let all = Proc.allPIDs().filter { !mine.contains($0) }
+    // a match on the process name wins (for other users' processes, the name comes from the path); only if none,
+    // look in command lines
+    func name(_ p: pid_t) -> String? { Proc.bsd(p)?.name ?? Proc.path(p).map { ($0 as NSString).lastPathComponent } }
+    var matches = all.filter { name($0)?.lowercased().contains(want) ?? false }
     if matches.isEmpty { matches = all.filter { Proc.args($0).joined(separator: " ").lowercased().contains(want) } }
     let busy = Dictionary(busiest(limit: 5000, interval: 0.5).map { ($0.0, $0.1) }, uniquingKeysWith: { a, _ in a })
     return matches.max { (busy[$0] ?? 0) < (busy[$1] ?? 0) }

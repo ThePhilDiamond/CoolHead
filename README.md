@@ -2,7 +2,7 @@
 
 <h1 align="center">Cool Head</h1>
 
-<p align="center"><em>Let cooler heads prevail.</em><br>Why is my Mac hot or slow? One sentence, one action.<br>A free, open-source menu bar app for macOS.</p>
+<p align="center"><em>Let cooler heads prevail.</em><br>Why is my Mac running hot or slow? What's happening, gathered from across your Mac into one place, with clear options to act in one click.<br>A free, open-source menu bar app for macOS.</p>
 
 <p align="center"><img src="docs/images/panel-light.png" width="380" alt="The Cool Head panel: a card saying a photo export job is 45% done and when it should finish, with a Let it finish button"></p>
 
@@ -24,7 +24,7 @@ It also connects the dots across the Mac: fast charging that adds heat, memory r
 
 ## Privacy
 
-Everything runs on your Mac. No account, no analytics, no network connections, and nothing stored about what happened. Two buttons reach outside, and only when you press them: **Look it up** opens a web search for the process name only, and **Share this case**, on cards Cool Head can't explain, shows you an anonymised report (no names, paths or files) and can open it as a GitHub issue that you choose whether to submit.
+Everything runs on your Mac. No account, no analytics, no network connections, and nothing stored about what happened. Two buttons reach outside, and only when you press them: **Look it up** opens a web search for the process name, and **Share this case**, on cards Cool Head can't explain, shows you an anonymised report (no file names, paths or project names) that you can open as a GitHub issue and choose whether to submit. Details: [SECURITY.md](SECURITY.md).
 
 ## System requirements
 

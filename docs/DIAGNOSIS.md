@@ -29,11 +29,11 @@ Every card has one button, **Explore fixes**. It opens how Cool Head knows (the 
 | State | Card says | Recommended | Stopping |
 | --- | --- | --- | --- |
 | working | how far along, and when it should finish | do nothing and check back when it should be done (or run it cooler, when the Mac is warm) | offered, saying how much work would be lost and what may be left half-written |
-| waiting | what it is waiting for | do nothing | offered, with the same warning |
+| waiting | what it is waiting for | do nothing | offered, with the same warning (shown by `coolhead why`; the panel shows only processes busy enough to matter) |
 | stalled | no progress since when | stop it (nothing since its last progress is lost) | recommended |
 | can't tell | how long it has been busy | look it up, or share the case | offered, with a warning not to stop something unknown |
 
-Stopping, running cooler and quitting are offered only for the person's own processes, and quitting only for apps installed in an Applications folder.
+Stopping, running cooler and quitting are offered only for the person's own processes. Stop is never offered for macOS's own programs or for an app's main program; Quit is offered only for the main program of an app installed in an Applications folder. What stopping would cost is stated as "up to": Cool Head can see how long a job has run, not how much of that it has already saved.
 
 ## The catalogue
 

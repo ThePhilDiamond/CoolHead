@@ -66,7 +66,7 @@ struct CardView: View {
     @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil  // screenshots show it open
     @State private var facts = false
     @State private var confirmStop: Fix?
-    @State private var cooled = false
+    @State private var note: String?          // what happened after a button, when it didn't simply work
     @State private var sharing = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SHARE"] != nil  // screenshots
 
     var body: some View {
@@ -85,7 +85,8 @@ struct CardView: View {
                     .font(.callout).foregroundStyle(Ink.text)
                     .fixedSize(horizontal: false, vertical: true)
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(live.card.fixes) { FixRow(fix: $0, cooled: cooled) { act($0) } }
+                    ForEach(live.card.fixes) { FixRow(fix: $0, cooled: watcher.isCooled(live)) { act($0) } }
+                    if let n = note { Text(n).font(.callout.weight(.medium)).foregroundStyle(Color.orange) }
                 }
                 if sharing, let r = live.report { ShareView(title: r.title, report: r.body) { sharing = false } }
                 DisclosureGroup("The facts", isExpanded: $facts) {
@@ -105,11 +106,25 @@ struct CardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
-        .confirmationDialog("Stop it?", isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
-            Button("Stop it", role: .destructive) { if let p = live.pid { kill(p, SIGTERM) }; confirmStop = nil }
+        .confirmationDialog(stopTitle, isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
+            Button("Stop it", role: .destructive) { show(watcher.stop(live), done: "Stopped."); confirmStop = nil }
             Button("Cancel", role: .cancel) { confirmStop = nil }
         } message: {
             Text(confirmStop?.consequence ?? "")
+        }
+    }
+
+    /// Names the process, so the person knows exactly what they are stopping.
+    var stopTitle: String {
+        let name = live.details.first { $0.hasPrefix("Process: ") }?.replacingOccurrences(of: "Process: ", with: "") ?? "this process"
+        return "Stop \(name)?"
+    }
+
+    func show(_ o: Watcher.Outcome, done: String?) {
+        switch o {
+        case .done: note = done
+        case .gone: note = "It has already finished or been replaced, so nothing was done."
+        case .failed(let why): note = "That didn't work: \(why)."
         }
     }
 
@@ -125,12 +140,13 @@ struct CardView: View {
             u.queryItems = [URLQueryItem(name: "q", value: "macOS \(name) high CPU")]
             if let url = u.url { NSWorkspace.shared.open(url) }
         case .cooler:
-            guard let p = live.pid else { return }
-            // background priority: macOS moves it to the efficiency cores and throttles its disk use
-            setpriority(4 /* PRIO_DARWIN_PROCESS */, id_t(p), cooled ? 0 : 0x1000 /* PRIO_DARWIN_BG */)
-            cooled.toggle()
-        case .quitApp(let name):
-            NSWorkspace.shared.runningApplications.first { $0.localizedName == name }?.terminate()
+            // background priority: macOS runs it on the efficiency cores and slows its disk use; checked and undoable
+            show(watcher.setCooler(live, on: !watcher.isCooled(live)), done: nil)
+        case .quitApp(let bundle):
+            // found by where the app is installed, not by its display name (which can differ, or be shared)
+            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }) {
+                if !app.terminate() { note = "It didn't quit; it may be showing a dialog." }
+            } else { note = "That app isn't running any more." }
         case .share:
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
         case .info:
@@ -174,7 +190,7 @@ struct ShareView: View {
                 .buttonStyle(.bordered).controlSize(.small)
                 Button("Cancel", action: done).buttonStyle(.plain).font(.caption).foregroundStyle(Ink.muted)
             }
-            Text("GitHub opens in your browser with this filled in. You can edit it there, and nothing is posted until you press Submit.")
+            Text("Open in GitHub sends this text to GitHub in the link and opens it in your browser. You can edit it there; it is posted, under your GitHub account, only when you press Submit. Copy keeps it on your Mac.")
                 .font(.caption2).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)

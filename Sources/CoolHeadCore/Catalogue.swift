@@ -31,7 +31,8 @@ public struct Pattern {
 
     public func matches(name: String, path: String?) -> Bool {
         let n = name.lowercased()
-        if names.contains(where: { $0.lowercased() == n }) { return true }
+        // a name alone could be anyone's program; it counts only for macOS's own copy (or when the path is unknown)
+        if names.contains(where: { $0.lowercased() == n }) { return path.map(CaseReport.isMacOS) ?? true }
         if let p = path, pathContains.contains(where: { p.contains($0) }) { return true }
         return false
     }
@@ -63,7 +64,11 @@ extension Pattern {
         Pattern(id: "time-machine", names: ["backupd", "backupd-helper"], symptoms: [.heat, .slow],
                 doing: "Time Machine is backing up", normal: "for a while after many files change", usualHours: 3,
                 source: "Apple: Back up your Mac with Time Machine"),
-        Pattern(id: "icloud-sync", names: ["bird", "cloudd", "nsurlsessiond"], symptoms: [.heat, .battery],
+        Pattern(id: "background-downloads", names: ["nsurlsessiond"], symptoms: [.battery],
+                doing: "macOS is downloading or uploading something for an app (App Store, iCloud, or another app)",
+                normal: "while updates, backups or syncs transfer", usualHours: 3,
+                source: "Apple developer documentation: URLSession background transfers"),
+        Pattern(id: "icloud-sync", names: ["bird", "cloudd"], symptoms: [.heat, .battery],
                 doing: "iCloud is syncing", normal: "after adding or changing many files in iCloud Drive", usualHours: 3,
                 source: "man bird; Test: CPU rises while a large folder uploads to iCloud Drive"),
         Pattern(id: "file-provider", names: ["fileproviderd"], symptoms: [.heat, .battery],

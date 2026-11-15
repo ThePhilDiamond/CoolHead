@@ -6,6 +6,8 @@ import Observation
 public struct LiveCard: Identifiable {
     public let id: String
     public let pid: pid_t?
+    /// The process's start time, to check it is still the same process before acting on it.
+    public var start: Date? = nil
     public let card: Card
     public let details: [String]
     /// The anonymised case report, for cards that offer "Share this case".
@@ -29,6 +31,8 @@ public final class Watcher {
     public private(set) var dismissed: Set<String> = []
     /// Cards put off until a time, by their cause (a process, or a Mac-wide condition).
     public private(set) var snoozed: [String: Date] = [:]
+    /// Processes put on background priority by "Run it cooler", by process number and start time.
+    public private(set) var cooled: Set<String> = []
     /// Called on the main thread when a card has needed a look for 10 minutes, once per card.
     @ObservationIgnored public var onAlert: ((LiveCard) -> Void)?
     /// Called on the main thread after every update.
@@ -73,6 +77,38 @@ public final class Watcher {
         cards.removeAll { $0.cause == card.cause }
     }
 
+    /// The result of acting on a card, to show the person.
+    public enum Outcome { case done, gone, failed(String) }
+
+    /// True if this process number still belongs to the process the card was about (numbers are reused).
+    func sameProcess(_ c: LiveCard) -> Bool {
+        guard let p = c.pid, let b = Proc.bsd(p) else { return false }
+        guard let s = c.start else { return true }
+        return abs(b.start.timeIntervalSince(s)) < 1
+    }
+
+    public func stop(_ c: LiveCard) -> Outcome {
+        guard let p = c.pid, sameProcess(c) else { return .gone }
+        return kill(p, SIGTERM) == 0 ? .done : .failed(String(cString: strerror(errno)))
+    }
+
+    public func isCooled(_ c: LiveCard) -> Bool { cooled.contains(Watcher.key(c)) }
+
+    /// Background priority on or off; checks macOS accepted it by reading it back.
+    public func setCooler(_ c: LiveCard, on: Bool) -> Outcome {
+        guard let p = c.pid, sameProcess(c) else { return .gone }
+        guard setpriority(4 /* PRIO_DARWIN_PROCESS */, id_t(p), on ? 0x1000 /* PRIO_DARWIN_BG */ : 0) == 0 else {
+            return .failed(String(cString: strerror(errno)))
+        }
+        errno = 0
+        let now = getpriority(4, id_t(p))
+        guard errno == 0, (now == 0x1000) == on else { return .failed("macOS didn't apply it") }
+        if on { cooled.insert(Watcher.key(c)) } else { cooled.remove(Watcher.key(c)) }
+        return .done
+    }
+
+    static func key(_ c: LiveCard) -> String { "\(c.pid ?? 0)-\(c.start?.timeIntervalSince1970 ?? 0)" }
+
     public var needsLook: Bool { level != .good }
 
     /// What the menu bar shows, by shape and colour, so it reads without relying on colour alone:
@@ -94,8 +130,9 @@ public final class Watcher {
         let me = getpid()
         var seen = Set<pid_t>()
         var own = 0.0
+        var unreadable: [pid_t] = []
         for pid in Proc.allPIDs() {
-            guard let u = Proc.usage(pid) else { continue }
+            guard let u = Proc.usage(pid) else { unreadable.append(pid); continue }
             seen.insert(pid)
             var tr = tracks[pid] ?? Track(cpu: u.cpuSeconds, written: u.diskWritten)
             if dt > 0 {
@@ -110,6 +147,19 @@ public final class Watcher {
             if tr.cores >= 0.5 { tr.busySince = tr.busySince ?? now } else if tr.cores < 0.25 { tr.busySince = nil }
             tracks[pid] = tr
         }
+        // processes owned by other users (root, _mds_stores, _windowserver): macOS doesn't let us read their usage
+        // directly, but ps can; its figure is a recent average, which is what a lasting load needs
+        if !unreadable.isEmpty {
+            let ps = Proc.psCPU()
+            for pid in unreadable {
+                guard let pc = ps[pid] else { continue }
+                seen.insert(pid)
+                var tr = tracks[pid] ?? Track(cpu: 0, written: 0)
+                tr.cores = pc / 100
+                if tr.cores >= 0.5 { tr.busySince = tr.busySince ?? now } else if tr.cores < 0.25 { tr.busySince = nil }
+                tracks[pid] = tr
+            }
+        }
         tracks = tracks.filter { seen.contains($0.key) }
         let state = MacState.read()
         guard dt > 0 else { publish(state, [], own: 0); return }
@@ -122,7 +172,7 @@ public final class Watcher {
             guard let e = Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten)) else { continue }
             let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm)
             guard c.state != .quiet else { continue }
-            var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, card: c, details: e.lines())
+            var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             if c.fixes.contains(where: { $0.kind == .share }) {
                 lc.report = (CaseReport.title(e, card: c), CaseReport.make(e, card: c, mac: state, busySince: tr.busySince, now: now))
             }
@@ -154,16 +204,20 @@ public final class Watcher {
             let top = tracks.max { $0.value.footprint < $1.value.footprint }
             var who = "One process"
             var size = ""
-            var app: String?
+            var quit: Fix?
             if let (pid, tr) = top, let e = Evidence.gather(pid: pid, measured: (tr.cores, 0)) {
                 who = Card.subject(e)
                 size = Fmt.bytes(tr.footprint)
-                app = e.quittableApp
+                // Quit only the main program of a real app; a catalogue entry's risk (Docker stops its containers)
+                // is the consequence, and then it isn't recommended
+                if let bundle = e.quittableBundle, let app = e.quittableApp {
+                    let risk = Pattern.match(name: e.name, path: e.path)?.risk
+                    quit = Fix(id: "quit", title: "Quit \(app)", consequence: risk ?? "It quits normally and asks you to save anything open.",
+                               kind: .quitApp(bundle), recommended: risk == nil)
+                }
             }
-            var fixes = [Card.wait(until: nil, now: now, recommended: app == nil)]
-            if let a = app {
-                fixes.append(Fix(id: "quit", title: "Quit \(a)", consequence: "It quits normally and asks you to save anything open.", kind: .quitApp(a), recommended: true))
-            }
+            var fixes = [Card.wait(until: nil, now: now, recommended: !(quit?.recommended ?? false))]
+            if let q = quit { fixes.append(q) }
             out.append(LiveCard(id: "memory-\(s.memoryPressure)", pid: nil, card: Card(
                 state: .unknown,
                 headline: "Memory is \(s.memoryPressure == "critical" ? "very " : "")tight. \(who) is using the most, \(size).",
@@ -184,7 +238,7 @@ public final class Watcher {
             let ids = Set(live.filter(\.needsLook).map(\.id))
             for c in live where c.needsLook {
                 if firstSeen[c.id] == nil { firstSeen[c.id] = now }
-                if !alerted.contains(c.id), now.timeIntervalSince(firstSeen[c.id]!) >= 600, !dismissed.contains(c.id) {
+                if !alerted.contains(c.id), now.timeIntervalSince(firstSeen[c.id]!) >= 600, !dismissed.contains(c.id), snoozed[c.cause] == nil {
                     alerted.insert(c.id)
                     onAlert?(c)
                 }
@@ -201,9 +255,9 @@ extension Evidence {
     public func lines() -> [String] {
         var out: [String] = []
         out.append("Process: \(name), number \(pid)")
-        if !args.isEmpty { out.append("Command: \(args.joined(separator: " "))") }
+        if !args.isEmpty { out.append("Command: \(Redact.args(args).joined(separator: " "))") }
         out.append("Started by: \(startedBy)")
-        if let c = launchCommand { out.append("Launched as: \(c)") }
+        if let c = launchCommand { out.append("Launched as: \(Redact.text(c))") }
         if let d = cwd, d != "/" { out.append("Folder: \(d)") }
         if let s = start { out.append("Started: \(Fmt.time(s)), \(Fmt.duration(Date().timeIntervalSince(s))) ago") }
         out.append("CPU: \(Fmt.cores(coresNow)) now; memory \(Fmt.bytes(memoryBytes))")
@@ -222,6 +276,36 @@ extension MacState {
         if let w = batteryWatts, charging { out.append(String(format: "Battery taking %.0f W", w)) }
         if let w = macWatts { out.append(String(format: "Mac using %.0f W", w)) }
         if let a = adapterWatts { out.append("Charger: \(a) W") }
+        return out
+    }
+}
+
+/// Hides values that look like secrets (tokens, keys, passwords, credentials in URLs) wherever command lines are
+/// shown, so they aren't copied into an issue by accident.
+public enum Redact {
+    static let secretFlag = try! NSRegularExpression(
+        pattern: #"((?:^|[\s-])(?:[\w.-]*(?:token|key|secret|password|passwd|pwd|auth|bearer|credential|apikey)[\w.-]*)[=:])\S+"#,
+        options: [.caseInsensitive])
+    static let urlCredential = try! NSRegularExpression(pattern: #"(://[^/\s:@]+:)[^@\s/]+@"#)
+
+    public static func text(_ s: String) -> String {
+        var t = secretFlag.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: "$1[hidden]")
+        t = urlCredential.stringByReplacingMatches(in: t, range: NSRange(t.startIndex..., in: t), withTemplate: "$1[hidden]@")
+        return t
+    }
+
+    /// Also hides the value after a bare secret flag: --token abc123
+    public static func args(_ a: [String]) -> [String] {
+        var out: [String] = []
+        var hideNext = false
+        for x in a {
+            if hideNext { out.append("[hidden]"); hideNext = false; continue }
+            let bare = x.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+            if x.hasPrefix("-") && !x.contains("=") && ["token", "key", "secret", "password", "passwd", "pwd", "auth", "bearer", "apikey", "api-key"].contains(where: { bare.hasSuffix($0) }) {
+                hideNext = true
+            }
+            out.append(text(x))
+        }
         return out
     }
 }

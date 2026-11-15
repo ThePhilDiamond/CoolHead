@@ -42,13 +42,14 @@ public enum CaseReport {
 
     // MARK: - What a process may be called
 
-    /// A macOS process or a signed app keeps its name: those are published software, shared by everyone.
-    /// Anything else is described only by its kind, because its name could be the person's own work.
+    /// A macOS process keeps its name, and so does an app installed in an Applications folder that is signed by a
+    /// developer: those are software anyone can have. Anything else is described only by its kind, because its
+    /// name could be the person's own work (their own builds and their employer's tools are often signed too).
+    /// No Team ID is ever included: for an individual developer it leads to their name.
     static func identity(_ e: Evidence, short: Bool = false) -> String {
         if let p = e.path, isMacOS(p) { return short ? e.name : "\(e.name) (part of macOS)" }
-        if let p = e.path, let team = teamID(p) {
-            let name = e.app ?? e.name
-            return short ? name : "\(name) (signed by a developer, Team ID \(team))"
+        if let p = e.path, let app = e.app, inApplications(p), teamID(p) != nil {
+            return short ? app : "\(app) (an app installed in Applications)"
         }
         if e.script != nil {
             let runtime = ((e.path ?? e.name) as NSString).lastPathComponent.lowercased()
@@ -56,11 +57,15 @@ public enum CaseReport {
                 : runtime.hasPrefix("ruby") ? "Ruby" : ["bash", "sh", "zsh"].contains(runtime) ? "shell" : "other"
             return "a \(lang) script (its name is withheld)"
         }
-        if e.app != nil { return "an app that isn't signed by a developer (its name is withheld)" }
-        return "a command-line tool that isn't signed by a developer (its name is withheld)"
+        if e.app != nil { return "an app (its name is withheld)" }
+        return "a command-line tool (its name is withheld)"
     }
 
-    static func isMacOS(_ path: String) -> Bool {
+    static func inApplications(_ path: String) -> Bool {
+        path.hasPrefix("/Applications/") || path.hasPrefix(NSHomeDirectory() + "/Applications/")
+    }
+
+    public static func isMacOS(_ path: String) -> Bool {
         ["/System/", "/usr/libexec/", "/usr/sbin/", "/usr/bin/", "/sbin/", "/bin/", "/Library/Apple/"].contains { path.hasPrefix($0) }
     }
 

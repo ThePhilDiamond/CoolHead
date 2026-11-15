@@ -89,7 +89,9 @@ enum Alerts {
             guard ok else { return }
             let c = UNMutableNotificationContent()
             c.title = "Cool Head"
-            c.body = card.card.headline
+            // never the headline: it can hold a project or script name, and macOS keeps notification text
+            c.body = card.card.state == .stalled ? "A job looks stuck. Open Cool Head to see which, and what to do."
+                : "Something has been busy for a while. Open Cool Head to see what, and what to do."
             center.add(UNNotificationRequest(identifier: card.id, content: c, trigger: nil))
         }
     }
@@ -103,7 +105,7 @@ enum About {
         let italic = NSFontManager.shared.convert(NSFont.systemFont(ofSize: 12), toHaveTrait: .italicFontMask)
         let center = NSMutableParagraphStyle(); center.alignment = .center
         let credits = NSMutableAttributedString(string: "Let cooler heads prevail.\n\n", attributes: [.font: italic])
-        credits.append(NSAttributedString(string: "Why is my Mac hot or slow? One sentence, one action.\nFree and open source under the GNU AGPL v3.0.\n\n",
+        credits.append(NSAttributedString(string: "Why is my Mac running hot or slow? What's happening, gathered from across your Mac into one place, with clear options to act in one click.\n\n",
                                           attributes: [.font: body]))
         credits.append(NSAttributedString(string: "github.com/ThePhilDiamond/CoolHead",
                                           attributes: [.font: body, .link: URL(string: "https://github.com/ThePhilDiamond/CoolHead")!]))

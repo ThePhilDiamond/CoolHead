@@ -60,6 +60,8 @@ public struct MacState {
               let d = props?.takeRetainedValue() as? [String: Any] else { return }
         func int(_ k: String) -> Int? { (d[k] as? NSNumber)?.intValue }
         batteryPercent = int("CurrentCapacity")
+        // Intel MacBooks report capacity in mAh rather than percent
+        if let cur = batteryPercent, let max = int("MaxCapacity"), max > 100 { batteryPercent = Int((Double(cur) / Double(max) * 100).rounded()) }
         charging = (d["IsCharging"] as? Bool) ?? false
         onPower = (d["ExternalConnected"] as? Bool) ?? false
         cycles = int("CycleCount")
