@@ -31,6 +31,8 @@ public final class Watcher {
     public private(set) var snoozed: [String: Date] = [:]
     /// Called on the main thread when a card has needed a look for 10 minutes, once per card.
     @ObservationIgnored public var onAlert: ((LiveCard) -> Void)?
+    /// Called on the main thread after every update.
+    @ObservationIgnored public var onPublish: (() -> Void)?
 
     @ObservationIgnored public var interval: TimeInterval = 10
     @ObservationIgnored private var tracks: [pid_t: Track] = [:]
@@ -189,6 +191,7 @@ public final class Watcher {
             }
             firstSeen = firstSeen.filter { ids.contains($0.key) }
             alerted = alerted.filter { ids.contains($0) }
+            onPublish?()
         }
     }
 }

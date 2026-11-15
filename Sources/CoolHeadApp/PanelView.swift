@@ -13,14 +13,6 @@ struct PanelView: View {
                     .accessibilityLabel(watcher.level == .good ? "All well" : watcher.level == .warning ? "Needs a look" : "Problem")
                 Text(status).font(.headline)
                 Spacer()
-                Button {
-                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
-                } label: {
-                    Image(systemName: "waveform.path.ecg").font(.body)
-                }
-                .buttonStyle(.plain).foregroundStyle(Ink.muted)
-                .help("Launch Activity Monitor")
-                .accessibilityLabel("Launch Activity Monitor")
             }
             if shownCards.isEmpty {
                 Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
@@ -219,21 +211,64 @@ struct FixRow: View {
     }
 }
 
-/// Along the bottom: the two settings as switches, and Quit. No settings menu.
+/// Along the bottom: the two settings as switches, then Activity Monitor, About and Quit as line icons.
 struct BottomBar: View {
     @State private var login = LoginItem.on
     @State private var notify = Alerts.enabled
 
     var body: some View {
-        HStack(spacing: 14) {
-            Toggle("Notifications", isOn: $notify).onChange(of: notify) { _, v in Alerts.enabled = v }
-            Toggle("Open at login", isOn: $login).onChange(of: login) { _, v in LoginItem.set(v); login = LoginItem.on }
-            Spacer()
-            Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.bordered).controlSize(.small)
+        HStack(spacing: 10) {
+            Toggle("Notifications", isOn: $notify).onChange(of: notify) { _, v in Alerts.enabled = v }.fixedSize()
+            Toggle("Open at login", isOn: $login).onChange(of: login) { _, v in LoginItem.set(v); login = LoginItem.on }.fixedSize()
+            Spacer(minLength: 4)
+            HStack(spacing: 8) {
+                IconButton(symbol: "waveform.path.ecg", tip: "Launch Activity Monitor") {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
+                }
+                IconButton(symbol: "info.circle", tip: "About Cool Head") { About.show() }
+                IconButton(symbol: "power", tip: "Quit") { NSApp.terminate(nil) }
+            }
         }
         .toggleStyle(.switch)
         .controlSize(.mini)
         .font(.caption)
+    }
+}
+
+/// A line-icon button with its tooltip centred above it on hover (the system tooltip appears at the pointer instead).
+struct IconButton: View {
+    let symbol: String
+    let tip: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    init(symbol: String, tip: String, action: @escaping () -> Void) {
+        self.symbol = symbol; self.tip = tip; self.action = action
+        // screenshots: COOLHEAD_SNAPSHOT_HOVER names a tooltip to show
+        _hovering = State(initialValue: ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HOVER"] == tip)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 14)).frame(width: 22, height: 22).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(hovering ? Ink.text : Ink.muted)
+        .onHover { hovering = $0 }
+        .overlay(alignment: .top) {
+            if hovering {
+                Text(tip)
+                    .font(.caption)
+                    .foregroundStyle(Ink.text)
+                    .fixedSize()
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(Ink.card, in: RoundedRectangle(cornerRadius: 5))
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Ink.edge, lineWidth: 1))
+                    .offset(y: -26)
+                    .allowsHitTesting(false)
+            }
+        }
+        .accessibilityLabel(tip)
     }
 }
 

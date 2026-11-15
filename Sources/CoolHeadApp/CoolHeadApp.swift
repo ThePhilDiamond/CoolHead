@@ -7,26 +7,67 @@ import UserNotifications
 @main
 struct CoolHeadApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    @State private var watcher = Watcher.shared
 
-    var body: some Scene {
-        MenuBarExtra {
-            PanelView(watcher: watcher)
-        } label: {
-            Image(nsImage: MenuIcon.image(level: watcher.level))
-        }
-        .menuBarExtraStyle(.window)
-    }
+    // The menu bar item is AppKit's NSStatusItem (in AppDelegate), not SwiftUI's MenuBarExtra,
+    // because only the status item can tell a left-click (the panel) from a right-click (a small menu).
+    var body: some Scene { Settings { EmptyView() } }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    private var item: NSStatusItem!
+    private let popover = NSPopover()
+    private var lastLevel: Watcher.Level?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)          // menu bar only, no Dock icon
         if Bundle.main.bundleIdentifier != nil { UNUserNotificationCenter.current().delegate = self }  // crashes outside an app bundle
-        Watcher.shared.onAlert = { card in Alerts.send(card) }
-        Watcher.shared.start()
+        let watcher = Watcher.shared
+        watcher.onAlert = { card in Alerts.send(card) }
+
+        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.button?.image = MenuIcon.image(level: .good)
+        item.button?.setAccessibilityLabel("Cool Head")
+        item.button?.target = self
+        item.button?.action = #selector(clicked)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+
+        let host = NSHostingController(rootView: PanelView(watcher: watcher))
+        host.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = host
+        popover.behavior = .transient
+
+        // redraw the icon when the status level changes
+        watcher.onPublish = { [weak self] in
+            guard let self, self.lastLevel != watcher.level else { return }
+            self.lastLevel = watcher.level
+            self.item.button?.image = MenuIcon.image(level: watcher.level)
+        }
+        watcher.start()
         if let path = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] { Snapshot.take(to: path) }
     }
+
+    @objc private func clicked() {
+        guard let button = item.button else { return }
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
+            popover.performClose(nil)
+            let menu = NSMenu()
+            menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
+            menu.addItem(.separator())
+            menu.addItem(withTitle: "Quit Cool Head", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+            item.menu = menu
+            button.performClick(nil)          // shows the menu under the icon
+            item.menu = nil                   // so the next left-click opens the panel again
+        } else if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
+    }
+
+    @objc func about() { About.show() }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -51,6 +92,18 @@ enum Alerts {
             c.body = card.card.headline
             center.add(UNNotificationRequest(identifier: card.id, content: c, trigger: nil))
         }
+    }
+}
+
+/// The standard About panel, with what Cool Head is and where its source lives.
+enum About {
+    static func show() {
+        NSApp.activate(ignoringOtherApps: true)
+        let credits = NSMutableAttributedString(string: "Why is my Mac hot? One sentence, one action.\nFree and open source under the GNU AGPL v3.0.\n\n")
+        credits.append(NSAttributedString(string: "github.com/ThePhilDiamond/CoolHead",
+                                          attributes: [.link: URL(string: "https://github.com/ThePhilDiamond/CoolHead")!]))
+        credits.addAttribute(.font, value: NSFont.systemFont(ofSize: 11), range: NSRange(location: 0, length: credits.length))
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Cool Head"])
     }
 }
 
