@@ -237,6 +237,106 @@ func menuTemplate(_ name: String) -> (CGFloat) -> Void {
     }
 }
 
+// MARK: - Faces: a cool head, literally (original drawings)
+
+func arc(_ c: NSPoint, _ r: CGFloat, _ a0: CGFloat, _ a1: CGFloat, clockwise: Bool = false) -> NSBezierPath {
+    let p = NSBezierPath(); p.appendArc(withCenter: c, radius: r, startAngle: a0, endAngle: a1, clockwise: clockwise)
+    p.lineCapStyle = .round; return p
+}
+
+func snowflake(_ c: NSPoint, _ r: CGFloat, _ sw: CGFloat, _ col: NSColor) {
+    for i in 0..<6 {
+        let a = CGFloat(i) * .pi / 3 + .pi / 2
+        let tip = NSPoint(x: c.x + cos(a) * r, y: c.y + sin(a) * r)
+        stroke(poly([c, tip], closed: false), sw, col)
+        let m = NSPoint(x: c.x + cos(a) * r * 0.6, y: c.y + sin(a) * r * 0.6)
+        for side in [-1.0, 1.0] as [CGFloat] {
+            let b = a + side * .pi / 4
+            stroke(poly([m, NSPoint(x: m.x + cos(b) * r * 0.32, y: m.y + sin(b) * r * 0.32)], closed: false), sw, col)
+        }
+    }
+}
+
+/// k: scale from the 1024 canvas. line: draw as a one-colour line icon (for the menu bar).
+func face(_ s: CGFloat, style: String, line: Bool = false) {
+    let k = s / 1024
+    let col: NSColor = line ? .black : ink
+    let sw = (line ? 64 : 30) * k
+    if !line {
+        let bg: NSColor = style == "shades" ? color(0x5BB8E8) : color(0xEAF6FD)
+        bg.setFill(); NSBezierPath(roundedRect: tile(s), xRadius: s * 0.18, yRadius: s * 0.18).fill()
+    }
+    let c = NSPoint(x: 512 * k, y: 490 * k), r: CGFloat = (line ? 400 : 290) * k
+    let head: NSBezierPath = style == "cube"
+        ? NSBezierPath(roundedRect: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r), xRadius: r * 0.32, yRadius: r * 0.32)
+        : NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+    if !line {
+        let fill: [NSColor] = style == "frosty" ? [color(0xBFE6FA), color(0x7CC7EE)]
+            : style == "cube" ? [color(0xF4FBFF), color(0xA9DBF7)]
+            : [color(0xFFFFFF), color(0xCDEBFA)]
+        NSGradient(colors: fill)!.draw(in: head, angle: -90)
+    }
+    stroke(head, sw, col)
+    let ex = r * 0.36, ey = c.y + r * 0.12
+    switch style {
+    case "shades":
+        // sunglasses: two rounded lenses and a bridge
+        for side in [-1.0, 1.0] as [CGFloat] {
+            let lens = NSBezierPath(roundedRect: NSRect(x: c.x + side * ex - r * 0.3, y: ey - r * 0.16, width: r * 0.6, height: r * 0.34),
+                                    xRadius: r * 0.12, yRadius: r * 0.12)
+            if line { stroke(lens, sw, col) } else { col.setFill(); lens.fill() }
+        }
+        stroke(poly([NSPoint(x: c.x - r * 0.08, y: ey + r * 0.08), NSPoint(x: c.x + r * 0.08, y: ey + r * 0.08)], closed: false), sw, col)
+        stroke(arc(NSPoint(x: c.x + r * 0.05, y: c.y - r * 0.12), r * 0.32, 215, 320), sw, col)    // a relaxed half smile
+    case "frosty":
+        // frost along the top of the head: a scalloped cap with icicles
+        if !line {
+            let cap = NSBezierPath()
+            cap.appendArc(withCenter: c, radius: r, startAngle: 20, endAngle: 160)
+            var x = c.x - r * 0.94
+            let y0 = c.y + r * 0.34
+            cap.line(to: NSPoint(x: x, y: y0))
+            var i = 0
+            while x < c.x + r * 0.94 {
+                let w = r * 0.235, drop: CGFloat = i % 2 == 0 ? r * 0.2 : r * 0.1
+                cap.curve(to: NSPoint(x: x + w, y: y0), controlPoint1: NSPoint(x: x + w * 0.2, y: y0 - drop), controlPoint2: NSPoint(x: x + w * 0.8, y: y0 - drop))
+                x += w; i += 1
+            }
+            cap.close()
+            iceFill.setFill(); cap.fill(); stroke(cap, sw * 0.8, col)
+        } else {
+            stroke(poly([NSPoint(x: c.x - r * 0.8, y: c.y + r * 0.4), NSPoint(x: c.x + r * 0.8, y: c.y + r * 0.4)], closed: false), sw * 0.8, col)
+        }
+        for side in [-1.0, 1.0] as [CGFloat] {      // happy eyes, closed in a smile
+            stroke(arc(NSPoint(x: c.x + side * ex, y: ey - r * 0.12), r * 0.13, 20, 160), sw, col)
+        }
+        stroke(arc(NSPoint(x: c.x, y: c.y - r * 0.1), r * 0.42, 205, 335), sw, col)
+    case "cube":
+        for side in [-1.0, 1.0] as [CGFloat] {
+            let eye = NSBezierPath(ovalIn: NSRect(x: c.x + side * ex - r * 0.07, y: ey - r * 0.07, width: r * 0.14, height: r * 0.16))
+            col.setFill(); eye.fill()
+        }
+        stroke(arc(NSPoint(x: c.x, y: c.y - r * 0.02), r * 0.3, 215, 325), sw, col)
+        if !line {     // a shine on the ice
+            stroke(arc(NSPoint(x: c.x, y: c.y), r * 0.78, 115, 150), sw * 0.8, color(0xFFFFFF))
+        }
+    case "snowflake-mind":
+        // calm closed eyes and a smile, with a snowflake where the thoughts are
+        for side in [-1.0, 1.0] as [CGFloat] {
+            stroke(arc(NSPoint(x: c.x + side * ex, y: ey + r * 0.02), r * 0.13, 200, 340), sw, col)
+        }
+        stroke(arc(NSPoint(x: c.x, y: c.y - r * 0.06), r * 0.36, 215, 325), sw, col)
+        snowflake(NSPoint(x: c.x, y: c.y + r * 0.6), r * 0.2, sw * 0.7, line ? col : color(0x2E9BD6))
+    default: // "calm": eyes closed in contentment, a small smile
+        for side in [-1.0, 1.0] as [CGFloat] {
+            stroke(arc(NSPoint(x: c.x + side * ex, y: ey + r * 0.02), r * 0.13, 200, 340), sw, col)
+        }
+        stroke(arc(NSPoint(x: c.x, y: c.y - r * 0.06), r * 0.36, 215, 325), sw, col)
+    }
+}
+
+let faceOptions = ["calm", "snowflake-mind", "frosty", "shades", "cube"]
+
 func render(_ draw: (CGFloat) -> Void, size: Int) -> Data { render(draw, width: size, height: size, scale: CGFloat(size)) }
 
 func render(_ draw: (CGFloat) -> Void, width: Int, height: Int, scale: CGFloat = 0) -> Data {
@@ -253,7 +353,7 @@ func render(_ draw: (CGFloat) -> Void, width: Int, height: Int, scale: CGFloat =
 
 let options: [(String, (CGFloat) -> Void)] = [("ice", drawIce), ("flat", drawFlat), ("line", drawLine)]
 for (name, draw) in options where which == "all" || which == name {
-    if which == "sheet" || which == "linesheet" { break }
+    if ["sheet", "linesheet", "facesheet"].contains(which) { break }
     try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo-\(name).png"))
     // the app icon set, for iconutil
     let set = out.appendingPathComponent("AppIcon-\(name).iconset")
@@ -263,6 +363,42 @@ for (name, draw) in options where which == "all" || which == name {
         try! render(draw, size: base * 2).write(to: set.appendingPathComponent("icon_\(base)x\(base)@2x.png"))
     }
 }
+// "facesheet": the face ideas, large, at Dock and Finder sizes, and as the menu bar icon, on light and dark.
+if which == "facesheet" {
+    let n = faceOptions.count, w = 40 + n * 380, h = 820
+    try! render({ _ in
+        for (row, bg) in [(0, color(0xF5F5F7)), (1, color(0x1E1E1E))] {
+            bg.setFill(); NSBezierPath(rect: NSRect(x: 0, y: CGFloat(h) - CGFloat(row + 1) * 410, width: CGFloat(w), height: 410)).fill()
+        }
+        for (i, style) in faceOptions.enumerated() {
+            let x = CGFloat(40 + i * 380)
+            for row in 0..<2 {
+                let top = CGFloat(h) - CGFloat(row) * 410
+                func place(_ px: CGFloat, _ py: CGFloat, _ size: CGFloat, line: Bool) {
+                    NSGraphicsContext.saveGraphicsState()
+                    let t = NSAffineTransform(); t.translateX(by: px, yBy: py); t.scale(by: size / 1024.0); t.concat()
+                    if line {
+                        let img = NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { _ in face(1024, style: style, line: true); return true }
+                        let tinted = NSImage(size: img.size, flipped: false) { r in img.draw(in: r); (row == 0 ? NSColor.black : NSColor.white).set(); r.fill(using: .sourceAtop); return true }
+                        tinted.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024))
+                    } else { face(1024, style: style) }
+                    NSGraphicsContext.restoreGraphicsState()
+                }
+                place(x, top - 300, 240, line: false)
+                place(x + 250, top - 110, 64, line: false)
+                place(x + 266, top - 170, 32, line: false)
+                let bar = NSRect(x: x + 240, y: top - 260, width: 84, height: 48)
+                (row == 0 ? color(0xE8E8EA) : color(0x2C2C2E)).setFill(); NSBezierPath(roundedRect: bar, xRadius: 8, yRadius: 8).fill()
+                place(x + 264, top - 254, 36, line: true)
+                let label = ["Calm", "Snowflake mind", "Frosty", "Shades", "Ice cube face"][i]
+                (label as NSString).draw(at: NSPoint(x: x + 20, y: top - 360), withAttributes: [
+                    .font: NSFont.systemFont(ofSize: 26, weight: .semibold),
+                    .foregroundColor: row == 0 ? color(0x1D1D1F) : color(0xF5F5F7)])
+            }
+        }
+    }, width: w, height: h).write(to: out.appendingPathComponent("logo-face-options.png"))
+}
+
 // "linesheet": the four line-art cubes, large, at Dock and Finder sizes, and as the menu bar icon, on light and dark.
 if which == "linesheet" {
     let w = 2320, h = 820
