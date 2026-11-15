@@ -52,6 +52,7 @@ public struct Fix: Identifiable {
         case openPage(String, String)   // open a page of an app's own settings in that app: bundle path, address
         case pauseJob            // SIGSTOP until the Mac is plugged in; resumed then, or on request, or when Cool Head quits
         case pauseSync(String, String)  // open a sync app (bundle path, name) to pause it, with a reminder to resume
+        case chromeLimit(Int?)   // set Chrome's own memory limit to this many MB (nil: remove it), as Chrome settings on this Mac
     }
     public let id: String
     public let title: String
@@ -87,7 +88,7 @@ public struct Card {
     public static func rank(_ f: Fix) -> Int {
         if f.recommended { return 0 }
         switch f.kind {
-        case .cooler, .pauseJob: return 1
+        case .cooler, .pauseJob, .chromeLimit: return 1
         case .pauseSync: return 2
         case .info, .openPage: return f.id == "nostop" ? 7 : 2
         case .lookUp: return 3
@@ -103,7 +104,7 @@ public struct Card {
     public var hasAction: Bool {
         fixes.contains { f in
             switch f.kind {
-            case .cooler, .stop, .quitApp, .lookUp, .openPage, .pauseJob, .pauseSync: return true
+            case .cooler, .stop, .quitApp, .lookUp, .openPage, .pauseJob, .pauseSync, .chromeLimit: return true
             default: return false
             }
         }

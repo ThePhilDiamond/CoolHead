@@ -116,6 +116,19 @@ public final class Watcher {
 
     public private(set) var pausedJobs: [PausedJob] = PauseStore.load("pausedJobs")
     public private(set) var syncPauses: [SyncPause] = PauseStore.load("syncPauses")
+    /// Chrome's memory limit in MB, while the one Cool Head set is in place: listed at the top of the panel with its
+    /// undo. Chrome's settings are read only when Cool Head has set one.
+    public private(set) var chromeLimitMB: Int? = nil
+    public func refreshChromeLimit() {
+        guard UserDefaults.standard.integer(forKey: ChromeLimit.marker) > 0, case .set(let mb) = ChromeLimit.status() else { chromeLimitMB = nil; return }
+        chromeLimitMB = mb
+    }
+    @discardableResult public func removeChromeLimit() -> Bool {
+        let ok = ChromeLimit.remove()
+        log("Remove Chrome limit pressed: " + (ok ? "removed" : "failed"))
+        refreshChromeLimit()
+        return ok
+    }
     /// Called on the main thread with a short line to show as a notification (a sync reminder, low battery).
     @ObservationIgnored public var onReminder: ((String) -> Void)?
     private var batteryAlerted: Set<String> = []
@@ -136,7 +149,7 @@ public final class Watcher {
         PauseStore.save(pausedJobs, "pausedJobs")
         cards.removeAll { $0.cause == c.cause }
         log("Paused \(c.reportSubject) until plugged in")
-        return .done("Paused \(name). It carries on when you plug in.")
+        return .done("Paused \(name). It carries on by itself when you plug in, and it's listed at the top to resume sooner.")
     }
 
     /// Lets a paused job carry on. Only the same process is ever resumed (its number and start time match).
@@ -306,7 +319,7 @@ public final class Watcher {
             cooled[Watcher.key(c)] = CooledItem(key: Watcher.key(c), pid: p, start: c.start, name: name, reportSubject: c.reportSubject,
                                                 since: Date(), before: before, after: pri)
             let change = (before != nil && pri != nil) ? " (priority \(before!) → \(pri!))" : ""
-            return .done("Done. \(name) is running cooler\(change). It's pinned at the top.")
+            return .done("\(name) is now running cooler\(change): slower, but less heat. It's listed at the top, to restore any time.")
         }
         cooled.removeValue(forKey: Watcher.key(c))
         return .done("\(name) is back to full speed.")
@@ -370,6 +383,8 @@ public final class Watcher {
         var state = MacState.read()
         // for screenshots: COOLHEAD_SNAPSHOT_WARM shows the Mac as warm, so a card shows what it recommends then
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_WARM"] != nil { state.thermal = "fair" }
+        // for screenshots and tests: COOLHEAD_TEST_MEMORY shows memory as tight, so the memory card and its options show
+        if ProcessInfo.processInfo.environment["COOLHEAD_TEST_MEMORY"] != nil, state.memoryPressure == "normal" { state.memoryPressure = "warning" }
         guard dt > 0 else { publish(state, [], own: 0); return }
 
         let warm = state.thermal != "nominal"
@@ -435,6 +450,9 @@ public final class Watcher {
                 state: .working,
                 headline: "Your Mac is warm, but nothing is working hard right now.",
                 explanation: (busiest.map { "The busiest is \($0.0), at about \(Fmt.cores($0.1)). " } ?? "")
+                    + (s.memoryPressure == "warning" || s.memoryPressure == "critical"
+                       ? "Memory is tight too, so your Mac is moving data to and from its disk, which adds work and some heat. "
+                       : "")
                     + "Heat can linger after heavy work, or come from a warm room or a soft surface.",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix(id: "air", title: "Give it air", consequence: "A hard surface, out of the sun, helps it cool.", kind: .info, recommended: true)]),
@@ -480,6 +498,7 @@ public final class Watcher {
         DispatchQueue.main.async { [self] in
             mac = state
             overhead = own
+            refreshChromeLimit()
             snoozed = snoozed.filter { $0.value.until > now }
             // a waited-on card stays hidden (and the badge green) until its time, unless it gets meaningfully worse
             func waitingOn(_ c: LiveCard) -> Bool { snoozed[c.cause].map { c.severity <= $0.severity } ?? false }

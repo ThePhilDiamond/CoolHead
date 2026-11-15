@@ -78,7 +78,8 @@ public enum MemoryAdvice {
     }
 
     /// The card. `groups` sorted largest first, with `evidence` filled in for jobs.
-    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date()) -> Card {
+    /// `chrome`: whether Chrome's memory limit can be set; read from Chrome's settings when not given.
+    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil) -> Card {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
@@ -89,12 +90,16 @@ public enum MemoryAdvice {
         let biggest = groups.prefix(3).map { "\(label($0)) \(Fmt.bytes($0.bytes))" }.joined(separator: ", ")
         let expl = pressure(s) + " Biggest: \(biggest)."
         var fixes: [Fix] = []
+        var limitNote: String? = nil
 
         switch top.kind {
         case .browser:
             let menu = top.name == "Safari" ? "Window ▸ Activity" : top.name == "Firefox" ? "type about:processes" : "Window ▸ Task Manager"
             fixes.append(Fix(id: "tabs", title: "Close \(top.name)'s heaviest tabs", consequence: "\(menu), sort by Memory.", kind: .info, recommended: true))
             if top.name == "Google Chrome" {
+                let st = chrome ?? ChromeLimit.status(chromeUse: top.bytes)
+                if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
+                limitNote = ChromeLimit.note(st, using: top.bytes)
                 fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Chrome Settings ▸ Performance. Unused tabs nap.", kind: .info))
             } else if top.name == "Microsoft Edge" {
                 fixes.append(Fix(id: "saver", title: "Turn on sleeping tabs", consequence: "Edge Settings ▸ System and performance.", kind: .info))
@@ -115,6 +120,13 @@ public enum MemoryAdvice {
         case .macOS, .other:
             fixes.append(Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(top.name)\u{201D}.", kind: .lookUp(top.name)))
         }
+        // Chrome among the biggest, but not the biggest: limiting it is a way to free memory that closes nothing
+        // (found in the live test, 15 November 2026: Google Drive 4.7 GB, Chrome 4.6 GB, and only Quit was offered)
+        if top.name != "Google Chrome", let c = groups.prefix(3).first(where: { $0.name == "Google Chrome" && $0.kind == .browser }) {
+            let st = chrome ?? ChromeLimit.status(chromeUse: c.bytes)
+            if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
+            limitNote = ChromeLimit.note(st, using: c.bytes)
+        }
         // the next largest app that can be quit, as a second way to free memory
         if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
                                                         && SecuritySoftware.product(path: $0.bundle! + "/", name: $0.name) == nil }), let b = alt.bundle {
@@ -123,7 +135,7 @@ public enum MemoryAdvice {
         }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
                          kind: .wait(now.addingTimeInterval(1800)), recommended: !fixes.contains { $0.recommended }))
-        return Card(state: .unknown, headline: head, explanation: expl, fixes: fixes)
+        return Card(state: .unknown, headline: head, explanation: expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
     }
 
     /// Why tight memory matters, in one line; it mentions swap only when the Mac is actually using it.

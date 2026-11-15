@@ -35,6 +35,10 @@ The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns 
 - The CI must pass (`build`: the build, `coolhead selftest`, and packaging the app), and the maintainer reviews and approves.
 - main can't be force-pushed or deleted. The rules are in [`.github/rulesets/protect-main.json`](.github/rulesets/protect-main.json), and `scripts/apply-repo-settings.sh` applies them along with the repository's other settings.
 
+### Changelog and releases
+
+If your change is something a user would notice, add a line for it under **[Unreleased]** in [CHANGELOG.md](CHANGELOG.md), in plain words, under Added, Changed or Fixed. Releases are made by the maintainer; how versions are numbered and every step of a release are in [RELEASING.md](RELEASING.md).
+
 ### How the code is meant to work
 
 - **One short sentence, then the options.** A card says what something is and whether it is fine, in one short sentence a child could follow. Everything else (how we know, the options and what each would cause) goes behind Explore fixes, never on the card.

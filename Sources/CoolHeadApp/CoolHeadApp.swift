@@ -33,8 +33,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         // a screenshot copy draws off screen and quits; it never appears in the menu bar, where it could be mistaken for
-        // the real one (its panel hides every card but the demo; Phil saw "Running warm" with nothing listed, 15 November 2026)
-        if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] != nil { item.isVisible = false }
+        // the real one (its panel hides every card but the demo; Phil saw "Running warm" with nothing listed, 15 November 2026).
+        // It hides under its own name: macOS saves a status item's visibility by name for every copy of the app, and
+        // hiding the usual one hid Phil's installed Cool Head too (15 November 2026).
+        if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] != nil { item.autosaveName = "snapshot"; item.isVisible = false }
 
         let host = NSHostingController(rootView: PanelView(watcher: watcher))
         host.sizingOptions = [.preferredContentSize]
@@ -135,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     @objc func toggleBatteryMode() { BatteryMode.enabled.toggle() }
 
+
     /// Nothing is left frozen: paused jobs carry on when Cool Head quits.
     func applicationWillTerminate(_ notification: Notification) {
         Watcher.shared.resumeAllPaused(why: "Cool Head quit")
@@ -211,7 +214,9 @@ enum About {
         credits.append(NSAttributedString(string: "github.com/ThePhilDiamond/CoolHead",
                                           attributes: [.font: body, .link: URL(string: "https://github.com/ThePhilDiamond/CoolHead")!]))
         credits.addAttribute(.paragraphStyle, value: center, range: NSRange(location: 0, length: credits.length))
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Cool Head"])
+        // macOS shows the version and then the build number in brackets; they're the same here, so the build is left out
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Cool Head",
+                                                     .applicationVersion: "Version \(CoolHead.version)", .version: ""])
     }
 }
 

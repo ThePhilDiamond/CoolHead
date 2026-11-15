@@ -90,10 +90,45 @@ public struct Fixture {
         review.append(("memory-groups", chromeHelper?.key == "/Applications/Google Chrome.app" && chromeHelper?.kind == .browser && pyJob?.kind == .job,
                        "Chrome's helpers count as Chrome; a Python script counts as a job"))
         var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
-        let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now)
+        let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, chrome: .available(4096))
         review.append(("memory-browser", browserCard.recommended?.title.hasPrefix("Close Google Chrome's heaviest tabs") == true
                        && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("Closes all tabs") }
                        && browserCard.headline.contains("Google Chrome is using the most"), browserCard.headline))
+        // Chrome's memory limit (Phil, 15 November 2026: "Yes, with the warning"): offered with the "managed" notice, never
+        // recommended, undoable; not offered when Chrome already has those settings, or for other browsers. Set and
+        // removed for real on a scratch settings domain, never on Chrome's.
+        let gbs: [UInt64] = [4, 8, 16, 64].map { $0 * 1_073_741_824 }
+        // a quarter of memory or Chrome's use now, whichever is lower, whole GB rounded down, at least 2 GB
+        let capMBs = [ChromeLimit.limitMB(memory: gbs[0], chromeUse: 3_000_000_000), ChromeLimit.limitMB(memory: gbs[1], chromeUse: 1_500_000_000),
+                      ChromeLimit.limitMB(memory: gbs[2], chromeUse: 3_700_000_000), ChromeLimit.limitMB(memory: gbs[2], chromeUse: 6_000_000_000),
+                      ChromeLimit.limitMB(memory: gbs[3], chromeUse: 10_000_000_000)]
+        let offered = browserCard.fixes.first { $0.id == "chromelimit" }
+        let chromeGroup = [MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)]
+        let limitedCard = MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .set(4096))
+        let noRemove = !limitedCard.fixes.contains { $0.id == "chromelimit" } && limitedCard.explanation.contains("over its 4 GB limit")
+        let driveFirst = MemoryAdvice.card([MemGroup(key: "g", name: "Google Drive", kind: .app, bundle: "/Applications/Google Drive.app", bytes: 4_700_000_000, count: 3)]
+                                           + chromeGroup, mac: tight, now: now, chrome: .available(4096))
+        let secondOffered = driveFirst.fixes.contains { $0.id == "chromelimit" }
+        let notOffered = !MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .unavailable).fixes.contains { $0.id == "chromelimit" }
+            && !MemoryAdvice.card([MemGroup(key: "e", name: "Microsoft Edge", kind: .browser, bundle: "/Applications/Microsoft Edge.app", bytes: 5_500_000_000, count: 41)],
+                                  mac: tight, now: now, chrome: .available(4096)).fixes.contains { $0.id == "chromelimit" }
+        let scratch = "io.github.thephildiamond.coolhead.selftest-chrome", scratchMark = "selftestChromeLimitMB"
+        let sixteen = gbs[2]
+        _ = ChromeLimit.remove(domain: scratch, marker: scratchMark)
+        let didSet = ChromeLimit.set(ChromeLimit.limitMB(memory: sixteen, chromeUse: 5_000_000_000), domain: scratch, marker: scratchMark)
+        let wrote = (ChromeLimit.value("TotalMemoryLimitMb", scratch) as? Int) == 4096 && (ChromeLimit.value("MemorySaverModeSavings", scratch) as? Int) == 2
+            && (ChromeLimit.value("HighEfficiencyModeEnabled", scratch) as? Bool) == true
+        let didRemove = ChromeLimit.remove(domain: scratch, marker: scratchMark)
+        // someone else's setting: not offered, not touched
+        CFPreferencesSetAppValue("MemorySaverModeSavings" as CFString, 1 as CFNumber, scratch as CFString); CFPreferencesAppSynchronize(scratch as CFString)
+        let leftAlone = ChromeLimit.status(domain: scratch, marker: scratchMark) == .unavailable && !ChromeLimit.set(4096, domain: scratch, marker: scratchMark)
+            && (ChromeLimit.value("MemorySaverModeSavings", scratch) as? Int) == 1 && ChromeLimit.value("TotalMemoryLimitMb", scratch) == nil
+        CFPreferencesSetAppValue("MemorySaverModeSavings" as CFString, nil, scratch as CFString); CFPreferencesAppSynchronize(scratch as CFString)
+        review.append(("chrome-memory-limit", capMBs == [2048, 2048, 3072, 4096, 9216]
+                       && offered?.title == "Limit Chrome to 4 GB" && offered?.consequence.contains("managed by your organization") == true
+                       && offered?.recommended == false && browserCard.fixes.firstIndex { $0.id == "chromelimit" } == 1
+                       && noRemove && secondOffered && notOffered && didSet && wrote && didRemove && leftAlone,
+                       "limits \(capMBs); offered \(offered?.title ?? "no"), also when Chrome is second \(secondOffered); once on, no Remove option and the card explains it \(noRemove); set \(didSet) wrote \(wrote) removed \(didRemove); others' settings left alone \(leftAlone)"))
         let dockerCard = MemoryAdvice.card([MemGroup(key: "d", name: "Docker", kind: .app, bundle: "/Applications/Docker.app", bytes: 4_000_000_000, count: 3)], mac: tight, now: now)
         let dockerQuit = dockerCard.fixes.first { $0.id == "quit" }
         review.append(("memory-app-risk", dockerQuit?.consequence.contains("Stops all containers") == true && dockerQuit?.recommended == false,

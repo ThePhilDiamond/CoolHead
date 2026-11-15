@@ -1,4 +1,5 @@
-# On a version tag (v0.1.0), builds the app and attaches a zip to the GitHub release.
+# On a version tag (v0.5.0), checks the version agrees everywhere, builds the app, signs it, and publishes the GitHub
+# release "Cool Head 0.5.0" with its notes copied from CHANGELOG.md. The steps for a release are in RELEASING.md.
 name: Release
 
 on:
@@ -13,6 +14,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Check the tag, VERSION, the app and CHANGELOG.md agree
+        run: scripts/check-version.sh "$GITHUB_REF_NAME"
       - run: swift build -c release && .build/release/coolhead selftest
       - run: scripts/build-app.sh
       - name: Zip the app
@@ -28,8 +31,12 @@ jobs:
           fi
       - name: Release notes from CHANGELOG.md
         run: |
-          awk -v v="## ${GITHUB_REF_NAME} " 'index($0, v) == 1 {on=1; next} /^## / {on=0} on' CHANGELOG.md > build/notes.md
-          test -s build/notes.md || echo "See CHANGELOG.md." > build/notes.md
+          v="${GITHUB_REF_NAME#v}"
+          awk -v h="## [$v] " 'index($0, h) == 1 {on=1; next} /^## / || /^\[[^]]+\]: / {on=0} on' CHANGELOG.md > build/notes.md
+          grep -q '^- ' build/notes.md || { echo "::error::CHANGELOG.md has no notes for $v"; exit 1; }
+          echo "" >> build/notes.md
+          echo "**Downloads:** \`Cool-Head-${GITHUB_REF_NAME}.zip\` is the app; \`.sig\` is its signature, which the in-app updater checks; \`SHA256SUMS.txt\` is its checksum. All changes: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)." >> build/notes.md
+          echo "TITLE=Cool Head $v" >> "$GITHUB_ENV"
           cat build/notes.md
       - uses: softprops/action-gh-release@v2
         with:
@@ -37,4 +44,5 @@ jobs:
             build/Cool-Head-${{ github.ref_name }}.zip
             build/Cool-Head-${{ github.ref_name }}.zip.sig
             build/SHA256SUMS.txt
+          name: ${{ env.TITLE }}
           body_path: build/notes.md

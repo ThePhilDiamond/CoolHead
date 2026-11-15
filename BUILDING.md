@@ -38,6 +38,7 @@ Screenshots for the project must never show your own processes. These settings s
 - `COOLHEAD_SNAPSHOT_AFTER=<seconds>`: wait this long first (a job needs a minute of being busy before it gets a card).
 - `COOLHEAD_SNAPSHOT_OPEN=1`: show cards open.
 - `COOLHEAD_SNAPSHOT_WARM=1`: treat the Mac as warm.
+- `COOLHEAD_TEST_MEMORY=1`: treat memory as tight, so the memory card shows.
 - `COOLHEAD_SNAPSHOT_COOL=<phrase>` or `COOLHEAD_SNAPSHOT_PAUSE=<phrase>`: run that card's process cooler, or pause it, first.
 
 The README's screenshots use a made-up job (a script in a folder named Photo Export that prints progress lines), started with `launchctl submit` so it runs at full priority, and the app run in the background with `ONLY`, `WARM` and `AFTER=100`.

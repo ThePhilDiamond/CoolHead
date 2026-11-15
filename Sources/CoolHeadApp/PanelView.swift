@@ -34,9 +34,11 @@ struct PanelView: View {
                     ForEach(watcher.notices, id: \.self) { n in
                         Label(n, systemImage: "hare").font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                     }
-                    ForEach(watcher.pausedJobs) { PausedJobRow(job: $0, watcher: watcher) }
-                    ForEach(watcher.syncPauses) { SyncPauseRow(pause: $0, watcher: watcher) }
-                    ForEach(watcher.cooledList) { PinnedRow(item: $0, watcher: watcher) }
+                    // everything Cool Head is holding back, one line each, then a line before the cards
+                    if !FrozenItem.all(watcher).isEmpty {
+                        FrozenList(watcher: watcher)
+                        Divider()
+                    }
                     if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
@@ -112,8 +114,12 @@ struct CardView: View {
     @State private var facts = false
     @State private var confirmStop: Fix?
     @State private var note: String?          // what happened after a button, when it didn't simply work
+    @State private var noteFor: String?       // the option it's about, so it shows right under that button (Phil, 15 November 2026)
     @State private var copiedFacts = false
     @State private var noteFailed = false      // the note reports a failure (orange, with a way to report it)
+    // Once an option has done something, the options give way to what was done, so nothing sits there to press again
+    // (Phil, 15 November 2026). They're worked out afresh the next time the panel opens.
+    @State private var acted = false
     @State private var sharing = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SHARE"] != nil  // screenshots
 
     var body: some View {
@@ -148,16 +154,13 @@ struct CardView: View {
                     .foregroundStyle(live.trusted ? Ink.muted : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !live.card.fixes.isEmpty {
-                // a warning offers fixes; a calm card only explains, with options if you want them anyway
-                // worth watching (stuck, unexplained, or a cause of heat you can act on) gets Explore fixes, in orange
+            if canOpen && !open {
+                // a warning offers fixes; a calm card only explains, with options if you want them anyway. Worth
+                // watching (stuck, unexplained, or a cause of heat you can act on) says Explore fixes, in orange. A click
+                // anywhere on the card opens it and another closes it (Phil, 15 November 2026); this label says so in
+                // words with an arrow pointing the way it opens, and is itself a button for the keyboard and VoiceOver.
                 let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
-                Button(open ? "Hide" : (watch ? "Explore fixes" : "Learn more")) {
-                    withAnimation(.easeOut(duration: 0.15)) { open.toggle() }
-                }
-                    .buttonStyle(.borderedProminent)
-                    .tint(watch ? .orange : .accentColor)
-                    .controlSize(.small)
+                Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open, tint: watch ? .orange : .accentColor) { toggle() }
             }
             if open {
                 if !live.card.explanation.isEmpty {
@@ -166,19 +169,15 @@ struct CardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(live.card.fixes) { f in
-                        FixRow(fix: f, cooled: watcher.isCooled(live), run: { act($0) }, runUntil: { act($0, until: $1) })
-                    }
-                    if let n = note {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Image(systemName: noteFailed ? "exclamationmark.circle" : "checkmark.circle")
-                            Text(n).fixedSize(horizontal: false, vertical: true)
+                    if acted {
+                        noteView
+                    } else {
+                        ForEach(live.card.fixes) { f in
+                            FixRow(fix: f, cooled: watcher.isCooled(live), run: { act($0) }, runUntil: { act($0, until: $1) })
+                            if noteFor == f.id { noteView }
                         }
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(noteFailed ? Color.orange : Color.green)
-                        if noteFailed {
-                            Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.callout)
-                        }
+                        // an option that's no longer listed (the card changed): the note goes at the end
+                        if note != nil, !live.card.fixes.contains(where: { $0.id == noteFor }) { noteView }
                     }
                 }
                 if sharing, let r = live.report { ShareView(title: r.title, report: r.body) { sharing = false } }
@@ -201,7 +200,7 @@ struct CardView: View {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(live.details.joined(separator: "\n"), forType: .string)
                         copiedFacts = true
-                    } label: { Image(systemName: copiedFacts ? "checkmark" : "doc.on.doc").font(.caption) }
+                    } label: { Image(systemName: copiedFacts ? "checkmark" : "square.on.square").font(.caption) }
                     .buttonStyle(.plain)
                     .help(copiedFacts ? "Copied" : "Copy the details")
                     .accessibilityLabel("Copy the details")
@@ -215,11 +214,16 @@ struct CardView: View {
                     .foregroundStyle(Ink.muted)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
+                    .onTapGesture {}              // selecting text here doesn't close the card
                 }
+                Disclosure(title: "Show less", open: open, tint: Ink.muted) { toggle() }
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .onTapGesture { toggle() }
+        .hoverHighlight(canOpen)
         .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
         .confirmationDialog(stopTitle, isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
@@ -227,6 +231,24 @@ struct CardView: View {
             Button("Cancel", role: .cancel) { confirmStop = nil }
         } message: {
             Text(confirmStop?.consequence ?? "")
+        }
+    }
+
+    var canOpen: Bool { !live.card.fixes.isEmpty }
+    func toggle() { if canOpen { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } } }
+
+    /// What a button did, in green (or orange when it didn't work), right under the button pressed.
+    @ViewBuilder var noteView: some View {
+        if let n = note {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: noteFailed ? "exclamationmark.circle" : "checkmark.circle")
+                Text(n).fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.callout.weight(.medium))
+            .foregroundStyle(noteFailed ? Color.orange : Color.green)
+            if noteFailed {
+                Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.callout)
+            }
         }
     }
 
@@ -241,13 +263,14 @@ struct CardView: View {
 
     func show(_ o: Watcher.Outcome) {
         switch o {
-        case .done(let what): note = what; noteFailed = false
-        case .gone: note = "It already finished, so nothing was done."; noteFailed = false
+        case .done(let what): note = what; noteFailed = false; acted = true
+        case .gone: note = "It already finished, so nothing was done."; noteFailed = false; acted = true
         case .failed(let why): note = "That didn't work: \(why)."; noteFailed = true
         }
     }
 
     func act(_ fix: Fix, until: Date? = nil) {
+        noteFor = fix.id
         switch fix.kind {
         case .pauseJob:
             show(watcher.pauseJob(live))
@@ -256,7 +279,7 @@ struct CardView: View {
             guard let until else { return }
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
             watcher.addSyncPause(name: name, bundle: bundle, until: until)
-            note = "Now pause it from \(name)'s menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false
+            note = "Opened \(name). Pause it from its menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false; acted = true
         case .wait(let until):
             watcher.snooze(live, until: until)
         case .stop:
@@ -275,10 +298,10 @@ struct CardView: View {
             if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }) {
                 let ok = app.terminate()
                 let name = app.localizedName ?? "The app"
-                if ok { note = "Asked \(name) to quit."; noteFailed = false }
+                if ok { note = "Asked \(name) to quit. If anything is unsaved, it asks you first."; noteFailed = false; acted = true }
                 else { note = "\(name) didn't quit. It may be asking you something."; noteFailed = true }
                 watcher.log("Quit pressed for \(live.reportSubject): " + (ok ? "asked to quit" : "didn't quit"))
-            } else { note = "It's already closed."; noteFailed = false }
+            } else { note = "It's already closed."; noteFailed = false; acted = true }
         case .share:
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
@@ -290,8 +313,25 @@ struct CardView: View {
             NSPasteboard.general.setString(address, forType: .string)
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
             let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
-            note = "Copied. In \(app), press ⌘L, then ⌘V, then Return."; noteFailed = false
+            note = "Copied the address and opened \(app). There, press ⌘L, then ⌘V, then Return."; noteFailed = false; acted = true
             watcher.log("Copied a settings address for \(live.reportSubject)")
+        case .chromeLimit(let mb):
+            // Chrome's own settings, written the way `defaults write` would; only what Cool Head set is ever removed
+            if let mb {
+                let ok = ChromeLimit.set(mb)
+                watcher.refreshChromeLimit()
+                acted = ok
+                note = ok ? "Chrome is now limited to \(ChromeLimit.gb(mb)). It applies within 15 minutes, or when you reopen Chrome. Restore it from the top of this panel."
+                          : "That didn't work: Chrome's settings didn't change."
+                noteFailed = !ok
+                watcher.log("Limit Chrome pressed: " + (ok ? "set" : "failed"))
+            } else {
+                let ok = watcher.removeChromeLimit()
+                acted = ok
+                note = ok ? "Removed. Chrome goes back to its own settings within 15 minutes, or when you reopen it."
+                          : "That didn't work: Chrome's settings didn't change."
+                noteFailed = !ok
+            }
         case .info:
             break
         }
@@ -493,6 +533,9 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.5.0": [
+            "When memory is tight and Chrome uses the most, Limit Chrome sets Chrome's own memory limit. Undo from the right-click menu.",
+        ],
         "0.4.4": [
             "Security software is never stopped or slowed.",
             "Pause syncing for a set time, with a reminder to resume.",
@@ -596,79 +639,161 @@ struct UpdateBanner: View {
 
 /// A process running cooler because the person chose it: pinned at the top until it ends or is set back, so it
 /// is clear what Cool Head has changed. Reporting a problem with it sits beside it.
-struct PinnedRow: View {
-    let item: Watcher.CooledItem
+/// What opens a card or a line, in words with an arrow pointing the way it opens (down to open, up to close), not an
+/// arrow alone (Phil, 15 November 2026: the corner chevron "isn't very visible or intuitive"). A real button, so the
+/// keyboard reaches it and VoiceOver reads it as one, with whether it's open; a click anywhere on the card does the same.
+struct Disclosure: View {
+    let title: String
+    let open: Bool
+    let tint: Color
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(title)
+                Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
+            }
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(tint)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(open ? "Open" : "Closed")
+    }
+}
+
+/// A card or line that opens on a click shows it: a light wash and the pointing-hand cursor under the mouse.
+struct HoverHighlight: ViewModifier {
+    let on: Bool
+    @State private var hovering = false
+    func body(content: Content) -> some View {
+        content
+            .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(on && hovering ? 0.05 : 0)).allowsHitTesting(false))
+            .onHover { h in
+                guard on else { return }
+                hovering = h
+                if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
+    }
+}
+
+extension View { func hoverHighlight(_ on: Bool) -> some View { modifier(HoverHighlight(on: on)) } }
+
+/// Something Cool Head is holding back, with its undo: a job running cooler or paused until the Mac is plugged in, a
+/// sync app paused, Chrome's memory limit.
+enum FrozenItem: Identifiable {
+    case cooled(Watcher.CooledItem), paused(PausedJob), sync(SyncPause), chrome(Int)
+
+    static func all(_ w: Watcher) -> [FrozenItem] {
+        w.cooledList.map { .cooled($0) } + w.pausedJobs.map { .paused($0) } + w.syncPauses.map { .sync($0) }
+            + (w.chromeLimitMB.map { [.chrome($0)] } ?? [])
+    }
+
+    var id: String {
+        switch self {
+        case .cooled(let c): return "cooled-" + c.key
+        case .paused(let p): return "paused-" + p.key
+        case .sync(let s): return "sync-" + s.name
+        case .chrome: return "chrome"
+        }
+    }
+    var due: Bool { if case .sync(let s) = self { return s.until <= Date() }; return false }
+    var icon: String {
+        switch self {
+        case .cooled: return "tortoise.fill"
+        case .paused: return "pause.circle.fill"
+        case .sync: return due ? "exclamationmark.circle" : "pause.circle"
+        case .chrome: return "memorychip"
+        }
+    }
+    var line: String {
+        switch self {
+        case .cooled(let c): return "\(c.name) is running cooler"
+        case .paused(let p): return "\(p.name) is paused until you plug in"
+        case .sync(let s): return due ? "Time to resume \(s.name) syncing" : "\(s.name) syncing is paused"
+        case .chrome(let mb): return "Chrome is limited to \(ChromeLimit.gb(mb))"
+        }
+    }
+    var detail: String {
+        switch self {
+        case .cooled(let c): return "Since \(Fmt.time(c.since)). Slower, but cooler."
+        case .paused(let p): return "Since \(Fmt.time(p.since)). Nothing is lost."
+        case .sync(let s): return due ? "Resume it from its menu bar icon, then press Resumed."
+                                      : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
+        case .chrome(let mb): return "Past \(ChromeLimit.gb(mb)), Chrome unloads tabs you aren't using. While it's on, Chrome says it's \u{201C}managed by your organization\u{201D}."
+        }
+    }
+    var undo: (title: String, icon: String) {
+        switch self {
+        case .cooled: return ("Back to full speed", "hare")
+        case .paused: return ("Resume now", "play")
+        case .sync: return ("Resumed", "checkmark")
+        case .chrome: return ("Remove the limit", "xmark")
+        }
+    }
+}
+
+/// Everything Cool Head is holding back, one line each at the top of the panel, in one frosted frame (Phil, 15 November
+/// 2026: "a horizontal line with frozen tasks at the top as single lines. Click to expand them for more info and then
+/// once expanded a button to unfreeze"). Undo lives here, never in the right-click menu, which is for settings only.
+struct FrozenList: View {
     let watcher: Watcher
+    var body: some View {
+        let items = FrozenItem.all(watcher)
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                if i > 0 { Divider().opacity(0.6) }
+                FrozenLine(item: item, watcher: watcher)
+            }
+        }
+        .padding(.horizontal, 30).padding(.vertical, 10)       // text in the clear middle, off the frost
+        .frozen()
+    }
+}
+
+/// One line; a click opens it (what it is, since when, and its undo) and another closes it.
+struct FrozenLine: View {
+    let item: FrozenItem
+    let watcher: Watcher
+    @State private var open = false
     @State private var failed: String?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("\(item.name) is running cooler").font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                Text("Since \(Fmt.time(item.since)). Slower, but cooler.").font(.caption).foregroundStyle(Ink.muted)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: item.icon).frame(width: 18)
+                Text(item.line).font(.callout.weight(.semibold)).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 4)
+                // "Restore": puts it back as it was (Phil, 15 November 2026, asked for something clearer than "Undo")
+                Disclosure(title: open ? "Less" : "Restore", open: open, tint: item.due ? .orange : Ink.text) { toggle() }
+            }
+            .foregroundStyle(item.due ? Color.orange : Ink.text)
+            if open {
+                Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Button { undo() } label: { Label(item.undo.title, systemImage: item.undo.icon) }
+                        .buttonStyle(.bordered).controlSize(.small)
+                    Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
+                }
                 if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
             }
-            Spacer(minLength: 4)
-            VStack(alignment: .trailing, spacing: 4) {
-                Button { if case .failed(let why) = watcher.restore(item) { failed = "That didn't work: \(why)." } } label: {
-                    Label("Back to full speed", systemImage: "hare")
-                }
-                .buttonStyle(.bordered).controlSize(.small)
-                Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
-            }
         }
-        .padding(.horizontal, 36).padding(.vertical, 20)       // text sits in the clear middle, well off the frost
-        // the icon as a large, faint watermark, well inside the frost (Phil, 15 November 2026)
-        .background(alignment: .leading) {
-            Image(systemName: "tortoise.fill").font(.system(size: 56)).foregroundStyle(Color.primary.opacity(0.2))
-                .padding(.leading, 40).accessibilityHidden(true)
-        }
-        .frozen()
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture { toggle() }
+        .hoverHighlight(true)
     }
-}
 
-/// A job paused until the Mac is plugged in: frozen, literally, so it wears the frost.
-struct PausedJobRow: View {
-    let job: PausedJob
-    let watcher: Watcher
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("\(job.name) is paused until you plug in").font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                Text("Since \(Fmt.time(job.since)). Nothing is lost.").font(.caption).foregroundStyle(Ink.muted)
-            }
-            Spacer(minLength: 4)
-            Button { watcher.resumeJob(job, why: "Resume now pressed") } label: { Label("Resume now", systemImage: "play") }
-                .buttonStyle(.bordered).controlSize(.small)
-        }
-        .padding(.horizontal, 36).padding(.vertical, 20)
-        .background(alignment: .leading) {
-            Image(systemName: "pause.circle.fill").font(.system(size: 56)).foregroundStyle(Color.primary.opacity(0.2))
-                .padding(.leading, 40).accessibilityHidden(true)
-        }
-        .frozen()
-    }
-}
+    func toggle() { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
 
-/// A sync app the person paused from Cool Head: when to resume, and once that time comes, a nudge.
-struct SyncPauseRow: View {
-    let pause: SyncPause
-    let watcher: Watcher
-    var body: some View {
-        let due = pause.until <= Date()
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: due ? "exclamationmark.circle" : "pause.circle").foregroundStyle(due ? Color.orange : Ink.muted)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(due ? "Time to resume \(pause.name) syncing" : "\(pause.name) is paused").font(.callout.weight(.semibold))
-                Text(due ? "Resume it from its menu bar icon." : "We'll remind you to resume at \(Fmt.time(pause.until)).")
-                    .font(.caption).foregroundStyle(due ? Color.orange : Ink.muted)
-            }
-            Spacer(minLength: 4)
-            Button("Resumed") { watcher.syncResumed(pause.name) }.buttonStyle(.bordered).controlSize(.small)
+    func undo() {
+        switch item {
+        case .cooled(let c): if case .failed(let why) = watcher.restore(c) { failed = "That didn't work: \(why)." }
+        case .paused(let p): watcher.resumeJob(p, why: "Resume now pressed")
+        case .sync(let s): watcher.syncResumed(s.name)
+        case .chrome: if !watcher.removeChromeLimit() { failed = "That didn't work: Chrome's settings didn't change." }
         }
-        .padding(12)
-        .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(due ? Color.orange.opacity(0.6) : Ink.edge, lineWidth: 1))
     }
 }
 
@@ -861,6 +986,7 @@ struct FixRow: View {
         case .info: return "lightbulb"
         case .openPage: return "gearshape"
         case .pauseJob, .pauseSync: return "pause.circle"
+        case .chromeLimit: return "memorychip"
         }
     }
     /// For Pause syncing: how long, before anything happens.
@@ -877,46 +1003,100 @@ struct FixRow: View {
         return out
     }
 
-    var opensBrowser: Bool { if case .lookUp = fix.kind { return true }; return false }
+    /// Opens something outside Cool Head (a web search, an app's settings, a sync app): an arrow out, not along.
+    var opensElsewhere: Bool {
+        switch fix.kind { case .lookUp, .openPage, .pauseSync: return true; default: return false }
+    }
+    /// Closes or ends something: its icon in red, so the risk shows at a glance.
+    var ends: Bool {
+        switch fix.kind { case .stop, .quitApp: return true; default: return false }
+    }
 
     /// Once it is already running cooler, "Back to full speed" isn't the recommendation.
     var recommended: Bool { fix.kind == .cooler && cooled ? false : fix.recommended }
+    var title: String { fix.kind == .cooler && cooled ? "Back to full speed" : fix.title }
+    var line: String { fix.kind == .cooler && cooled ? "Runs at normal speed again." : fix.consequence }
 
+    // Each option is its own bordered tile, title and what it does inside it, with an arrow at the end: plainly a
+    // button, plainly separate from the next (Phil, 15 November 2026: "the options provided lack clear delineation
+    // between them, and don't look clearly clickable"). Advice with nothing to press has no tile and no arrow.
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 6) {
             if fix.kind == .info {
-                HStack(spacing: 6) {
-                    Label(fix.title, systemImage: "lightbulb").font(.callout.weight(recommended ? .bold : .medium))
-                    if recommended { RecommendedTag(onAccent: false) }
-                }
-            } else {
-                // the recommended option is the filled button, in bold, tagged; the rest are plain
-                let button = Button { if isSyncPause { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } } else { run(fix) } } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: icon).frame(width: 18)
-                        Text(fix.kind == .cooler && cooled ? "Back to full speed" : fix.title).fontWeight(recommended ? .bold : .regular)
-                        if recommended { RecommendedTag(onAccent: true) }
-                        Spacer(minLength: 0)
-                        if opensBrowser { Image(systemName: "arrow.up.right.square").opacity(0.7).help("Opens in your browser") }
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Image(systemName: "lightbulb").frame(width: 22).foregroundStyle(Ink.muted)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(title).font(.callout.weight(.semibold))
+                            if recommended { RecommendedTag(onAccent: false) }
+                        }
+                        if !line.isEmpty { Text(line).font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
                     }
                 }
-                .controlSize(.regular)
-                if recommended { button.buttonStyle(RecommendedButton()) } else { button.buttonStyle(.bordered) }
+                .padding(.horizontal, 11).padding(.vertical, 4)
+                .accessibilityElement(children: .combine)
+            } else {
+                Button { if isSyncPause { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } } else { run(fix) } } label: {
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: icon).font(.body).frame(width: 22)
+                            .foregroundStyle(recommended ? Color.white : ends ? Color.red : Color.accentColor)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(title).font(.callout.weight(.semibold))
+                                if recommended { RecommendedTag(onAccent: true) }
+                            }
+                            if !line.isEmpty {
+                                Text(line).font(.callout).opacity(0.8).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        Spacer(minLength: 6)
+                        Image(systemName: opensElsewhere ? "arrow.up.right" : isSyncPause && choosing ? "chevron.down" : "chevron.right")
+                            .font(.callout.weight(.bold)).opacity(0.75)
+                            .help(opensElsewhere ? "Opens another app or your browser" : "")
+                    }
+                    .multilineTextAlignment(.leading)
+                }
+                .buttonStyle(OptionStyle(recommended: recommended))
+                .accessibilityHint(line)
                 if choosing {
                     HStack(spacing: 6) {
                         Text("For").font(.callout).foregroundStyle(Ink.muted)
                         ForEach(pauseChoices, id: \.0) { label, until in
-                            Button(label) { choosing = false; runUntil(fix, until) }.buttonStyle(.bordered).controlSize(.small)
+                            Button(label) { choosing = false; runUntil(fix, until) }.buttonStyle(.bordered).controlSize(.regular)
                         }
                     }
+                    .padding(.leading, 11)
                 }
             }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                let line = fix.kind == .cooler && cooled ? "Runs at normal speed again." : fix.consequence
-                if !line.isEmpty {
-                    Text(line).font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// An option's tile: a filled, bordered, full-width button that lightens under the mouse (with the pointing hand) and
+/// darkens when pressed. The recommended one is filled with the accent colour, in white.
+struct OptionStyle: ButtonStyle {
+    let recommended: Bool
+    func makeBody(configuration: Configuration) -> some View { OptionTile(configuration: configuration, recommended: recommended) }
+
+    struct OptionTile: View {
+        let configuration: ButtonStyleConfiguration
+        let recommended: Bool
+        @State private var hovering = false
+        var body: some View {
+            let shape = RoundedRectangle(cornerRadius: 9)
+            let wash: Double = configuration.isPressed ? 0.22 : hovering ? 0.13 : 0.07
+            configuration.label
+                .foregroundStyle(recommended ? Color.white : Ink.text)
+                .padding(.horizontal, 11).padding(.vertical, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(shape.fill(recommended ? AnyShapeStyle(Color.accentColor.opacity(configuration.isPressed ? 0.75 : hovering ? 0.9 : 1))
+                                                   : AnyShapeStyle(Color.primary.opacity(wash))))
+                .overlay(shape.strokeBorder(recommended ? Color.clear : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1))
+                .contentShape(shape)
+                .onHover { h in
+                    hovering = h
+                    if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                 }
-            }
         }
     }
 }
