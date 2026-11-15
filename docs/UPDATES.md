@@ -24,7 +24,7 @@ A release without a signature can't be installed from inside the app; the panel 
 
 ## Tested
 
-On 15 November 2026 a copy labelled 0.2.9 found v0.3.0 on GitHub, verified its signature, replaced itself and reopened as 0.3.0 (`COOLHEAD_UPDATE_TEST=1` makes a copy check and install at launch).
+On 15 November 2026 a copy labelled 0.2.9 found v0.3.0 on GitHub, verified its signature, replaced itself and reopened as 0.3.0 (`COOLHEAD_UPDATE_TEST=1` makes a copy check and install at launch). The same day, a real installed 0.3.0 updated itself to v0.3.1 when its version was clicked.
 
 ## Not covered
 
