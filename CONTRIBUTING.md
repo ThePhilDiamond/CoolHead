@@ -31,7 +31,7 @@ The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns 
 - **Big is not broken.** Never suggest stopping a job just because it is big or long. Stopping is for stalled jobs, and the card must say what it would cost.
 - **Say "can't tell" when you can't.** A plain admission beats a guess.
 - **Everything stays on the Mac.** No network calls, no analytics. The only exception is Look it up, which the user presses, and which sends the process name only.
-- **Light on the Mac.** Cool Head's own CPU use is shown in its panel. Keep it under 0.5% on average.
+- **Light on the Mac.** Keep Cool Head's own CPU use under 0.5% of the Mac on average; check it in Activity Monitor.
 - **No administrator password.** Everything Cool Head reads is readable by the signed-in user.
 - **License-clean dependencies.** MIT, BSD, Apache-2.0 and similar only. No GPL, AGPL or LGPL code linked into what ships, because it would stop Cool Head from being offered under a commercial license. The project has no dependencies today.
 - **Comments explain why**, especially for kernel calls (`proc_pidinfo`, `proc_pid_rusage`) and IOKit keys.

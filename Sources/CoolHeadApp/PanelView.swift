@@ -13,6 +13,7 @@ struct PanelView: View {
                     .accessibilityLabel(watcher.level == .good ? "All well" : watcher.level == .warning ? "Needs a look" : "Problem")
                 Text(status).font(.headline)
                 Spacer()
+                Text("v\(CoolHead.version)").font(.caption2).foregroundStyle(Ink.muted)
             }
             if shownCards.isEmpty {
                 Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
@@ -21,7 +22,7 @@ struct PanelView: View {
                 ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
             }
             Divider()
-            Text(footer).font(.caption).foregroundStyle(Ink.muted)
+            if !footer.isEmpty { Text(footer).font(.caption).foregroundStyle(Ink.muted) }
             BottomBar()
         }
         .padding(16)
@@ -55,7 +56,6 @@ struct PanelView: View {
         if let h = watcher.mac.healthPercent, let c = watcher.mac.cycles {
             parts.append("Battery holds \(h)% of its original charge (\(c) cycles)")
         }
-        parts.append(String(format: "Cool Head %@ uses %.1f%%", CoolHead.version, watcher.overhead * 100))
         return parts.joined(separator: " · ")
     }
 }

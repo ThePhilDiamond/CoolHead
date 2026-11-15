@@ -18,9 +18,9 @@ The menu bar panel, about 360 points wide, nothing else:
 - Status line: "Running warm: 1 cause" or "All calm".
 - Cards: one sentence each, and Explore fixes.
 - "N things today": past causes, with times.
-- A small gear for settings (launch at login, notifications on or off).
+- Along the bottom: battery health, then switches for notifications and open at login, and icons for Activity Monitor, About and Quit. The version sits small at the top right. Right-clicking the menu bar icon shows About and Quit.
 
-No tabs, no tables, no process list. Activity Monitor is one click away in the gear menu for anyone who wants the raw list.
+No tabs, no tables, no process list. Activity Monitor is one click away, from the icon at the bottom of the panel, for anyone who wants the raw list.
 
 ## Look
 
@@ -35,6 +35,6 @@ Alternatives considered: a web app in a native shell (Tauri or Electron) would m
 ## Other choices
 
 - **No history (Phil, 15 November 2026):** Cool Head is not a record of the past. It samples every 10 seconds and keeps only what it needs in memory (recent readings, which cards have already notified); nothing is written to disk. Diagnostic logs exist only inside a case the user chooses to share, or where the law requires.
-- **Overhead target:** under 0.5% of the Mac on average, measured and shown in the gear menu.
+- **Overhead target:** under 0.5% of the Mac on average (not shown in the panel; Phil, 15 November 2026: the "Cool Head uses…" line was unnecessary).
 - **Permissions:** none required. Full Disk Access is optional, only for reading other users' or system processes' files.
 - **Distribution:** for Phil's Mac only at first, ad-hoc signed. Public release later is a separate decision.
