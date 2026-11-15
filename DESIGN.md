@@ -5,11 +5,11 @@ Drafted 14 November 2026 for Phil's review, at his request: *"we also should pos
 ## Journeys
 
 1. **"Why is my Mac hot?"** Click the menu bar icon. The panel opens on the answer: one card per cause, worst first. If all is calm, it says so in one line.
-2. **It tells you first.** Something has been abnormal for a while (default 10 minutes): the icon gets a dot, and a notification gives the card's one sentence. Clicking opens the panel on that card. No sound, at most one notification per cause.
-3. **Act.** The card's one button does the obvious thing (let it finish, run it cooler, close the tab, quit the app). Stopping anything asks once.
-4. **Look closer.** Tapping the card opens its evidence in place: the facts that led to the sentence, in plain lines. Nothing else to navigate.
-5. **Unknown.** The card says it is not sure and offers Look it up, which opens a web search for the process name in the browser. That is the only network use.
-6. **Looking back.** "What happened today?" is a short list under the cards: each past cause with its time. (A 24-hour chart was tried and removed on 15 November 2026. Phil: *"I don't know what that chart/bar is at the bottom. Is it meant to be temperature? Speed? System resource load? It's not clear or actionable, which just adds confusing clutter."*)
+2. **It tells you first.** Something has been abnormal for a while (default 10 minutes): the menu bar badge changes (yellow triangle, or red octagon for a problem), and a notification says something needs a look, without naming it (macOS keeps notification text). No sound, at most one notification per cause, none for a card you chose to wait on.
+3. **Act.** The card's one button, Explore fixes, shows how Cool Head knows and the options, each with its consequence and one recommended. Stopping asks once and names the process.
+4. **Look closer.** Under the options, "The facts" opens the evidence in place: the facts that led to the sentence, in plain lines, with anything that looks like a password hidden. Nothing else to navigate.
+5. **Unknown.** The card says it can't tell, and offers Look it up (a web search for the process name) and Share this case (an anonymised report, shown in full, that the person can open as a GitHub issue). Those are the only ways anything leaves the Mac, and only when pressed.
+6. **No looking back.** Cool Head is about now; it keeps no record of past causes. (A 24-hour chart and a "things today" list were tried and removed on 15 November 2026. Phil: *"I don't know what that chart/bar is at the bottom. Is it meant to be temperature? Speed? System resource load? It's not clear or actionable, which just adds confusing clutter."*)
 
 ## Layout
 
@@ -17,7 +17,6 @@ The menu bar panel, about 360 points wide, nothing else:
 
 - Status line: "Running warm: 1 cause" or "All calm".
 - Cards: one sentence each, and Explore fixes.
-- "N things today": past causes, with times.
 - Along the bottom: battery health, then switches for notifications and open at login, and icons for Activity Monitor, About and Quit. The name and version ("Cool Head v0.1.0") sit small at the top right. Right-clicking the menu bar icon shows About and Quit.
 
 No tabs, no tables, no process list. Activity Monitor is one click away, from the icon at the bottom of the panel, for anyone who wants the raw list.

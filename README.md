@@ -4,23 +4,28 @@
 
 <p align="center"><em>Let cooler heads prevail.</em><br>Why is my Mac running hot or slow? What's happening, gathered from across your Mac into one place, with clear options to act in one click.<br>A free, open-source menu bar app for macOS.</p>
 
-<p align="center"><img src="docs/images/panel-light.png" width="380" alt="The Cool Head panel: a card saying a photo export job is 45% done and when it should finish, with a Let it finish button"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
+    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel: a card saying a photo export job is 16% done and should finish around 1:14am, with its fixes open: do nothing and check back (recommended), run it cooler, or stop it, each with what it would cause">
+  </picture>
+</p>
 
 ## What it is
 
-Activity Monitor shows numbers. Cool Head reads what a busy process is actually doing (its command, what started it, the files it writes, the progress it reports) and tells you in one sentence whether that is fine:
+Activity Monitor shows numbers. Cool Head reads what a busy process is actually doing (its command, what started it, the files it writes, the progress it reports, and the Mac's heat, power and memory at the time) and tells you in one sentence whether that is fine:
 
-> **Your Photo Export job export.py is 45% done. Done around 11:49pm.**
-> Let it finish
+> **Your Photo Export job export.py is 16% done. Done around 1:14am.**
 
 > **Spotlight is indexing your files. That's normal after a macOS update or when many files change, and it finishes on its own.**
 
 > **Your Model job train.py has been busy with no progress since 9:46pm. It looks stuck.**
-> Stop it · *It has done nothing new since 9:46pm, so stopping it loses nothing after that.*
 
-It keeps a cool head: a big job is not a problem just because it is big. Stopping is only suggested when a job has stalled, and the card says what stopping would cost. When it can't tell, it says so and offers to look the process up.
+Each card has one button, **Explore fixes**. It shows how Cool Head knows (for example, the job's own last progress line) and the options, each with what it would cause, one of them recommended: do nothing and check back when it should be done, run it cooler, stop it, quit the app, or look it up.
 
-It also connects the dots across the Mac: fast charging that adds heat, memory running short, and what needed a look earlier today.
+It keeps a cool head: a big job is not a problem just because it is big. Stopping is recommended only when a job has stalled, and every option says what it would cost, such as how much work stopping could lose. When Cool Head can't tell, it says so.
+
+It also connects the dots across the Mac: fast charging that adds heat, memory running short, and macOS's own background work (Spotlight, Photos, iCloud, Time Machine and more), each explained in plain words.
 
 ## Privacy
 
@@ -34,7 +39,7 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 1. Download the latest `Cool-Head-….zip` from [Releases](../../releases), and unzip it.
 2. Move **Cool Head** to Applications and open it. The first time, macOS may say it can't check the app (it isn't notarized yet): open **System Settings ▸ Privacy & Security** and choose **Open Anyway**.
-3. Look for the snowflake in the menu bar. A dot appears on it when something needs a look.
+3. Look for the snowflake in the menu bar. Its badge shows the state by shape and colour: a green circle when all is well, a yellow triangle when something needs a look, a red octagon for a problem. Click it for the panel; right-click for About and Quit.
 
 Or build it yourself: see [BUILDING.md](BUILDING.md).
 

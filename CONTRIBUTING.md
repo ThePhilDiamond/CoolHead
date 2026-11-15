@@ -33,7 +33,7 @@ The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns 
 
 ### How the code is meant to work
 
-- **One sentence, one action.** A card says what something is and whether it is fine, then offers one thing to do. Detail goes behind "Details", never on the card.
+- **One sentence, then Explore fixes.** A card says what something is and whether it is fine, in one sentence. Everything else (how we know, the options and what each would cause) goes behind Explore fixes, never on the card.
 - **Big is not broken.** Never suggest stopping a job just because it is big or long. Stopping is for stalled jobs, and the card must say what it would cost.
 - **Say "can't tell" when you can't.** A plain admission beats a guess.
 - **Everything stays on the Mac.** No network calls, no analytics. The only exception is Look it up, which the user presses, and which sends the process name only.
