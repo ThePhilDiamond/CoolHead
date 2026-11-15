@@ -17,21 +17,29 @@ Every card comes from the same steps.
    - **stalled**: it has reported no progress for longer than 30 minutes and longer than three of its own usual gaps between progress lines;
    - **can't tell**: it has been busy for a long time with no sign either way.
 5. **Match.** It is looked up in the [catalogue](../Sources/CoolHeadCore/Catalogue.swift) of known patterns: what it is, when it is normal, how long is normal, and the risk of stopping it.
-6. **Card.** One sentence: what it is and whether that is fine. Behind **Explore fixes**: how we know, and the options, each with its consequence, one recommended.
+6. **Card.** One sentence: what it is and whether that is fine. Behind **Explore fixes**: how we know, and the options, each with its consequence, the recommended one first.
 7. **Afterwards.** Whether the action helped. *(Planned: power and heat before and after.)*
 
 Where these steps cannot reach an answer, the card says so plainly ("Can't tell whether it is working or stuck") and offers **Look it up**, a web search for the process name only. Cards that can't reach an answer, or that look stuck, also offer **Share this case**: an anonymised report of what Cool Head saw, shown in full first, which you can open as a GitHub issue. Shared cases are reviewed and become catalogue entries through pull requests; nothing reaches the catalogue automatically, and the catalogue only changes with app releases.
 
 ## What each state allows
 
-Every card has one button: **Explore fixes** on a card worth watching, **Learn more** on a calm one. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause. One option is recommended, from the state:
+Every card has one button: **Explore fixes** on a card worth watching, **Learn more** on a calm one. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause, in one order on every card: the recommended option first; then options you can undo, most helpful first; then options that close or lose something, least loss first (closing one browser tab before quitting the browser); then Share this case. Waiting isn't an option: the clock in each card's corner hides it for 10 minutes, 30 minutes, or an hour. What is recommended follows the state:
 
 | State | Card says | Recommended | Stopping |
 | --- | --- | --- | --- |
-| working | how far along, and when it should finish | do nothing and check back when it should be done (or run it cooler, when the Mac is warm) | offered, saying how much work would be lost and what may be left half-written |
-| waiting | what it is waiting for | do nothing | offered, with the same warning (shown by `coolhead why`; the panel shows only processes busy enough to matter) |
+| working | how far along, and when it should finish | nothing while the Mac is cool; run it cooler when it's warm; pause until you plug in when it drains the battery | offered, saying how much work would be lost and what may be left half-written |
+| waiting | what it is waiting for | nothing | offered, with the same warning (shown by `coolhead why`; the panel shows only processes busy enough to matter) |
 | stalled | no progress since when | stop it (nothing since its last progress is lost) | recommended |
 | can't tell | how long it has been busy | look it up, or share the case | offered, with a warning not to stop something unknown |
+
+Some kinds of process have their own card, ahead of the states above:
+
+- **Games** are calm and never slowed; while the Mac is warm, lower graphics settings is recommended. While a game runs, other busy work recommends Run it cooler.
+- **Browsers** (Chrome, Edge, Brave, Arc): a tab, an extension, or the graphics process, told apart by their launch arguments, each with the options that fit.
+- **Sync apps** recommend Pause syncing while the Mac is warm, with a reminder to resume.
+- **Security, device management, and VPN software** is never offered Stop, Run it cooler, or Quit.
+- **Trusted** apps and jobs stay calm until a limit is crossed: they look stuck, the Mac gets hot, or they run nonstop for 8 hours.
 
 Stopping, running cooler and quitting are offered only for the person's own processes. Stop is never offered for macOS's own programs or for an app's main program; Quit is offered only for the main program of an app installed in an Applications folder. What stopping would cost is stated as "up to": Cool Head can see how long a job has run, not how much of that it has already saved.
 

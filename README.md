@@ -7,7 +7,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
-    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel: a card saying a photo export job is 16% done and should finish around 1:14am, with its fixes open: do nothing and check back (recommended), run it cooler, or stop it, each with what it would cause">
+    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a warm Mac: a card saying a photo export job is 15% done and ready around 1:52pm, adding to the heat, with Run it cooler recommended and Stop it below">
   </picture>
 </p>
 
@@ -15,17 +15,37 @@
 
 Activity Monitor shows numbers. Cool Head reads what a busy process is actually doing (its command, what started it, the files it writes, the progress it reports) and tells you, in one short sentence, whether that's fine:
 
-> **Photo Export is 16% done. Ready around 1:14am.**
+> **Photo Export is 15% done. Ready around 1:52pm.**
 
 > **Spotlight is indexing your files. That's normal.**
 
-> **Video Render hasn't moved since 9:46pm. It looks stuck.**
+> **A Google Chrome tab is working hard.**
+
+> **Google Drive is syncing your files.**
 
 > **Memory is tight. Google Chrome is using the most (3.7 GB).**
 
-A card that needs watching has **Explore fixes**; a calm one has **Learn more**. Each option says, in a few words, what it would do, and one is recommended: wait, run it cooler, stop it, quit an app, close a browser's heaviest tabs, or look it up. Anything you slow down stays pinned at the top, frozen, until it finishes or you set it back.
+A card worth watching has **Explore fixes**; a calm one has **Learn more**. Behind it are the options, always in the same order: the recommended one first, marked **Recommended**; then ones you can undo; then ones that close or lose something, least loss first. Each says in a few words what it would do. The clock in a card's corner hides it for 10 minutes, 30 minutes, or an hour, and it comes back sooner if things get worse.
 
-It keeps a cool head: a big job isn't a problem just because it's big. Stopping is recommended only when a job has stalled. When Cool Head can't tell, it says so.
+It keeps a cool head: a big job isn't a problem just because it's big, and stopping is recommended only when a job has stalled. When Cool Head can't tell, it says so.
+
+## What it knows
+
+- **A warm Mac has a cause.** When your Mac warms up, each thing warming it gets a card with something to do, and the menu bar icon turns yellow.
+- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. It stays pinned at the top, frosted over, until it finishes or you set it back.
+- **Chrome without quitting it.** It tells a busy tab, a busy extension, and Chrome's graphics work apart (also in Edge, Brave, and Arc), and offers what fits: run just that tab cooler, Energy Saver, turn off an extension, or close just that tab, before ever suggesting Quit.
+- **Games come first.** A game is never slowed down; other busy work is offered to run cooler instead, to leave the game more power.
+- **Sync apps can wait.** Google Drive, Dropbox, OneDrive, and Box: **Pause syncing** for a set time, with a reminder to resume.
+- **Security software is left alone.** Your employer's security, device management, and VPN software is never offered Stop, Run it cooler, or Quit.
+- **Save Battery When Unplugged.** On battery, a really hungry job can be paused until you plug in. Nothing is lost, and it carries on by itself.
+- **Always trust** an app or job you know is fine: it stays listed but calm, and is still flagged if it looks stuck, your Mac gets hot, or it runs nonstop for 8 hours.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/pinned-dark.png">
+    <img src="docs/images/pinned-light.png" width="400" alt="A job running cooler, pinned at the top of the panel in a frosted frame, with a Back to full speed button">
+  </picture>
+</p>
 
 ## Privacy
 
@@ -45,7 +65,11 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 1. Download the latest `Cool-Head-….zip` from [Releases](../../releases), and unzip it.
 2. Move **Cool Head** to Applications and open it. The first time, macOS may say it can't check the app (it isn't notarized yet): open **System Settings ▸ Privacy & Security** and choose **Open Anyway**.
-3. Look for the snowflake in the menu bar. Its badge shows the state by shape and colour: a green circle when all is good, a yellow triangle when something is worth watching, a red octagon for a problem. Prefer something sillier? Right-click it and choose **Menu Bar Icon ▸ Melting Snowflake**: it melts into a puddle as things heat up. Click the snowflake for the panel; right-click for updates, reporting a problem, and Quit.
+3. Look for the snowflake in the menu bar. Its badge shows the state by shape and color: a green circle when all is good, a yellow triangle when something is worth watching, a red octagon for a problem. Prefer something sillier? Right-click it and choose **Menu Bar Icon ▸ Melting Snowflake**: it melts as things heat up, and bursts into flames when there's a problem.
+
+<p align="center"><img src="docs/images/menu-icons.png" width="270" alt="The menu bar icons: Melting Snowflake whole, drooping, and in flames; and the snowflake with a green circle, yellow triangle, or red octagon, on dark and light menu bars"></p>
+
+Click the snowflake for the panel. Right-click it for updates, Save Battery When Unplugged, the menu bar icon, your trusted apps and jobs, reporting a problem, and Quit.
 
 After that, Cool Head keeps itself up to date: when a new version is out, the panel offers to install it, and checks the download is genuine first.
 

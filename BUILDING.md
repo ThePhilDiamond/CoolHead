@@ -26,11 +26,21 @@ scripts/build-app.sh
 
 This builds `build/Cool Head.app`, ad-hoc signed. Open it from Finder; it appears in the menu bar, not the Dock. Because the build is not notarized by Apple, macOS may ask you to confirm the first time you open it.
 
-To see the panel without clicking (for screenshots or checks), this waits 25 seconds and writes `panel-light.png` and `panel-dark.png`, then quits:
+To see the panel without clicking (for screenshots or checks), this waits 25 seconds and writes `panel-light.png`, `panel-dark.png` and `panel-menu.png` (the menu bar icons), then quits:
 
 ```bash
 COOLHEAD_SNAPSHOT=/tmp/panel "build/Cool Head.app/Contents/MacOS/Cool Head"
 ```
+
+Screenshots for the project must never show your own processes. These settings shape them:
+
+- `COOLHEAD_SNAPSHOT_ONLY=<phrase>`: show only cards whose headline contains the phrase (and no welcome or What's new).
+- `COOLHEAD_SNAPSHOT_AFTER=<seconds>`: wait this long first (a job needs a minute of being busy before it gets a card).
+- `COOLHEAD_SNAPSHOT_OPEN=1`: show cards open.
+- `COOLHEAD_SNAPSHOT_WARM=1`: treat the Mac as warm.
+- `COOLHEAD_SNAPSHOT_COOL=<phrase>` or `COOLHEAD_SNAPSHOT_PAUSE=<phrase>`: run that card's process cooler, or pause it, first.
+
+The README's screenshots use a made-up job (a script in a folder named Photo Export that prints progress lines), started with `launchctl submit` so it runs at full priority, and the app run in the background with `ONLY`, `WARM` and `AFTER=100`.
 
 ## The icon
 
@@ -48,7 +58,7 @@ The menu bar icon, a snowflake, is drawn in `Sources/CoolHeadApp/CoolHeadApp.swi
 
 ## Layout
 
-- `Sources/CoolHeadCore`: everything that reads the Mac and decides what a card says. `Proc.swift` (kernel calls), `MacState.swift` (heat, power, battery, memory), `Evidence.swift` (the facts about one process), `Progress.swift` (reading a job's own progress lines), `Catalogue.swift` (known patterns), `Card.swift` (the decision), `Watcher.swift` (sampling, in memory only), `Fixtures.swift` (examples for selftest).
+- `Sources/CoolHeadCore`: everything that reads the Mac and decides what a card says. `Proc.swift` (kernel calls), `MacState.swift` (heat, power, battery, memory), `Evidence.swift` (the facts about one process, including games and browser parts), `Progress.swift` (reading a job's own progress lines), `Catalogue.swift` (known patterns), `Card.swift` (the decision, and the order of options), `MemoryAdvice.swift` (the memory card), `Protected.swift` (security software and sync apps), `Trust.swift` (Always trust and its limits), `Pauses.swift` (paused jobs and sync reminders), `CaseReport.swift` and `ProblemReport.swift` (the anonymised reports), `Watcher.swift` (sampling, in memory only), `Fixtures.swift` (examples for selftest).
 - `Sources/coolhead`: the command-line tool.
-- `Sources/CoolHeadApp`: the SwiftUI menu bar app.
+- `Sources/CoolHeadApp`: the SwiftUI menu bar app, including `Updater.swift` (signed updates).
 - `scripts`: packaging and icon drawing.

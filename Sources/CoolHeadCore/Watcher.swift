@@ -110,6 +110,7 @@ public final class Watcher {
     }
 
     public init() {}
+    static let launchUptime = ProcessInfo.processInfo.systemUptime
 
     // MARK: - Paused jobs and sync reminders (saved, see PauseStore)
 
@@ -366,7 +367,9 @@ public final class Watcher {
             }
         }
         tracks = tracks.filter { seen.contains($0.key) }
-        let state = MacState.read()
+        var state = MacState.read()
+        // for screenshots: COOLHEAD_SNAPSHOT_WARM shows the Mac as warm, so a card shows what it recommends then
+        if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_WARM"] != nil { state.thermal = "fair" }
         guard dt > 0 else { publish(state, [], own: 0); return }
 
         let warm = state.thermal != "nominal"
@@ -401,7 +404,7 @@ public final class Watcher {
         if ProcessInfo.processInfo.environment["COOLHEAD_DEBUG"] != nil {
             let top = tracks.sorted { $0.value.cores > $1.value.cores }.prefix(3)
                 .map { "\($0.key):\(String(format: "%.2f", $0.value.cores)) since \($0.value.busySince.map { Int(now.timeIntervalSince($0)) } ?? -1)s" }
-            FileHandle.standardError.write("tick busy=\(busy.count) cards=\(live.map { $0.card.headline.prefix(50) }) top=\(top)\n".data(using: .utf8)!)
+            FileHandle.standardError.write("t+\(Int(ProcessInfo.processInfo.systemUptime - Watcher.launchUptime))s tick busy=\(busy.count) cards=\(live.map { $0.card.headline.prefix(50) }) top=\(top)\n".data(using: .utf8)!)
         }
 
         publish(state, live, own: own / Double(max(1, state.cores)))

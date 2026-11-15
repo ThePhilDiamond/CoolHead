@@ -233,18 +233,18 @@ public struct Card {
             switch part {
             case .tab:
                 fixes = [canCool ? Fix(id: "cooler", title: "Run this tab cooler", consequence: "Only this tab slows. Undo any time.", kind: .cooler, recommended: !inFront) : nil,
-                         page("chrome://settings/performance", "Turn on Energy Saver", "Opens \(app)'s Performance settings. Less background work, lower frame rates.", inFront || !canCool),
+                         page("chrome://settings/performance", "Turn on Energy Saver", "Takes you to \(app)'s Performance settings. Less background work, lower frame rates.", inFront || !canCool),
                          find,
                          e.mine ? Fix(id: "closetab", title: "Close just that tab", consequence: "It shows a crash page; Reload brings it back. Anything typed in it is lost.", kind: .stop) : nil,
                          quit]
             case .extensionPart:
-                fixes = [page("chrome://extensions", "Turn off the extension", "Opens \(app)'s extensions page. Switch off the one you don't need.", true),
+                fixes = [page("chrome://extensions", "Turn off the extension", "Takes you to \(app)'s extensions page. Switch off the one you don't need.", true),
                          canCool ? Fix(id: "cooler", title: "Run it cooler", consequence: "Only this extension slows. Undo any time.", kind: .cooler) : nil,
                          find,
                          e.mine ? Fix(id: "stopext", title: "Stop the extension", consequence: "\(app) says it crashed. Reload it from the extensions page.", kind: .stop) : nil,
                          quit]
             case .graphics:
-                fixes = [page("chrome://settings/performance", "Turn on Energy Saver", "Opens \(app)'s Performance settings. Lower frame rates, less heat.", true),
+                fixes = [page("chrome://settings/performance", "Turn on Energy Saver", "Takes you to \(app)'s Performance settings. Lower frame rates, less heat.", true),
                          find, quit]
             }
             let head = part == .tab ? "A \(app) tab is working hard." : part == .extensionPart ? "A \(app) extension is working hard."

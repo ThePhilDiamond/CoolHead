@@ -17,11 +17,12 @@ Drafted 14 November 2026 for Phil's review, at his request: *"we also should pos
 
 ## Layout
 
-The menu bar panel, about 360 points wide, nothing else:
+The menu bar panel, 412 points wide, under the icon; its top and bottom stay put and the middle scrolls when it's long:
 
-- Status line: "Running warm: 1 cause" or "All calm".
-- Cards: one short sentence each, with Explore fixes (worth watching) or Learn more (calm).
-- Along the bottom: battery health, then switches for notifications and open at login, and icons for Activity Monitor, About and Quit. The name and version ("Cool Head v0.1.0") sit small at the top right. Right-clicking the menu bar icon shows About and Quit.
+- Status line: "Running warm · 1 to watch" or "All calm".
+- Pinned at the top: anything running cooler or paused (frosted), and sync apps waiting to be resumed.
+- Cards: one short sentence each, with Explore fixes (worth watching) or Learn more (calm), and a clock in the corner to check back later.
+- Along the bottom: battery health, then switches for notifications and open at login, and icons for Activity Monitor, Report a problem, About and Quit. The name and version ("Cool Head v0.4.5") sit small at the top right; clicking them checks for updates. Right-clicking the menu bar icon shows updates, Save Battery When Unplugged, the menu bar icon, Trusted, Report a Problem, About and Quit.
 
 No tabs, no tables, no process list. Activity Monitor is one click away, from the icon at the bottom of the panel, for anyone who wants the raw list.
 
@@ -40,4 +41,4 @@ Alternatives considered: a web app in a native shell (Tauri or Electron) would m
 - **No history (Phil, 15 November 2026):** Cool Head is not a record of the past. It samples every 10 seconds and keeps only what it needs in memory (recent readings, which cards have already notified); nothing is written to disk. The exceptions are the person's own choices, saved on this Mac as settings (no record of what happened): the apps and jobs they mark Always trust, reminders to resume a sync app they paused, and jobs paused until the Mac is plugged in (so they are resumed even after a restart). Diagnostic logs exist only inside a case the user chooses to share, or where the law requires.
 - **Overhead target:** under 0.5% of the Mac on average (not shown in the panel; Phil, 15 November 2026: the "Cool Head uses…" line was unnecessary).
 - **Permissions:** none required. Full Disk Access is optional, only for reading other users' or system processes' files.
-- **Distribution:** for Phil's Mac only at first, ad-hoc signed. Public release later is a separate decision.
+- **Distribution:** public on GitHub since 15 November 2026, ad-hoc signed (not notarized), with signed in-app updates (docs/UPDATES.md).

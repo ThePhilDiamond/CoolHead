@@ -5,7 +5,8 @@ import SwiftUI
 struct PanelView: View {
     let watcher: Watcher
     @AppStorage("welcomed") private var welcomed = false
-    @State private var whatsNew = WhatsNew.pending
+    // a screenshot limited to some cards shows neither, so it shows the cards as anyone would see them day to day
+    @State private var whatsNew = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] != nil ? nil : WhatsNew.pending
 
     /// The middle scrolls; the panel grows with it up to this height, so it stays easy to read.
     static var maxMiddle: CGFloat { min(560, (NSScreen.main?.visibleFrame.height ?? 900) * 0.62) }
@@ -15,9 +16,9 @@ struct PanelView: View {
         VStack(alignment: .leading, spacing: 0) {
             // fixed at the top
             HStack(alignment: .firstTextBaseline) {
-                Image(systemName: Badge.symbol(watcher.level))
-                    .foregroundStyle(Color(nsColor: Badge.color(watcher.level)))
-                    .accessibilityLabel(watcher.level == .good ? "All good" : watcher.level == .warning ? "Worth watching" : "Problem")
+                Image(systemName: Badge.symbol(level))
+                    .foregroundStyle(Color(nsColor: Badge.color(level)))
+                    .accessibilityLabel(level == .good ? "All good" : level == .warning ? "Worth watching" : "Problem")
                 Text(status).font(.headline)
                 Spacer()
                 VersionButton()
@@ -27,7 +28,7 @@ struct PanelView: View {
             // scrolls once it is taller than the limit
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    if !welcomed { WelcomeCard { welcomed = true; WhatsNew.markSeen() } }
+                    if !welcomed && ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] == nil { WelcomeCard { welcomed = true; WhatsNew.markSeen() } }
                     else if let notes = whatsNew { WhatsNewCard(notes: notes) { WhatsNew.markSeen(); whatsNew = nil } }
                     UpdateBanner()
                     ForEach(watcher.notices, id: \.self) { n in
@@ -65,6 +66,13 @@ struct PanelView: View {
 
     /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase,
     /// so a screenshot never shows the person's own processes.
+    /// The header's level: the watcher's, except in a screenshot limited to some cards, where it follows only those.
+    var level: Watcher.Level {
+        guard ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] != nil else { return watcher.level }
+        if shownCards.contains(where: { $0.severity >= 2 }) { return .issue }
+        return shownCards.contains(where: { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }) ? .warning : .good
+    }
+
     var shownCards: [LiveCard] {
         guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards }
         return watcher.cards.filter { $0.card.headline.contains(only) }
@@ -142,11 +150,13 @@ struct CardView: View {
             }
             if !live.card.fixes.isEmpty {
                 // a warning offers fixes; a calm card only explains, with options if you want them anyway
-                Button(open ? "Hide" : (live.needsLook ? "Explore fixes" : "Learn more")) {
+                // worth watching (stuck, unexplained, or a cause of heat you can act on) gets Explore fixes, in orange
+                let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
+                Button(open ? "Hide" : (watch ? "Explore fixes" : "Learn more")) {
                     withAnimation(.easeOut(duration: 0.15)) { open.toggle() }
                 }
                     .buttonStyle(.borderedProminent)
-                    .tint(live.needsLook ? .orange : .accentColor)
+                    .tint(watch ? .orange : .accentColor)
                     .controlSize(.small)
             }
             if open {
@@ -273,10 +283,15 @@ struct CardView: View {
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
         case .openPage(let bundle, let address):
-            // the browser's own settings page, opened in that browser; nothing is changed until the person switches it
-            guard let url = URL(string: address) else { return }
-            NSWorkspace.shared.open([url], withApplicationAt: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
-            watcher.log("Opened a settings page for \(live.reportSubject)")
+            // Chrome refuses chrome:// addresses opened from another app (Chromium's url_util.cc allows only one), so the
+            // address is copied and the browser brought forward, with the keys to press. Nothing changes until the
+            // person switches something on that page.
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(address, forType: .string)
+            NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
+            let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
+            note = "Copied. In \(app), press ⌘L, then ⌘V, then Return."; noteFailed = false
+            watcher.log("Copied a settings address for \(live.reportSubject)")
         case .info:
             break
         }

@@ -2,6 +2,12 @@
 
 Short notes for each version. The newest is first. Each release's notes on GitHub come from this file, and the app shows the notes for a version once, after it updates to it.
 
+## v0.4.5 (15 November 2026)
+
+- **Turn on Energy Saver** and **Turn off the extension** now copy the settings address and bring Chrome forward, with the keys to press. Chrome doesn't open its own settings pages when another app asks, so the old buttons opened Chrome without the page.
+- A card that's warming your Mac shows **Explore fixes**, not Learn more.
+- New screenshots and documentation for this version.
+
 ## v0.4.4 (15 November 2026)
 
 - Security, device management and VPN software (CrowdStrike, Jamf, Microsoft Defender, Zscaler and others) is never offered Stop, Run it cooler or Quit: stopping it could leave your Mac unprotected or break your organization's rules. The list comes from System Sentinel, with thanks.
