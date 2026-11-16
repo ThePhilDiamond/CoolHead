@@ -108,13 +108,21 @@ public struct Card {
     /// then sharing; then notes with nothing to press.
     public static func rank(_ f: Fix) -> Int {
         if f.recommended { return 0 }
+        // one kind per line, so pull requests adding different kinds edit different lines
         switch f.kind {
-        case .cooler, .pauseJob, .chromeLimit, .resume: return 1
+        case .cooler: return 1
+        case .pauseJob: return 1
+        case .chromeLimit: return 1
+        case .resume: return 1
         case .pauseSync: return 2
-        case .openPage, .openApp, .reveal, .guide: return 2
+        case .openPage: return 2
+        case .openApp: return 2
+        case .reveal: return 2
+        case .guide: return 2
         case .lookUp: return 3
         case .restartBrowser: return 3     // closes the browser, but its tabs come back: less loss than quitting
-        case .quitApp, .forceQuit: return 4
+        case .quitApp: return 4
+        case .forceQuit: return 4
         case .stop: return f.id == "stop" ? 5 : 4      // closing one tab or extension loses less than quitting its browser
         case .share: return 6
         case .wait: return 8
@@ -125,10 +133,26 @@ public struct Card {
     /// Has something to press that acts on the cause (not only advice or sharing).
     public var hasAction: Bool {
         fixes.contains { f in
+            // every kind listed, one per line: a new kind must say whether it acts on the cause, and pull requests
+            // adding different kinds edit different lines
             switch f.kind {
-            case .cooler, .stop, .quitApp, .lookUp, .openPage, .pauseJob, .pauseSync, .chromeLimit, .resume, .forceQuit, .restartBrowser: return true
+            case .cooler: return true
+            case .stop: return true
+            case .quitApp: return true
+            case .lookUp: return true
+            case .openPage: return true
+            case .pauseJob: return true
+            case .pauseSync: return true
+            case .chromeLimit: return true
+            case .resume: return true
+            case .forceQuit: return true
+            case .restartBrowser: return true
             // opening an app, showing a folder or showing how help, but don't act on the cause
-            default: return false
+            case .openApp: return false
+            case .reveal: return false
+            case .guide: return false
+            case .share: return false
+            case .wait: return false
             }
         }
     }

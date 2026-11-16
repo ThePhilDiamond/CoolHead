@@ -2,7 +2,8 @@ import AppKit
 import Foundation
 
 /// Recorded examples and the card each should produce. `coolhead selftest` runs them; CI runs it on every pull request.
-/// Add one with every catalogue entry or rule you change (see docs/DIAGNOSIS.md).
+/// Add one with every catalogue entry or rule you change (see docs/DIAGNOSIS.md). A feature's own checks go in their
+/// own file, Fixtures+<Feature>.swift, listed in `suites` (see CONTRIBUTING.md).
 public struct Fixture {
     public let id: String
     let evidence: Evidence
@@ -12,6 +13,16 @@ public struct Fixture {
     let expectAction: String?   // the start of the recommended fix's title
 
     /// Runs every example; returns (id, passed, what happened).
+    /// Each feature's checks live in their own file, Fixtures+<Feature>.swift, and are listed here one per line in
+    /// alphabetical order, so pull requests made at the same time add their checks in different places and don't
+    /// conflict. A new feature adds its file and one line here.
+    static let suites: [(Date) -> [(String, Bool, String)]] = [
+        browserRestartChecks,
+        graphicsChipChecks,
+        hangChecks,
+        syncAndSecurityChecks,
+    ]
+
     public static func runAll() -> [(String, Bool, String)] {
         let now = Date()
         // never offer to quit a language runtime: Homebrew's Python is an app bundle, and quitting it stops a job
@@ -252,86 +263,9 @@ public struct Fixture {
         let c6 = gpuCard.recommended?.title == "Turn on Energy Saver" && !gpuCard.fixes.contains { $0.kind == Fix.Kind.cooler }
         let chromeOK = c1 && c2 && c3 && c4 && c5 && c6 && Card.subject(tabE) == "Google Chrome tab"
         review.append(("chrome-without-quitting", chromeOK, "background tab: \(ids(tabBack)); in front: \(tabFront.recommended?.title ?? "none"); extension: \(ids(extCard)); graphics: \(ids(gpuCard))"))
-        // The graphics chip (System Sentinel review, 15 November 2026): a process keeping it busy is a suspect even with
-        // little CPU, and its card says how much; games stay calm and are never slowed; Chrome's graphics process and
-        // WebKit's read right; slowing isn't offered for the graphics chip, since it slows CPU work, not drawing
-        func withGPU(_ e: Evidence, _ g: Double?) -> Evidence { var e = e; e.gpuShare = g; return e }
-        let chipLine = "It's keeping about 70% of the graphics chip busy"
-        let drawer = withGPU(Evidence.sample(name: "Foo", path: "/Applications/Foo.app/Contents/MacOS/Foo", start: now.addingTimeInterval(-7200), cores: 0.1), 0.7)
-        let drawerCard = Card.make(drawer, now: now, busySince: now.addingTimeInterval(-1800), warm: true)
-        let drawerNoChip = Card.make(withGPU(drawer, nil), now: now, busySince: now.addingTimeInterval(-1800))
-        let gpuGameCard = Card.make(withGPU(Evidence.sample(name: "BloonsTD6", path: game.path, start: now.addingTimeInterval(-7200), cores: 0.1), 0.9),
-                                    now: now, busySince: now.addingTimeInterval(-7200), warm: true)
-        let chromeChip = Card.make(withGPU(Evidence.sample(name: "Google Chrome Helper (Aperitif)", path: tabExe, args: [tabExe, "--type=gpu-process"],
-                                                           start: now.addingTimeInterval(-3600), cores: 0.1), 0.8), now: now, busySince: busy10)
-        let webkitGPU = "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU"
-        let safariChip = Card.make(withGPU(Evidence.sample(name: "com.apple.WebKit.GPU", path: webkitGPU, start: now.addingTimeInterval(-3600), cores: 0.1), 0.7),
-                                   now: now, busySince: busy10)
-        let screen = Card.make(withGPU(Evidence.sample(name: "WindowServer", path: "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer",
-                                                       start: now.addingTimeInterval(-86400), cores: 0.2), 0.6), now: now, busySince: busy10)
-        let mlJob = Card.make(withGPU(Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "train.py"], cwd: "/Users/x/Model",
-                                                      start: now.addingTimeInterval(-3600), cores: 0.1), 0.9), now: now, busySince: now.addingTimeInterval(-3600))
-        let g1 = drawerCard.state == .unknown && drawerCard.explanation.contains(chipLine) && drawerCard.explanation.contains("adding to the heat")
-            && drawerCard.fixes.contains { $0.kind == .quitApp("/Applications/Foo.app") } && !drawerCard.fixes.contains { $0.kind == .cooler }
-            && drawerNoChip.state == .quiet
-        let g2 = gpuGameCard.state == .working && gpuGameCard.headline.contains("is a game") && gpuGameCard.explanation.contains("keeping about 90% of the graphics chip busy")
-            && !gpuGameCard.fixes.contains { $0.kind == .cooler }
-        let g3 = chromeChip.state != .quiet && chromeChip.explanation.hasPrefix("Its graphics process has kept about 80% of the graphics chip busy for 10 minutes.")
-            && chromeChip.recommended?.title == "Turn on Energy Saver" && !chromeChip.fixes.contains { $0.kind == .cooler }
-        let g4 = safariChip.headline == "A web page is drawing a lot: video or animation." && safariChip.state != .quiet
-        let g5 = screen.state == .working && screen.headline.contains("drawing the screen") && screen.explanation.contains("keeping about 60% of the graphics chip busy")
-        let g6 = mlJob.state == .unknown && mlJob.fixes.contains { $0.kind == .stop } && mlJob.explanation.contains("keeping about 90% of the graphics chip busy")
-        let g7 = drawer.lines().contains("Graphics chip: about 70% of it now") && !withGPU(drawer, nil).lines().contains { $0.hasPrefix("Graphics chip") }
-            && Fmt.share(0.02) == "under 5%" && Fmt.share(0.68) == "about 70%"
-        review.append(("graphics-chip-cards", g1 && g2 && g3 && g4 && g5 && g6 && g7,
-                       "app \(g1), game \(g2), Chrome \(g3), web page \(g4), screen \(g5), job \(g6), details \(g7): \(drawerCard.explanation)"))
-        // and on this Mac's own IORegistry: the read works with no permission, each share is within the whole chip, and
-        // macOS's own WindowServer is among the users. A Mac whose graphics driver doesn't publish it has nothing to read,
-        // which is fine.
-        let parse = GPU.pid(creator: "pid 400, WindowServer") == 400 && GPU.pid(creator: "WindowServer") == nil
-            && GPU.share(from: 1_000_000_000, to: 1_500_000_000, seconds: 1) == 0.5 && GPU.share(from: 5, to: 2, seconds: 1) == 0
-        let t1 = GPU.times()
-        usleep(500_000)
-        let t2 = GPU.times()
-        let shares = t2.map { GPU.share(from: t1[$0.key] ?? $0.value, to: $0.value, seconds: 0.5) }
-        let windowServer = t2.keys.contains { Proc.path($0)?.hasSuffix("/WindowServer") == true }
-        let live = t2.isEmpty || (windowServer && shares.allSatisfy { $0 >= 0 && $0 <= 1 })
-        review.append(("graphics-chip-read", parse && live,
-                       t2.isEmpty ? "this Mac publishes no graphics-chip use (parsing \(parse))"
-                                  : "\(t2.count) processes use the graphics chip; WindowServer among them \(windowServer); busiest \(Fmt.share(shares.max() ?? 0)) of it"))
-        // Security software is never stopped, slowed or quit; sync apps recommend pausing (System Sentinel review,
-        // 15 November 2026)
-        let falcon = Evidence.sample(name: "falcond", path: "/Library/CS/falcond", start: now.addingTimeInterval(-3600), cores: 1)
-        let warp = Evidence.sample(name: "Cloudflare WARP", path: "/Applications/Cloudflare WARP.app/Contents/MacOS/Cloudflare WARP", start: now, cores: 0.8)
-        let reset = Evidence.sample(name: "Reset", path: "/Users/x/bin/Reset", start: now, cores: 1)
-        let fc = Card.make(falcon, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
-        let wc = Card.make(warp, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
-        let noHarm = { (c: Card) in !c.fixes.contains { f in
-            switch f.kind { case .stop, .cooler, .quitApp, .forceQuit, .pauseJob: return true; default: return false } } }
-        let secOK = fc.headline.contains("CrowdStrike Falcon is security software") && noHarm(fc) && wc.headline.contains("VPN") && noHarm(wc)
-            && SecuritySoftware.product(path: reset.path, name: reset.name) == nil
-        let drive = "/Applications/Google Drive.app"
-        let gd = Evidence.sample(name: "Google Drive", path: drive + "/Contents/MacOS/Google Drive", args: [drive + "/Contents/MacOS/Google Drive", "--single_process"],
+        let gd = Evidence.sample(name: "Google Drive", path: "/Applications/Google Drive.app/Contents/MacOS/Google Drive",
+                                 args: ["/Applications/Google Drive.app/Contents/MacOS/Google Drive", "--single_process"],
                                  start: now.addingTimeInterval(-3 * 3600), cores: 2)
-        let gdWarm = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
-        let gdCool = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600))
-        let syncOK = gdWarm.headline == "Google Drive is syncing your files." && gdWarm.recommended?.id == "pause"
-            && gdWarm.fixes.map(\.id) == ["pause", "cooler", "quit"] && gdCool.recommended == nil && !gdWarm.fixes.contains { $0.id == "stop" }
-        review.append(("protected-and-sync", secOK && syncOK, "security \(secOK), sync \(syncOK): \(gdWarm.fixes.map(\.id))"))
-        // a build writing into a folder the sync app syncs (Phil's Google Drive errors, 15 November 2026): its own folder
-        // is certain; Documents and Desktop only "may" be backed up; anything else isn't its business
-        let home = "/Users/x"
-        let ownFolder = SyncFeed.place(home + "/Library/CloudStorage/GoogleDrive-x@example.com/My Drive/App", sync: "Google Drive", home: home)
-        let otherApps = SyncFeed.place(home + "/Library/CloudStorage/Dropbox/App", sync: "Google Drive", home: home)
-        let docs = SyncFeed.place(home + "/Documents/AI/Mac.apk", sync: "Google Drive", home: home)
-        let elsewhere = SyncFeed.place(home + "/Coding/Mac.apk", sync: "Google Drive", home: home)
-        let placesOK = ownFolder == .some(nil) && otherApps == nil && docs == .some("Documents") && elsewhere == nil
-        let feed = SyncFeed.find(sync: "Google Drive", writers: [(home + "/Documents/AI/Mac.apk", "java", 5_000_000), (home + "/Coding/Other", "clang", 9_000_000)], home: home)
-        let fed = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600), warm: true, syncFeed: feed)
-        let fedOK = feed == SyncFeed(who: "java", folder: "Mac.apk", area: "Documents", path: home + "/Documents/AI/Mac.apk") && fed.recommended?.title == "Keep Mac.apk out of synced folders"
-            && fed.explanation.contains("It may be uploading the files java is writing in Mac.apk, inside Documents: if Google Drive backs up Documents")
-            && !fed.explanation.contains("x@example.com")
-        review.append(("sync-fed-by-a-build", placesOK && fedOK, "places \(placesOK); \(fed.recommended?.title ?? "none"): \(fed.explanation)"))
         // Battery (Phil, 15 November 2026): on battery, a heavy job (a script or tool, never an app) recommends Pause until
         // you plug in and says it's draining the battery; plugged in, it doesn't; a stuck job isn't paused
         let heavy = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
@@ -404,13 +338,8 @@ public struct Fixture {
             review.append(("run-it-cooler-really-works", ok(on) && ok(off) && down <= 4 && up > 4,
                            "background priority \(down), back to \(up)"))
         }
-        review += hangChecks(now)
-        // Restarting for real, on a throwaway app of our own (never a browser): a copy of this program in its own bundle,
-        // which writes down how it was opened. It quits when asked, comes back with --restore-last-session, and isn't
-        // reopened when it declines to quit. COOLHEAD_SELFTEST_DIR says where to build it (a temporary folder otherwise).
-        if let program = Bundle.main.executablePath, (program as NSString).lastPathComponent == "coolhead" {
-            review.append(restartTest(program: program))
-        }
+        // each feature's own checks, from its own file (Fixtures+<Feature>.swift); see `suites`
+        for suite in suites { review += suite(now) }
         return quit + privacy + review + all(now).map { f in
             let c = Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor))
             var problems: [String] = []
@@ -421,147 +350,6 @@ public struct Fixture {
             }
             return (f.id, problems.isEmpty, problems.isEmpty ? c.headline : problems.joined(separator: "; "))
         }
-    }
-
-    /// Hangs that use almost nothing (Phil, 16 November 2026: "Yes, build hangs"): paused by something else, stuck
-    /// waiting on a drive, and Not Responding apps.
-    /// An example process with one parent: a shell (started from a terminal) or launchd (started by macOS).
-    static func withParent(_ e: Evidence, _ parent: String) -> Evidence {
-        Evidence(pid: e.pid, name: e.name, path: e.path, args: e.args, cwd: e.cwd, start: e.start, mine: e.mine, coresNow: e.coresNow,
-                 coresAverage: e.coresAverage, performanceShare: nil, memoryBytes: e.memoryBytes,
-                 ancestors: [.init(pid: parent == "launchd" ? 1 : 500, name: parent, path: parent == "launchd" ? "/sbin/launchd" : "/bin/\(parent)", args: [parent])],
-                 writing: [], locks: [], progress: nil, bytesWrittenDuringSample: 0, lastOutput: nil, lastLine: nil,
-                 savesAsItGoes: false, workStart: e.start)
-    }
-
-    static func hangChecks(_ now: Date) -> [(String, Bool, String)] {
-        var out: [(String, Bool, String)] = []
-        func ids(_ c: Card) -> [String] { c.fixes.map(\.id) }
-        func with(_ e: Evidence, parent: String) -> Evidence {
-            Evidence(pid: e.pid, name: e.name, path: e.path, args: e.args, cwd: e.cwd, start: e.start, mine: e.mine, coresNow: e.coresNow,
-                     coresAverage: e.coresAverage, performanceShare: nil, memoryBytes: e.memoryBytes,
-                     ancestors: [.init(pid: parent == "launchd" ? 1 : 500, name: parent, path: parent == "launchd" ? "/sbin/launchd" : "/bin/\(parent)", args: [parent])],
-                     writing: [], locks: [], progress: nil, bytesWrittenDuringSample: 0, lastOutput: nil, lastLine: nil,
-                     savesAsItGoes: false, workStart: e.start)
-        }
-        // ps's state letters: T paused, U waiting on a drive; a debugger's pause (X) and sleeping (S) aren't hangs
-        let ps = Proc.parsePS("  123   0.0 T\n  124   0.0 TX\n  125   0.0 U\n  126   1.0 S+\n  127   0,0 U+\n")
-        let kinds = [123, 124, 125, 126, 127].map { ps[pid_t($0)].flatMap { Hang.kind(psState: $0.state) } }
-        out.append(("hang-kinds-from-ps", kinds == [.paused, nil, .diskWait, nil, .diskWait], "\(kinds.map { $0?.rawValue ?? "none" })"))
-
-        let job = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
-                                  start: now.addingTimeInterval(-7200), cores: 0)
-        let inShell = Hang.card(.paused, with(job, parent: "zsh"), stuckFor: 3600, terminal: "Terminal", now: now)
-        out.append(("hang-paused-in-terminal", inShell.state == .waiting && inShell.recommended?.title == "Bring it back"
-                        && !inShell.fixes.contains { $0.kind == .resume } && inShell.explanation.contains("Control-Z"),
-                    inShell.headline))
-        let other = Hang.card(.paused, with(job, parent: "launchd"), stuckFor: 600, waiting: ["ffmpeg", "ffmpeg"], now: now)
-        out.append(("hang-paused-by-something-else", other.state == .unknown && other.recommended?.title == "Resume it"
-                        && ids(other).contains("stop") && ids(other).contains("share") && other.explanation.contains("started 2 programs that may be waiting on it: ffmpeg."),
-                    other.headline + " " + other.explanation))
-        let drive = Hang.card(.diskWait, with(job, parent: "launchd"), stuckFor: 300, volumes: ["Backup"], now: now)
-        out.append(("hang-waiting-on-a-drive", drive.headline.contains("Backup") && drive.recommended?.title == "Reconnect Backup"
-                        && !drive.fixes.contains { $0.kind == .stop || $0.kind == .forceQuit },
-                    drive.headline))
-        let app = Evidence.sample(name: "Foo", path: "/Applications/Foo.app/Contents/MacOS/Foo", start: now.addingTimeInterval(-7200), cores: 0)
-        let busyApp = Evidence.sample(name: "Foo", path: "/Applications/Foo.app/Contents/MacOS/Foo", start: now.addingTimeInterval(-7200), cores: 2)
-        let fresh = Hang.card(.notResponding, app, stuckFor: 120, now: now)
-        let settled = Hang.card(.notResponding, app, stuckFor: 600, now: now)
-        let working = Hang.card(.notResponding, busyApp, stuckFor: 600, now: now)
-        let ok = fresh.recommended == nil && ids(fresh).contains("forcequit") && settled.recommended?.title == "Force quit Foo"
-            && working.recommended == nil && !ids(fresh).contains("stop") && fresh.explanation.contains("clock in this card's corner")
-        out.append(("hang-not-responding", ok,
-                    "2 minutes: \(fresh.recommended?.title ?? "nothing recommended yet"); 10 minutes idle: \(settled.recommended?.title ?? "none"); 10 minutes busy: \(working.recommended?.title ?? "none")"))
-        out.append(("not-responding-check-available", Hang.canCheckResponding, Hang.canCheckResponding ? "macOS answers which apps are Not Responding" : "macOS's check wasn't found"))
-        // for real: a child process paused by something other than Cool Head is found, and Resume lets it carry on
-        let sleeper = Process()
-        sleeper.executableURL = URL(fileURLWithPath: "/bin/sleep")
-        sleeper.arguments = ["20"]
-        if (try? sleeper.run()) != nil {
-            let pid = sleeper.processIdentifier
-            usleep(200_000)
-            kill(pid, SIGSTOP)
-            usleep(100_000)
-            let found = Proc.psTable()[pid].flatMap { Hang.kind(psState: $0.state) } == .paused
-            let lc = LiveCard(id: "hang-paused-\(pid)", pid: pid, start: Proc.bsd(pid)?.start, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
-            let resumed = { if case .done = Watcher().resumeStopped(lc) { return true }; return false }() && Proc.bsd(pid)?.stopped == false
-            sleeper.terminate()
-            out.append(("hang-paused-really-found-and-resumed", found && resumed, "found \(found), resumed \(resumed)"))
-        }
-        // Stop on a paused process (it must carry on to act on the signal), and Force quit, each on a child of our own
-        func child() -> (Process, LiveCard)? {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/bin/sleep")
-            p.arguments = ["20"]
-            guard (try? p.run()) != nil else { return nil }
-            usleep(200_000)
-            let pid = p.processIdentifier
-            return (p, LiveCard(id: "hang-\(pid)", pid: pid, start: Proc.bsd(pid)?.start, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: []))
-        }
-        if let (a, ca) = child(), let (b, cb) = child() {
-            kill(a.processIdentifier, SIGSTOP)
-            usleep(100_000)
-            let w = Watcher()
-            _ = w.stop(ca); _ = w.forceQuit(cb)
-            for _ in 0..<20 where a.isRunning || b.isRunning { usleep(50_000) }
-            out.append(("hang-stop-and-force-quit-really-work", !a.isRunning && !b.isRunning,
-                        "paused process stopped \(!a.isRunning), force quit \(!b.isRunning)"))
-            if a.isRunning { kill(a.processIdentifier, SIGKILL) }
-            if b.isRunning { b.terminate() }
-        }
-        return out
-    }
-
-    /// Waits for `work` on a background thread while the main run loop keeps turning (macOS may answer on it).
-    static func offMain<T>(_ work: @escaping () -> T) -> T {
-        let slot = Slot()
-        DispatchQueue.global().async { let v = work(); DispatchQueue.main.async { slot.value = v } }
-        while slot.value == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
-        return slot.value as! T
-    }
-
-    private final class Slot: @unchecked Sendable { var value: Any? }
-
-    static func restartTest(program: String) -> (String, Bool, String) {
-        let env = ProcessInfo.processInfo.environment["COOLHEAD_SELFTEST_DIR"]
-        let folder = URL(fileURLWithPath: env ?? NSTemporaryDirectory() + "coolhead-selftest-restart", isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let launches = folder.appendingPathComponent("launches.txt"), refuse = folder.appendingPathComponent("refuse-quit")
-        func lines() -> [String] { ((try? String(contentsOf: launches, encoding: .utf8)) ?? "").split(separator: "\n", omittingEmptySubsequences: false).dropLast().map(String.init) }
-        func until(_ seconds: Double, _ ok: () -> Bool) -> Bool {
-            let end = Date().addingTimeInterval(seconds)
-            while !ok() { if Date() > end { return false }; RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
-            return true
-        }
-        guard let app = try? BrowserRestart.makeTestApp(in: folder, program: program) else { return ("restart-browser-really-works", false, "couldn't build the test app") }
-        let url = URL(fileURLWithPath: app)
-        func running() -> [NSRunningApplication] {
-            NSRunningApplication.runningApplications(withBundleIdentifier: BrowserRestart.testAppID).filter { $0.bundleURL?.standardizedFileURL.path == url.standardizedFileURL.path }
-        }
-        // first open, as a person would: no arguments
-        let config = NSWorkspace.OpenConfiguration(); config.activates = false
-        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, _ in }
-        let opened = until(10) { lines().count == 1 } && until(5) { !running().isEmpty }
-        let firstPID = running().first?.processIdentifier
-        var steps: [String] = []
-        let restarted = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 10, activate: false) { steps.append($0) } }
-        let back = until(10) { lines().count == 2 } && until(5) { running().contains { $0.processIdentifier != firstPID } }
-        let l = lines()
-        let args = l.count == 2 && !l[0].contains(BrowserRestart.argument) && l[1] == BrowserRestart.argument
-        let oldGone = firstPID.map { Proc.bsd($0) == nil } ?? false
-        // while it declines to quit (as a browser asking about a download would), it is left open and not reopened
-        FileManager.default.createFile(atPath: refuse.path, contents: nil)
-        let declined = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 3, activate: false) }
-        let leftAlone = declined == .stillOpen && lines().count == 2 && !running().isEmpty
-        // tidy up: let it quit, and check there is then nothing to restart
-        try? FileManager.default.removeItem(at: refuse)
-        running().forEach { $0.terminate() }
-        let quit = until(10) { running().allSatisfy { Proc.bsd($0.processIdentifier) == nil } }
-        if !quit { running().forEach { $0.forceTerminate() } }
-        let none = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 3, activate: false) } == .notRunning
-        let ok = opened && { if case .restarted = restarted { return true }; return false }() && back && args && oldGone && leftAlone && quit && none
-        return ("restart-browser-really-works", ok,
-                "opened \(opened); \(restarted) (\(steps.joined(separator: ", "))); reopened \(back) with \(l.last ?? "nothing"); old copy gone \(oldGone); declining to quit: \(declined), not reopened \(leftAlone); tidied \(quit) \(none)")
     }
 
     static func all(_ now: Date) -> [Fixture] {

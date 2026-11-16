@@ -32,12 +32,14 @@ The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns 
 ### How changes reach main
 
 - Every change arrives as a pull request and is merged by squashing, so main reads as one commit per change.
+- **Start every branch from main**, never from another pull request's branch. Squash merging gives main a new commit for each pull request, so a branch built on another one conflicts as soon as that one merges.
+- **Write where no one else is writing**, so pull requests made at the same time don't conflict: a changelog entry is its own file in `changes/` (below); a feature's selftest checks go in their own file, `Sources/CoolHeadCore/Fixtures+<Feature>.swift`, listed by one line in `Fixture.suites`; and lists that grow (option kinds, SECURITY.md's points) have one item per line. Two pull requests that must edit the same lines are made one after the other.
 - The CI must pass (`build`: the build, `coolhead selftest`, and packaging the app), and the maintainer reviews and approves.
 - main can't be force-pushed or deleted. The rules are in [`.github/rulesets/protect-main.json`](.github/rulesets/protect-main.json), and `scripts/apply-repo-settings.sh` applies them along with the repository's other settings.
 
 ### Changelog and releases
 
-If your change is something a user would notice, add a line for it under **[Unreleased]** in [CHANGELOG.md](CHANGELOG.md), in plain words, under Added, Changed or Fixed. Releases are made by the maintainer; how versions are numbered and every step of a release are in [RELEASING.md](RELEASING.md).
+If your change is something a user would notice, add one file for it in [changes/](changes/README.md): `changes/added/`, `changes/changed/` or `changes/fixed/`, named in a few words joined by hyphens, holding one line in plain words that starts `- `. Don't edit CHANGELOG.md itself; the release gathers these files into it. Releases are made by the maintainer; how versions are numbered and every step of a release are in [RELEASING.md](RELEASING.md).
 
 ### How the code is meant to work
 
