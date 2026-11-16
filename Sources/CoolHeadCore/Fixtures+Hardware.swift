@@ -144,7 +144,7 @@ extension Fixture {
         let watchdog = "panic(cpu 3 caller 0xfffffe004c620574): userspace watchdog timeout: no successful checkins from WindowServer (2 induced crashes) in 120 seconds"
         let thisStart = CrashRestarts(lastText: watchdog, lastDate: now.addingTimeInterval(-2 * 3600), thisStartFollowedCrash: true, recent: [now.addingTimeInterval(-2 * 3600)])
         let repeated = CrashRestarts(lastText: "panic(cpu 0 caller 0x1): Kernel data abort.", lastDate: now.addingTimeInterval(-3600), thisStartFollowedCrash: true,
-                                     recent: [-3600, -86400, -3 * 86400].map { now.addingTimeInterval($0) })
+                                     recent: ([-3600, -86400, -3 * 86400] as [TimeInterval]).map { now.addingTimeInterval($0) })
         return [("drive-fault", HardwareReport(drive: fault)),
                 ("drive-errors", HardwareReport(drive: errors)),
                 ("drive-worn", HardwareReport(drive: worn)),
