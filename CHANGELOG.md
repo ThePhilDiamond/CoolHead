@@ -4,6 +4,10 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 ## [Unreleased]
 
+### Added
+
+- **Restart Chrome, keeping your tabs**: when memory is tight and Chrome is one of the three biggest users, one click closes Chrome the normal way (so it can ask about downloads first) and reopens it with the same windows and tabs, freeing the memory Chrome builds up over time. Incognito windows, text typed into a form and not sent, and downloads in progress don't come back; the option says so. If Chrome hasn't closed within 20 seconds (it may be asking you something), it isn't reopened, and Cool Head tells you. Also for Microsoft Edge, Brave, Vivaldi, and Chromium.
+
 ## [0.5.0] - 2026-11-15
 
 ### Added

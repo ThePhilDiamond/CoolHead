@@ -302,6 +302,19 @@ struct CardView: View {
                 else { note = "\(name) didn't quit. It may be asking you something."; noteFailed = true }
                 watcher.log("Quit pressed for \(live.reportSubject): " + (ok ? "asked to quit" : "didn't quit"))
             } else { note = "It's already closed."; noteFailed = false; acted = true }
+        case .restartBrowser(let bundle):
+            // a normal quit (so it can ask about downloads), up to 20 seconds for it to close, then reopened with its
+            // last session; the waiting happens off the main thread, and the note says how it went
+            let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
+            note = "Asked \(name) to quit. It reopens with your tabs once it has closed."; noteFailed = false; acted = true
+            Task {
+                let w = watcher
+                let o = await BrowserRestart.restart(bundle: bundle) { step in w.log("Restart \(name) pressed: \(step)") }
+                let n = BrowserRestart.note(o, name: name)
+                note = n.text; noteFailed = n.failed; acted = !n.failed
+                // the panel may have closed while the browser came to the front: a failure is also a notification
+                if n.failed { Alerts.remind(n.text) }
+            }
         case .share:
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
@@ -1000,6 +1013,7 @@ struct FixRow: View {
         case .openPage: return "gearshape"
         case .pauseJob, .pauseSync: return "pause.circle"
         case .chromeLimit: return "memorychip"
+        case .restartBrowser: return "arrow.clockwise.circle"
         }
     }
     /// For Pause syncing: how long, before anything happens.
@@ -1022,7 +1036,7 @@ struct FixRow: View {
     }
     /// Closes or ends something: its icon in red, so the risk shows at a glance.
     var ends: Bool {
-        switch fix.kind { case .stop, .quitApp: return true; default: return false }
+        switch fix.kind { case .stop, .quitApp, .restartBrowser: return true; default: return false }
     }
 
     /// Once it is already running cooler, "Back to full speed" isn't the recommendation.

@@ -53,6 +53,7 @@ public struct Fix: Identifiable {
         case pauseJob            // SIGSTOP until the Mac is plugged in; resumed then, or on request, or when Cool Head quits
         case pauseSync(String, String)  // open a sync app (bundle path, name) to pause it, with a reminder to resume
         case chromeLimit(Int?)   // set Chrome's own memory limit to this many MB (nil: remove it), as Chrome settings on this Mac
+        case restartBrowser(String)   // a normal quit of the browser at this bundle path, then reopen it with its last session
     }
     public let id: String
     public let title: String
@@ -92,6 +93,7 @@ public struct Card {
         case .pauseSync: return 2
         case .info, .openPage: return f.id == "nostop" ? 7 : 2
         case .lookUp: return 3
+        case .restartBrowser: return 3     // closes the browser, but its tabs come back: less loss than quitting
         case .quitApp: return 4
         case .stop: return f.id == "stop" ? 5 : 4      // closing one tab or extension loses less than quitting its browser
         case .share: return 6
@@ -104,7 +106,7 @@ public struct Card {
     public var hasAction: Bool {
         fixes.contains { f in
             switch f.kind {
-            case .cooler, .stop, .quitApp, .lookUp, .openPage, .pauseJob, .pauseSync, .chromeLimit: return true
+            case .cooler, .stop, .quitApp, .lookUp, .openPage, .pauseJob, .pauseSync, .chromeLimit, .restartBrowser: return true
             default: return false
             }
         }
