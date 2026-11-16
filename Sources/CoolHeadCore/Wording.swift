@@ -68,6 +68,7 @@ public enum Wording {
         let training = ev("python3", "/usr/bin/python3", ["python3", "train.py"], cores: 2.2, start: 3 * hour)
         card("job-unknown-warm-on-battery-during-a-game", training, busy: 3 * hour, warm: true, game: "Hades", battery: 40)
         card("job-just-started", ev("python3", "/usr/bin/python3", ["python3", "train.py"], cores: 1.5, start: 60), busy: 60)
+        out += Fixture.hardwareSamples(now).flatMap { s in s.1.cards(now: now).map { ("hardware-\(s.0)", $0.card) } }   // see Hardware.swift
         return out
     }
 
