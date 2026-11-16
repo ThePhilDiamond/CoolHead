@@ -1,0 +1,1 @@
+- The Docker card says Docker's virtual machine stops on its own 5 minutes after the last container stops (Docker's Resource Saver, on by default); it had said the machine keeps running.

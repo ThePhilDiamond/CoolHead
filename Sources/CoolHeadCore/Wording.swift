@@ -8,6 +8,7 @@ public enum Wording {
         var out: [(String, Card)] = Fixture.all(now).map { f in
             (f.id, Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)))
         }
+        out += Fixture.catalogueSamples(now)
         // memory
         var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
         func group(_ name: String, _ kind: MemGroup.Kind, _ bundle: String?, _ gb: Double, _ n: Int) -> MemGroup {

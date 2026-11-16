@@ -1,0 +1,7 @@
+- Cool Head knows six more causes of heat, drain or a Mac that won't sleep, each with its source and the macOS versions it was seen on:
+  - macOS's sound service, which keeps the Mac awake while apps play or record sound; when it's busy for long, a virtual microphone or an app that hides the microphone dot is the likely cause.
+  - Contacts syncing on macOS 26.4 and later, where a Contacts widget is the likely cause.
+  - Messages catching up with iCloud.
+  - Aerial wallpaper and screen saver downloads on macOS 14 and 15.
+  - DisplayLink Manager drawing extra screens.
+  - Local AI models in Ollama and LM Studio.
