@@ -544,7 +544,7 @@ public final class Watcher {
                 explanation: "It's charging at about \(Int(w.rounded())) W. That slows down after 80%.",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix.guide("unplug", "Unplug for a bit", "Charging stops adding heat until you plug back in.",
-                                  steps: ["Unplug the charger.", "Plug it back in once your Mac feels cooler.", "Charging slows by itself past 80%, so it adds less heat then."], recommended: true)]),
+                                  steps: ["Unplug the charger.", "Plug it back in once your Mac feels cooler."], recommended: true)]),
                 details: s.lines(), reportSubject: "fast charging adding heat")
             lc.heatCause = true
             out.append(lc)
@@ -564,7 +564,7 @@ public final class Watcher {
                     + "Heat can linger after heavy work, or come from a warm room or a soft surface.",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix.guide("air", "Give it air", "A hard surface, out of the sun, helps it cool.",
-                                  steps: ["Move it onto a hard, flat surface: a bed, sofa or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "A stand that lifts it helps more."], recommended: true)]),
+                                  steps: ["Move it onto a hard, flat surface: a bed, sofa or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "If you have a stand that lifts it, use it."], recommended: true)]),
                 details: s.lines(), reportSubject: "warm with no single cause")
             lc.heatCause = true
             out.append(lc)

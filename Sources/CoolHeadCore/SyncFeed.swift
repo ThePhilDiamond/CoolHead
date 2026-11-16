@@ -52,9 +52,9 @@ public struct SyncFeed: Equatable {
     /// A sentence for the sync app's card.
     public func sentence(_ sync: String) -> String {
         if let area {
-            return "It may be busy because \(who) is writing lots of files in \(folder), inside \(area), which \(sync) may be backing up. If so, it uploads every file written there."
+            return "It may be uploading the files \(who) is writing in \(folder), inside \(area): if \(sync) backs up \(area), it uploads every file written there."
         }
-        return "It's probably busy because \(who) is writing lots of files in \(folder), which \(sync) syncs. It uploads every file written there."
+        return "It's probably uploading the files \(who) is writing in \(folder), a folder \(sync) syncs: it uploads every file written there."
     }
 
     /// The fix: keep the project out of synced folders.

@@ -146,15 +146,14 @@ public enum Hang {
             let target = drive ?? "a disk or network drive"
             return Card(state: .unknown, headline: "\(who) has been stuck waiting on \(target) for \(long).",
                         explanation: "It asked \(drive == nil ? "it" : "that drive") for something and is still waiting for the answer. "
-                            + "Usually a network drive that dropped, an external disk, or a disk that's very busy. It can't be stopped or quit until the answer comes."
+                            + "It's usually a network drive that dropped, an external disk, or a disk that's very busy. It can't be stopped or quit until the answer comes."
                             + started + waits,
-                        fixes: [Fix.guide("drive", drive.map { "Reconnect \($0)" } ?? "Reconnect your drives", "Reconnect the network drive or plug the disk back in. That often frees it.",
+                        fixes: [Fix.guide("drive", drive.map { "Reconnect \($0)" } ?? "Reconnect your drives", "Reconnect the network drive or plug the disk back in. Once it answers, the stuck process carries on by itself.",
                                           steps: ["For a network drive: in Finder, choose Go ▸ Connect to Server, and connect to it again.",
-                                                  "For a disk: check its cable, or plug it back in.",
-                                                  "Once it answers, the stuck process carries on by itself."],
+                                                  "For a disk: check its cable, or plug it back in."],
                                           recommended: true),
-                                Fix.guide("restart", "Restart if it won't clear", "If it's still stuck once the drive is back, restarting your Mac frees it.",
-                                          steps: ["Save your work in other apps.", "Choose Apple menu ▸ Restart.", "A process stuck on a drive can't be ended any other way, so this frees it."]),
+                                Fix.guide("restart", "Restart if it won't clear", "If it's still stuck once the drive is back, restarting your Mac frees it. Nothing else can end a process stuck on a drive.",
+                                          steps: ["Save your work in other apps.", "Choose Apple menu ▸ Restart."]),
                                 Card.lookUp(e.name, recommended: false), Card.share])
 
         case .notResponding:
@@ -164,7 +163,7 @@ public enum Hang {
                            : " It's using almost no power, so it's probably waiting on something: a network drive, a stuck helper, or another app."
             return Card(state: .unknown, headline: "\(who) isn't responding.",
                         explanation: "macOS marked it Not Responding \(long) ago: it has stopped answering clicks and keys." + why + waits
-                            + (settled ? "" : " Apps often recover once a long task finishes: the clock in this card's corner hides it while you wait."),
+                            + (settled ? "" : " Apps often recover once a long task finishes. To wait, use the clock in this card's corner."),
                         fixes: [forceQuit.map { var f = $0; f.recommended = settled; return f },
                                 Card.lookUp(e.name, recommended: false), Card.share].compactMap { $0 })
         }

@@ -256,7 +256,7 @@ public struct Fixture {
         // little CPU, and its card says how much; games stay calm and are never slowed; Chrome's graphics process and
         // WebKit's read right; slowing isn't offered for the graphics chip, since it slows CPU work, not drawing
         func withGPU(_ e: Evidence, _ g: Double?) -> Evidence { var e = e; e.gpuShare = g; return e }
-        let chipLine = "It's keeping the graphics chip busy, about 70% of it."
+        let chipLine = "It's keeping about 70% of the graphics chip busy"
         let drawer = withGPU(Evidence.sample(name: "Foo", path: "/Applications/Foo.app/Contents/MacOS/Foo", start: now.addingTimeInterval(-7200), cores: 0.1), 0.7)
         let drawerCard = Card.make(drawer, now: now, busySince: now.addingTimeInterval(-1800), warm: true)
         let drawerNoChip = Card.make(withGPU(drawer, nil), now: now, busySince: now.addingTimeInterval(-1800))
@@ -274,13 +274,13 @@ public struct Fixture {
         let g1 = drawerCard.state == .unknown && drawerCard.explanation.contains(chipLine) && drawerCard.explanation.contains("adding to the heat")
             && drawerCard.fixes.contains { $0.kind == .quitApp("/Applications/Foo.app") } && !drawerCard.fixes.contains { $0.kind == .cooler }
             && drawerNoChip.state == .quiet
-        let g2 = gpuGameCard.state == .working && gpuGameCard.headline.contains("is a game") && gpuGameCard.explanation.contains("graphics chip busy, about 90%")
+        let g2 = gpuGameCard.state == .working && gpuGameCard.headline.contains("is a game") && gpuGameCard.explanation.contains("keeping about 90% of the graphics chip busy")
             && !gpuGameCard.fixes.contains { $0.kind == .cooler }
-        let g3 = chromeChip.state != .quiet && chromeChip.explanation.hasPrefix("Its graphics process has kept the graphics chip busy for 10 minutes, about 80% of it.")
+        let g3 = chromeChip.state != .quiet && chromeChip.explanation.hasPrefix("Its graphics process has kept about 80% of the graphics chip busy for 10 minutes.")
             && chromeChip.recommended?.title == "Turn on Energy Saver" && !chromeChip.fixes.contains { $0.kind == .cooler }
         let g4 = safariChip.headline == "A web page is drawing a lot: video or animation." && safariChip.state != .quiet
-        let g5 = screen.state == .working && screen.headline.contains("drawing the screen") && screen.explanation.contains("about 60% of it")
-        let g6 = mlJob.state == .unknown && mlJob.fixes.contains { $0.kind == .stop } && mlJob.explanation.contains("about 90% of it")
+        let g5 = screen.state == .working && screen.headline.contains("drawing the screen") && screen.explanation.contains("keeping about 60% of the graphics chip busy")
+        let g6 = mlJob.state == .unknown && mlJob.fixes.contains { $0.kind == .stop } && mlJob.explanation.contains("keeping about 90% of the graphics chip busy")
         let g7 = drawer.lines().contains("Graphics chip: about 70% of it now") && !withGPU(drawer, nil).lines().contains { $0.hasPrefix("Graphics chip") }
             && Fmt.share(0.02) == "under 5%" && Fmt.share(0.68) == "about 70%"
         review.append(("graphics-chip-cards", g1 && g2 && g3 && g4 && g5 && g6 && g7,
@@ -329,7 +329,7 @@ public struct Fixture {
         let feed = SyncFeed.find(sync: "Google Drive", writers: [(home + "/Documents/AI/Mac.apk", "java", 5_000_000), (home + "/Coding/Other", "clang", 9_000_000)], home: home)
         let fed = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600), warm: true, syncFeed: feed)
         let fedOK = feed == SyncFeed(who: "java", folder: "Mac.apk", area: "Documents", path: home + "/Documents/AI/Mac.apk") && fed.recommended?.title == "Keep Mac.apk out of synced folders"
-            && fed.explanation.contains("java is writing lots of files in Mac.apk, inside Documents, which Google Drive may be backing up")
+            && fed.explanation.contains("It may be uploading the files java is writing in Mac.apk, inside Documents: if Google Drive backs up Documents")
             && !fed.explanation.contains("x@example.com")
         review.append(("sync-fed-by-a-build", placesOK && fedOK, "places \(placesOK); \(fed.recommended?.title ?? "none"): \(fed.explanation)"))
         // Battery (Phil, 15 November 2026): on battery, a heavy job (a script or tool, never an app) recommends Pause until
@@ -425,6 +425,15 @@ public struct Fixture {
 
     /// Hangs that use almost nothing (Phil, 16 November 2026: "Yes, build hangs"): paused by something else, stuck
     /// waiting on a drive, and Not Responding apps.
+    /// An example process with one parent: a shell (started from a terminal) or launchd (started by macOS).
+    static func withParent(_ e: Evidence, _ parent: String) -> Evidence {
+        Evidence(pid: e.pid, name: e.name, path: e.path, args: e.args, cwd: e.cwd, start: e.start, mine: e.mine, coresNow: e.coresNow,
+                 coresAverage: e.coresAverage, performanceShare: nil, memoryBytes: e.memoryBytes,
+                 ancestors: [.init(pid: parent == "launchd" ? 1 : 500, name: parent, path: parent == "launchd" ? "/sbin/launchd" : "/bin/\(parent)", args: [parent])],
+                 writing: [], locks: [], progress: nil, bytesWrittenDuringSample: 0, lastOutput: nil, lastLine: nil,
+                 savesAsItGoes: false, workStart: e.start)
+    }
+
     static func hangChecks(_ now: Date) -> [(String, Bool, String)] {
         var out: [(String, Bool, String)] = []
         func ids(_ c: Card) -> [String] { c.fixes.map(\.id) }

@@ -89,27 +89,29 @@ public enum MemoryAdvice {
                         fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true)])
         }
         let size = Fmt.bytes(top.bytes)
-        let head = "\(tight) \(label(top)) is using the most (\(size))."
-        let biggest = groups.prefix(3).map { "\(label($0)) \(Fmt.bytes($0.bytes))" }.joined(separator: ", ")
-        let expl = pressure(s) + " Biggest: \(biggest)."
+        let head = "\(tight) \(Fmt.sentenceStart(label(top))) is using the most (\(size))."
+        // the next biggest, by name, so the card shows where the rest of the memory is (the biggest is in the headline)
+        let next = groups.dropFirst().prefix(2).map { "\(label($0)) (\(Fmt.bytes($0.bytes)))" }
+        let expl = pressure(s) + (next.isEmpty ? "" : " Also using a lot: \(ListFormatter.localizedString(byJoining: next)).")
         var fixes: [Fix] = []
         var limitNote: String? = nil
 
         switch top.kind {
         case .browser:
-            let menu = top.name == "Safari" ? "Window ▸ Activity" : top.name == "Firefox" ? "type about:processes" : "Window ▸ Task Manager"
-            fixes.append(top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: "Then \(menu), and sort by Memory.", recommended: true) }
-                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "\(menu), sort by Memory.", steps: ["In \(top.name), \(menu).", "Sort by Memory.", "Close the tabs at the top that you don't need."], recommended: true))
+            let menu = top.name == "Safari" ? "Choose Window ▸ Activity" : top.name == "Firefox" ? "Type about:processes in the address bar" : "Choose Window ▸ Task Manager"
+            fixes.append(top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: "\(menu), then click Memory to put the biggest first.", recommended: true) }
+                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "In \(top.name): \(menu.prefix(1).lowercased() + menu.dropFirst()), then click Memory.",
+                                      steps: ["In \(top.name): \(menu.prefix(1).lowercased() + menu.dropFirst()).", "Click Memory to put the biggest first.", "Close the tabs at the top that you don't need."], recommended: true))
             if top.name == "Google Chrome" {
                 let st = chrome ?? ChromeLimit.status(chromeUse: top.bytes)
                 if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
                 limitNote = ChromeLimit.note(st, using: top.bytes)
                 if let b = top.bundle {
-                    fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Unused tabs nap.", kind: .openPage(b, "chrome://settings/performance")))
+                    fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
                 }
             } else if top.name == "Microsoft Edge" {
                 if let b = top.bundle {
-                    fixes.append(Fix(id: "saver", title: "Turn on sleeping tabs", consequence: "Takes you to Edge's System and performance settings.", kind: .openPage(b, "edge://settings/system")))
+                    fixes.append(Fix(id: "saver", title: "Turn on sleeping tabs", consequence: "Takes you to Edge's System and performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "edge://settings/system")))
                 }
             }
             if let b = top.bundle {

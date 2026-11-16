@@ -42,6 +42,7 @@ If your change is something a user would notice, add a line for it under **[Unre
 ### How the code is meant to work
 
 - **One short sentence, then the options.** A card says what something is and whether it is fine, in one short sentence a child could follow. Everything else (how we know, the options and what each would cause) goes behind Explore fixes, never on the card.
+- **Every sentence is written by hand.** No model rewords anything, so what you write is what people read. Write each sentence whole: say a fact once, start sentences with a capital (a name like "a script" can start one), give every step a verb ("Choose Window ▸ Task Manager"), and join several facts about one thing into one sentence ("It's adding to the heat and draining your battery") rather than a string of short ones. `coolhead wording` prints every card from the recorded examples, so you can read them all in one place before and after a change.
 - **Big is not broken.** Never suggest stopping a job just because it is big or long. Stopping is for stalled jobs, and the card must say what it would cost.
 - **Say "can't tell" when you can't.** A plain admission beats a guess.
 - **Everything stays on the Mac.** No network calls, no analytics. The only exception is Look it up, which the user presses, and which sends the process name only.
