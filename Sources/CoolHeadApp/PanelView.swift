@@ -66,7 +66,7 @@ struct PanelView: View {
         .frame(width: 412)
     }
 
-    /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase,
+    /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase (or any of several, separated by |),
     /// so a screenshot never shows the person's own processes.
     /// The header's level: the watcher's, except in a screenshot limited to some cards, where it follows only those.
     var level: Watcher.Level {
@@ -77,7 +77,8 @@ struct PanelView: View {
 
     var shownCards: [LiveCard] {
         guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards }
-        return watcher.cards.filter { $0.card.headline.contains(only) }
+        let phrases = only.split(separator: "|").map(String.init)      // several phrases, separated by |
+        return watcher.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }
     }
 
     /// The heat word appears only when the Mac is warm or hot; otherwise the line is about what needs watching.
@@ -227,7 +228,9 @@ struct CardView: View {
         .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
         .confirmationDialog(stopTitle, isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
-            Button(confirmStop?.title ?? "Stop it", role: .destructive) { show(watcher.stop(live)); confirmStop = nil }
+            Button(confirmStop?.title ?? "Stop it", role: .destructive) {
+                show(confirmStop?.kind == .forceQuit ? watcher.forceQuit(live) : watcher.stop(live)); confirmStop = nil
+            }
             Button("Cancel", role: .cancel) { confirmStop = nil }
         } message: {
             Text(confirmStop?.consequence ?? "")
@@ -282,13 +285,16 @@ struct CardView: View {
             note = "Opened \(name). Pause it from its menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false; acted = true
         case .wait(let until):
             watcher.snooze(live, until: until)
-        case .stop:
+        case .stop, .forceQuit:
             confirmStop = fix
+        case .resume:
+            show(watcher.resumeStopped(live))
         case .lookUp(let name):
             watcher.log("Look it up pressed for \(live.reportSubject)")
             // only the process name is searched for: no paths, nothing about this Mac
             var u = URLComponents(string: "https://duckduckgo.com/")!
-            u.queryItems = [URLQueryItem(name: "q", value: "macOS \(name) high CPU")]
+            // a stuck process is searched for as stuck, not as busy
+            u.queryItems = [URLQueryItem(name: "q", value: "macOS \(name) " + (live.id.hasPrefix("hang-") ? "stuck not responding" : "high CPU"))]
             if let url = u.url { NSWorkspace.shared.open(url) }
         case .cooler:
             // background priority: macOS runs it on the efficiency cores and slows its disk use; checked and undoable
@@ -1000,6 +1006,8 @@ struct FixRow: View {
         case .openPage: return "gearshape"
         case .pauseJob, .pauseSync: return "pause.circle"
         case .chromeLimit: return "memorychip"
+        case .resume: return "play.circle"
+        case .forceQuit: return "xmark.octagon"
         }
     }
     /// For Pause syncing: how long, before anything happens.
@@ -1022,7 +1030,7 @@ struct FixRow: View {
     }
     /// Closes or ends something: its icon in red, so the risk shows at a glance.
     var ends: Bool {
-        switch fix.kind { case .stop, .quitApp: return true; default: return false }
+        switch fix.kind { case .stop, .quitApp, .forceQuit: return true; default: return false }
     }
 
     /// Once it is already running cooler, "Back to full speed" isn't the recommendation.
