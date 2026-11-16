@@ -113,7 +113,15 @@ extension Fixture {
                        "log names no app \(s1) (\(logged.count) lines), metered warning \(s2), odd numbers \(s3)"))
 
         // every sentence follows the house style: no em dashes, no exclamation marks
-        let all = [poor, fair, fine, thin].flatMap { [$0.title, $0.meaning] } + [N.explainer, N.dataNote, N.meteredNote] + N.fixes(res(50, 10, 200), busySync).flatMap { [$0.title, $0.consequence] } + wl + sl + cl + N.lines(nil, .init(link: .none, dns: .none)) + N.lines(nil, .init(link: .other, autoProxy: true, dns: .local))
+        // built in typed parts: one long expression of + and flatMap is too slow for the compiler's type checker
+        var all: [String] = [N.explainer, N.dataNote, N.meteredNote]
+        for v in [poor, fair, fine, thin] { all += [v.title, v.meaning] }
+        for f in N.fixes(res(50, 10, 200), busySync) { all += [f.title, f.consequence] }
+        all += wl
+        all += sl
+        all += cl
+        all += N.lines(nil, .init(link: .none, dns: .none))
+        all += N.lines(nil, .init(link: .other, autoProxy: true, dns: .local))
         let bad = all.filter { $0.contains("\u{2014}") || $0.contains("!") }
         review.append(("network-wording", bad.isEmpty, bad.isEmpty ? "\(all.count) sentences" : "breaks: \(bad)"))
 
