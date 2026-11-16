@@ -111,7 +111,8 @@ public enum MemoryAdvice {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
-                        fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true).fixingTheCause()])
+                        fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true).fixingTheCause()]
+                            + (lowDisk(s) ? [freeDisk] : []))
         }
         let size = Fmt.bytes(top.bytes)
         // the three biggest, named so they can be told apart (see Naming)
@@ -190,6 +191,7 @@ public enum MemoryAdvice {
             let quit2 = Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees \(Fmt.bytes(alt.bytes)). " + cost.words, kind: .quitApp(b))
             fixes.append(cost.losesWork ? quit2.losingWork() : quit2)
         }
+        if lowDisk(s) { fixes.append(freeDisk) }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
                          kind: .wait(now.addingTimeInterval(1800)), recommended: !fixes.contains { $0.recommended }))
         var card = Card(state: .unknown, headline: head, explanation: expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
@@ -197,8 +199,36 @@ public enum MemoryAdvice {
         return card
     }
 
-    /// Why tight memory matters, in one line; it mentions swap only when the Mac is actually using it.
+    /// Why tight memory matters: how much the Mac is moving to its disk (or that it's using its disk at all), and, when
+    /// the startup disk is nearly full, that it needs that space as extra memory.
     static func pressure(_ s: MacState) -> String {
-        s.swapUsedMB > 50 ? "Your Mac is using its disk as extra memory, which is slow." : "When memory runs low, your Mac slows down."
+        var t: String
+        if let mb = s.swappedOutMB, mb >= movingSwapMB {
+            t = "In the last 2 minutes, your Mac moved \(Fmt.bytes(UInt64(mb * 1_048_576))) of memory to its disk, which is slow."
+        } else {
+            t = s.swapUsedMB > 50 ? "Your Mac is using its disk as extra memory, which is slow." : "When memory runs low, your Mac slows down."
+        }
+        if lowDisk(s), let d = s.diskFreeBytes {
+            t += " Your startup disk has only \(diskGB(d)) free, which limits how much of it your Mac can use as memory. If it runs out, apps can't save, and macOS asks you to quit some."
+        }
+        return t
     }
+
+    /// Memory moved to the disk in 2 minutes that's worth saying on the card.
+    static let movingSwapMB = 256.0
+    /// Memory moved to the disk in 2 minutes that counts as tight memory even when macOS says normal. Not from a
+    /// source: a high bar so it shows only for heavy swapping.
+    public static let heavySwapMB = 1024.0
+    /// Free space on the startup disk below which tight memory also mentions the disk. Not from a source: Howard
+    /// Oakley advises keeping 50 GB free; macOS warns near 1 GB and purges toward about 10 to 15 GB (research node N-006).
+    public static let lowDiskBytes: UInt64 = 20_000_000_000
+    static func lowDisk(_ s: MacState) -> Bool { s.diskFreeBytes.map { $0 < lowDiskBytes } ?? false }
+    /// Disk space as Finder and Storage settings count it (1 GB = 1,000,000,000 bytes).
+    public static func diskGB(_ b: UInt64) -> String {
+        let g = Double(b) / 1_000_000_000
+        return g >= 10 ? String(format: "%.0f GB", g) : String(format: "%.1f GB", g)
+    }
+    /// Takes you to Storage settings, where macOS shows what takes the most space and offers ways to free it.
+    static let freeDisk = Fix.openApp("disk", "Free up disk space", bundle: "/System/Applications/System Settings.app",
+                                      steps: "Click General, then Storage, to see what takes the most space and what macOS can remove for you.")
 }
