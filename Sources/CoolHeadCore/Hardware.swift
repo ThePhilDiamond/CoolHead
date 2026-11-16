@@ -401,11 +401,11 @@ extension HardwareReport {
             let soldered = "The drive is built into the Mac, so if it fails, what's on it can be lost and the repair is a new main board."
             if d.fault {
                 card("drive", .unknown, "The Mac's internal drive is reporting a fault.",
-                     "Its own health check has raised a warning (\(d.warnings.isEmpty ? "running out of spare space" : d.warnings.joined(separator: ", "))). \(soldered) Back up now, then run Apple Diagnostics and contact Apple.",
+                     "The drive's own health check has raised a warning (\(d.warnings.isEmpty ? "running out of spare space" : d.warnings.joined(separator: ", "))). \(soldered) Back up now, then run Apple Diagnostics and contact Apple.",
                      [Hardware.recommend(backup), diagnostics], d.lines, subject: "the internal drive")
             } else if d.mediaErrors > 0 {
                 card("drive", .unknown, "The Mac's internal drive has found errors it couldn't correct.",
-                     "Its own health check has counted \(Hardware.count(d.mediaErrors)) since it was new. A few can be harmless, but they're often the first sign of a failing drive. \(soldered) Back up now, then run Apple Diagnostics: a code starting VDH means a drive fault.",
+                     "The drive's own health check has counted \(Hardware.count(d.mediaErrors)) of these errors since it was new. A few can be harmless, but they're often the first sign of a failing drive. \(soldered) Back up now, then run Apple Diagnostics: a code starting VDH means a drive fault.",
                      [Hardware.recommend(backup), diagnostics], d.lines, subject: "the internal drive")
             } else if d.percentUsed >= 80 {
                 card("drive", .quiet, d.percentUsed >= 100 ? "The Mac's internal drive has passed its rated life." : "The Mac's internal drive has used \(d.percentUsed)% of its rated life.",
@@ -425,7 +425,7 @@ extension HardwareReport {
                 swollen])
             if b.permanentFailure != 0 {
                 card("battery", .unknown, "The battery has recorded a fault.",
-                     "Its own controller has marked a permanent failure, so it may not charge or hold a charge properly. Have Apple check it; Apple Diagnostics names battery faults with a code starting PPT.",
+                     "The battery's own controller has marked a permanent failure, so it may not charge or hold a charge properly. Have Apple check it; Apple Diagnostics names battery faults with a code starting PPT.",
                      [diagnostics, Hardware.note(swollen)], b.lines, subject: "the battery")
             } else if !b.conditionNormal {
                 card("battery", .unknown, "The battery needs service.",
@@ -475,7 +475,7 @@ extension HardwareReport {
             case .driver(let id):
                 why = "The report names \(id), a driver that isn't Apple's: update it from its maker, or remove it."
             case .unclear:
-                why = "The report doesn't make the cause clear. Most crashes are software, but a faulty accessory or a hardware fault can cause them."
+                why = "macOS's report of the last crash doesn't make the cause clear. Most crashes are software, but a faulty accessory or a hardware fault can cause them."
             }
             let headline = week >= 2 ? "Your Mac has crashed and restarted \(week) times this week." : "Your Mac restarted because of a crash."
             let repeatNote = week >= 2 ? " Crashes that keep happening with no common software can point to hardware: disconnect docks and hubs, then try Safe Mode." : " If it happens again, disconnect docks and hubs, then try Safe Mode."
@@ -497,8 +497,8 @@ extension HardwareReport {
             if p.overCurrent > 0 {
                 let magsafe = p.name.hasPrefix("the MagSafe")
                 card("port-\(p.name)", .unknown, "A device asked \(p.name) for more power than it can give.",
-                     magsafe ? "The port counted it \(Hardware.times(p.overCurrent)). Try another MagSafe cable or charger, and check the connector for dirt or damage."
-                             : "The port counted it \(Hardware.times(p.overCurrent)). macOS turns a port off when that happens and may say USB Devices Disabled.",
+                     magsafe ? "The port has recorded this \(Hardware.times(p.overCurrent)). Try another MagSafe cable or charger, and check the connector for dirt or damage."
+                             : "The port has recorded this \(Hardware.times(p.overCurrent)). Each time, macOS turns the port off, and may show a USB Devices Disabled message.",
                      magsafe ? [diagnostics] : [Hardware.recommend(Hardware.lessPower), diagnostics],
                      ["Port: \(p.name)", "Too much power asked for: \(Hardware.times(p.overCurrent))"], subject: p.name)
             } else {
