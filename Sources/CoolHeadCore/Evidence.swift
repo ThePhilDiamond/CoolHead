@@ -235,7 +235,10 @@ extension Evidence {
     }
 
     /// The outermost app bundle this process belongs to, wherever it is installed.
-    public var appBundle: String? {
+    public var appBundle: String? { Evidence.bundle(path) }
+
+    /// The outermost app bundle in a program's path.
+    public static func bundle(_ path: String?) -> String? {
         guard let p = path, let r = p.range(of: ".app/") else { return nil }
         return String(p[..<r.lowerBound]) + ".app"
     }
