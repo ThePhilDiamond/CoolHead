@@ -4,7 +4,7 @@ import CoolHeadCore
 
 // the selftest's throwaway app (a copy of this program in a bundle of its own): it records how it was opened, and
 // waits to be asked to quit, so the selftest can restart it the way Cool Head restarts a browser
-if Bundle.main.bundleIdentifier == BrowserRestart.testAppID { BrowserRestart.runTestApp() }
+if BrowserRestart.isTestApp(Bundle.main.bundleIdentifier) { BrowserRestart.runTestApp() }
 
 let usage = """
 coolhead: explains what is keeping this Mac busy, hot or awake.
@@ -15,6 +15,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead memory           who is using the memory, counted by app, and what could be done
   coolhead hangs            what's paused, stuck waiting on a drive, or not responding right now
   coolhead hardware         the drive, battery, crash restarts and ports, checked without a password
+  coolhead history          what used the most energy and why the Mac woke, from macOS's power log (about a week)
   coolhead selftest         checks every recorded example gives the card it should
   coolhead wording          every card's text, from the recorded examples, to read the wording in one place
 """
@@ -162,6 +163,9 @@ case "hardware":
     let report = HardwareReport.read(now: testNow)
     for line in report.summary() { print(line) }
     for c in report.cards(now: testNow) { print(""); printCard(c.card) }
+case "history":
+    guard let h = PowerHistory.read() else { print("No history: this Mac's power log couldn't be read."); exit(0) }
+    print(h.text)
 case "wording":
     for (id, c) in Wording.samples() { print("[\(id)]"); print(Wording.text(c)) }
 case "selftest":

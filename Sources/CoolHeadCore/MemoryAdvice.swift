@@ -33,30 +33,39 @@ public struct MemGroup {
 public enum MemoryAdvice {
     static let browsers = ["Google Chrome", "Safari", "Microsoft Edge", "Brave Browser", "Firefox", "Arc", "Opera", "Vivaldi", "Chromium"]
 
-    /// What quitting costs for apps where it costs more than unsaved work.
-    static let quitRisks: [String: String] = [
-        "Docker": "Stops all containers.",
-        "OrbStack": "Stops all containers and machines.",
-        "Parallels Desktop": "Shuts down the virtual machine. Save inside it first.",
-        "UTM": "Shuts down the virtual machine. Save inside it first.",
-        "VMware Fusion": "Shuts down the virtual machine. Save inside it first.",
-        "Xcode": "Stops builds and simulators.",
-        "Final Cut Pro": "Stops renders and exports.",
-        "Adobe Premiere Pro": "Stops renders and exports.",
-        "DaVinci Resolve": "Stops renders and exports.",
-        "Logic Pro": "Stops bounces. It'll ask to save.",
-        "Slack": "No messages until you reopen it.",
-        "Microsoft Teams": "Leaves calls. No messages until you reopen it.",
-        "zoom.us": "Leaves your meeting.",
-        "Claude": "Stops what Claude is doing.",
-        "ChatGPT": "Ends the conversation in progress.",
-        "Terminal": "Stops what's running in it.",
-        "iTerm": "Stops what's running in it.",
-        "Warp": "Stops what's running in it.",
-        "Visual Studio Code": "Stops what's running in it.",
-        "Cursor": "Stops what's running in it.",
-        "Spotify": "Stops the music.",
-        "Music": "Stops the music.",
+    /// What quitting costs, for apps where it costs more than unsaved work (the app asks to save that), and whether it
+    /// loses something reopening can't bring back: work in progress, a call, what's running. Only those are Caution
+    /// (Phil, 16 November 2026: "Caution should be reserved for actions like killing a process with unknown and/or
+    /// irreversible consequences. There is risk attached. Whereas quitting Slack is not risky...").
+    struct QuitCost {
+        let words: String
+        let losesWork: Bool
+        static func keeps(_ w: String) -> QuitCost { QuitCost(words: w, losesWork: false) }
+        static func loses(_ w: String) -> QuitCost { QuitCost(words: w, losesWork: true) }
+    }
+    static let quitRisks: [String: QuitCost] = [
+        "Docker": .loses("Stops all containers."),
+        "OrbStack": .loses("Stops all containers and machines."),
+        "Parallels Desktop": .loses("Shuts down the virtual machine. Save inside it first."),
+        "UTM": .loses("Shuts down the virtual machine. Save inside it first."),
+        "VMware Fusion": .loses("Shuts down the virtual machine. Save inside it first."),
+        "Xcode": .loses("Stops builds and simulators."),
+        "Final Cut Pro": .loses("Stops renders and exports."),
+        "Adobe Premiere Pro": .loses("Stops renders and exports."),
+        "DaVinci Resolve": .loses("Stops renders and exports."),
+        "Logic Pro": .loses("Stops bounces. It'll ask to save."),
+        "Slack": .keeps("No messages until you reopen it."),
+        "Microsoft Teams": .loses("Leaves calls. No messages until you reopen it."),
+        "zoom.us": .loses("Leaves your meeting."),
+        "Claude": .loses("Stops what Claude is doing."),
+        "ChatGPT": .loses("Ends the conversation in progress."),
+        "Terminal": .loses("Stops what's running in it."),
+        "iTerm": .loses("Stops what's running in it."),
+        "Warp": .loses("Stops what's running in it."),
+        "Visual Studio Code": .loses("Stops what's running in it."),
+        "Cursor": .loses("Stops what's running in it."),
+        "Spotify": .keeps("Stops the music."),
+        "Music": .keeps("Stops the music."),
     ]
 
     /// What quitting a sync app costs: nothing is lost; it stops syncing and catches up when it's opened again.
@@ -135,7 +144,7 @@ public enum MemoryAdvice {
                 }
             }
             if let b = top.bundle {
-                fixes.append(Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). Closes all tabs.", kind: .quitApp(b)))
+                fixes.append(Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). Closes all tabs.", kind: .quitApp(b)).losingWork())
             }
         case .app:
             if let b = top.bundle, let sync = SyncApps.app(bundle: b) {
@@ -145,9 +154,12 @@ public enum MemoryAdvice {
                 fixes.append(Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. It stays open, so its memory isn't freed.",
                                  kind: .pauseSync(b, sync)))
             } else if let b = top.bundle, SecuritySoftware.product(path: b + "/", name: top.name) == nil {   // never security software
-                let risk = quitRisks[top.name]
-                fixes.append(Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). " + (risk ?? "It'll ask to save first."),
-                                 kind: .quitApp(b), recommended: risk == nil))
+                // recommended when quitting loses nothing reopening can't bring back (Slack, or an app that asks to save)
+                let cost = quitRisks[top.name]
+                var quit = Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). " + (cost?.words ?? "It'll ask to save first."),
+                               kind: .quitApp(b), recommended: cost?.losesWork != true)
+                if cost?.losesWork == true { quit = quit.losingWork() }
+                fixes.append(quit)
             }
         case .job:
             if let e = top.evidence, let stop = Card.make(e, now: now).fixes.first(where: { $0.kind == .stop }) {
@@ -174,8 +186,10 @@ public enum MemoryAdvice {
         // the next largest app that can be quit, as a second way to free memory
         if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
                                                         && SecuritySoftware.product(path: $0.bundle! + "/", name: $0.name) == nil }), let b = alt.bundle {
-            let risk = alt.kind == .browser ? "Closes all tabs." : SyncApps.app(bundle: b) != nil ? syncQuit : (quitRisks[alt.name] ?? "It'll ask to save first.")
-            fixes.append(Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees \(Fmt.bytes(alt.bytes)). " + risk, kind: .quitApp(b)))
+            let cost = alt.kind == .browser ? QuitCost.loses("Closes all tabs.") : SyncApps.app(bundle: b) != nil ? QuitCost.keeps(syncQuit)
+                : (quitRisks[alt.name] ?? QuitCost.keeps("It'll ask to save first."))
+            let quit2 = Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees \(Fmt.bytes(alt.bytes)). " + cost.words, kind: .quitApp(b))
+            fixes.append(cost.losesWork ? quit2.losingWork() : quit2)
         }
         if lowDisk(s) { fixes.append(freeDisk) }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
