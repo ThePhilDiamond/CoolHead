@@ -47,7 +47,7 @@ public struct Fix: Identifiable {
         case cooler              // background priority: slower CPU and disk access, less heat
         case lookUp(String)      // a web search for this process name only
         case quitApp(String)     // a normal quit of the app at this bundle path, so it can ask to save
-        // Every option is a button (Phil, 16 November 2026: "It's incongruous and unintuitive to have a mix of buttons and
+        // Every option is a button (Phil, 15 November 2026: "It's incongruous and unintuitive to have a mix of buttons and
         // non-buttons. If I click something, even if it just navigates to a guide or explanation how to do the task, it
         // would be better than a non-button."). What Cool Head can't do itself, it takes you to, or shows how:
         case openApp(String, String)    // bring this app (bundle path) forward, then say these steps

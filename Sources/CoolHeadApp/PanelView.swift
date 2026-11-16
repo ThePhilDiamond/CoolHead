@@ -1069,7 +1069,7 @@ struct FixRow: View {
 
     // Each option is its own bordered tile, title and what it does inside it, with an arrow at the end: plainly a
     // button, plainly separate from the next (Phil, 15 November 2026: "the options provided lack clear delineation
-    // between them, and don't look clearly clickable"). Every option is one (Phil, 16 November 2026): what Cool Head
+    // between them, and don't look clearly clickable"). Every option is one (Phil, 15 November 2026): what Cool Head
     // can't do itself opens the app where it's done, or shows the steps right under it.
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

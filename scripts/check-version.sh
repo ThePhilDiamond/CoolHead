@@ -11,7 +11,7 @@ VERSION=$(cat VERSION)
 echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || fail "VERSION ($VERSION) isn't MAJOR.MINOR.PATCH"
 grep -q "version = \"$VERSION\"" Sources/CoolHeadCore/CaseReport.swift || fail "VERSION ($VERSION) and CoolHead.version in CaseReport.swift differ"
 grep -q '^## \[Unreleased\]$' CHANGELOG.md || fail "CHANGELOG.md has no ## [Unreleased] section"
-# a merge left unfinished (16 November 2026: one was committed with its markers still in the changelog)
+# a merge left unfinished (15 November 2026: one was committed with its markers still in the changelog)
 ! grep -Eq '^(<<<<<<<|=======$|>>>>>>>)' CHANGELOG.md || fail "CHANGELOG.md still has merge conflict markers"
 grep -Eq "^## \[$VERSION\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md || fail "CHANGELOG.md has no dated ## [$VERSION] section"
 grep -q "^\[$VERSION\]: " CHANGELOG.md || fail "CHANGELOG.md has no [$VERSION] link at the bottom"
