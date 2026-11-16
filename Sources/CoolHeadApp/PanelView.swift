@@ -56,6 +56,11 @@ struct PanelView: View {
                         NetworkView(tester: network, watcher: watcher)
                     } else if tools.trusted {
                         TrustedView(watcher: watcher)
+                    } else if tools.battery {
+                        BatteryView(watcher: watcher,
+                                    openTrends: PowerHistory.available || HistoryView.snapshotSample != nil
+                                        ? { tools.battery = false; watcher.showHistory = true } : nil,
+                                    close: { tools.battery = false })
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if watcher.showHistory {
@@ -77,7 +82,7 @@ struct PanelView: View {
             Divider()
             // fixed at the bottom
             VStack(alignment: .leading, spacing: 10) {
-                if !footer.isEmpty { Text(footer).font(.caption).foregroundStyle(Ink.muted) }
+                // the battery's health is on the Battery tool's page now, not a line here (Phil, 16 November 2026)
                 // Trends: the past week from macOS's power log, where this Mac's log can be read (or in a screenshot)
                 ToolsBar(watcher: watcher,
                          trends: PowerHistory.available || HistoryView.snapshotSample != nil
@@ -128,17 +133,6 @@ struct PanelView: View {
         }
     }
 
-    var footer: String {
-        // a screenshot shows nothing of this Mac's own (its battery's wear, here): example cards get an example line,
-        // and a screenshot limited to some of this Mac's cards gets none
-        if PanelView.sampleSnapshot { return "Battery holds 92% of its original charge (214 cycles)" }
-        if PanelView.limitedSnapshot { return "" }
-        var parts: [String] = []
-        if let h = HardwareWatch.shared.report?.battery?.maxCapacity ?? watcher.mac.healthPercent, let c = watcher.mac.cycles {   // as System Settings shows it
-            parts.append("Battery holds \(h)% of its original charge (\(c) cycles)")
-        }
-        return parts.joined(separator: " · ")
-    }
 }
 
 /// Over each group of options: what pressing one means, in words, once for the group.

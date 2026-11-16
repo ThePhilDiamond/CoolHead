@@ -11,6 +11,10 @@ struct ToolsBar: View {
     @ObservedObject var network = NetworkTester.shared
     @ObservedObject var tools = Tools.shared
     @AppStorage(Tools.labelsKey) private var labels = true
+    /// A battery to show: this Mac's, or in a screenshot a made-up one.
+    var hasBattery: Bool {
+        watcher.mac.batteryPercent != nil || HardwareWatch.shared.report?.battery != nil || PanelView.sampleSnapshot
+    }
     /// Trends (the power log's charts) appears when that tool is in the app: whether it's open, and how to toggle it.
     var trends: (shown: Bool, toggle: () -> Void)? = nil
 
@@ -41,6 +45,15 @@ struct ToolsBar: View {
             }
             // no Activity Monitor button: it's not Cool Head's tool, and anyone who wants it knows where it is (Phil,
             // 16 November 2026: "It's not our tool so we should drop it.")
+            // the battery's own page: its health, what it's doing now, Battery Saver's switch and what else helps (Phil,
+            // 16 November 2026); a Mac with no battery has no Battery tool
+            if hasBattery {
+                ToolButton(symbol: "battery.75percent", name: "Battery", tip: "Battery health and Battery Saver", labels: labels, on: tools.battery) {
+                    let open = !tools.battery
+                    closeAll()
+                    tools.battery = open
+                }
+            }
             Spacer(minLength: 4)
             ToolButton(symbol: "power", name: "Quit", tip: "Quit Cool Head", labels: labels, on: false) { NSApp.terminate(nil) }
         }
@@ -49,6 +62,7 @@ struct ToolsBar: View {
     func closeAll() {
         network.close()
         tools.trusted = false
+        tools.battery = false
         watcher.showReport = false
         if let trends, trends.shown { trends.toggle() }
     }
@@ -60,7 +74,8 @@ struct ToolsBar: View {
 final class Tools: ObservableObject {
     static let shared = Tools()
     @Published var trusted = false
-    /// Show each tool's name under its icon (on by default; the right-click menu turns it off).
+    @Published var battery = false
+    /// Show each tool's name under its icon (on by default; Hide Tool Names in the right-click menu turns it off).
     nonisolated static let labelsKey = "toolLabels"
     static var labels: Bool {
         get { UserDefaults.standard.object(forKey: labelsKey) as? Bool ?? true }

@@ -79,36 +79,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             auto.target = self
             auto.state = Updater.shared.automatic ? .on : .off
             menu.addItem(auto)
-            let battery = NSMenuItem(title: "Save Battery When Unplugged", action: #selector(toggleBatteryMode), keyEquivalent: "")
-            battery.target = self
-            battery.state = BatteryMode.enabled ? .on : .off
-            battery.toolTip = "On battery, flag heavy jobs and offer to pause them until you plug in."
-            menu.addItem(battery)
-            // settings live here; tools live along the bottom of the panel (Phil, 16 November 2026)
+            menu.addItem(.separator())
+            // settings live in one submenu, every one a toggle, so the everyday menu stays short; what it does first, then
+            // how it looks (Phil, 16 November 2026: "icon style and labels are aesthetic choices, so should be grouped
+            // separately from the other settings"); tools live along the bottom of the panel
+            // Battery Saver isn't here: it's switched on and off as your situation changes, so it's a tool along the
+            // bottom of the panel (Phil, 16 November 2026)
+            let settings = NSMenu()
             let notify = NSMenuItem(title: "Notifications", action: #selector(toggleNotifications), keyEquivalent: "")
             notify.target = self; notify.state = Alerts.enabled ? .on : .off
-            menu.addItem(notify)
+            settings.addItem(notify)
             let login = NSMenuItem(title: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
             login.target = self; login.state = LoginItem.on ? .on : .off
-            menu.addItem(login)
-            let labels = NSMenuItem(title: "Show Tool Names", action: #selector(toggleToolLabels), keyEquivalent: "")
-            labels.target = self; labels.state = Tools.labels ? .on : .off
-            labels.toolTip = "The name under each tool along the bottom of the panel."
-            menu.addItem(labels)
-            menu.addItem(.separator())
-            let iconMenu = NSMenu()
-            for (title, key) in [("Status Badge", "badge"), ("Melting Snowflake", "melting")] {
-                let it = NSMenuItem(title: title, action: #selector(setIconStyle(_:)), keyEquivalent: "")
-                it.target = self; it.representedObject = key; it.state = MenuIcon.style == key ? .on : .off
-                iconMenu.addItem(it)
-            }
-            let iconItem = NSMenuItem(title: "Menu Bar Icon", action: nil, keyEquivalent: "")
-            iconItem.submenu = iconMenu
-            menu.addItem(iconItem)
+            settings.addItem(login)
+            settings.addItem(.separator())
+            let labels = NSMenuItem(title: "Hide Tool Names", action: #selector(toggleToolLabels), keyEquivalent: "")
+            labels.target = self; labels.state = Tools.labels ? .off : .on          // names show by default, so it's unchecked
+            labels.toolTip = "Hide the name under each tool along the bottom of the panel; its name shows when you point at it."
+            settings.addItem(labels)
+            let melting = NSMenuItem(title: "Melting Snowflake Icon", action: #selector(toggleMeltingIcon), keyEquivalent: "")
+            melting.target = self; melting.state = MenuIcon.style == "melting" ? .on : .off
+            melting.toolTip = "On: the snowflake melts as things heat up, and bursts into flames for a problem. Off: the snowflake with a colored status badge."
+            settings.addItem(melting)
+            let settingsItem = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
+            settingsItem.submenu = settings
+            menu.addItem(settingsItem)
             menu.addItem(.separator())
             menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
-            menu.addItem(.separator())
-            menu.addItem(withTitle: "Quit Cool Head", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+            // Cool Head's own action, not NSApplication's terminate:, for which macOS 26 adds an icon that sets this one
+            // item apart from the rest (Phil, 16 November 2026: "Remove the quit icon so all menu items are justified")
+            menu.addItem(withTitle: "Quit Cool Head", action: #selector(quit), keyEquivalent: "q").target = self
             item.menu = menu
             button.performClick(nil)          // shows the menu under the icon
             item.menu = nil                   // so the next left-click opens the panel again
@@ -134,7 +134,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     @objc func toggleAutoUpdates() { Updater.shared.automatic.toggle() }
 
-    @objc func toggleBatteryMode() { BatteryMode.enabled.toggle() }
+    @objc func quit() { NSApp.terminate(nil) }
 
 
     /// Nothing is left frozen: paused jobs carry on when Cool Head quits.
@@ -144,9 +144,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         MainActor.assumeIsolated { NetworkTester.shared.close() }
     }
 
-    @objc func setIconStyle(_ sender: NSMenuItem) {
-        guard let key = sender.representedObject as? String else { return }
-        MenuIcon.style = key
+    /// The icon is a toggle like every other setting: on, the Melting Snowflake; off, the Status Badge (the default).
+    @objc func toggleMeltingIcon() {
+        MenuIcon.style = MenuIcon.style == "melting" ? "badge" : "melting"
         item.button?.image = MenuIcon.image(level: Watcher.shared.level)
     }
 
@@ -436,6 +436,8 @@ enum Snapshot {
         let after = Double(ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_AFTER"] ?? "") ?? 25
         DispatchQueue.main.asyncAfter(deadline: .now() + after) {
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] != nil { Watcher.shared.showReport = true }
+            // the Battery tool's page, with a made-up battery when the screenshot uses example cards
+            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_BATTERY"] != nil { Tools.shared.battery = true }
             // screenshots: run the card whose headline contains this phrase cooler first, to show the pinned row
             if let phrase = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_COOL"],
                let c = Watcher.shared.cards.first(where: { $0.card.headline.contains(phrase) }) {
