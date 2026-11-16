@@ -88,7 +88,7 @@ struct PanelView: View {
             let samples = Wording.samples()
             return wanted.compactMap { w in samples.first { $0.0 == w }.map { LiveCard.sample($0.0, $0.1) } }
         }
-        guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards }
+        guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards + HardwareWatch.shared.visible(watcher) }
         let phrases = only.split(separator: "|").map(String.init)      // several phrases, separated by |
         return watcher.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }
     }
@@ -113,7 +113,7 @@ struct PanelView: View {
 
     var footer: String {
         var parts: [String] = []
-        if let h = watcher.mac.healthPercent, let c = watcher.mac.cycles {
+        if let h = HardwareWatch.shared.report?.battery?.maxCapacity ?? watcher.mac.healthPercent, let c = watcher.mac.cycles {   // as System Settings shows it
             parts.append("Battery holds \(h)% of its original charge (\(c) cycles)")
         }
         return parts.joined(separator: " · ")

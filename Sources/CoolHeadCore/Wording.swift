@@ -8,6 +8,7 @@ public enum Wording {
         var out: [(String, Card)] = Fixture.all(now).map { f in
             (f.id, Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)))
         }
+        out += Fixture.catalogueSamples(now)
         // memory
         var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
         func group(_ name: String, _ kind: MemGroup.Kind, _ bundle: String?, _ gb: Double, _ n: Int) -> MemGroup {
@@ -68,6 +69,7 @@ public enum Wording {
         let training = ev("python3", "/usr/bin/python3", ["python3", "train.py"], cores: 2.2, start: 3 * hour)
         card("job-unknown-warm-on-battery-during-a-game", training, busy: 3 * hour, warm: true, game: "Hades", battery: 40)
         card("job-just-started", ev("python3", "/usr/bin/python3", ["python3", "train.py"], cores: 1.5, start: 60), busy: 60)
+        out += Fixture.hardwareSamples(now).flatMap { s in s.1.cards(now: now).map { ("hardware-\(s.0)", $0.card) } }   // see Hardware.swift
         return out
     }
 

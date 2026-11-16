@@ -6,6 +6,10 @@ How Cool Head works, so you can judge what is a problem:
 
 - **What it reads.** It runs as your user and reads what macOS lets your user read: details of your own processes (command line, folder, the files they write, the last lines of their logs) and, for other users' processes such as macOS's own, only their name and CPU use.
   - It also reads how much of the graphics chip each process uses, from the IORegistry (the same place `ioreg` reads), which needs no permission.
+  - Hardware checks, read the same way with no password: the internal drive's own health record (wear, spare space, errors), through Apple's public plug-in for it.
+  - The battery's condition, charge cycles, temperature and charger, from the IORegistry, and its condition and Maximum Capacity from System Information (`system_profiler SPPowerDataType`), at most once an hour.
+  - Error counters on each USB-C and MagSafe port, from the IORegistry.
+  - The summary of the last kernel panic (`/Library/Logs/DiagnosticReports/.contents.panic`), the names and dates of panic reports in that folder, and macOS's note of whether this startup followed a panic (`/var/db/com.apple.DumpPanic.panicLogPathBreadcrumb`). The panic text is shown only in the panel and never put in a report.
   - Reading a job's log in Documents, Desktop, Downloads or iCloud Drive may make macOS ask whether Cool Head can access that folder; saying no only means those jobs get less detailed cards.
   - **The past week.** When you open the history, it reads macOS's own power log, `/private/var/db/powerlog/Library/BatteryLife/CurrentPowerlog.PLSQL` and the daily archives beside it, which every user on the Mac can read. It opens them read only and never writes to them.
   - From that log it reads three tables, by name, and no others: energy and wakeups per app and program (`PLCoalitionAgent_EventInterval_CoalitionInterval`), sleep and wake events (`PLSleepWakeAgent_EventForward_PowerState`), and the reason for each wake (`PLSleepWakeAgent_EventForward_PowerState_Array_Reason`).

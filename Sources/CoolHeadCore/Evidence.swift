@@ -246,10 +246,12 @@ extension Evidence {
     /// The outermost app bundle this process belongs to, wherever it is installed.
     public var appBundle: String? { Evidence.bundle(path) }
 
-    /// The outermost app bundle in a program's path.
+    /// The outermost app bundle in a program's path. Not one inside a framework: macOS keeps some of its own
+    /// programs as .app bundles there (Messages' imagent), which aren't apps anyone opens.
     public static func bundle(_ path: String?) -> String? {
         guard let p = path, let r = p.range(of: ".app/") else { return nil }
-        return String(p[..<r.lowerBound]) + ".app"
+        let bundle = String(p[..<r.lowerBound])
+        return bundle.contains(".framework/") ? nil : bundle + ".app"
     }
 
     /// The game this process belongs to, by its app bundle, wherever it is installed (Steam keeps games in its own

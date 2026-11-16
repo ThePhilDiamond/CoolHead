@@ -1,0 +1,7 @@
+- Hardware checks, with no password. A card appears, saying what to do (including how to run Apple Diagnostics), when:
+  - the Mac's internal drive reports a fault, errors it couldn't correct, or heavy wear;
+  - the battery needs service, has recorded a fault, or holds under 80% of its original charge;
+  - it's plugged in but not charging, with the likely reason: on hold on purpose, too warm, or a charger that isn't keeping up;
+  - the Mac restarted because of a crash, or crashed more than once in a week;
+  - a device asked a USB-C port for more power than it can give, or keeps failing to connect.
+  - `coolhead hardware` prints every check, and what can't be checked: the memory, and Apple Diagnostics' own results.
