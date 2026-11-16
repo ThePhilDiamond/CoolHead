@@ -562,6 +562,13 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.6.0": [
+            "Every option is a button. What Cool Head can't do itself, it opens or shows you, step by step.",
+            "Stuck processes count too: paused, waiting on a drive, or Not Responding.",
+            "Restart Chrome, keeping your tabs, to free the memory it builds up.",
+            "An app keeping the graphics chip busy gets a card, even when it uses little CPU.",
+            "The Melting Snowflake gets a yellow or red bar when something needs a look.",
+        ],
         "0.5.0": [
             "Click anywhere on a card to open it, and again to close it. Each option is a clear button that says what it does.",
             "After an option works, it says what was done, instead of leaving the options to press again.",

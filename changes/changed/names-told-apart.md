@@ -1,1 +1,0 @@
-- When a card names two things that look alike, it says what each is: "the Claude app" and "the claude command-line program", or "another ffmpeg" for a second copy of the same program.

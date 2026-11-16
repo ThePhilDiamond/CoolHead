@@ -1,1 +1,0 @@
-- Stop now works on a paused process: it lets it carry on just long enough to end.
