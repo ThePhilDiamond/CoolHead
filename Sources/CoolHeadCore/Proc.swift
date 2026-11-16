@@ -10,8 +10,10 @@ public enum Proc {
         public let uid: uid_t
         public let name: String
         public let start: Date
-        /// Frozen with SIGSTOP (Cool Head's "Pause until you plug in").
+        /// Frozen with SIGSTOP (Cool Head's "Pause until you plug in", or Control-Z in a Terminal window).
         public var stopped = false
+        /// Attached to a terminal window (it has a controlling terminal).
+        public var hasTerminal = false
     }
 
     public struct Usage {
@@ -40,22 +42,41 @@ public enum Proc {
 
     /// Recent CPU use, in percent of one core, for every process, from /bin/ps (which can read other users'
     /// processes where our own calls can't). Used only for processes our own calls can't read.
-    public static func psCPU() -> [pid_t: Double] {
+    public static func psCPU() -> [pid_t: Double] { psTable().mapValues(\.cpu) }
+
+    /// One row of `ps` for a process: recent CPU in percent of one core, and its state letters ("S", "T", "U+", "TX").
+    public struct PS { public let cpu: Double; public let state: String }
+
+    /// Every process's recent CPU and state, from one run of /bin/ps (which can read other users' processes where our
+    /// own calls can't). The state's first letter: R running, S sleeping, I idle, T stopped, U waiting uninterruptibly
+    /// (on a disk or network that hasn't answered), Z ended; an X after it means a debugger is attached.
+    public static func psTable() -> [pid_t: PS] {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/ps")
-        task.arguments = ["-A", "-o", "pid=,%cpu="]
+        task.arguments = ["-A", "-o", "pid=,%cpu=,state="]
         let pipe = Pipe()
         task.standardOutput = pipe
         task.standardError = FileHandle.nullDevice
         guard (try? task.run()) != nil else { return [:] }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         task.waitUntilExit()
-        var out: [pid_t: Double] = [:]
-        for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
+        return parsePS(String(decoding: data, as: UTF8.self))
+    }
+
+    static func parsePS(_ text: String) -> [pid_t: PS] {
+        var out: [pid_t: PS] = [:]
+        for line in text.split(separator: "\n") {
             let f = line.split(separator: " ", omittingEmptySubsequences: true)
-            if f.count >= 2, let p = pid_t(f[0]), let c = Double(f[1].replacingOccurrences(of: ",", with: ".")) { out[p] = c }
+            if f.count >= 3, let p = pid_t(f[0]), let c = Double(f[1].replacingOccurrences(of: ",", with: ".")) {
+                out[p] = PS(cpu: c, state: String(f[2]))
+            }
         }
         return out
+    }
+
+    /// The processes this one started that are still running, by number.
+    public static func children(of pid: pid_t, among pids: [pid_t]? = nil) -> [pid_t] {
+        (pids ?? allPIDs()).filter { $0 != pid && bsd($0)?.ppid == pid }
     }
 
     /// The process's scheduling priority (what `ps -o pri` shows): about 31 normally, 4 in macOS's background
@@ -87,6 +108,7 @@ public enum Proc {
         let start = Date(timeIntervalSince1970: Double(info.pbi_start_tvsec) + Double(info.pbi_start_tvusec) / 1e6)
         var b = BSD(pid: pid, ppid: pid_t(info.pbi_ppid), uid: info.pbi_uid, name: name, start: start)
         b.stopped = info.pbi_status == 4      // SSTOP
+        b.hasTerminal = info.e_tdev != UInt32.max && info.e_tdev != 0     // NODEV when it has none
         return b
     }
 

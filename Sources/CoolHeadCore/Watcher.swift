@@ -97,6 +97,10 @@ public final class Watcher {
     @ObservationIgnored private var alerted: Set<String> = []
     @ObservationIgnored private var seenIDs: Set<String> = []
     @ObservationIgnored private var lastPriority: [pid_t: Int] = [:]
+    /// Processes stuck in one of the ways `Hang` looks for: which way, and since when it has been seen that way.
+    @ObservationIgnored private var hangSince: [pid_t: (kind: Hang.Kind, since: Date)] = [:]
+    /// Process numbers of the jobs Cool Head paused itself, copied for the sampling queue: those aren't hangs.
+    @ObservationIgnored private var ownPauses: Set<pid_t> = []
     @ObservationIgnored private let queue = DispatchQueue(label: "coolhead.watcher", qos: .utility)
     @ObservationIgnored private var timer: DispatchSourceTimer?
 
@@ -276,9 +280,37 @@ public final class Watcher {
     public func stop(_ c: LiveCard) -> Outcome {
         guard let p = c.pid, sameProcess(c) else { log("Stop pressed for \(c.reportSubject): it had already gone"); return .gone }
         let ok = kill(p, SIGTERM) == 0
+        // a paused process can't act on the signal until it carries on
+        if ok, Proc.bsd(p)?.stopped == true { kill(p, SIGCONT) }
         let why = ok ? "" : String(cString: strerror(errno))
         log("Stop pressed for \(c.reportSubject): " + (ok ? "stopped" : "failed (\(why))"))
         return ok ? .done("Stopped \(c.displaySubject.isEmpty ? "it" : c.displaySubject).") : .failed(why)
+    }
+
+    /// Lets a process carry on that something other than Cool Head paused. Checked by reading back its state.
+    public func resumeStopped(_ c: LiveCard) -> Outcome {
+        guard let p = c.pid, sameProcess(c) else { log("Resume pressed for \(c.reportSubject): it had already gone"); return .gone }
+        guard kill(p, SIGCONT) == 0 else {
+            let why = String(cString: strerror(errno)); log("Resume pressed for \(c.reportSubject): failed (\(why))"); return .failed(why)
+        }
+        usleep(200_000)
+        if Proc.bsd(p)?.stopped == true {
+            log("Resume pressed for \(c.reportSubject): it was paused again at once")
+            return .failed("it was paused again straight away, so something is pausing it on purpose")
+        }
+        log("Resumed \(c.reportSubject), which something else had paused")
+        cards.removeAll { $0.cause == c.cause }
+        return .done("Resumed \(c.displaySubject.isEmpty ? "it" : c.displaySubject). It carries on from where it stopped.")
+    }
+
+    /// Ends an app that isn't responding, as Force Quit in the Apple menu does. Only after the person confirms.
+    public func forceQuit(_ c: LiveCard) -> Outcome {
+        guard let p = c.pid, sameProcess(c) else { log("Force quit pressed for \(c.reportSubject): it had already gone"); return .gone }
+        let ok = kill(p, SIGKILL) == 0
+        let why = ok ? "" : String(cString: strerror(errno))
+        log("Force quit pressed for \(c.reportSubject): " + (ok ? "ended" : "failed (\(why))"))
+        if ok { cards.removeAll { $0.cause == c.cause } }
+        return ok ? .done("Force quit \(c.displaySubject.isEmpty ? "it" : c.displaySubject). Open it again when you need it.") : .failed(why)
     }
 
     public func isCooled(_ c: LiveCard) -> Bool { cooled[Watcher.key(c)] != nil }
@@ -367,11 +399,12 @@ public final class Watcher {
             tracks[pid] = tr
         }
         // processes owned by other users (root, _mds_stores, _windowserver): macOS doesn't let us read their usage
-        // directly, but ps can; its figure is a recent average, which is what a lasting load needs
+        // directly, but ps can; its figure is a recent average, which is what a lasting load needs. The same run of ps
+        // gives every process's state, for the hang cards.
+        let table = Proc.psTable()
         if !unreadable.isEmpty {
-            let ps = Proc.psCPU()
             for pid in unreadable {
-                guard let pc = ps[pid] else { continue }
+                guard let pc = table[pid]?.cpu else { continue }
                 seen.insert(pid)
                 var tr = tracks[pid] ?? Track(cpu: 0, written: 0)
                 tr.cores = pc / 100
@@ -415,7 +448,12 @@ public final class Watcher {
             }
             live.append(lc)
         }
-        live += macCards(state, now: now, explained: !live.isEmpty)
+        let explained = !live.isEmpty
+        // a stuck process has its own card, in place of a busy one for the same process (an app not responding while busy)
+        let hung = hangCards(table, now: now, mac: state)
+        live.removeAll { c in hung.contains { $0.pid == c.pid } }
+        live += hung
+        live += macCards(state, now: now, explained: explained)
         if ProcessInfo.processInfo.environment["COOLHEAD_DEBUG"] != nil {
             let top = tracks.sorted { $0.value.cores > $1.value.cores }.prefix(3)
                 .map { "\($0.key):\(String(format: "%.2f", $0.value.cores)) since \($0.value.busySince.map { Int(now.timeIntervalSince($0)) } ?? -1)s" }
@@ -423,6 +461,47 @@ public final class Watcher {
         }
 
         publish(state, live, own: own / Double(max(1, state.cores)))
+    }
+
+    /// Cards for processes that are stuck while using almost nothing (see `Hang`), once each has been stuck long enough.
+    private func hangCards(_ table: [pid_t: Proc.PS], now: Date, mac: MacState) -> [LiveCard] {
+        let me = getpid()
+        var current: [pid_t: Hang.Kind] = [:]
+        for (pid, row) in table where pid > 1 && pid != me && !ownPauses.contains(pid) {
+            if let k = Hang.kind(psState: row.state) { current[pid] = k }
+        }
+        for pid in Hang.notResponding() where pid != me { current[pid] = .notResponding }
+        // keep the time each was first seen stuck, as long as it stays stuck the same way
+        hangSince = current.reduce(into: [:]) { out, kv in
+            if let was = hangSince[kv.key], was.kind == kv.value { out[kv.key] = was } else { out[kv.key] = (kv.value, now) }
+        }
+        var out: [LiveCard] = []
+        var pids: [pid_t]?
+        for (pid, h) in hangSince.sorted(by: { $0.value.since < $1.value.since }).prefix(5) {
+            let stuckFor = now.timeIntervalSince(h.since)
+            // the first look is cheap: nothing is gathered until it has been stuck at least the shortest threshold
+            guard stuckFor >= min(Hang.threshold(h.kind, suspendedInShell: false), Hang.threshold(h.kind, suspendedInShell: true)) else { continue }
+            let cores = tracks[pid]?.cores ?? (table[pid]?.cpu ?? 0) / 100
+            // touching the files of a process waiting on a drive could leave Cool Head waiting too
+            guard let e = Evidence.gather(pid: pid, measured: (cores, 0), readFiles: h.kind != .diskWait) else { continue }
+            let terminal = h.kind == .paused ? Hang.terminalApp(e, pid: pid) : nil
+            guard stuckFor >= Hang.threshold(h.kind, suspendedInShell: terminal != nil) else { continue }
+            if pids == nil { pids = Proc.allPIDs() }
+            let waiting = Proc.children(of: pid, among: pids).compactMap { Proc.bsd($0)?.name }
+            let card = Hang.card(h.kind, e, stuckFor: stuckFor, waiting: waiting, volumes: h.kind == .diskWait ? Hang.volumes(pid) : [],
+                                  terminal: terminal, now: now)
+            var lc = LiveCard(id: "hang-\(h.kind.rawValue)-\(pid)", pid: pid, start: e.start, card: card,
+                              details: e.lines() + ["Stuck: \(Hang.words(h.kind)), since \(Fmt.time(h.since))"]
+                                + (waiting.isEmpty ? [] : ["Programs it started: \(waiting.count)"]))
+            lc.reportSubject = CaseReport.subject(e) + ", " + Hang.words(h.kind)
+            lc.displaySubject = Card.subject(e)
+            if card.fixes.contains(where: { $0.kind == .share }) {
+                lc.report = (CaseReport.title(e, card: card) + ", " + Hang.words(h.kind),
+                             CaseReport.make(e, card: card, mac: mac, busySince: h.since, now: now) + "\n**Stuck:** " + Hang.words(h.kind))
+            }
+            out.append(lc)
+        }
+        return out
     }
 
     /// Cards about the Mac as a whole, which no single process explains.
@@ -498,6 +577,8 @@ public final class Watcher {
         DispatchQueue.main.async { [self] in
             mac = state
             overhead = own
+            let pausedPIDs = Set(pausedJobs.map(\.pid))
+            queue.async { [self] in ownPauses = pausedPIDs }
             refreshChromeLimit()
             snoozed = snoozed.filter { $0.value.until > now }
             // a waited-on card stays hidden (and the badge green) until its time, unless it gets meaningfully worse
