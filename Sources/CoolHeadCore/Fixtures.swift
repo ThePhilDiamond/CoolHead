@@ -129,6 +129,13 @@ public struct Fixture {
                        && offered?.recommended == false && browserCard.fixes.firstIndex { $0.id == "chromelimit" } == 1
                        && noRemove && secondOffered && notOffered && didSet && wrote && didRemove && leftAlone,
                        "limits \(capMBs); offered \(offered?.title ?? "no"), also when Chrome is second \(secondOffered); once on, no Remove option and the card explains it \(noRemove); set \(didSet) wrote \(wrote) removed \(didRemove); others' settings left alone \(leftAlone)"))
+        // a sync app using the most memory: quitting loses nothing, so it says so, and Pause syncing is there too
+        // (noticed in the Chrome limit test, 15 November 2026: "Quit Google Drive" said "It'll ask to save first")
+        let driveQuit = driveFirst.fixes.first { $0.id == "quit" }
+        let drivePause = driveFirst.fixes.contains { if case .pauseSync = $0.kind { return true }; return false }
+        review.append(("memory-sync-app", driveQuit?.title == "Quit Google Drive" && driveQuit?.recommended == true
+                       && driveQuit?.consequence.contains("Nothing is lost") == true && drivePause,
+                       "\(driveQuit?.title ?? "no quit"): \(driveQuit?.consequence ?? ""); Pause syncing offered \(drivePause)"))
         let dockerCard = MemoryAdvice.card([MemGroup(key: "d", name: "Docker", kind: .app, bundle: "/Applications/Docker.app", bytes: 4_000_000_000, count: 3)], mac: tight, now: now)
         let dockerQuit = dockerCard.fixes.first { $0.id == "quit" }
         review.append(("memory-app-risk", dockerQuit?.consequence.contains("Stops all containers") == true && dockerQuit?.recommended == false,
