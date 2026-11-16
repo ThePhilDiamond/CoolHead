@@ -12,6 +12,13 @@ struct PanelView: View {
     /// A screenshot limited to some cards (COOLHEAD_SNAPSHOT_ONLY) or to example cards (COOLHEAD_SNAPSHOT_SAMPLES):
     /// no welcome or What's new, and the header follows only the cards shown.
     static let limitedSnapshot = ["COOLHEAD_SNAPSHOT_ONLY", "COOLHEAD_SNAPSHOT_SAMPLES"].contains { ProcessInfo.processInfo.environment[$0] != nil }
+    static let sampleSnapshot = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"] != nil
+    /// In a screenshot limited to some of this Mac's cards (COOLHEAD_SNAPSHOT_ONLY), the processes they're about.
+    static func onlyPIDs(_ w: Watcher) -> Set<pid_t>? {
+        guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return nil }
+        let phrases = only.split(separator: "|").map(String.init)
+        return Set(w.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }.compactMap(\.pid))
+    }
 
     /// The middle scrolls; the panel grows with it up to this height, so it stays easy to read.
     static var maxMiddle: CGFloat { min(560, (NSScreen.main?.visibleFrame.height ?? 900) * 0.62) }
@@ -100,7 +107,7 @@ struct PanelView: View {
         }
         guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards + HardwareWatch.shared.visible(watcher) }
         let phrases = only.split(separator: "|").map(String.init)      // several phrases, separated by |
-        return watcher.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }
+        return watcher.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }   // see onlyPIDs
     }
 
     /// The heat word appears only when the Mac is warm or hot; otherwise the line is about what needs watching.
@@ -122,6 +129,10 @@ struct PanelView: View {
     }
 
     var footer: String {
+        // a screenshot shows nothing of this Mac's own (its battery's wear, here): example cards get an example line,
+        // and a screenshot limited to some of this Mac's cards gets none
+        if PanelView.sampleSnapshot { return "Battery holds 92% of its original charge (214 cycles)" }
+        if PanelView.limitedSnapshot { return "" }
         var parts: [String] = []
         if let h = HardwareWatch.shared.report?.battery?.maxCapacity ?? watcher.mac.healthPercent, let c = watcher.mac.cycles {   // as System Settings shows it
             parts.append("Battery holds \(h)% of its original charge (\(c) cycles)")
@@ -794,10 +805,15 @@ enum FrozenItem: Identifiable {
     case cooled(Watcher.CooledItem), paused(PausedJob), sync(SyncPause), chrome(Int), agent(BackgroundAgents.Agent), backup(String)
 
     static func all(_ w: Watcher) -> [FrozenItem] {
-        w.cooledList.map { .cooled($0) } + w.pausedJobs.map { .paused($0) } + w.syncPauses.map { .sync($0) }
+        // a screenshot shows nothing of this Mac's own: with example cards, only made-up lines; limited to some of this
+        // Mac's cards, only what Cool Head is doing to those (see COOLHEAD_SNAPSHOT_COOL and _PAUSE)
+        if PanelView.sampleSnapshot { return heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
+        if let pids = PanelView.onlyPIDs(w) {
+            return w.cooledList.filter { pids.contains($0.pid) }.map { .cooled($0) } + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) }
+        }
+        return w.cooledList.map { .cooled($0) } + w.pausedJobs.map { .paused($0) } + w.syncPauses.map { .sync($0) }
             + (w.chromeLimitMB.map { [.chrome($0)] } ?? [])
             + w.agentsOff.map { .agent($0) } + w.backupExcluded.map { .backup($0) }
-            + (heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [])
     }
     /// For screenshots: COOLHEAD_SNAPSHOT_SAMPLES naming "held-back" shows a made-up turned-off helper and a made-up
     /// folder left out of Time Machine, so the lines can be seen without changing anything on this Mac.
