@@ -4,9 +4,6 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 ## [Unreleased]
 
-### Changed
-
-- When a sync app (Google Drive, Dropbox, OneDrive, Box) uses the most memory, the memory card says quitting it loses nothing (it catches up when reopened), instead of "It'll ask to save first", and also offers Pause syncing, noting that pausing doesn't free its memory.
 ### Added
 
 - When a sync app (Google Drive, Dropbox, OneDrive, Box) is busy and a build or other job is writing lots of files into a folder it syncs, its card says so and recommends keeping that project out of synced folders. For a job in the sync app's own folder it says "probably"; in Documents or Desktop, which it may be backing up, it says "may", since only the sync app's own settings say which folders it backs up and Cool Head doesn't read them.
@@ -16,9 +13,11 @@ What changed in each version of Cool Head, newest first, in plain words. The for
   - **Apps macOS marks Not Responding** for a minute: give it a few minutes, then, if it is still stuck and idle after 5 minutes, **Force quit** is recommended (it asks first).
   - Each says what started it, and names programs it started that may be waiting on it.
 - `coolhead hangs` lists what's paused, waiting on a drive, or not responding right now.
+- **Restart Chrome, keeping your tabs**: when memory is tight and Chrome is one of the three biggest users, one click closes Chrome the normal way (so it can ask about downloads first) and reopens it with the same windows and tabs, freeing the memory Chrome builds up over time. Incognito windows, text typed into a form and not sent, and downloads in progress don't come back; the option says so. If Chrome hasn't closed within 20 seconds (it may be asking you something), it isn't reopened, and Cool Head tells you. Also for Microsoft Edge, Brave, Vivaldi, and Chromium.
 
 ### Changed
 
+- When a sync app (Google Drive, Dropbox, OneDrive, Box) uses the most memory, the memory card says quitting it loses nothing (it catches up when reopened), instead of "It'll ask to save first", and also offers Pause syncing, noting that pausing doesn't free its memory.
 - Stop now works on a paused process: it lets it carry on just long enough to end.
 
 ## [0.5.0] - 2026-11-15

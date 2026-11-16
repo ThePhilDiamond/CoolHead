@@ -136,6 +136,14 @@ public enum MemoryAdvice {
             if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
             limitNote = ChromeLimit.note(st, using: c.bytes)
         }
+        // a Chromium browser among the biggest: restarting it frees the memory it has built up, and its tabs come back
+        // (see BrowserRestart); before Quit, since it loses less, and never recommended, since it closes the browser
+        // you may be using and doesn't bring back private windows, unsent form text or downloads
+        if let r = groups.prefix(3).first(where: { $0.kind == .browser && BrowserRestart.browsers.contains($0.name) && $0.bundle != nil }), let b = r.bundle {
+            fixes.append(Fix(id: "restart", title: "Restart \(r.name), keeping your tabs",
+                             consequence: "Closes and reopens \(r.name), freeing memory it built up. Your tabs come back; \(BrowserRestart.privateWindows(r.name)), unsent form text, and downloads in progress don't.",
+                             kind: .restartBrowser(b)))
+        }
         // the next largest app that can be quit, as a second way to free memory
         if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
                                                         && SecuritySoftware.product(path: $0.bundle! + "/", name: $0.name) == nil }), let b = alt.bundle {
