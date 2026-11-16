@@ -44,6 +44,8 @@ struct PanelView: View {
                     }
                     if watcher.showReport {
                         ProblemView(watcher: watcher)
+                    } else if watcher.showHistory {
+                        HistoryView(sample: HistoryView.snapshotSample) { watcher.showHistory = false }
                     } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
                         Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
                             .foregroundStyle(Ink.muted)
@@ -1323,7 +1325,10 @@ struct BottomBar: View {
                 IconButton(symbol: "waveform.path.ecg", tip: "Launch Activity Monitor") {
                     NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
                 }
-                IconButton(symbol: "exclamationmark.bubble", tip: "Report a problem") { watcher.showReport.toggle() }
+                if PowerHistory.available || HistoryView.snapshotSample != nil {
+                    IconButton(symbol: "clock.arrow.circlepath", tip: "The past week") { watcher.showReport = false; watcher.showHistory.toggle() }
+                }
+                IconButton(symbol: "exclamationmark.bubble", tip: "Report a problem") { watcher.showHistory = false; watcher.showReport.toggle() }
                 IconButton(symbol: "info.circle", tip: "About Cool Head") { About.show() }
                 IconButton(symbol: "power", tip: "Quit") { NSApp.terminate(nil) }
             }

@@ -9,6 +9,8 @@ import UniformTypeIdentifiers
 struct HistoryView: View {
     /// Made-up history for screenshots; nil reads this Mac's power log.
     var sample: PowerHistory? = nil
+    /// Closes the view, back to the cards.
+    var close: (() -> Void)? = nil
     @State private var history: PowerHistory?
     @State private var loaded = false
 
@@ -16,7 +18,11 @@ struct HistoryView: View {
         VStack(alignment: .leading, spacing: 14) {
             if let h = sample ?? history {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(h.title).font(.body.weight(.semibold))
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(h.title).font(.body.weight(.semibold))
+                        Spacer()
+                        if let close { Button("Done", action: close).buttonStyle(.link).font(.callout) }
+                    }
                     Text(PowerHistory.source).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 }
                 let energy = h.topEnergy()
@@ -122,11 +128,20 @@ struct HistoryView: View {
         }
     }
 
-    /// For screenshots: COOLHEAD_SNAPSHOT_HISTORY draws this view, with made-up history, in light and dark, at the
-    /// panel's width, to <prefix>-history-light.png and -dark.png.
+    /// Made-up history when taking screenshots (COOLHEAD_SNAPSHOT_HISTORY), so no one's own apps appear; nil otherwise.
+    static let snapshotSample: PowerHistory? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HISTORY"] != nil ? .sample() : nil
+
+    /// For screenshots: COOLHEAD_SNAPSHOT_HISTORY draws, in light and dark, the panel open on the history (as it
+    /// scrolls) to <prefix>-history-panel-light.png and -dark.png, and the whole history to <prefix>-history-light.png
+    /// and -dark.png, all with made-up history. It runs before watching starts, so it shows and changes nothing of the Mac's.
     @MainActor static func snapshot(to prefix: String) {
-        for (name, look) in [("light", NSAppearance.Name.aqua), ("dark", NSAppearance.Name.darkAqua)] {
-            let host = NSHostingView(rootView: HistoryView(sample: .sample()).padding(16).frame(width: 412).background(.background))
+        Watcher.shared.showHistory = true
+        let views: [(String, AnyView)] = [
+            ("history-panel", AnyView(PanelView(watcher: Watcher.shared).background(.background))),
+            ("history", AnyView(HistoryView(sample: .sample()) {}.padding(16).frame(width: 412).background(.background))),
+        ]
+        for (file, view) in views { for (name, look) in [("light", NSAppearance.Name.aqua), ("dark", NSAppearance.Name.darkAqua)] {
+            let host = NSHostingView(rootView: view)
             host.appearance = NSAppearance(named: look)
             let window = NSWindow(contentRect: NSRect(origin: .zero, size: host.fittingSize), styleMask: .borderless, backing: .buffered, defer: false)
             window.appearance = NSAppearance(named: look)
@@ -138,7 +153,7 @@ struct HistoryView: View {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
             guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { continue }
             host.cacheDisplay(in: host.bounds, to: rep)
-            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(prefix)-history-\(name).png"))
-        }
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(prefix)-\(file)-\(name).png"))
+        } }
     }
 }
