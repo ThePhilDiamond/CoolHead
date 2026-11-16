@@ -32,7 +32,7 @@ One number names a version everywhere:
 
 ## How changes reach main
 
-Every change, the maintainer's included, goes through a pull request: `main` accepts nothing else, and the `build` check (build, selftest, version check) must pass before a squash merge. No approving review is required, since a maintainer can't approve their own pull request; contributors' pull requests are reviewed by the maintainer before merging. Dependabot opens pull requests to update the GitHub Actions the workflows use; each is merged once `build` passes, except an update to the release step (`softprops/action-gh-release`), which is read first and checked on the next release.
+Every change, the maintainer's included, goes through a pull request: `main` accepts nothing else, and the `build` check (build, selftest, version check) must pass before a squash merge. One approving review is required. The maintainer reviews and approves contributors' and Dependabot's pull requests. GitHub never lets an author approve their own pull request, so the maintainer's own pull requests are merged with the owner's bypass, and only after `build` passes. Dependabot opens pull requests to update the GitHub Actions the workflows use; each is merged once `build` passes, except an update to the release step (`softprops/action-gh-release`), which is read first and checked on the next release.
 
 ## Steps
 
