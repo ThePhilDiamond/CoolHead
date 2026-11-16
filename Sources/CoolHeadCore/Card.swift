@@ -61,6 +61,8 @@ public struct Fix: Identifiable {
         case resume              // SIGCONT for a process something other than Cool Head paused
         case forceQuit           // SIGKILL for an app that isn't responding, after asking: what Force Quit in the Apple menu does
         case restartBrowser(String)   // a normal quit of the browser at this bundle path, then reopen it with its last session
+        case stopAgent(String, String)   // turn off another app's background helper (launchd label, its plist path): stopped now and at every login; undo any time
+        case keepOutOfBackup(String)     // keep this folder out of Time Machine backups (a sticky exclusion, as tmutil addexclusion); undo any time
     }
     public let id: String
     public let title: String
@@ -104,6 +106,8 @@ public struct Fix: Identifiable {
         case .resume: return .coolHead
         case .forceQuit: return .coolHead
         case .restartBrowser: return .coolHead
+        case .stopAgent: return .coolHead
+        case .keepOutOfBackup: return .coolHead
         case .lookUp: return .you          // opens a web search for you to read
         case .openApp: return .you         // opens the app; you do the steps there
         case .reveal: return .you          // shows the folder in Finder; you do the steps there
@@ -140,6 +144,8 @@ public struct Fix: Identifiable {
         case .resume: return .fixesCause
         case .forceQuit: return .fixesCause
         case .restartBrowser: return .fixesCause
+        case .stopAgent: return .fixesCause        // it can't start again by itself
+        case .keepOutOfBackup: return .fixesCause  // later backups skip what the job keeps rewriting
         }
     }
     /// The same option, marked as one that ends the cause.
@@ -155,6 +161,8 @@ public struct Fix: Identifiable {
         case .quitApp: return true
         case .forceQuit: return true
         case .restartBrowser: return true
+        case .stopAgent: return true
+        case .keepOutOfBackup: return false
         case .wait: return false
         case .cooler: return false
         case .lookUp: return false
@@ -181,6 +189,8 @@ public struct Fix: Identifiable {
         case .quitApp: return false        // the app asks to save; a quit that loses more is marked losingWork() where it's made
         case .forceQuit: return true       // ends an app without asking it to save
         case .restartBrowser: return true  // private windows, unsent form text and downloads in progress don't come back
+        case .stopAgent: return true       // what the helper does for its app (updates, sync, a licence check) isn't known, so stopping it may break something
+        case .keepOutOfBackup: return false   // known and undoable: only rebuildable build output is offered, and the option says it won't be backed up
         case .wait: return false
         case .cooler: return false
         case .lookUp: return false
@@ -252,6 +262,7 @@ public struct Card {
         case .pauseJob: return 1
         case .chromeLimit: return 1
         case .resume: return 1
+        case .keepOutOfBackup: return 1
         case .pauseSync: return 2
         case .openPage: return 2
         case .openApp: return 2
@@ -261,6 +272,7 @@ public struct Card {
         case .restartBrowser: return 3     // closes the browser, but its tabs come back: less loss than quitting
         case .quitApp: return 4
         case .forceQuit: return 4
+        case .stopAgent: return 4
         case .stop: return f.id == "stop" ? 5 : 4      // closing one tab or extension loses less than quitting its browser
         case .share: return 6
         case .wait: return 8
@@ -285,6 +297,8 @@ public struct Card {
             case .resume: return true
             case .forceQuit: return true
             case .restartBrowser: return true
+            case .stopAgent: return true
+            case .keepOutOfBackup: return true
             // opening an app, showing a folder or showing how help, but don't act on the cause
             case .openApp: return false
             case .reveal: return false
@@ -322,8 +336,15 @@ public struct Card {
     }
 
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
-                            frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil) -> Card {
-        var c = body(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery, syncFeed: syncFeed)
+                            frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil,
+                            agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil) -> Card {
+        var c = body(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery,
+                     syncFeed: syncFeed, backupFeed: backupFeed)
+        // another app's background helper: stopping it doesn't last, since launchd starts it again, so turning it off is
+        // offered too (see BackgroundAgents); never on macOS's own or security software, which never get here as agents
+        if let a = agent, e.mine, c.state != .quiet {
+            c = Card(state: c.state, headline: c.headline, explanation: c.explanation, fixes: c.fixes + [BackgroundAgents.fix(a)])
+        }
         // the processes it names, as shown (see Naming): the process, when the card names it (macOS's own processes and
         // security software are named by what they are instead: "Spotlight", "CrowdStrike Falcon"), and a game it is
         // competing with
@@ -334,7 +355,7 @@ public struct Card {
     }
 
     static func body(_ e: Evidence, now: Date, busySince: Date?, warm: Bool, gameRunning: String?,
-                     frontApp: String?, battery: Int?, syncFeed: SyncFeed?) -> Card {
+                     frontApp: String?, battery: Int?, syncFeed: SyncFeed?, backupFeed: BackupFeed? = nil) -> Card {
         let onBattery = battery != nil
         let who = subject(e)
         let since = busySince ?? e.start ?? now
@@ -369,10 +390,13 @@ public struct Card {
         // macOS's own processes: what it is doing, and whether this has gone on longer than usual
         if let k = Pattern.match(name: e.name, path: e.path), e.progress == nil {
             let long = busyFor > k.usualHours * 3600 && busyFor >= 20 * 60
+            // Time Machine copying a build's output: the build folder is the cause to fix (see BackupExclusions)
+            let feed = k.id == "time-machine" && active ? backupFeed : nil
             let explanation = (long
                 ? "It usually takes under \(Fmt.duration(k.usualHours * 3600))."
                 : k.usually + (k.endsOnItsOwn ? " It stops on its own." : "")) + Fmt.its([gpuClause])
-            var fixes: [Fix] = []
+                + (feed.map { " " + $0.sentence() } ?? "")
+            var fixes: [Fix] = feed.map { [$0.fix(recommended: true)] } ?? []
             if long {
                 if k.whenLong == "Look it up" { fixes.append(lookUp(e.name, recommended: true)) }
                 else {
