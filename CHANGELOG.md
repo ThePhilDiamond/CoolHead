@@ -9,6 +9,7 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 - When a sync app (Google Drive, Dropbox, OneDrive, Box) uses the most memory, the memory card says quitting it loses nothing (it catches up when reopened), instead of "It'll ask to save first", and also offers Pause syncing, noting that pausing doesn't free its memory.
 ### Added
 
+- When a sync app (Google Drive, Dropbox, OneDrive, Box) is busy and a build or other job is writing lots of files into a folder it syncs, its card says so and recommends keeping that project out of synced folders. For a job in the sync app's own folder it says "probably"; in Documents or Desktop, which it may be backing up, it says "may", since only the sync app's own settings say which folders it backs up and Cool Head doesn't read them.
 - Cards for processes that are stuck while using almost nothing, which Cool Head didn't see before because it looked only at busy ones:
   - **Paused by something other than Cool Head** for 5 minutes: **Resume it** is recommended. A job you suspended in a Terminal window with Control-Z gets a calm card after 30 minutes, saying how to bring it back.
   - **Stuck waiting on a disk or network drive** for 2 minutes, naming the drive when it can: check or reconnect the drive. Nothing can stop such a process until the drive answers, so Stop isn't offered.

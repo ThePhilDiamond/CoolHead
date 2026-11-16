@@ -139,7 +139,7 @@ public struct Card {
     }
 
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
-                            frontApp: String? = nil, battery: Int? = nil) -> Card {
+                            frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil) -> Card {
         let onBattery = battery != nil
         let who = subject(e)
         let since = busySince ?? e.start ?? now
@@ -208,9 +208,13 @@ public struct Card {
         // sync apps: catching up is normal, and pausing loses nothing; slowing or quitting come after
         if let sync = SyncApps.app(bundle: e.appBundle), let bundle = e.appBundle {
             if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(sync) is quiet now.", explanation: "", fixes: []) }
+            // a build or job writing lots of files into a folder it syncs is the cause to fix, ahead of pausing
+            // (Phil's Google Drive errors, 15 November 2026)
             return Card(state: .working, headline: "\(sync) is syncing your files.",
-                        explanation: "It uploads and checks every change, and stops when it's caught up." + (warm && e.coresNow >= 0.5 ? " It's adding to the heat." : ""),
-                        fixes: [Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
+                        explanation: "It uploads and checks every change, and stops when it's caught up." + (warm && e.coresNow >= 0.5 ? " It's adding to the heat." : "")
+                            + (syncFeed.map { " " + $0.sentence(sync) } ?? ""),
+                        fixes: [syncFeed?.fix(sync, recommended: true),
+                                Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
                                     kind: .pauseSync(bundle, sync), recommended: warm || gameRunning != nil
                                         || (onBattery && (e.coresNow >= 2 || ((battery ?? 100) < 50 && e.coresNow >= 1)))),
                                 e.mine && e.coresNow >= 0.5 ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
