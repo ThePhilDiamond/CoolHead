@@ -4,6 +4,10 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 ## [Unreleased]
 
+### Added
+
+- When a sync app (Google Drive, Dropbox, OneDrive, Box) is busy and a build or other job is writing lots of files into a folder it syncs, its card says so and recommends keeping that project out of synced folders. For a job in the sync app's own folder it says "probably"; in Documents or Desktop, which it may be backing up, it says "may", since only the sync app's own settings say which folders it backs up and Cool Head doesn't read them.
+
 ## [0.5.0] - 2026-11-15
 
 ### Added

@@ -243,6 +243,20 @@ public struct Fixture {
         let syncOK = gdWarm.headline == "Google Drive is syncing your files." && gdWarm.recommended?.id == "pause"
             && gdWarm.fixes.map(\.id) == ["pause", "cooler", "quit"] && gdCool.recommended == nil && !gdWarm.fixes.contains { $0.id == "stop" }
         review.append(("protected-and-sync", secOK && syncOK, "security \(secOK), sync \(syncOK): \(gdWarm.fixes.map(\.id))"))
+        // a build writing into a folder the sync app syncs (Phil's Google Drive errors, 15 November 2026): its own folder
+        // is certain; Documents and Desktop only "may" be backed up; anything else isn't its business
+        let home = "/Users/x"
+        let ownFolder = SyncFeed.place(home + "/Library/CloudStorage/GoogleDrive-x@example.com/My Drive/App", sync: "Google Drive", home: home)
+        let otherApps = SyncFeed.place(home + "/Library/CloudStorage/Dropbox/App", sync: "Google Drive", home: home)
+        let docs = SyncFeed.place(home + "/Documents/AI/Mac.apk", sync: "Google Drive", home: home)
+        let elsewhere = SyncFeed.place(home + "/Coding/Mac.apk", sync: "Google Drive", home: home)
+        let placesOK = ownFolder == .some(nil) && otherApps == nil && docs == .some("Documents") && elsewhere == nil
+        let feed = SyncFeed.find(sync: "Google Drive", writers: [(home + "/Documents/AI/Mac.apk", "java", 5_000_000), (home + "/Coding/Other", "clang", 9_000_000)], home: home)
+        let fed = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600), warm: true, syncFeed: feed)
+        let fedOK = feed == SyncFeed(who: "java", folder: "Mac.apk", area: "Documents") && fed.recommended?.title == "Keep Mac.apk out of synced folders"
+            && fed.explanation.contains("java is writing lots of files in Mac.apk, inside Documents, which Google Drive may be backing up")
+            && !fed.explanation.contains("x@example.com")
+        review.append(("sync-fed-by-a-build", placesOK && fedOK, "places \(placesOK); \(fed.recommended?.title ?? "none"): \(fed.explanation)"))
         // Battery (Phil, 15 November 2026): on battery, a heavy job (a script or tool, never an app) recommends Pause until
         // you plug in and says it's draining the battery; plugged in, it doesn't; a stuck job isn't paused
         let heavy = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",

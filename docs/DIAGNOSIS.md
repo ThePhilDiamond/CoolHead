@@ -37,7 +37,7 @@ Some kinds of process have their own card, ahead of the states above:
 
 - **Games** are calm and never slowed; while the Mac is warm, lower graphics settings is recommended. While a game runs, other busy work recommends Run it cooler.
 - **Browsers** (Chrome, Edge, Brave, Arc): a tab, an extension, or the graphics process, told apart by their launch arguments, each with the options that fit.
-- **Sync apps** recommend Pause syncing while the Mac is warm, with a reminder to resume.
+- **Sync apps** recommend Pause syncing while the Mac is warm, with a reminder to resume. When a job writing over 100 KB a second works in a folder the sync app syncs, the card names the job and folder and recommends keeping that project out of synced folders instead: "probably" for the sync app's own folder, "may" for Documents or Desktop, which it may be backing up. Paths are compared as text; nothing in a synced folder is opened.
 - **Security, device management, and VPN software** is never offered Stop, Run it cooler, or Quit.
 - **Trusted** apps and jobs stay calm until a limit is crossed: they look stuck, the Mac gets hot, or they run nonstop for 8 hours.
 

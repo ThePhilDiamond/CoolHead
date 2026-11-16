@@ -397,8 +397,16 @@ public final class Watcher {
             .map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
         let front = NSWorkspace.shared.frontmostApplication?.bundleURL?.path
         let battery = BatteryMode.enabled && !state.onPower ? state.batteryPercent : nil       // a desktop has no battery
+        // processes writing lots to disk right now (over 100 KB a second), for a busy sync app: a build in a folder it
+        // syncs makes it upload every file (see SyncFeed). Read only when a sync app is on the list.
+        lazy var writers: [(cwd: String, who: String, bytes: UInt64)] = tracks.compactMap { pid, tr in
+            guard pid != me, dt > 0, Double(tr.lastWritten) / dt >= 100_000, let cwd = Proc.cwd(pid), cwd != "/",
+                  let b = Proc.bsd(pid), b.uid == getuid(), SyncApps.app(bundle: Evidence.bundle(Proc.path(pid))) == nil else { return nil }
+            return (cwd, b.name, tr.lastWritten)
+        }
         for (pid, tr, e) in gathered {
-            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery)
+            let feed = SyncApps.app(bundle: e.appBundle).flatMap { SyncFeed.find(sync: $0, writers: writers) }
+            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery, syncFeed: feed)
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)
