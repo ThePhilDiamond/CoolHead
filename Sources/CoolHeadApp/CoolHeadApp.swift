@@ -284,24 +284,11 @@ enum MenuIcon {
     }
 
     /// Calm: a whole snowflake. Worth watching: its lower half has melted, dripping into a small puddle.
-    /// Problem: only a big puddle is left, with a flame on top.
-    /// Worth watching and a problem also get a bar along the bottom, yellow or red, so the stoplight colour is there
-    /// at a glance (Phil, 15 November 2026: "Yellow and red only"); calm stays a plain snowflake, so the menu bar shows
-    /// colour only when something needs a look. The drawing is lifted and made a little smaller to make room.
+    /// Problem: it bursts into flames.
+    /// Each drawing fills the whole icon. A yellow or red bar underneath was tried and dropped, because making room for
+    /// it shrank the drawings (Phil, 16 November 2026: "The colored bars on the melting snowflake icon set make it too
+    /// small, so let's drop the yellow and red bars so they can be bigger.").
     static func melting(_ level: Watcher.Level) {
-        if level == .good { flake(center: NSPoint(x: 10, y: 9), r: 7.5); return }
-        NSGraphicsContext.saveGraphicsState()
-        let t = NSAffineTransform()
-        t.translateX(by: 10, yBy: 2.7)
-        t.scale(by: 0.85)
-        t.translateX(by: -10, yBy: 0)
-        t.concat()
-        meltingArt(level)
-        NSGraphicsContext.restoreGraphicsState()
-        NSBezierPath(roundedRect: NSRect(x: 3, y: 0.3, width: 14, height: 1.7), xRadius: 0.85, yRadius: 0.85).fill(with: level)
-    }
-
-    static func meltingArt(_ level: Watcher.Level) {
         switch level {
         case .good:
             flake(center: NSPoint(x: 10, y: 9), r: 7.5)
