@@ -39,6 +39,7 @@ Screenshots for the project must never show your own processes. These settings s
 - `COOLHEAD_SNAPSHOT_OPEN=1`: show cards open.
 - `COOLHEAD_SNAPSHOT_STEPS=1`: show each option's mini-guide open.
 - `COOLHEAD_SNAPSHOT_WARM=1`: treat the Mac as warm.
+- `COOLHEAD_SNAPSHOT_HISTORY=<prefix>` (instead of `COOLHEAD_SNAPSHOT`): draw the history view with made-up history to `<prefix>-history-light.png` and `-dark.png`, and quit, before watching starts.
 - `COOLHEAD_TEST_MEMORY=1`: treat memory as tight, so the memory card shows.
 - `COOLHEAD_HANG_SECONDS=<seconds>`: show a card for a paused, drive-waiting or Not Responding process after this long, instead of minutes.
 - `COOLHEAD_SNAPSHOT_ONLY` takes several phrases separated by `|`.

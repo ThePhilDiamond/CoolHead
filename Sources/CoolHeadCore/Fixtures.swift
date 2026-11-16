@@ -22,6 +22,7 @@ public struct Fixture {
         hangChecks,
         namingChecks,
         optionChecks,
+        powerHistoryChecks,
         syncAndSecurityChecks,
     ]
 
