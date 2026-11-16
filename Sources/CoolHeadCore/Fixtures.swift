@@ -18,8 +18,10 @@ public struct Fixture {
     /// conflict. A new feature adds its file and one line here.
     static let suites: [(Date) -> [(String, Bool, String)]] = [
         browserRestartChecks,
+        catalogueChecks,
         graphicsChipChecks,
         hangChecks,
+        hardwareChecks,
         memorySignalChecks,
         namingChecks,
         optionChecks,
