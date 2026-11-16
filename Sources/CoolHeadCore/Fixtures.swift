@@ -23,6 +23,7 @@ public struct Fixture {
         hangChecks,
         hardwareChecks,
         namingChecks,
+        networkChecks,
         optionChecks,
         syncAndSecurityChecks,
     ]
