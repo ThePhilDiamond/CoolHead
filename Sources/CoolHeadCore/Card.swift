@@ -171,7 +171,7 @@ public struct Card {
         // the graphics chip (see GPU): busy on it counts as busy, and the card says how much of it
         let gpu = e.gpuShare ?? 0
         let active = e.coresNow >= 0.25 || e.gpuBusy
-        let gpuLine = e.gpuBusy ? " It's keeping the graphics chip busy, \(Fmt.share(gpu)) of it." : ""
+        let gpuClause: String? = e.gpuBusy ? "keeping \(Fmt.share(gpu)) of the graphics chip busy" : nil
         let gpuLed = e.gpuBusy && e.coresNow < 0.5            // here for the graphics chip, not the CPU
         let heating = e.coresNow >= 0.5 || gpu >= GPU.busyShare
 
@@ -196,8 +196,8 @@ public struct Card {
         if let k = Pattern.match(name: e.name, path: e.path), e.progress == nil {
             let long = busyFor > k.usualHours * 3600 && busyFor >= 20 * 60
             let explanation = (long
-                ? "It usually takes under \(Fmt.duration(k.usualHours * 3600)). This has gone on for \(Fmt.duration(busyFor))."
-                : "Normal \(k.normal)." + (k.endsOnItsOwn ? " It stops on its own." : "")) + gpuLine
+                ? "It usually takes under \(Fmt.duration(k.usualHours * 3600))."
+                : k.usually + (k.endsOnItsOwn ? " It stops on its own." : "")) + Fmt.its([gpuClause])
             var fixes: [Fix] = []
             if long {
                 if k.whenLong == "Look it up" { fixes.append(lookUp(e.name, recommended: true)) }
@@ -221,11 +221,11 @@ public struct Card {
                 fixes.append(Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(bundle)))
             }
             let head = !active ? "\(k.doing). It's quiet now."
-                : long ? "\(k.doing), for \(Fmt.duration(busyFor)). That's longer than usual."
+                : long ? "\(k.doing). It's been \(Fmt.duration(busyFor)), longer than usual."
                 : "\(k.doing). That's normal."
             // a statement, not an option: macOS restarts its own programs
             return Card(state: !active ? .quiet : long ? .unknown : .working, headline: head,
-                        explanation: explanation + (e.mine ? "" : " macOS needs it: stopping it would just restart it."), fixes: fixes)
+                        explanation: explanation + (e.mine ? "" : " macOS needs it, so stopping it would only start it again."), fixes: fixes)
         }
 
         // security, device management and VPN software: never stopped, slowed or quit (from System Sentinel's review,
@@ -247,8 +247,8 @@ public struct Card {
             // a build or job writing lots of files into a folder it syncs is the cause to fix, ahead of pausing
             // (Phil's Google Drive errors, 15 November 2026)
             return Card(state: .working, headline: "\(sync) is syncing your files.",
-                        explanation: "It uploads and checks every change, and stops when it's caught up." + (warm && e.coresNow >= 0.5 ? " It's adding to the heat." : "")
-                            + (syncFeed.map { " " + $0.sentence(sync) } ?? ""),
+                        explanation: "It uploads and checks every change, and stops when it's caught up."
+                            + (syncFeed.map { " " + $0.sentence(sync) } ?? "") + Fmt.its([warm && e.coresNow >= 0.5 ? "adding to the heat" : nil]),
                         fixes: [syncFeed?.fix(sync, recommended: true),
                                 Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
                                     kind: .pauseSync(bundle, sync), recommended: warm || gameRunning != nil
@@ -264,14 +264,14 @@ public struct Card {
         if let part = e.browserPart, let app = e.app, let bundle = e.appBundle {
             let inFront = frontApp == bundle                 // you're using the browser: the busy tab may be the one you're on
             let what = part == .tab ? "One tab" : part == .extensionPart ? "One extension" : "Its graphics process"
-            let explanation = (gpuLed ? "\(what) has kept the graphics chip busy for \(Fmt.duration(busyFor)), \(Fmt.share(gpu)) of it."
-                               : "\(what) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))." + gpuLine)
-                + (part == .graphics ? " Usually video or animation." : " Only \(app) knows which.")
-                + (warm && heating ? " It's adding to the heat." : "")
+            let explanation = (gpuLed ? "\(what) has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
+                               : "\(what) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor)).")
+                + (part == .graphics ? "" : " Only \(app) knows which.")
+                + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil])
             let canCool = e.mine && e.coresNow >= 0.5 && part != .graphics     // slowing graphics would slow all of it
             let page = { (url: String, title: String, why: String, rec: Bool) in
                 Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
-            let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Then Window ▸ Task Manager, and sort by CPU.")
+            let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.")
             let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle))
             var fixes: [Fix?]
             switch part {
@@ -303,14 +303,14 @@ public struct Card {
         let webkit = webkitGPU || e.name == "com.apple.WebKit.WebContent" || (e.path?.contains("com.apple.WebKit.WebContent") ?? false)
         if let app = webkit ? "Safari" : e.app, webkit || e.name.contains("Renderer") || e.name.contains("Web Content") || e.name.contains("(Plugin)") {
             let tm = app.contains("Safari") ? "Window ▸ Activity" : "Window ▸ Task Manager"
-            let used = gpuLed ? "has kept the graphics chip busy for \(Fmt.duration(busyFor)), \(Fmt.share(gpu)) of it."
-                : "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))." + gpuLine
+            let used = gpuLed ? "has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
+                : "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
             return Card(state: !active ? .quiet : busyFor > 20 * 60 ? .unknown : .starting,
                         headline: webkitGPU ? "A web page is drawing a lot: video or animation." : "A \(app) tab is working hard.",
-                        explanation: webkitGPU ? "The process that draws web pages \(used) Usually a Safari tab; other apps that show web pages have one too."
-                            : "One tab or extension \(used) Only \(app) knows which.",
-                        fixes: [(e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Then \(tm), and sort by CPU.", recommended: true) }
-                                    ?? Fix.guide("find", "Find the busy tab", "In \(app): \(tm), sort by CPU.", steps: ["In \(app), choose \(tm).", "Sort by CPU: the busiest tab is at the top.", "Close it, or reload it if you need it."], recommended: true),
+                        explanation: (webkitGPU ? "The process that draws web pages \(used) It's usually a Safari tab, though other apps that show web pages have one too."
+                            : "One tab or extension \(used) Only \(app) knows which.") + Fmt.its([gpuLed ? nil : gpuClause]),
+                        fixes: [(e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Choose \(tm), then click CPU to put the busiest first.", recommended: true) }
+                                    ?? Fix.guide("find", "Find the busy tab", "In \(app), choose \(tm) and click CPU.", steps: ["In \(app), choose \(tm).", "Click CPU to put the busiest tab first.", "Close it, or reload it if you need it."], recommended: true),
                                 (e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp($0)) },
                                 lookUp(e.name, recommended: false),
                                 wait(until: nil, now: now, recommended: false)].compactMap { $0 })
@@ -324,7 +324,7 @@ public struct Card {
             let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
             if !active { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }
             return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
-                        explanation: "That's normal while you play." + gpuLine + (warm ? " It's adding to the heat." : ""),
+                        explanation: "That's normal while you play." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
                         fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower quality or frame rate. Less heat, still smooth.", recommended: warm),
                                 Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game))])
         }
@@ -354,9 +354,9 @@ public struct Card {
         let gpuQuit = gpuApp.flatMap { app in e.quittableBundle.map {
             Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. It may ask you to save first.", kind: .quitApp($0)) } }
         // while the Mac is warm, a busy job says it is part of why
-        let heat = gpuLine + (gpuApp != nil ? " Pausing or closing a video, animation or 3D view in it lets the chip rest." : "")
-            + (warm && heating ? " It's adding to the heat." : "") + (forGame || (gameRunning != nil && gpuLed) ? " It's competing with \(gameRunning!)." : "")
-            + (drains ? " It's draining your battery." : "")
+        let heat = Fmt.its([gpuClause, warm && heating ? "adding to the heat" : nil,
+                            forGame || (gameRunning != nil && gpuLed) ? "competing with \(gameRunning!)" : nil, drains ? "draining your battery" : nil])
+            + (gpuApp != nil ? " Pausing or closing a video, animation or 3D view in it lets the chip rest." : "")
         switch state {
         case .working:
             if let p = e.progress {
@@ -424,6 +424,19 @@ public enum Fmt {
         f.dateFormat = Calendar.current.component(.minute, from: d) == 0 ? "ha" : "h:mma"
         return f.string(from: d).lowercased()
     }
+
+    /// What else a busy process is doing, as one sentence: " It's adding to the heat, competing with Hades, and draining
+    /// your battery." Empty when there's nothing to say. Hand-written wording joins its facts into one sentence rather
+    /// than a string of short "It's" sentences.
+    public static func its(_ clauses: [String?]) -> String {
+        let c = clauses.compactMap { $0 }
+        guard !c.isEmpty else { return "" }
+        let joined = c.count == 1 ? c[0] : c.count == 2 ? "\(c[0]) and \(c[1])" : c.dropLast().joined(separator: ", ") + ", and " + c.last!
+        return " It's \(joined)."
+    }
+
+    /// The first letter in capitals, for a name that starts a sentence ("a script" → "A script").
+    public static func sentenceStart(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
 
     public static func percent(_ f: Double) -> String { "\(Int((f * 100).rounded(.down)))%" }
 

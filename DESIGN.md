@@ -32,7 +32,7 @@ System font, system colors, generous spacing, one accent color for "needs a look
 
 ## Build language
 
-**Swift with SwiftUI (recommended).** Native menu bar app, small (a few MB), lowest overhead, direct access to the system facts (process info, battery, thermal state) and to Apple's on-device model. Builds on this Mac with the installed Command Line Tools. Weakest point: Mac-only, which is the point.
+**Swift with SwiftUI (recommended).** Native menu bar app, small (a few MB), lowest overhead, direct access to the system facts (process info, battery, thermal state). Every sentence is written by hand; Apple's on-device model was considered and dropped on 15 November 2026, since hand-written wording does as well without needing Apple Intelligence turned on (which takes up to 8 GB of storage) and without the risk of a rewording changing a fact. Builds on this Mac with the installed Command Line Tools. Weakest point: Mac-only, which is the point.
 
 Alternatives considered: a web app in a native shell (Tauri or Electron) would make the design easier to iterate but would be 10 to 100 times larger, use more memory than the problems it reports, and still need native code for every system fact. Python would be quick to write but cannot make a proper menu bar app without extra layers.
 

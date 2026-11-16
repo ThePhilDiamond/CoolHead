@@ -51,7 +51,7 @@ Each entry in [`Catalogue.swift`](../Sources/CoolHeadCore/Catalogue.swift) has:
 
 - **what it matches**: process names, or part of a path;
 - **what it is doing**, as the start of a sentence;
-- **when it is normal**, and **how long is usual**;
+- **when it is normal**, as a whole sentence written by hand ("Spotlight indexes after a macOS update, or when many files change."), and **how long is usual**;
 - **whether it ends on its own** (a virtual machine doesn't);
 - **what to do** when it has gone on longer than usual, and **the risk** of doing it;
 - **a source**: an Apple support article, a man page, or a test anyone can repeat;

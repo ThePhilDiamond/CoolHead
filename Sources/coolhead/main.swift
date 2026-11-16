@@ -15,6 +15,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead memory           who is using the memory, counted by app, and what could be done
   coolhead hangs            what's paused, stuck waiting on a drive, or not responding right now
   coolhead selftest         checks every recorded example gives the card it should
+  coolhead wording          every card's text, from the recorded examples, to read the wording in one place
 """
 
 func busiest(limit: Int, interval: TimeInterval = 1.0) -> [(pid_t, Double)] {
@@ -156,6 +157,8 @@ case "hangs":
                             terminal: Hang.terminalApp(e, pid: pid)))
         print("")
     }
+case "wording":
+    for (id, c) in Wording.samples() { print("[\(id)]"); print(Wording.text(c)) }
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }

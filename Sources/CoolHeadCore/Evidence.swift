@@ -278,10 +278,10 @@ extension Evidence {
             let n = a.name.lowercased()
             if ["sh", "bash", "zsh", "fish"].contains(n), let i = a.args.firstIndex(of: "-c"), i + 1 < a.args.count {
                 let detached = ancestors.last?.pid == 1 && ancestors.count <= ancestors.firstIndex(where: { $0.pid == a.pid })! + 2
-                return detached ? "a background command whose launcher has exited" : "a shell command"
+                return detached ? "a background command, from a window or script that has since closed" : "a shell command"
             }
             if a.path == "/usr/bin/login" { return "Terminal (a login shell)" }
-            if a.pid == 1 { return mine && script != nil ? "a command whose launcher has exited" : "macOS (launchd)" }
+            if a.pid == 1 { return mine && script != nil ? "a command from a window or script that has since closed" : "macOS (launchd)" }
             // the chain stopped at a parent we can't read (the last one, and not launchd)
             if a.pid > 1 && a.pid == ancestors.last?.pid { return "a process Cool Head can't see (\(a.name))" }
         }
