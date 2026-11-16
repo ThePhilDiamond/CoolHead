@@ -46,8 +46,10 @@ public struct Evidence {
 
     /// Samples the process twice, `interval` seconds apart, to measure CPU now.
     /// With `measured`, uses CPU and disk writes the caller already measured (the watcher) and does not wait.
+    /// With `readFiles` false, nothing on disk is touched (no file is checked, read or listed as being written): for a
+    /// process stuck waiting on a disk or network drive, where touching its files could leave Cool Head stuck too.
     public static func gather(pid: pid_t, interval: TimeInterval = 1.0,
-                              measured: (cores: Double, written: UInt64)? = nil) -> Evidence? {
+                              measured: (cores: Double, written: UInt64)? = nil, readFiles: Bool = true) -> Evidence? {
         guard let b = Proc.bsd(pid) else { return limited(pid: pid, measured: measured) }
         let u1 = measured == nil ? Proc.usage(pid) : nil
         let t1 = Date()
@@ -75,7 +77,7 @@ public struct Evidence {
             chain.append(Ancestor(pid: p, name: path.map { ($0 as NSString).lastPathComponent } ?? "unknown", path: path, args: []))
         }
 
-        let files = Proc.openFiles(pid)
+        let files = readFiles ? Proc.openFiles(pid) : []
         let regular = files.filter { !$0.path.hasPrefix("/dev/") && !isCode($0.path) && Evidence.readable($0.path) }
         var writing = Array(Set(regular.filter { $0.writable && !$0.path.hasSuffix(".lock") }.map(\.path))).sorted()
         // stdout and stderr redirected to a file count as writing, whatever the open flags say
@@ -97,7 +99,10 @@ public struct Evidence {
             workStart = t
         }
 
-        return Evidence(pid: pid, name: b.name, path: Proc.path(pid), args: Proc.args(pid), cwd: Proc.cwd(pid),
+        // its working folder is still named, but not on another volume when files aren't to be touched (finding its
+        // project looks for a .git folder there)
+        let cwd = Proc.cwd(pid).flatMap { readFiles || !$0.hasPrefix("/Volumes/") ? $0 : nil }
+        return Evidence(pid: pid, name: b.name, path: Proc.path(pid), args: Proc.args(pid), cwd: cwd,
                         start: b.start, mine: b.uid == getuid(), coresNow: now, coresAverage: avg,
                         performanceShare: pshare, memoryBytes: u2?.footprint ?? 0, ancestors: chain,
                         writing: writing, locks: locks, progress: progress,

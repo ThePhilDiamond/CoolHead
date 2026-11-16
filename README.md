@@ -38,6 +38,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 - **Sync apps can wait.** Google Drive, Dropbox, OneDrive, and Box: **Pause syncing** for a set time, with a reminder to resume. If a build is writing lots of files into a folder one syncs, its card says so: build output in a synced folder makes it upload every file.
 - **Security software is left alone.** Your employer's security, device management, and VPN software is never offered Stop, Run it cooler, or Quit.
 - **Save Battery When Unplugged.** On battery, a really hungry job can be paused until you plug in. Nothing is lost, and it carries on by itself.
+- **Quiet hangs count too.** A process can be stuck while using almost nothing: paused by something else, waiting on a network drive that dropped, or an app macOS marks Not Responding. Each gets a card saying what started it and what may be waiting on it, with **Resume**, checking the drive, or **Force quit** (it asks first).
 - **Always trust** an app or job you know is fine: it stays listed but calm, and is still flagged if it looks stuck, your Mac gets hot, or it runs nonstop for 8 hours.
 
 <p align="center">
@@ -89,6 +90,10 @@ coolhead now
 
 ```bash
 coolhead why <pid or name>
+```
+
+```bash
+coolhead hangs
 ```
 
 ## Contributing
