@@ -6,6 +6,7 @@ How Cool Head works, so you can judge what is a problem:
 
 - **What it reads.** It runs as your user and reads what macOS lets your user read: details of your own processes (command line, folder, the files they write, the last lines of their logs) and, for other users' processes such as macOS's own, only their name and CPU use.
   - It also reads how much of the graphics chip each process uses, from the IORegistry (the same place `ioreg` reads), which needs no permission.
+  - For the whole Mac, it reads macOS's memory pressure level, swap size and the running count of memory moved to the swap files (the counts `vm_stat` shows), and the free space on the startup disk; none needs permission.
   - Hardware checks, read the same way with no password: the internal drive's own health record (wear, spare space, errors), through Apple's public plug-in for it.
   - The battery's condition, charge cycles, temperature and charger, from the IORegistry, and its condition and Maximum Capacity from System Information (`system_profiler SPPowerDataType`), at most once an hour.
   - Error counters on each USB-C and MagSafe port, from the IORegistry.

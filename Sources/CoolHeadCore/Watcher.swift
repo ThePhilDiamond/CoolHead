@@ -105,6 +105,8 @@ public final class Watcher {
     @ObservationIgnored private var ownPauses: Set<pid_t> = []
     @ObservationIgnored private let queue = DispatchQueue(label: "coolhead.watcher", qos: .utility)
     @ObservationIgnored private var timer: DispatchSourceTimer?
+    /// The running count of swap-outs over about the last 2 minutes, for `MacState.swappedOutMB`.
+    @ObservationIgnored private var swapSamples: [(at: Date, pages: UInt64)] = []
 
     struct Track {
         var cpu: Double            // CPU seconds at the last tick
@@ -436,6 +438,14 @@ public final class Watcher {
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_WARM"] != nil { state.thermal = "fair" }
         // for screenshots and tests: COOLHEAD_TEST_MEMORY shows memory as tight, so the memory card and its options show
         if ProcessInfo.processInfo.environment["COOLHEAD_TEST_MEMORY"] != nil, state.memoryPressure == "normal" { state.memoryPressure = "warning" }
+        // memory moved to the disk over about the last 2 minutes, from the running count of swap-outs
+        if let pages = state.swapOutPages {
+            swapSamples.append((now, pages))
+            swapSamples.removeAll { now.timeIntervalSince($0.at) > 125 }
+            if let first = swapSamples.first, now.timeIntervalSince(first.at) >= 100, pages >= first.pages {
+                state.swappedOutMB = Double(pages - first.pages) * Double(getpagesize()) / 1_048_576
+            }
+        }
         guard dt > 0 else { publish(state, [], own: 0); return }
 
         let warm = state.thermal != "nominal"
@@ -560,7 +570,7 @@ public final class Watcher {
                 state: .working,
                 headline: "Your Mac is warm, but nothing is working hard right now.",
                 explanation: (busiest.map { "The busiest is \($0.0), at about \(Fmt.cores($0.1)). " } ?? "")
-                    + (s.memoryPressure == "warning" || s.memoryPressure == "critical"
+                    + (s.memoryLevel != nil
                        ? "Memory is tight too, so your Mac is moving data to and from its disk, which adds work and some heat. "
                        : "")
                     + "Heat can linger after heavy work, or come from a warm room or a soft surface.",
@@ -571,7 +581,7 @@ public final class Watcher {
             lc.heatCause = true
             out.append(lc)
         }
-        if s.memoryPressure == "warning" || s.memoryPressure == "critical" {
+        if let level = s.memoryLevel {
             // count memory the way a person thinks of it: each app with all its helpers, each job on its own
             var groups = MemoryAdvice.merge(tracks.compactMap { pid, tr in
                 MemoryAdvice.group(pid: pid, path: Proc.path(pid), args: Proc.args(pid), footprint: tr.footprint)
@@ -582,10 +592,10 @@ public final class Watcher {
             let card = MemoryAdvice.card(groups, mac: s, now: now)
             let top = groups.first
             let subject = top.map { g -> String in
-                if let e = g.evidence { return "memory running short (\(s.memoryPressure)); most used by \(CaseReport.subject(e))" }
-                return "memory running short (\(s.memoryPressure)); most used by " + (g.kind == .macOS || g.bundle != nil ? g.name : "a program (its name is withheld)")
-            } ?? "memory running short (\(s.memoryPressure))"
-            var mc = LiveCard(id: "memory-\(s.memoryPressure)", pid: top?.kind == .job ? top?.pid : nil,
+                if let e = g.evidence { return "memory running short (\(level)); most used by \(CaseReport.subject(e))" }
+                return "memory running short (\(level)); most used by " + (g.kind == .macOS || g.bundle != nil ? g.name : "a program (its name is withheld)")
+            } ?? "memory running short (\(level))"
+            var mc = LiveCard(id: "memory-\(level)", pid: top?.kind == .job ? top?.pid : nil,
                               start: top?.kind == .job ? top?.evidence?.start : nil,
                               card: card, details: s.lines(), reportSubject: subject)
             mc.causeKey = "memory"
@@ -698,6 +708,8 @@ extension MacState {
     public func lines() -> [String] {
         var out = ["Heat: \(thermal)", "Memory pressure: \(memoryPressure)"]
         if swapTotalMB > 0 { out.append(String(format: "Swap: %.1f of %.1f GB", swapUsedMB / 1024, swapTotalMB / 1024)) }
+        if let mb = swappedOutMB { out.append(String(format: "Moved to disk in the last 2 minutes: %.0f MB", mb)) }
+        if let d = diskFreeBytes { out.append("Startup disk free: \(MemoryAdvice.diskGB(d))") }
         if let b = batteryPercent { out.append("Battery: \(b)%" + (charging ? ", charging" : "")) }
         if let w = batteryWatts, charging { out.append(String(format: "Battery taking %.0f W", w)) }
         if let w = macWatts { out.append(String(format: "Mac using %.0f W", w)) }
