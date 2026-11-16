@@ -58,6 +58,7 @@ extension Fixture {
             && cl.contains("Connected by cable.") && cl.contains { $0.hasPrefix("A VPN") } && cl.contains { $0.hasPrefix("A proxy") }
             && cl.contains { $0.contains("a server on the internet") } && !cl.contains { $0.hasPrefix("Speed") }
         let l5 = N.mbps(4_520_000) == "4.5 Mbps" && N.mbps(400_000) == "under 1 Mbps" && N.mbps(1_234_000_000) == "1,234 Mbps"
+            && N.lines(nil, .init(link: .wifi(.init(rssi: -50, noise: -89, rate: 1200, channel: 157, band: "5 GHz")))).contains("Wi-Fi is sending at up to 1,200 Mbps on channel 157 (5 GHz).")
         review.append(("network-facts", l1 && l2 && l3 && l4 && l5,
                        "signal \(l1), AirDrop \(l2), delay \(l3), lines \(l4), speeds \(l5): \(wl.joined(separator: " "))"))
 

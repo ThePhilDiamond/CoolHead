@@ -156,7 +156,7 @@ struct NetworkView: View {
         return HStack(spacing: 8) {
             tile("arrow.down", short(r.download), "Mbps down", downLevel)
             tile("arrow.up", short(r.upload), "Mbps up", upLevel)
-            tile("timer", "\(NetworkCheck.delay(r))", "ms wait when busy", waitLevel)
+            tile("timer", NetworkCheck.grouped(NetworkCheck.delay(r)), "ms wait when busy", waitLevel)
         }
     }
 
@@ -200,7 +200,7 @@ struct NetworkView: View {
                 Text("Good").frame(maxWidth: .infinity, alignment: .trailing)
             }
             .font(.caption2).foregroundStyle(Ink.muted)
-            Text("Responsiveness: \(r.rpm) round trips a minute while busy").font(.caption2).foregroundStyle(Ink.muted)
+            Text("Responsiveness: \(NetworkCheck.grouped(r.rpm)) round trips a minute while busy").font(.caption2).foregroundStyle(Ink.muted)
         }
     }
 
@@ -335,6 +335,6 @@ struct NetworkView: View {
 
     func short(_ bits: Double) -> String {
         let m = bits / 1_000_000
-        return m < 10 ? String(format: "%.1f", m) : "\(Int(m.rounded()))"
+        return m < 10 ? String(format: "%.1f", m) : NetworkCheck.grouped(Int(m.rounded()))
     }
 }

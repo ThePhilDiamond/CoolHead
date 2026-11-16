@@ -437,7 +437,7 @@ public enum NetworkCheck {
             } else {
                 out.append("Wi-Fi signal is fine: \(w.rssi) dBm, against \(w.noise) dBm of background noise (weak is \(weakSignal) or lower).")
             }
-            out.append("Wi-Fi is sending at up to \(Int(w.rate.rounded())) Mbps on channel \(w.channel)" + (w.band.isEmpty ? "." : " (\(w.band))."))
+            out.append("Wi-Fi is sending at up to \(grouped(Int(w.rate.rounded()))) Mbps on channel \(w.channel)" + (w.band.isEmpty ? "." : " (\(w.band))."))
             if s.awdlOn && !awdlChannels.contains(w.channel) {
                 out.append("The radio link AirDrop and Continuity use is on, and it listens on channel 6, 44 or 149 rather than your router's \(w.channel). Several people report this causes short, regular stutters, though Apple hasn't said so; setting AirDrop to No One stopped it for some.")
             }
@@ -468,7 +468,7 @@ public enum NetworkCheck {
     }
 
     /// 1240 as "1,240", whatever the Mac's region, so the wording is the same everywhere (US English, like every card).
-    static func grouped(_ n: Int) -> String {
+    public static func grouped(_ n: Int) -> String {
         let f = NumberFormatter()
         f.locale = Locale(identifier: "en_US")
         f.numberStyle = .decimal
