@@ -9,6 +9,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead why <pid|name>   the card and the evidence for one process
   coolhead case <pid|name>  what "Share this case" would show for a process (nothing is sent)
   coolhead memory           who is using the memory, counted by app, and what could be done
+  coolhead hangs            what's paused, stuck waiting on a drive, or not responding right now
   coolhead selftest         checks every recorded example gives the card it should
 """
 
@@ -129,6 +130,22 @@ case "memory":
     }
     print("")
     printCard(MemoryAdvice.card(groups, mac: s))
+case "hangs":
+    // what's stuck right now: paused by something other than Cool Head, waiting on a drive, or Not Responding
+    var found: [(pid_t, Hang.Kind)] = Proc.psTable().compactMap { pid, row in
+        pid > 1 ? Hang.kind(psState: row.state).map { (pid, $0) } : nil
+    }
+    found += Hang.notResponding().map { ($0, Hang.Kind.notResponding) }
+    if found.isEmpty { print("Nothing is paused, waiting on a drive, or not responding" + (Hang.canCheckResponding ? "." : " (this Mac can't say which apps are Not Responding).")) }
+    let pids = Proc.allPIDs()
+    for (pid, kind) in found.sorted(by: { $0.0 < $1.0 }) {
+        guard let e = Evidence.gather(pid: pid, interval: 0.3, readFiles: kind != .diskWait) else { continue }
+        let waiting = Proc.children(of: pid, among: pids).compactMap { Proc.bsd($0)?.name }
+        print("[\(kind.rawValue)] pid \(pid)")
+        printCard(Hang.card(kind, e, stuckFor: 0, waiting: waiting, volumes: kind == .diskWait ? Hang.volumes(pid) : [],
+                            terminal: Hang.terminalApp(e, pid: pid)))
+        print("")
+    }
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }
