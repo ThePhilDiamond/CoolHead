@@ -269,7 +269,14 @@ struct CardView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
         .confirmationDialog(stopTitle, isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
             Button(confirmStop?.title ?? "Stop it", role: .destructive) {
-                show(confirmStop?.kind == .forceQuit ? watcher.forceQuit(live) : watcher.stop(live)); confirmStop = nil
+                if case .stopAgent(let label, let plist) = confirmStop?.kind {
+                    let ok = watcher.turnOffAgent(label: label, plist: plist)
+                    show(ok ? .done("Turned off. It won't start by itself, even after a restart. Turn it back on from the top of this panel.")
+                            : .failed("macOS didn't turn it off"))
+                } else {
+                    show(confirmStop?.kind == .forceQuit ? watcher.forceQuit(live) : watcher.stop(live))
+                }
+                confirmStop = nil
             }
             Button("Cancel", role: .cancel) { confirmStop = nil }
         } message: {
@@ -325,8 +332,13 @@ struct CardView: View {
             note = "Opened \(name). Pause it from its menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false; acted = true
         case .wait(let until):
             watcher.snooze(live, until: until)
-        case .stop, .forceQuit:
+        case .stop, .forceQuit, .stopAgent:
             confirmStop = fix
+        case .keepOutOfBackup(let path):
+            let ok = watcher.keepOutOfBackup(path)
+            let name = (path as NSString).lastPathComponent
+            note = ok ? "Time Machine now skips \(name). Back it up again from the top of this panel." : "That didn't work: Time Machine's setting for \(name) didn't change."
+            noteFailed = !ok; acted = ok
         case .resume:
             show(watcher.resumeStopped(live))
         case .lookUp(let name):
@@ -769,12 +781,21 @@ extension View { func hoverHighlight(_ on: Bool) -> some View { modifier(HoverHi
 /// Something Cool Head is holding back, with its undo: a job running cooler or paused until the Mac is plugged in, a
 /// sync app paused, Chrome's memory limit.
 enum FrozenItem: Identifiable {
-    case cooled(Watcher.CooledItem), paused(PausedJob), sync(SyncPause), chrome(Int)
+    case cooled(Watcher.CooledItem), paused(PausedJob), sync(SyncPause), chrome(Int), agent(BackgroundAgents.Agent), backup(String)
 
     static func all(_ w: Watcher) -> [FrozenItem] {
         w.cooledList.map { .cooled($0) } + w.pausedJobs.map { .paused($0) } + w.syncPauses.map { .sync($0) }
             + (w.chromeLimitMB.map { [.chrome($0)] } ?? [])
+            + w.agentsOff.map { .agent($0) } + w.backupExcluded.map { .backup($0) }
+            + (heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [])
     }
+    /// For screenshots: COOLHEAD_SNAPSHOT_SAMPLES naming "held-back" shows a made-up turned-off helper and a made-up
+    /// folder left out of Time Machine, so the lines can be seen without changing anything on this Mac.
+    static var heldBackSamples: Bool {
+        ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"]?.split(separator: "|").contains("held-back") ?? false
+    }
+    static func name(_ path: String) -> String { (path as NSString).lastPathComponent }
+    static func project(_ path: String) -> String { ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent }
 
     var id: String {
         switch self {
@@ -782,6 +803,8 @@ enum FrozenItem: Identifiable {
         case .paused(let p): return "paused-" + p.key
         case .sync(let s): return "sync-" + s.name
         case .chrome: return "chrome"
+        case .agent(let a): return "agent-" + a.label
+        case .backup(let p): return "backup-" + p
         }
     }
     var due: Bool { if case .sync(let s) = self { return s.until <= Date() }; return false }
@@ -791,6 +814,8 @@ enum FrozenItem: Identifiable {
         case .paused: return "pause.circle.fill"
         case .sync: return due ? "exclamationmark.circle" : "pause.circle"
         case .chrome: return "memorychip"
+        case .agent: return "power.circle"
+        case .backup: return "clock.arrow.circlepath"
         }
     }
     var line: String {
@@ -801,6 +826,8 @@ enum FrozenItem: Identifiable {
         case .paused(let p): return "\(p.name) is paused until you plug in"
         case .sync(let s): return due ? "Time to resume \(s.name) syncing" : "\(s.name) syncing is paused"
         case .chrome(let mb): return "Chrome is limited to \(ChromeLimit.gb(mb))"
+        case .agent(let a): return a.owner == a.label ? "A background helper is turned off" : "\(a.owner)'s background helper is turned off"
+        case .backup(let p): return "Time Machine skips \(FrozenItem.name(p)) in \(FrozenItem.project(p))"
         }
     }
     var detail: String {
@@ -810,6 +837,8 @@ enum FrozenItem: Identifiable {
         case .sync(let s): return due ? "Resume it from its menu bar icon, then press Resumed."
                                       : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
         case .chrome(let mb): return "Past \(ChromeLimit.gb(mb)), Chrome unloads tabs you aren't using. While it's on, Chrome says it's \u{201C}managed by your organization\u{201D}."
+        case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
+        case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \(p)"
         }
     }
     var undo: (title: String, icon: String) {
@@ -818,6 +847,8 @@ enum FrozenItem: Identifiable {
         case .paused: return ("Resume now", "play")
         case .sync: return ("I resumed it", "checkmark")
         case .chrome: return ("Remove the limit", "xmark")
+        case .agent: return ("Turn it back on", "power")
+        case .backup: return ("Back it up again", "arrow.uturn.backward")
         }
     }
     /// The line's own label names what you can do, not a general "Restore" (Phil, 15 November 2026).
@@ -826,6 +857,8 @@ enum FrozenItem: Identifiable {
         case .cooled: return "Speed up"
         case .paused, .sync: return "Resume"
         case .chrome: return "Remove"
+        case .agent: return "Turn on"
+        case .backup: return "Include"
         }
     }
 }
@@ -890,6 +923,8 @@ struct FrozenLine: View {
         case .paused(let p): watcher.resumeJob(p, why: "Resume now pressed")
         case .sync(let s): watcher.syncResumed(s.name)
         case .chrome: if !watcher.removeChromeLimit() { failed = "That didn't work: Chrome's settings didn't change." }
+        case .agent(let a): if !watcher.turnOnAgent(a) { failed = "That didn't work: macOS didn't turn it back on." }
+        case .backup(let p): if !watcher.backUpAgain(p) { failed = "That didn't work: Time Machine's setting didn't change." }
         }
     }
 }
@@ -1100,6 +1135,8 @@ struct FixRow: View {
         case .resume: return "play.circle"
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"
+        case .stopAgent: return "power.circle"
+        case .keepOutOfBackup: return "clock.arrow.circlepath"
         }
     }
     /// For Pause syncing: how long, before anything happens.

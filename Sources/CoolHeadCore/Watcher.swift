@@ -137,6 +137,42 @@ public final class Watcher {
         refreshChromeLimit()
         return ok
     }
+    /// Other apps' background helpers Cool Head turned off, and build folders it left out of Time Machine: listed at
+    /// the top of the panel with their undo. Read only when Cool Head has done either; helpers at most once a minute,
+    /// since that runs launchctl.
+    public private(set) var agentsOff: [BackgroundAgents.Agent] = []
+    public private(set) var backupExcluded: [String] = []
+    @ObservationIgnored private var agentsReadAt = Date.distantPast
+    public func refreshHeldBack(force: Bool = false) {
+        if UserDefaults.standard.data(forKey: BackgroundAgents.marker) == nil { agentsOff = [] }
+        else if force || Date().timeIntervalSince(agentsReadAt) >= 60 { agentsOff = BackgroundAgents.turnedOff(); agentsReadAt = Date() }
+        backupExcluded = UserDefaults.standard.stringArray(forKey: BackupExclusions.marker) == nil ? [] : BackupExclusions.excludedByCoolHead()
+    }
+    @discardableResult public func turnOffAgent(label: String, plist: String) -> Bool {
+        guard let a = BackgroundAgents.agent(plist: plist), a.label == label else { log("Stop it starting by itself pressed: plist not found"); return false }
+        let ok = BackgroundAgents.turnOff(a)
+        log("Stop it starting by itself pressed for \(a.label): " + (ok ? "turned off" : "failed"))
+        refreshHeldBack(force: true)
+        return ok
+    }
+    @discardableResult public func turnOnAgent(_ a: BackgroundAgents.Agent) -> Bool {
+        let ok = BackgroundAgents.turnOn(a)
+        log("Turn back on pressed for \(a.label): " + (ok ? "turned on" : "failed"))
+        refreshHeldBack(force: true)
+        return ok
+    }
+    @discardableResult public func keepOutOfBackup(_ path: String) -> Bool {
+        let ok = BackupExclusions.exclude(path)
+        log("Keep out of Time Machine pressed: " + (ok ? "excluded" : "failed"))
+        refreshHeldBack()
+        return ok
+    }
+    @discardableResult public func backUpAgain(_ path: String) -> Bool {
+        let ok = BackupExclusions.include(path)
+        log("Back it up again pressed: " + (ok ? "included" : "failed"))
+        refreshHeldBack()
+        return ok
+    }
     /// Called on the main thread with a short line to show as a notification (a sync reminder, low battery).
     @ObservationIgnored public var onReminder: ((String) -> Void)?
     private var batteryAlerted: Set<String> = []
@@ -459,9 +495,22 @@ public final class Watcher {
                   let b = Proc.bsd(pid), b.uid == getuid(), SyncApps.app(bundle: Evidence.bundle(Proc.path(pid))) == nil else { return nil }
             return (cwd, b.name, tr.lastWritten)
         }
+        // the same, with the files each is writing, for a busy Time Machine: a build's output is the cause to fix (see
+        // BackupExclusions). Read only when Time Machine is on the list.
+        lazy var fileWriters: [(who: String, files: [String], bytes: UInt64)] = tracks.compactMap { pid, tr in
+            guard pid != me, dt > 0, Double(tr.lastWritten) / dt >= 100_000, let b = Proc.bsd(pid), b.uid == getuid() else { return nil }
+            return (b.name, Proc.openFiles(pid).filter(\.writable).map(\.path), tr.lastWritten)
+        }
         for (pid, tr, e) in gathered {
             let feed = SyncApps.app(bundle: e.appBundle).flatMap { SyncFeed.find(sync: $0, writers: writers) }
-            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery, syncFeed: feed)
+            let backup = Pattern.match(name: e.name, path: e.path)?.id == "time-machine" ? BackupExclusions.find(writers: fileWriters) : nil
+            // another app's background helper, by its program or a program that started it, up to the first regular app
+            // (an app you use is quit, never turned off)
+            let programs = ([(pid, e.path)] + e.ancestors.map { ($0.pid, $0.path) })
+                .prefix { NSRunningApplication(processIdentifier: $0.0)?.activationPolicy != .regular }.compactMap(\.1)
+            let agent = e.mine ? BackgroundAgents.owner(of: Array(programs)) : nil
+            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
+                              syncFeed: feed, agent: agent, backupFeed: backup)
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)
@@ -612,6 +661,7 @@ public final class Watcher {
             let pausedPIDs = Set(pausedJobs.map(\.pid))
             queue.async { [self] in ownPauses = pausedPIDs }
             refreshChromeLimit()
+            refreshHeldBack()
             snoozed = snoozed.filter { $0.value.until > now }
             // a waited-on card stays hidden (and the badge green) until its time, unless it gets meaningfully worse
             func waitingOn(_ c: LiveCard) -> Bool { snoozed[c.cause].map { c.severity <= $0.severity } ?? false }

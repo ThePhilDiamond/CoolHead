@@ -9,6 +9,13 @@ public enum Wording {
             (f.id, Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)))
         }
         out += Fixture.catalogueSamples(now)
+        // another app's background helper, and Time Machine copying a build's output
+        out.append(("background-helper", Card.make(Evidence.sample(name: "GoogleUpdater", path: Fixture.updaterPath, start: now.addingTimeInterval(-3600), cores: 1.2),
+                                                   now: now, busySince: now.addingTimeInterval(-1800), agent: Fixture.updaterAgent)))
+        out.append(("time-machine-build", Card.make(Fixture.catalogueProcess("backupd", "/System/Library/CoreServices/backupd.bundle/Contents/Resources/backupd", mine: false,
+                                                                             start: now.addingTimeInterval(-5 * 3600), cores: 1.5),
+                                                    now: now, busySince: now.addingTimeInterval(-50 * 60),
+                                                    backupFeed: BackupFeed(who: "xcodebuild", path: NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData"))))
         // memory
         var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
         func group(_ name: String, _ kind: MemGroup.Kind, _ bundle: String?, _ gb: Double, _ n: Int) -> MemGroup {
