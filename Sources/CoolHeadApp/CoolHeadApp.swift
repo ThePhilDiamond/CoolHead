@@ -82,6 +82,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             battery.state = BatteryMode.enabled ? .on : .off
             battery.toolTip = "On battery, flag heavy jobs and offer to pause them until you plug in."
             menu.addItem(battery)
+            // settings live here; tools live along the bottom of the panel (Phil, 16 November 2026)
+            let notify = NSMenuItem(title: "Notifications", action: #selector(toggleNotifications), keyEquivalent: "")
+            notify.target = self; notify.state = Alerts.enabled ? .on : .off
+            menu.addItem(notify)
+            let login = NSMenuItem(title: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
+            login.target = self; login.state = LoginItem.on ? .on : .off
+            menu.addItem(login)
+            let labels = NSMenuItem(title: "Show Tool Names", action: #selector(toggleToolLabels), keyEquivalent: "")
+            labels.target = self; labels.state = Tools.labels ? .on : .off
+            labels.toolTip = "The name under each tool along the bottom of the panel."
+            menu.addItem(labels)
             menu.addItem(.separator())
             let iconMenu = NSMenu()
             for (title, key) in [("Status Badge", "badge"), ("Melting Snowflake", "melting")] {
@@ -93,25 +104,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             iconItem.submenu = iconMenu
             menu.addItem(iconItem)
             menu.addItem(.separator())
-            // trusted apps and jobs: each one listed, choosing it stops trusting it
-            let trustMenu = NSMenu()
-            let trusted = Trust.all.sorted { $0.value.localizedCaseInsensitiveCompare($1.value) == .orderedAscending }
-            if trusted.isEmpty {
-                trustMenu.addItem(NSMenuItem(title: "Nothing yet. Trust from a card's clock.", action: nil, keyEquivalent: ""))
-            } else {
-                let head = NSMenuItem(title: "Choose one to stop trusting it", action: nil, keyEquivalent: "")
-                trustMenu.addItem(head)
-                for (key, name) in trusted {
-                    let it = NSMenuItem(title: name, action: #selector(untrust(_:)), keyEquivalent: "")
-                    it.target = self; it.representedObject = key
-                    trustMenu.addItem(it)
-                }
-            }
-            let trustItem = NSMenuItem(title: "Trusted", action: nil, keyEquivalent: "")
-            trustItem.submenu = trustMenu
-            menu.addItem(trustItem)
-            menu.addItem(.separator())
-            menu.addItem(withTitle: "Report a Problem…", action: #selector(report), keyEquivalent: "").target = self
             menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
             menu.addItem(.separator())
             menu.addItem(withTitle: "Quit Cool Head", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -125,10 +117,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
-    @objc func untrust(_ sender: NSMenuItem) {
-        guard let key = sender.representedObject as? String else { return }
-        Watcher.shared.untrust(key: key)
-    }
+    @objc func toggleNotifications() { Alerts.enabled.toggle() }
+
+    @objc func toggleLogin() { LoginItem.set(!LoginItem.on) }
+
+    @objc func toggleToolLabels() { Tools.labels.toggle() }
 
     @objc func about() { About.show() }
 
@@ -156,12 +149,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func showPanel() {
         guard let button = item.button, !panel.isVisible else { return }
         panel.show(under: button)
-    }
-
-    @objc func report() {
-        Watcher.shared.showReport = true
-        guard let button = item.button else { return }
-        if !panel.isVisible { panel.show(under: button) }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
@@ -571,6 +558,7 @@ final class MenuPanel: NSPanel {
     override func close() {
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
         if isVisible { Watcher.shared.panelClosed() }
+        NetworkTester.shared.close()          // the network test never runs with the panel closed
         super.close()
     }
 

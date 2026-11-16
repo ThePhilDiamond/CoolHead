@@ -61,7 +61,7 @@ public final class Watcher {
     /// limited to the last 6 hours.
     public private(set) var activity: [LogEntry] = []
     public struct LogEntry { public let t: Date; public let text: String }
-    /// Set to open the "Report a problem" form (from the bottom row, the right-click menu, or after a fix).
+    /// Set to open the "Report a problem" form (from the tools along the bottom, or after a fix).
     public var showReport = false
     /// Changes each time the panel closes, so it reopens clean: nothing left expanded, no form left open.
     public private(set) var panelSession = 0
@@ -228,6 +228,17 @@ public final class Watcher {
         Trust.remove(key)
         log("Stopped trusting an item from the trusted list")
         refreshTrust()
+    }
+
+    /// Trusts an app chosen with the Trusted list's + button. macOS's own apps can't be trusted (they're explained
+    /// instead), so this says no to them.
+    public func trust(appPath: String) -> Bool {
+        guard !CaseReport.isMacOS(appPath), appPath.hasSuffix(".app") else { return false }
+        let name = (FileManager.default.displayName(atPath: appPath) as NSString).deletingPathExtension
+        Trust.add(Trust.key(appPath: appPath), name: name)
+        log("Trusted an app from the trusted list")
+        refreshTrust()
+        return true
     }
 
     private func refreshTrust() {

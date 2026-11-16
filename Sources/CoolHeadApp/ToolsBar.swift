@@ -1,46 +1,49 @@
 import AppKit
 import CoolHeadCore
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// Along the bottom of the panel: the tools, each an icon with its name, and each opening in the panel's middle (Phil,
-/// 16 November 2026: "Tools go here, settings go in the right-click menu."). Opening one closes any other. Settings
-/// (notifications, open at login, and the rest) are in the right-click menu.
+/// Along the bottom of the panel: the tools, each an icon with its name (the names can be hidden from the right-click
+/// menu), and each opening in the panel's middle (Phil, 16 November 2026: "Tools go here, settings go in the right-click
+/// menu."). Opening one closes any other.
 struct ToolsBar: View {
     let watcher: Watcher
     @ObservedObject var network = NetworkTester.shared
     @ObservedObject var tools = Tools.shared
-    /// The past week (power-log history) appears when that tool is in the app.
-    var history: (shown: Bool, toggle: () -> Void)? = nil
+    @AppStorage(Tools.labelsKey) private var labels = true
+    /// Trends (the power log's charts) appears when that tool is in the app: whether it's open, and how to toggle it.
+    var trends: (shown: Bool, toggle: () -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 2) {
-            ToolButton(symbol: "network", name: "Network", on: network.shown) {
+        HStack(spacing: labels ? 2 : 6) {
+            ToolButton(symbol: "network", name: "Network", tip: "Test my network", labels: labels, on: network.shown) {
                 let open = !network.shown
                 closeAll()
                 if open { network.open() }
             }
-            if let history {
-                ToolButton(symbol: "clock.arrow.circlepath", name: "History", on: history.shown) {
-                    let open = !history.shown
+            if let trends {
+                // a chart, not a clock: it's for spotting patterns, not looking back (Phil, 16 November 2026)
+                ToolButton(symbol: "chart.xyaxis.line", name: "Trends", tip: "Trends this week", labels: labels, on: trends.shown) {
+                    let open = !trends.shown
                     closeAll()
-                    if open { history.toggle() }
+                    if open { trends.toggle() }
                 }
             }
-            ToolButton(symbol: "checkmark.shield", name: "Trusted", on: tools.trusted) {
+            ToolButton(symbol: "checkmark.shield", name: "Trusted", tip: "Trusted apps and jobs", labels: labels, on: tools.trusted) {
                 let open = !tools.trusted
                 closeAll()
                 tools.trusted = open
             }
-            ToolButton(symbol: "exclamationmark.bubble", name: "Report", on: watcher.showReport) {
+            ToolButton(symbol: "exclamationmark.bubble", name: "Report", tip: "Report a problem", labels: labels, on: watcher.showReport) {
                 let open = !watcher.showReport
                 closeAll()
                 watcher.showReport = open
             }
-            ToolButton(symbol: "waveform.path.ecg", name: "Activity", on: false) {
+            ToolButton(symbol: "waveform.path.ecg", name: "Activity", tip: "Open Activity Monitor", labels: labels, on: false) {
                 NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
             }
             Spacer(minLength: 4)
-            ToolButton(symbol: "power", name: "Quit", on: false) { NSApp.terminate(nil) }
+            ToolButton(symbol: "power", name: "Quit", tip: "Quit Cool Head", labels: labels, on: false) { NSApp.terminate(nil) }
         }
     }
 
@@ -48,21 +51,30 @@ struct ToolsBar: View {
         network.close()
         tools.trusted = false
         watcher.showReport = false
-        if let history, history.shown { history.toggle() }
+        if let trends, trends.shown { trends.toggle() }
     }
 }
 
-/// Which of the panel's own tools is open (Report a problem's flag lives in the watcher, as before).
+/// Which of the panel's own tools is open (Report a problem's flag lives in the watcher, as before), and the setting
+/// for the tools' names.
 @MainActor
 final class Tools: ObservableObject {
     static let shared = Tools()
     @Published var trusted = false
+    /// Show each tool's name under its icon (on by default; the right-click menu turns it off).
+    nonisolated static let labelsKey = "toolLabels"
+    static var labels: Bool {
+        get { UserDefaults.standard.object(forKey: labelsKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: labelsKey) }
+    }
 }
 
-/// A tool: its icon above its name, tinted while it's open.
+/// A tool: its icon, with its name under it (or, with names hidden, as a tooltip), tinted while it's open.
 struct ToolButton: View {
     let symbol: String
     let name: String
+    let tip: String
+    let labels: Bool
     let on: Bool
     let action: () -> Void
     @State private var hovering = false
@@ -71,29 +83,46 @@ struct ToolButton: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: symbol).font(.system(size: 15)).frame(height: 18)
-                Text(name).font(.caption2)
+                if labels { Text(name).font(.caption2) }
             }
-            .frame(minWidth: 52)
-            .padding(.vertical, 5)
+            .frame(minWidth: labels ? 52 : 30)
+            .padding(.vertical, labels ? 5 : 6)
             .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.accentColor.opacity(0.16) : hovering ? Color.primary.opacity(0.07) : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .foregroundStyle(on ? Color.accentColor : hovering ? Ink.text : Ink.muted)
         .onHover { hovering = $0 }
-        .accessibilityLabel(name)
+        .help(tip)
+        .accessibilityLabel(tip)
     }
 }
 
-/// The apps and jobs you trust, each with Stop trusting. A trusted one stays listed but calm on its card.
+/// The apps and jobs you trust, as a standard macOS list: select one and press − to stop trusting it, or + to choose an
+/// app to trust. Jobs and scripts are trusted from the clock on their card, where Cool Head knows exactly which one.
 struct TrustedView: View {
+    let watcher: Watcher
     @ObservedObject var tools = Tools.shared
-    @State private var list: [(key: String, name: String)]
-    /// `preset` is for renders; the panel reads the list.
-    init(preset: [(key: String, name: String)]? = nil) { _list = State(initialValue: preset ?? TrustedView.load()) }
+    @State private var list: [Item]
+    @State private var selected: String?
+    @State private var note: String?
 
-    static func load() -> [(key: String, name: String)] {
-        Trust.all.map { (key: $0.key, name: $0.value) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    struct Item: Identifiable, Equatable {
+        let key: String
+        let name: String
+        var id: String { key }
+        /// What it is, from how it was trusted: an app (by its identifier), a script, or a program.
+        var kind: String { key.hasPrefix("app:") ? "App" : key.hasPrefix("script:") ? "Script" : "Program" }
+    }
+
+    /// `preset` is for renders; the panel reads the list.
+    init(watcher: Watcher, preset: [Item]? = nil) {
+        self.watcher = watcher
+        _list = State(initialValue: preset ?? TrustedView.load())
+    }
+
+    static func load() -> [Item] {
+        Trust.all.map { Item(key: $0.key, name: $0.value) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     var body: some View {
@@ -104,24 +133,104 @@ struct TrustedView: View {
                 Button { tools.trusted = false } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
             }
-            Text("These stay calm on their cards. We still flag one if it looks stuck, your Mac gets hot, or it runs nonstop for \(Int(Trust.limitHours)) hours.")
+            Text("Their cards stay calm. We still flag one if it looks stuck, your Mac gets hot, or it runs nonstop for \(Int(Trust.limitHours)) hours.")
                 .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-            if list.isEmpty {
-                Text("Nothing yet. Trust an app or job from the clock on its card.").font(.callout).foregroundStyle(Ink.muted)
-            } else {
-                ForEach(list, id: \.key) { item in
-                    HStack {
-                        Text(item.name).font(.callout)
-                        Spacer()
-                        Button("Stop trusting") { Trust.remove(item.key); list = TrustedView.load() }
-                            .buttonStyle(.bordered).controlSize(.small)
+            // the list and its +/− bar, in one bordered box, as in System Settings
+            VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    if list.isEmpty {
+                        Text("No trusted apps or jobs")
+                            .font(.callout).foregroundStyle(Ink.muted)
+                            .frame(maxWidth: .infinity, minHeight: 64)
+                    } else {
+                        ForEach(Array(list.enumerated()), id: \.element.id) { i, item in
+                            row(item, stripe: i % 2 == 1)
+                        }
                     }
                 }
+                .frame(minHeight: 64, alignment: .top)
+                .background(Color(nsColor: .controlBackgroundColor))
+                Divider()
+                HStack(spacing: 0) {
+                    barButton("plus", "Trust an app") { choose() }
+                    Divider().frame(height: 16)
+                    barButton("minus", "Stop trusting the selected one") {
+                        guard let key = selected else { return }
+                        watcher.untrust(key: key)
+                        list = TrustedView.load()
+                        selected = nil
+                        note = nil
+                    }
+                    .disabled(selected == nil)
+                    Divider().frame(height: 16)
+                    Spacer()
+                }
+                .frame(height: 22)
+                .background(Color.primary.opacity(0.03))
             }
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Ink.edge, lineWidth: 1))
+            Text(note ?? "To trust a job or script, use the clock on its card.")
+                .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
+    }
+
+    func row(_ item: Item, stripe: Bool) -> some View {
+        let on = selected == item.key
+        return HStack(spacing: 8) {
+            icon(item).frame(width: 18, height: 18)
+            Text(item.name).font(.callout).lineLimit(1)
+            Spacer()
+            Text(item.kind).font(.caption).foregroundStyle(on ? Color.white.opacity(0.85) : Ink.muted)
+        }
+        .foregroundStyle(on ? Color.white : Ink.text)
+        .padding(.horizontal, 8).padding(.vertical, 5)
+        .background(on ? Color.accentColor : stripe ? Color.primary.opacity(0.035) : .clear)
+        .contentShape(Rectangle())
+        .onTapGesture { selected = on ? nil : item.key }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// An app's own icon, found by its identifier; a script or program gets a plain one.
+    @ViewBuilder func icon(_ item: Item) -> some View {
+        if item.key.hasPrefix("app:"), let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: String(item.key.dropFirst(4))) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable()
+        } else {
+            Image(systemName: item.key.hasPrefix("app:") ? "app" : item.key.hasPrefix("script:") ? "doc.text" : "terminal").foregroundStyle(Ink.muted)
+        }
+    }
+
+    func barButton(_ symbol: String, _ tip: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 11, weight: .medium)).frame(width: 26, height: 22).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(tip)
+        .accessibilityLabel(tip)
+    }
+
+    /// + : choose an app in Applications to trust.
+    func choose() {
+        let open = NSOpenPanel()
+        open.title = "Trust an app"
+        open.prompt = "Trust"
+        open.allowedContentTypes = [.application]
+        open.directoryURL = URL(fileURLWithPath: "/Applications")
+        open.canChooseDirectories = false
+        open.allowsMultipleSelection = false
+        NSApp.activate(ignoringOtherApps: true)
+        guard open.runModal() == .OK, let url = open.url else { return }
+        if watcher.trust(appPath: url.path) {
+            list = TrustedView.load()
+            selected = list.first { $0.name == (FileManager.default.displayName(atPath: url.path) as NSString).deletingPathExtension }?.key
+            note = nil
+        } else {
+            note = "macOS's own apps can't be trusted: Cool Head explains them instead."
+        }
     }
 }

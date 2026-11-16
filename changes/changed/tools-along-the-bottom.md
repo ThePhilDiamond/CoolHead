@@ -1,0 +1,2 @@
+- **Tools along the bottom, settings in the right-click menu.** The bottom of the panel is now a row of tools, each an icon with its name: Network (Test my network), Trusted, Report, Activity (Activity Monitor) and Quit, each opening in the panel's middle. Notifications and Open at Login move to the right-click menu, along with a new Show Tool Names setting for hiding the names under the icons.
+  - Trusted is now a list in the panel, the standard macOS way: select one and press − to stop trusting it, or press + to choose an app to trust.
