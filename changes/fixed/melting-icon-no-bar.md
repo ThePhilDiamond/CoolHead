@@ -1,0 +1,1 @@
+- The Melting Snowflake icon's drawings are full size again: the yellow or red bar added in 0.6.0, which shrank them, is gone.
