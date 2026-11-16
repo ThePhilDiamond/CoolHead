@@ -1070,7 +1070,7 @@ struct FixRow: View {
     /// A task that does more about the problem than the recommended option: says "Fixes the cause".
     var betterThanRecommended = false
     /// The label in the option's bottom right corner (Phil, 16 November 2026: "smaller and justified in the bottom right
-    /// corner"): Caution for what interrupts or ends something, or Fixes the cause for a task that does more than the
+    /// corner"): Caution for what has consequences that can't be undone or known, or Fixes the cause for a task that does more than the
     /// recommendation. Never both: the options that need Caution are all ones Cool Head does.
     var tag: OptionTag? {
         if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red) }
@@ -1121,16 +1121,8 @@ struct FixRow: View {
     var opensElsewhere: Bool {
         switch fix.kind { case .lookUp, .openPage, .pauseSync, .openApp, .reveal: return true; default: return false }
     }
-    /// Closes or ends something: its icon in red, so the risk shows at a glance.
-    var ends: Bool {
-        switch fix.kind {
-        case .stop: return true
-        case .quitApp: return true
-        case .forceQuit: return true
-        case .restartBrowser: return true
-        default: return false
-        }
-    }
+    /// Risky (see `Fix.caution`): its icon in red, so the risk shows at a glance; quitting an app that loses nothing isn't.
+    var ends: Bool { fix.caution }
 
     /// Once it is already running cooler, "Back to full speed" isn't the recommendation.
     var recommended: Bool { fix.kind == .cooler && cooled ? false : fix.recommended }

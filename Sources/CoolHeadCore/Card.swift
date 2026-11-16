@@ -72,6 +72,8 @@ public struct Fix: Identifiable {
     /// Offered, but never made the recommendation by the one-click rule (see `Card.init`): set where the option is made,
     /// for a reason that place knows (slowing the tab you're using, for one).
     public var holdBack = false
+    /// Set where the option is made when what it loses differs from its kind's usual (see `caution`).
+    public var cautionOverride: Bool? = nil
 
     /// An option that opens an app and says what to do there.
     public static func openApp(_ id: String, _ title: String, bundle: String, steps: String, recommended: Bool = false) -> Fix {
@@ -142,16 +144,43 @@ public struct Fix: Identifiable {
     }
     /// The same option, marked as one that ends the cause.
     public func fixingTheCause() -> Fix { var f = self; f.resultOverride = .fixesCause; return f }
+    /// The same option, marked as losing something reopening can't bring back (see `caution`).
+    public func losingWork() -> Fix { var f = self; f.cautionOverride = true; return f }
 
-    /// Interrupts or ends something, so something may be lost: labelled Caution, with a warning sign, in its group
-    /// (Phil, 16 November 2026: "CAUTION recommendations should still be in the two groups, just with a large/clear
-    /// label and warning icon").
-    public var caution: Bool {
+    /// Ends or closes something (a process, an app, a browser), whether or not anything is lost: the one-click rule never
+    /// puts one of these in place of a task (see `Card.init`). Whether it's risky is `caution`.
+    public var interrupts: Bool {
         switch kind {
         case .stop: return true
         case .quitApp: return true
         case .forceQuit: return true
         case .restartBrowser: return true
+        case .wait: return false
+        case .cooler: return false
+        case .lookUp: return false
+        case .openApp: return false
+        case .reveal: return false
+        case .guide: return false
+        case .share: return false
+        case .openPage: return false
+        case .pauseJob: return false
+        case .pauseSync: return false
+        case .chromeLimit: return false
+        case .resume: return false
+        }
+    }
+
+    /// Has consequences that are unknown or can't be undone, so there is risk: labelled Caution, with a warning sign, in
+    /// its group (Phil, 16 November 2026: "CAUTION recommendations should still be in the two groups, just with a
+    /// large/clear label and warning icon", and "Caution should be reserved for actions like killing a process with
+    /// unknown and/or irreversible consequences. There is risk attached. Whereas quitting Slack is not risky...").
+    public var caution: Bool {
+        if let cautionOverride { return cautionOverride }
+        switch kind {
+        case .stop: return true            // ends a process without asking it to save
+        case .quitApp: return false        // the app asks to save; a quit that loses more is marked losingWork() where it's made
+        case .forceQuit: return true       // ends an app without asking it to save
+        case .restartBrowser: return true  // private windows, unsent form text and downloads in progress don't come back
         case .wait: return false
         case .cooler: return false
         case .lookUp: return false
@@ -194,7 +223,7 @@ public struct Card {
         // most about the problem. A task that does more says so ("Fixes the cause"). A recommendation that interrupts
         // (stopping a stuck job) was chosen for its card's reason, and stays.
         if let rec = kept.first(where: \.recommended), rec.doer == .you, !rec.caution,
-           let i = kept.indices.filter({ kept[$0].doer == .coolHead && !kept[$0].caution && !kept[$0].holdBack && kept[$0].result >= .eases })
+           let i = kept.indices.filter({ kept[$0].doer == .coolHead && !kept[$0].interrupts && !kept[$0].holdBack && kept[$0].result >= .eases })
                 .max(by: { (kept[$0].result, -Card.rank(kept[$0]), -$0) < (kept[$1].result, -Card.rank(kept[$1]), -$1) }) {
             for k in kept.indices { kept[k].recommended = k == i }
         }
@@ -363,7 +392,7 @@ public struct Card {
                 fixes.append(wait(until: nil, now: now, recommended: true))
             }
             if let bundle = e.quittableBundle, let app = e.quittableApp, k.risk != nil, k.whenLong.hasPrefix("Quit") {
-                fixes.append(Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(bundle)))
+                fixes.append(Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(bundle)).losingWork())
             }
             let head = !active ? "\(k.doing). It's quiet now."
                 : long ? "\(k.doing). It's been \(Fmt.duration(busyFor)), longer than usual."
@@ -417,7 +446,7 @@ public struct Card {
             let page = { (url: String, title: String, why: String, rec: Bool) in
                 Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
             let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.").fixingTheCause()
-            let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle))
+            let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle)).losingWork()
             var fixes: [Fix?]
             switch part {
             case .tab:
@@ -456,7 +485,7 @@ public struct Card {
                             : "One tab or extension \(used) Only \(app) knows which.") + Fmt.its([gpuLed ? nil : gpuClause]),
                         fixes: [((e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Choose \(tm), then click CPU to put the busiest first.", recommended: true) }
                                     ?? Fix.guide("find", "Find the busy tab", "In \(app), choose \(tm) and click CPU.", steps: ["In \(app), choose \(tm).", "Click CPU to put the busiest tab first.", "Close it, or reload it if you need it."], recommended: true)).fixingTheCause(),
-                                (e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp($0)) },
+                                (e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp($0)).losingWork() },
                                 lookUp(e.name, recommended: false),
                                 wait(until: nil, now: now, recommended: false)].compactMap { $0 })
         }
@@ -471,7 +500,7 @@ public struct Card {
             return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
                         explanation: "That's normal while you play." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
                         fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower quality or frame rate. Less heat, still smooth.", recommended: warm),
-                                Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game))])
+                                Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game)).losingWork()])
         }
 
         // while a game is being played, other busy work is the thing to slow, so the game runs smoothly
