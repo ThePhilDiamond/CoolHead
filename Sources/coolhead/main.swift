@@ -4,7 +4,7 @@ import CoolHeadCore
 
 // the selftest's throwaway app (a copy of this program in a bundle of its own): it records how it was opened, and
 // waits to be asked to quit, so the selftest can restart it the way Cool Head restarts a browser
-if Bundle.main.bundleIdentifier == BrowserRestart.testAppID { BrowserRestart.runTestApp() }
+if BrowserRestart.isTestApp(Bundle.main.bundleIdentifier) { BrowserRestart.runTestApp() }
 
 let usage = """
 coolhead: explains what is keeping this Mac busy, hot or awake.
