@@ -51,6 +51,8 @@ struct PanelView: View {
                         TrustedView(watcher: watcher)
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
+                    } else if watcher.showHistory {
+                        HistoryView(sample: HistoryView.snapshotSample) { watcher.showHistory = false }
                     } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
                         Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
                             .foregroundStyle(Ink.muted)
@@ -69,7 +71,10 @@ struct PanelView: View {
             // fixed at the bottom
             VStack(alignment: .leading, spacing: 10) {
                 if !footer.isEmpty { Text(footer).font(.caption).foregroundStyle(Ink.muted) }
-                ToolsBar(watcher: watcher)
+                // Trends: the past week from macOS's power log, where this Mac's log can be read (or in a screenshot)
+                ToolsBar(watcher: watcher,
+                         trends: PowerHistory.available || HistoryView.snapshotSample != nil
+                             ? (watcher.showHistory, { watcher.showHistory.toggle() }) : nil)
             }
             .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
         }
