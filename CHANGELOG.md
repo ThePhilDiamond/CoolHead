@@ -18,6 +18,7 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 ### Changed
 
+- The Melting Snowflake icon gets a bar underneath when something needs a look: yellow when it's worth watching, red for a problem. When all is well it stays a plain snowflake.
 - Card wording, rewritten by hand: each fact said once (a long-running macOS task no longer gives its time twice, and the memory card no longer repeats the headline's figure), several facts about one thing joined into one sentence ("It's adding to the heat, competing with Hades, and draining your battery"), every step with a verb ("Choose Window ▸ Task Manager, then click CPU to put the busiest first"), and plain words for what started a process ("a command from a window or script that has since closed"). `coolhead wording` prints every card's text from the recorded examples.
 - Every option is a button. What Cool Head can't do itself, it opens the app where it's done and says how (Chrome's Task Manager, a game's settings, the Terminal window a job is suspended in), takes you to the settings page (Memory Saver, Edge's sleeping tabs), shows the folder in Finder, or shows the steps under the option (giving the Mac air, reconnecting a drive). Statements such as "macOS needs this" are now part of the card's explanation.
 - When a sync app (Google Drive, Dropbox, OneDrive, Box) uses the most memory, the memory card says quitting it loses nothing (it catches up when reopened), instead of "It'll ask to save first", and also offers Pause syncing, noting that pausing doesn't free its memory.
