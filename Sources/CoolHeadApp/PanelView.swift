@@ -4,6 +4,8 @@ import SwiftUI
 
 struct PanelView: View {
     let watcher: Watcher
+    @ObservedObject private var network = NetworkTester.shared
+    @ObservedObject private var tools = Tools.shared
     @AppStorage("welcomed") private var welcomed = false
     // a screenshot limited to some cards shows neither, so it shows the cards as anyone would see them day to day
     @State private var whatsNew = PanelView.limitedSnapshot ? nil : WhatsNew.pending
@@ -49,7 +51,12 @@ struct PanelView: View {
                         FrozenList(watcher: watcher)
                         Divider()
                     }
-                    if watcher.showReport {
+                    // the tools along the bottom open here, one at a time
+                    if network.shown {
+                        NetworkView(tester: network, watcher: watcher)
+                    } else if tools.trusted {
+                        TrustedView(watcher: watcher)
+                    } else if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if watcher.showHistory {
                         HistoryView(sample: HistoryView.snapshotSample) { watcher.showHistory = false }
@@ -71,7 +78,10 @@ struct PanelView: View {
             // fixed at the bottom
             VStack(alignment: .leading, spacing: 10) {
                 if !footer.isEmpty { Text(footer).font(.caption).foregroundStyle(Ink.muted) }
-                BottomBar(watcher: watcher)
+                // Trends: the past week from macOS's power log, where this Mac's log can be read (or in a screenshot)
+                ToolsBar(watcher: watcher,
+                         trends: PowerHistory.available || HistoryView.snapshotSample != nil
+                             ? (watcher.showHistory, { watcher.showHistory.toggle() }) : nil)
             }
             .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
         }
@@ -1352,70 +1362,6 @@ struct RecommendedTag: View {
             .padding(.horizontal, 6).padding(.vertical, 1.5)
             .foregroundStyle(onAccent ? Color.accentColor : .white)
             .background(Capsule().fill(onAccent ? Color.white.opacity(0.92) : Color.accentColor))
-    }
-}
-
-/// Along the bottom: the two settings as switches, then Activity Monitor, About and Quit as line icons.
-struct BottomBar: View {
-    let watcher: Watcher
-    @State private var login = LoginItem.on
-    @State private var notify = Alerts.enabled
-
-    var body: some View {
-        HStack(spacing: 10) {
-            SmallSwitch(label: "Notifications", isOn: $notify).onChange(of: notify) { _, v in Alerts.enabled = v }
-            SmallSwitch(label: "Open at login", isOn: $login).onChange(of: login) { _, v in LoginItem.set(v); login = LoginItem.on }
-            Spacer(minLength: 4)
-            HStack(spacing: 8) {
-                IconButton(symbol: "waveform.path.ecg", tip: "Launch Activity Monitor") {
-                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
-                }
-                if PowerHistory.available || HistoryView.snapshotSample != nil {
-                    IconButton(symbol: "clock.arrow.circlepath", tip: "The past week") { watcher.showReport = false; watcher.showHistory.toggle() }
-                }
-                IconButton(symbol: "exclamationmark.bubble", tip: "Report a problem") { watcher.showHistory = false; watcher.showReport.toggle() }
-                IconButton(symbol: "info.circle", tip: "About Cool Head") { About.show() }
-                IconButton(symbol: "power", tip: "Quit") { NSApp.terminate(nil) }
-            }
-        }
-        .toggleStyle(.switch)
-        .controlSize(.mini)
-        .font(.caption)
-    }
-}
-
-/// A switch smaller than macOS's smallest ("mini"), with its label at normal size. Clicking the label toggles it too.
-struct SmallSwitch: View {
-    let label: String
-    @Binding var isOn: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Text(label).fixedSize().onTapGesture { isOn.toggle() }
-            Toggle(label, isOn: $isOn)
-                .labelsHidden()
-                .toggleStyle(PanelSwitch())
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// A switch drawn by Cool Head, filled with the accent colour when on. macOS's own switch draws "on" in grey unless its
-/// window belongs to the app in front, and the panel never makes Cool Head the app in front (it opens without taking
-/// focus from what you're using), so the system switch looked off when it was on (Phil, 16 November 2026: "the toggles
-/// seem to not show the fill when toggled \"on\"").
-struct PanelSwitch: ToggleStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        let on = configuration.isOn
-        Capsule()
-            .fill(on ? Color.accentColor : Color.primary.opacity(0.2))
-            .frame(width: 24, height: 14)
-            .overlay(alignment: on ? .trailing : .leading) {
-                Circle().fill(Color.white).shadow(color: .black.opacity(0.25), radius: 0.5, y: 0.5).padding(1.5)
-            }
-            .animation(.easeOut(duration: 0.12), value: on)
-            .contentShape(Capsule())
-            .onTapGesture { configuration.isOn.toggle() }
     }
 }
 

@@ -51,11 +51,12 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 
 ## Privacy
 
-Everything runs on your Mac. No account, no analytics, and nothing stored about what happened. The only things it remembers are your own choices, kept on this Mac: apps and jobs you mark Always trust (listed in the right-click menu), reminders to resume a sync app you paused, jobs it paused for you until you plug in, and the Chrome memory limit if you set one (so only that is ever removed). The only automatic network use is a daily check with GitHub for a newer version of Cool Head (turn it off from the right-click menu; see [docs/UPDATES.md](docs/UPDATES.md)). Three buttons reach outside, and only when you press them:
+Everything runs on your Mac. No account, no analytics, and nothing stored about what happened. The only things it remembers are your own choices, kept on this Mac: apps and jobs you mark Always trust (listed under Trusted, along the bottom of the panel), reminders to resume a sync app you paused, jobs it paused for you until you plug in, and the Chrome memory limit if you set one (so only that is ever removed). The only automatic network use is a daily check with GitHub for a newer version of Cool Head (turn it off from the right-click menu; see [docs/UPDATES.md](docs/UPDATES.md)). Four buttons reach outside, and only when you press them:
 
 - **Look it up** opens a web search for the process name.
 - **Share this case**, on cards Cool Head can't explain, shows you an anonymised report of that process.
-- **Report a problem**, at the bottom of the panel and in the right-click menu, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way.
+- **Start test**, in Test my network, runs Apple's own network test, which downloads and uploads test data with Apple's servers for up to 30 seconds.
+- **Report a problem**, along the bottom of the panel, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way.
 
 Reports never hold file names, paths or project names. You see every word first; then **Open in GitHub** opens it as an issue for you to submit (posted under your GitHub account, only if you press Submit), or **Copy** keeps it on your Mac to send however you like. Details: [SECURITY.md](SECURITY.md).
 
@@ -71,7 +72,7 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 <p align="center"><img src="docs/images/menu-icons.png" width="270" alt="The menu bar icons: Melting Snowflake whole, drooping, and in flames; and the snowflake with a green circle, yellow triangle, or red octagon, on dark and light menu bars"></p>
 
-Click the snowflake for the panel. Right-click it for updates, Save Battery When Unplugged, the menu bar icon, your trusted apps and jobs, reporting a problem, and Quit.
+Click the snowflake for the panel; its tools are along the bottom: Test my network, Trends (the past week from macOS's power log), Trusted, Report a problem and Quit. Right-click it for the settings: updates, Save Battery When Unplugged, notifications, Open at Login, tool names, the menu bar icon, About and Quit.
 
 After that, Cool Head keeps itself up to date: when a new version is out, the panel offers to install it, and checks the download is genuine first.
 
