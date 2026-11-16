@@ -98,14 +98,14 @@ public enum Hang {
     /// back. nil otherwise.
     public static func terminalApp(_ e: Evidence, pid: pid_t) -> String? {
         guard parentIsShell(e), Proc.bsd(pid)?.hasTerminal == true else { return nil }
-        return e.ancestors.lazy.compactMap { Evidence.appName($0.path) }.first ?? "Terminal"
+        return e.ancestors.lazy.compactMap { Evidence.bundle($0.path) }.first ?? "/System/Applications/Utilities/Terminal.app"
     }
 
     // MARK: - The card
 
     /// The card for a process stuck in one of the three ways, for `stuckFor` seconds. `waiting`: the names of
     /// programs it started that are still running. `volumes`: other disks it has files open on.
-    /// `terminal`: the app it was suspended in, from `terminalApp`.
+    /// `terminal`: the app it was suspended in (its bundle path), from `terminalApp`.
     public static func card(_ kind: Kind, _ e: Evidence, stuckFor: TimeInterval, waiting: [String] = [], volumes: [String] = [],
                             terminal: String? = nil, now: Date = Date()) -> Card {
         let who = Card.subject(e)
@@ -126,11 +126,12 @@ public enum Hang {
 
         switch kind {
         case .paused:
-            if let app = terminal {
+            if let bundle = terminal {
+                let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
                 return Card(state: .waiting, headline: "\(who) has been paused in \(app) for \(long).",
                             explanation: "It was suspended there, usually with Control-Z, and does nothing until it's brought back. "
                                 + "It still holds its memory\(memory) and any files it has open." + waits,
-                            fixes: [Fix(id: "fg", title: "Bring it back", consequence: "In that \(app) window, type fg and press Return.", kind: .info, recommended: true),
+                            fixes: [Fix.openApp("fg", "Bring it back", bundle: bundle, steps: "In the window it's in, type fg and press Return.", recommended: true),
                                     stop].compactMap { $0 })
             }
             return Card(state: .unknown, headline: "\(who) has been paused for \(long), not by Cool Head.",
@@ -147,9 +148,13 @@ public enum Hang {
                         explanation: "It asked \(drive == nil ? "it" : "that drive") for something and is still waiting for the answer. "
                             + "Usually a network drive that dropped, an external disk, or a disk that's very busy. It can't be stopped or quit until the answer comes."
                             + started + waits,
-                        fixes: [Fix(id: "drive", title: drive.map { "Check \($0)" } ?? "Check your drives and network",
-                                    consequence: "Reconnect the network drive or plug the disk back in. That often frees it.", kind: .info, recommended: true),
-                                Fix(id: "restart", title: "Restart if it won't clear", consequence: "If it's still stuck once the drive is back, restarting your Mac frees it.", kind: .info),
+                        fixes: [Fix.guide("drive", drive.map { "Reconnect \($0)" } ?? "Reconnect your drives", "Reconnect the network drive or plug the disk back in. That often frees it.",
+                                          steps: ["For a network drive: in Finder, choose Go ▸ Connect to Server, and connect to it again.",
+                                                  "For a disk: check its cable, or plug it back in.",
+                                                  "Once it answers, the stuck process carries on by itself."],
+                                          recommended: true),
+                                Fix.guide("restart", "Restart if it won't clear", "If it's still stuck once the drive is back, restarting your Mac frees it.",
+                                          steps: ["Save your work in other apps.", "Choose Apple menu ▸ Restart.", "A process stuck on a drive can't be ended any other way, so this frees it."]),
                                 Card.lookUp(e.name, recommended: false), Card.share])
 
         case .notResponding:
@@ -158,9 +163,9 @@ public enum Hang {
             let why = busy ? " It's busy, using about \(Fmt.cores(e.coresNow)), so it may be working through something big and recover."
                            : " It's using almost no power, so it's probably waiting on something: a network drive, a stuck helper, or another app."
             return Card(state: .unknown, headline: "\(who) isn't responding.",
-                        explanation: "macOS marked it Not Responding \(long) ago: it has stopped answering clicks and keys." + why + waits,
-                        fixes: [Fix(id: "give", title: "Give it a few minutes", consequence: "Apps often recover once a long task finishes.", kind: .info, recommended: !settled),
-                                forceQuit.map { var f = $0; f.recommended = settled; return f },
+                        explanation: "macOS marked it Not Responding \(long) ago: it has stopped answering clicks and keys." + why + waits
+                            + (settled ? "" : " Apps often recover once a long task finishes: the clock in this card's corner hides it while you wait."),
+                        fixes: [forceQuit.map { var f = $0; f.recommended = settled; return f },
                                 Card.lookUp(e.name, recommended: false), Card.share].compactMap { $0 })
         }
     }

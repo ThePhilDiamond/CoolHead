@@ -18,6 +18,8 @@ public struct SyncFeed: Equatable {
     /// which the sync app may be backing up.
     public let area: String?
     public var certain: Bool { area == nil }
+    /// The folder's full path, to show it in Finder.
+    public var path: String = ""
 
     /// Which sync app owns a folder in ~/Library/CloudStorage, by the folder's prefix.
     static let cloudStoragePrefixes: [(prefix: String, app: String)] = [
@@ -44,7 +46,7 @@ public struct SyncFeed: Equatable {
     public static func find(sync: String, writers: [(cwd: String, who: String, bytes: UInt64)], home: String = NSHomeDirectory()) -> SyncFeed? {
         let placed = writers.compactMap { w in place(w.cwd, sync: sync, home: home).map { (w, $0) } }
         guard let best = placed.max(by: { ($0.1 == nil ? 1 : 0, $0.0.bytes) < ($1.1 == nil ? 1 : 0, $1.0.bytes) }) else { return nil }
-        return SyncFeed(who: best.0.who, folder: (best.0.cwd as NSString).lastPathComponent, area: best.1)
+        return SyncFeed(who: best.0.who, folder: (best.0.cwd as NSString).lastPathComponent, area: best.1, path: best.0.cwd)
     }
 
     /// A sentence for the sync app's card.
@@ -57,8 +59,8 @@ public struct SyncFeed: Equatable {
 
     /// The fix: keep the project out of synced folders.
     public func fix(_ sync: String, recommended: Bool) -> Fix {
-        Fix(id: "movebuild", title: "Keep \(folder) out of synced folders",
-            consequence: "Move it to a folder \(sync) doesn't sync, such as one in your home folder, or exclude it in \(sync)'s settings.",
-            kind: .info, recommended: recommended)
+        let steps = "Move it to a folder \(sync) doesn't sync, such as one in your home folder, or exclude it in \(sync)'s settings."
+        return Fix(id: "movebuild", title: "Keep \(folder) out of synced folders", consequence: "Shows it in Finder. " + steps,
+                   kind: .reveal(path, steps), recommended: recommended)
     }
 }

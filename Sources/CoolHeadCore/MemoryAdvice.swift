@@ -86,7 +86,7 @@ public enum MemoryAdvice {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
-                        fixes: [Fix(id: "quitunused", title: "Quit apps you aren't using", consequence: "Frees memory. Each asks to save first.", kind: .info, recommended: true)])
+                        fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true)])
         }
         let size = Fmt.bytes(top.bytes)
         let head = "\(tight) \(label(top)) is using the most (\(size))."
@@ -98,14 +98,19 @@ public enum MemoryAdvice {
         switch top.kind {
         case .browser:
             let menu = top.name == "Safari" ? "Window ▸ Activity" : top.name == "Firefox" ? "type about:processes" : "Window ▸ Task Manager"
-            fixes.append(Fix(id: "tabs", title: "Close \(top.name)'s heaviest tabs", consequence: "\(menu), sort by Memory.", kind: .info, recommended: true))
+            fixes.append(top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: "Then \(menu), and sort by Memory.", recommended: true) }
+                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "\(menu), sort by Memory.", steps: ["In \(top.name), \(menu).", "Sort by Memory.", "Close the tabs at the top that you don't need."], recommended: true))
             if top.name == "Google Chrome" {
                 let st = chrome ?? ChromeLimit.status(chromeUse: top.bytes)
                 if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
                 limitNote = ChromeLimit.note(st, using: top.bytes)
-                fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Chrome Settings ▸ Performance. Unused tabs nap.", kind: .info))
+                if let b = top.bundle {
+                    fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Unused tabs nap.", kind: .openPage(b, "chrome://settings/performance")))
+                }
             } else if top.name == "Microsoft Edge" {
-                fixes.append(Fix(id: "saver", title: "Turn on sleeping tabs", consequence: "Edge Settings ▸ System and performance.", kind: .info))
+                if let b = top.bundle {
+                    fixes.append(Fix(id: "saver", title: "Turn on sleeping tabs", consequence: "Takes you to Edge's System and performance settings.", kind: .openPage(b, "edge://settings/system")))
+                }
             }
             if let b = top.bundle {
                 fixes.append(Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). Closes all tabs.", kind: .quitApp(b)))
