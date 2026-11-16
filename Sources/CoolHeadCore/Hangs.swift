@@ -108,7 +108,21 @@ public enum Hang {
     /// `terminal`: the app it was suspended in (its bundle path), from `terminalApp`.
     public static func card(_ kind: Kind, _ e: Evidence, stuckFor: TimeInterval, waiting: [String] = [], volumes: [String] = [],
                             terminal: String? = nil, now: Date = Date()) -> Card {
+        // the programs it started, named so they can be told apart from it (see Naming): a child shares its parent's
+        // kind, run from the same terminal or in the background, so "ffmpeg" started by ffmpeg is "another ffmpeg"
         let who = Card.subject(e)
+        let what: Naming.What = e.script != nil ? .script : e.appBundle != nil ? .app : Naming.what(path: e.path, hasTerminal: parentIsShell(e))
+        // several copies of one program are one name, counted (waitingWords says "2 programs … ffmpeg")
+        let unique = waiting.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        let told = Naming.distinct([Naming.Named(who, what)] + unique.map { Naming.Named($0, what) })
+        let rename = Dictionary(uniqueKeysWithValues: zip(unique, told.dropFirst()))
+        var c = body(kind, e, stuckFor: stuckFor, who: told[0], waiting: waiting.map { rename[$0] ?? $0 }, volumes: volumes, terminal: terminal, now: now)
+        c.names = told
+        return c
+    }
+
+    static func body(_ kind: Kind, _ e: Evidence, stuckFor: TimeInterval, who: String, waiting: [String], volumes: [String],
+                     terminal: String?, now: Date) -> Card {
         let long = Fmt.duration(stuckFor)
         let protected = SecuritySoftware.product(path: e.path, name: e.name) != nil
         let macOS = e.script == nil && (e.path.map(CaseReport.isMacOS) ?? true)
