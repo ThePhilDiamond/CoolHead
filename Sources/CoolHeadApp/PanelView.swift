@@ -562,6 +562,14 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        // 0.6.1 repeats 0.6.0's notes without the Melting Snowflake bar, which 0.6.1 removed: only the newest version's
+        // notes are shown, so someone updating from 0.5.0 straight to 0.6.1 still hears what 0.6.0 brought
+        "0.6.1": [
+            "Every option is a button. What Cool Head can't do itself, it opens or shows you, step by step.",
+            "Stuck processes count too: paused, waiting on a drive, or Not Responding.",
+            "Restart Chrome, keeping your tabs, to free the memory it builds up.",
+            "An app keeping the graphics chip busy gets a card, even when it uses little CPU.",
+        ],
         "0.6.0": [
             "Every option is a button. What Cool Head can't do itself, it opens or shows you, step by step.",
             "Stuck processes count too: paused, waiting on a drive, or Not Responding.",
