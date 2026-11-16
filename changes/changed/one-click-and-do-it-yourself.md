@@ -1,0 +1,6 @@
+- A card's options are in two groups: **One click**, which Cool Head does for you, then **Do it yourself**, where Cool Head takes you there and shows how. Your tasks have a dashed outline; Cool Head's are filled.
+  - When the recommended option would be a task for you, a safe one-click option that helps is recommended instead, such as Limit Chrome or Run it cooler.
+  - Options that interrupt or close something (Stop, Quit, Force Quit, Restart the browser) are tagged **Caution** in the tile's corner.
+  - A task that fixes the cause when the recommended option only eases it, such as closing Chrome's heaviest tabs, is tagged **Fixes the cause**.
+  - Within each group, the options that do the most come first.
+  - The switches in the panel show their color when on, even while another app is in front.

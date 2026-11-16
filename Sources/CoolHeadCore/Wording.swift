@@ -76,9 +76,14 @@ public enum Wording {
         var s = c.headline + "\n"
         if !c.explanation.isEmpty { s += "  " + c.explanation + "\n" }
         for f in c.fixes {
-            s += "  \(f.recommended ? "→" : "·") \(f.title)" + (f.consequence.isEmpty ? "" : ": \(f.consequence)") + "\n"
+            s += "  \(f.recommended ? "→" : "·") [\(f.doer == .coolHead ? "one click" : "you")] \(f.title)" + (f.consequence.isEmpty ? "" : ": \(f.consequence)") + "\n"
             if case .guide(let steps) = f.kind { for (i, step) in steps.enumerated() { s += "      \(i + 1). \(step)\n" } }
         }
         return s
     }
+}
+
+extension LiveCard {
+    /// An example card as the panel shows it, for screenshots (COOLHEAD_SNAPSHOT_SAMPLES): no process behind it.
+    public static func sample(_ id: String, _ card: Card) -> LiveCard { LiveCard(id: id, pid: nil, card: card, details: []) }
 }

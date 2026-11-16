@@ -145,7 +145,7 @@ public enum Hang {
                 return Card(state: .waiting, headline: "\(who) has been paused in \(app) for \(long).",
                             explanation: "It was suspended there, usually with Control-Z, and does nothing until it's brought back. "
                                 + "It still holds its memory\(memory) and any files it has open." + waits,
-                            fixes: [Fix.openApp("fg", "Bring it back", bundle: bundle, steps: "In the window it's in, type fg and press Return.", recommended: true),
+                            fixes: [Fix.openApp("fg", "Bring it back", bundle: bundle, steps: "In the window it's in, type fg and press Return.", recommended: true).fixingTheCause(),
                                     stop].compactMap { $0 })
             }
             return Card(state: .unknown, headline: "\(who) has been paused for \(long), not by Cool Head.",
@@ -165,9 +165,9 @@ public enum Hang {
                         fixes: [Fix.guide("drive", drive.map { "Reconnect \($0)" } ?? "Reconnect your drives", "Reconnect the network drive or plug the disk back in. Once it answers, the stuck process carries on by itself.",
                                           steps: ["For a network drive: in Finder, choose Go ▸ Connect to Server, and connect to it again.",
                                                   "For a disk: check its cable, or plug it back in."],
-                                          recommended: true),
+                                          recommended: true).fixingTheCause(),
                                 Fix.guide("restart", "Restart if it won't clear", "If it's still stuck once the drive is back, restarting your Mac frees it. Nothing else can end a process stuck on a drive.",
-                                          steps: ["Save your work in other apps.", "Choose Apple menu ▸ Restart."]),
+                                          steps: ["Save your work in other apps.", "Choose Apple menu ▸ Restart."]).fixingTheCause(),
                                 Card.lookUp(e.name, recommended: false), Card.share])
 
         case .notResponding:

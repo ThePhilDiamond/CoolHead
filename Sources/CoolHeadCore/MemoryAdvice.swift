@@ -102,7 +102,7 @@ public enum MemoryAdvice {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
-                        fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true)])
+                        fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true).fixingTheCause()])
         }
         let size = Fmt.bytes(top.bytes)
         // the three biggest, named so they can be told apart (see Naming)
@@ -118,9 +118,9 @@ public enum MemoryAdvice {
         switch top.kind {
         case .browser:
             let menu = top.name == "Safari" ? "Choose Window ▸ Activity" : top.name == "Firefox" ? "Type about:processes in the address bar" : "Choose Window ▸ Task Manager"
-            fixes.append(top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: "\(menu), then click Memory to put the biggest first.", recommended: true) }
+            fixes.append((top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: "\(menu), then click Memory to put the biggest first.", recommended: true) }
                          ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "In \(top.name): \(menu.prefix(1).lowercased() + menu.dropFirst()), then click Memory.",
-                                      steps: ["In \(top.name): \(menu.prefix(1).lowercased() + menu.dropFirst()).", "Click Memory to put the biggest first.", "Close the tabs at the top that you don't need."], recommended: true))
+                                      steps: ["In \(top.name): \(menu.prefix(1).lowercased() + menu.dropFirst()).", "Click Memory to put the biggest first.", "Close the tabs at the top that you don't need."], recommended: true)).fixingTheCause())
             if top.name == "Google Chrome" {
                 let st = chrome ?? ChromeLimit.status(chromeUse: top.bytes)
                 if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
