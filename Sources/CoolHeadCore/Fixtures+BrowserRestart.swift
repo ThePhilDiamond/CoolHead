@@ -5,8 +5,10 @@ import Foundation
 extension Fixture {
     /// Restarting for real, on a throwaway app of our own (never a browser): a copy of this program in its own bundle,
     /// which writes down how it was opened. It quits when asked, comes back with --restore-last-session, and isn't
-    /// reopened when it declines to quit. COOLHEAD_SELFTEST_DIR says where to build it (a temporary folder otherwise).
-    /// Runs only from the coolhead command-line program.
+    /// reopened when it declines to quit. COOLHEAD_SELFTEST_DIR says where to build it (a temporary folder otherwise);
+    /// each run builds its own copy, with an identifier and a folder of its own, so selftests run at the same time (one
+    /// per pull request being worked on) never open, quit, rebuild or unblock each other's app. Runs only from the
+    /// coolhead command-line program.
     static func browserRestartChecks(_ now: Date) -> [(String, Bool, String)] {
         guard let program = Bundle.main.executablePath, (program as NSString).lastPathComponent == "coolhead" else { return [] }
         return [restartTest(program: program)]
@@ -24,8 +26,13 @@ extension Fixture {
 
     static func restartTest(program: String) -> (String, Bool, String) {
         let env = ProcessInfo.processInfo.environment["COOLHEAD_SELFTEST_DIR"]
-        let folder = URL(fileURLWithPath: env ?? NSTemporaryDirectory() + "coolhead-selftest-restart", isDirectory: true)
+        let base = URL(fileURLWithPath: env ?? NSTemporaryDirectory() + "coolhead-selftest-restart", isDirectory: true)
+        // this run's own folder and identifier: a run that shared them would rebuild the app, erase launches.txt and
+        // refuse-quit, and quit the app under the other (16 November 2026: 3 of 6 failed with two at once, "declining
+        // to quit" finding it restarted)
+        let folder = base.appendingPathComponent("run-\(getpid())", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
         let launches = folder.appendingPathComponent("launches.txt"), refuse = folder.appendingPathComponent("refuse-quit")
         func lines() -> [String] { ((try? String(contentsOf: launches, encoding: .utf8)) ?? "").split(separator: "\n", omittingEmptySubsequences: false).dropLast().map(String.init) }
         func until(_ seconds: Double, _ ok: () -> Bool) -> Bool {
@@ -33,10 +40,11 @@ extension Fixture {
             while !ok() { if Date() > end { return false }; RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
             return true
         }
-        guard let app = try? BrowserRestart.makeTestApp(in: folder, program: program) else { return ("restart-browser-really-works", false, "couldn't build the test app") }
+        let id = BrowserRestart.testAppID(run: getpid())
+        guard let app = try? BrowserRestart.makeTestApp(in: folder, program: program, id: id) else { return ("restart-browser-really-works", false, "couldn't build the test app") }
         let url = URL(fileURLWithPath: app)
         func running() -> [NSRunningApplication] {
-            NSRunningApplication.runningApplications(withBundleIdentifier: BrowserRestart.testAppID).filter { $0.bundleURL?.standardizedFileURL.path == url.standardizedFileURL.path }
+            NSRunningApplication.runningApplications(withBundleIdentifier: id).filter { $0.bundleURL?.standardizedFileURL.path == url.standardizedFileURL.path }
         }
         // first open, as a person would: no arguments
         let config = NSWorkspace.OpenConfiguration(); config.activates = false
@@ -54,7 +62,7 @@ extension Fixture {
         // after opening, it can be seen from the main thread a moment before (GitHub's build machine, 15 November 2026:
         // this step once found it "not running").
         func visibleOffMain() -> Bool {
-            offMain { NSRunningApplication.runningApplications(withBundleIdentifier: BrowserRestart.testAppID)
+            offMain { NSRunningApplication.runningApplications(withBundleIdentifier: id)
                 .contains { $0.bundleURL?.standardizedFileURL.path == url.standardizedFileURL.path } }
         }
         _ = until(10) { visibleOffMain() }

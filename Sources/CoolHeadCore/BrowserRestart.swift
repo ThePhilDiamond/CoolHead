@@ -109,9 +109,18 @@ public enum BrowserRestart {
 
     // MARK: - The selftest's own app
 
-    /// The bundle identifier of the throwaway app the selftest builds from a copy of the `coolhead` program. Launched
-    /// with this identifier, `coolhead` runs as that app instead (see main.swift).
+    /// The start of the bundle identifier of the throwaway app the selftest builds from a copy of the `coolhead`
+    /// program; each run adds its own process number, as `testAppID(run:)` does. Launched with such an identifier,
+    /// `coolhead` runs as that app instead (see main.swift).
     public static let testAppID = "io.github.thephildiamond.coolhead.selftest-restart"
+
+    /// Each selftest run's app has an identifier of its own. macOS treats two apps with one identifier as the same app:
+    /// asked to open a second copy while the first is running, it brings the first forward and opens nothing, and a
+    /// selftest running at the same time would then see no launch of its own (16 November 2026).
+    public static func testAppID(run: Int32) -> String { "\(testAppID).run\(run)" }
+
+    /// Whether `id` is the bundle identifier of a selftest run's app.
+    public static func isTestApp(_ id: String?) -> Bool { id?.hasPrefix(testAppID + ".run") ?? false }
 
     /// Run as the selftest's app: records its launch arguments, one launch per line, in `launches.txt` beside its
     /// bundle, then waits like any app until asked to quit. While `refuse-quit` exists beside its bundle, it declines
@@ -139,8 +148,9 @@ public enum BrowserRestart {
         }
     }
 
-    /// Builds the selftest's app in `folder`: a bundle whose program is a copy of this one. Returns its path.
-    public static func makeTestApp(in folder: URL, program: String) throws -> String {
+    /// Builds the selftest's app in `folder`, with identifier `id`: a bundle whose program is a copy of this one.
+    /// Returns its path.
+    public static func makeTestApp(in folder: URL, program: String, id: String) throws -> String {
         let fm = FileManager.default
         let app = folder.appendingPathComponent("Restart Test.app")
         try? fm.removeItem(at: app)
@@ -149,7 +159,7 @@ public enum BrowserRestart {
         let macos = app.appendingPathComponent("Contents/MacOS")
         try fm.createDirectory(at: macos, withIntermediateDirectories: true)
         try fm.copyItem(at: URL(fileURLWithPath: program), to: macos.appendingPathComponent("restarttest"))
-        let plist: [String: Any] = ["CFBundleIdentifier": testAppID, "CFBundleExecutable": "restarttest", "CFBundleName": "Restart Test",
+        let plist: [String: Any] = ["CFBundleIdentifier": id, "CFBundleExecutable": "restarttest", "CFBundleName": "Restart Test",
                                     "CFBundlePackageType": "APPL", "LSUIElement": true, "LSMinimumSystemVersion": "14.0"]
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
         try data.write(to: app.appendingPathComponent("Contents/Info.plist"))
