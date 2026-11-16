@@ -42,6 +42,9 @@ public enum BrowserRestart {
         let id = Bundle(url: url)?.bundleIdentifier
         let running = (id.map { NSRunningApplication.runningApplications(withBundleIdentifier: $0) } ?? NSWorkspace.shared.runningApplications)
             .filter { $0.bundleURL?.standardizedFileURL.path == url.standardizedFileURL.path }
+            // and only if its process still exists: seen from a background thread, macOS's list of running apps can
+            // still hold an app that has just quit (GitHub's build machine, 15 November 2026)
+            .filter { !$0.isTerminated && Proc.bsd($0.processIdentifier) != nil }
         guard !running.isEmpty else { log("not running"); return .notRunning }
         // each process by number and start time, so a reused number isn't mistaken for the browser still open
         let watched = running.map { ($0.processIdentifier, Proc.bsd($0.processIdentifier)?.start) }
