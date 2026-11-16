@@ -24,7 +24,7 @@ Where these steps cannot reach an answer, the card says so plainly ("Can't tell 
 
 ## What each state allows
 
-Every card has one button: **Explore fixes** on a card worth watching, **Learn more** on a calm one. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause, in one order on every card: the recommended option first; then options you can undo, most helpful first; then options that close or lose something, least loss first (closing one browser tab before quitting the browser); then Share this case. Waiting isn't an option: the clock in each card's corner hides it for 10 minutes, 30 minutes, or an hour. What is recommended follows the state:
+Every card has one button: **Explore fixes** on a card worth watching, **Learn more** on a calm one. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause, in one order on every card: the recommended option first; then options you can undo, most helpful first; then options that close or lose something, least loss first (closing one browser tab before quitting the browser); then Share this case. Waiting isn't an option: the clock in each card's corner hides it for 10 minutes, 30 minutes, or an hour. Every option is a button: what Cool Head can't do itself, it opens the app where it's done (and says how), takes you to the settings page, shows the folder in Finder, or shows the steps under the option. What is recommended follows the state:
 
 | State | Card says | Recommended | Stopping |
 | --- | --- | --- | --- |

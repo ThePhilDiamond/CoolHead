@@ -168,7 +168,9 @@ public struct Fixture {
         // Phil's rule (15 November 2026): no warning offers only "wait". Every card that needs a look must have an
         // option that does something (stop, slow, quit, look up or share).
         func actionable(_ c: Card) -> Bool {
-            c.fixes.contains { f in if case .wait = f.kind { return false }; return f.kind != .info }
+            c.fixes.contains { f in
+                switch f.kind { case .wait, .guide: return false; default: return true }      // showing how isn't doing
+            }
         }
         let warnings = all(now).map { f in Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)) }
             .filter { $0.state == .stalled || $0.state == .unknown } + [browserCard, dockerCard, jobCard,
@@ -207,7 +209,7 @@ public struct Fixture {
             Fix(id: "quit", title: "", consequence: "", kind: .quitApp("/Applications/X.app")),
             Fix(id: "lookup", title: "", consequence: "", kind: .lookUp("x"), recommended: true),
             Fix(id: "cooler", title: "", consequence: "", kind: .cooler),
-            Fix(id: "find", title: "", consequence: "", kind: .info)])
+            Fix(id: "find", title: "", consequence: "", kind: .guide(""))])
         let order = shuffled.fixes.map(\.id).joined(separator: " ")
         let everyCard = all(now).map { f in Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor), warm: true) }
         let allSorted = everyCard.allSatisfy { c in
@@ -305,7 +307,7 @@ public struct Fixture {
         let fc = Card.make(falcon, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
         let wc = Card.make(warp, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
         let noHarm = { (c: Card) in !c.fixes.contains { f in
-            switch f.kind { case .stop, .cooler, .quitApp: return true; default: return false } } && !c.hasAction }
+            switch f.kind { case .stop, .cooler, .quitApp, .forceQuit, .pauseJob: return true; default: return false } } }
         let secOK = fc.headline.contains("CrowdStrike Falcon is security software") && noHarm(fc) && wc.headline.contains("VPN") && noHarm(wc)
             && SecuritySoftware.product(path: reset.path, name: reset.name) == nil
         let drive = "/Applications/Google Drive.app"
@@ -326,7 +328,7 @@ public struct Fixture {
         let placesOK = ownFolder == .some(nil) && otherApps == nil && docs == .some("Documents") && elsewhere == nil
         let feed = SyncFeed.find(sync: "Google Drive", writers: [(home + "/Documents/AI/Mac.apk", "java", 5_000_000), (home + "/Coding/Other", "clang", 9_000_000)], home: home)
         let fed = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600), warm: true, syncFeed: feed)
-        let fedOK = feed == SyncFeed(who: "java", folder: "Mac.apk", area: "Documents") && fed.recommended?.title == "Keep Mac.apk out of synced folders"
+        let fedOK = feed == SyncFeed(who: "java", folder: "Mac.apk", area: "Documents", path: home + "/Documents/AI/Mac.apk") && fed.recommended?.title == "Keep Mac.apk out of synced folders"
             && fed.explanation.contains("java is writing lots of files in Mac.apk, inside Documents, which Google Drive may be backing up")
             && !fed.explanation.contains("x@example.com")
         review.append(("sync-fed-by-a-build", placesOK && fedOK, "places \(placesOK); \(fed.recommended?.title ?? "none"): \(fed.explanation)"))
@@ -449,7 +451,7 @@ public struct Fixture {
                         && ids(other).contains("stop") && ids(other).contains("share") && other.explanation.contains("started 2 programs that may be waiting on it: ffmpeg."),
                     other.headline + " " + other.explanation))
         let drive = Hang.card(.diskWait, with(job, parent: "launchd"), stuckFor: 300, volumes: ["Backup"], now: now)
-        out.append(("hang-waiting-on-a-drive", drive.headline.contains("Backup") && drive.recommended?.title == "Check Backup"
+        out.append(("hang-waiting-on-a-drive", drive.headline.contains("Backup") && drive.recommended?.title == "Reconnect Backup"
                         && !drive.fixes.contains { $0.kind == .stop || $0.kind == .forceQuit },
                     drive.headline))
         let app = Evidence.sample(name: "Foo", path: "/Applications/Foo.app/Contents/MacOS/Foo", start: now.addingTimeInterval(-7200), cores: 0)
@@ -457,10 +459,10 @@ public struct Fixture {
         let fresh = Hang.card(.notResponding, app, stuckFor: 120, now: now)
         let settled = Hang.card(.notResponding, app, stuckFor: 600, now: now)
         let working = Hang.card(.notResponding, busyApp, stuckFor: 600, now: now)
-        let ok = fresh.recommended?.id == "give" && ids(fresh).contains("forcequit") && settled.recommended?.title == "Force quit Foo"
-            && working.recommended?.id == "give" && !ids(fresh).contains("stop")
+        let ok = fresh.recommended == nil && ids(fresh).contains("forcequit") && settled.recommended?.title == "Force quit Foo"
+            && working.recommended == nil && !ids(fresh).contains("stop") && fresh.explanation.contains("clock in this card's corner")
         out.append(("hang-not-responding", ok,
-                    "2 minutes: \(fresh.recommended?.title ?? "none"); 10 minutes idle: \(settled.recommended?.title ?? "none"); 10 minutes busy: \(working.recommended?.title ?? "none")"))
+                    "2 minutes: \(fresh.recommended?.title ?? "nothing recommended yet"); 10 minutes idle: \(settled.recommended?.title ?? "none"); 10 minutes busy: \(working.recommended?.title ?? "none")"))
         out.append(("not-responding-check-available", Hang.canCheckResponding, Hang.canCheckResponding ? "macOS answers which apps are Not Responding" : "macOS's check wasn't found"))
         // for real: a child process paused by something other than Cool Head is found, and Resume lets it carry on
         let sleeper = Process()

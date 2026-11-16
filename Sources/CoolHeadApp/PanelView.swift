@@ -237,7 +237,7 @@ struct CardView: View {
         }
     }
 
-    var canOpen: Bool { !live.card.fixes.isEmpty }
+    var canOpen: Bool { !live.card.fixes.isEmpty || !live.card.explanation.isEmpty }
     func toggle() { if canOpen { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } } }
 
     /// What a button did, in green (or orange when it didn't work), right under the button pressed.
@@ -351,8 +351,18 @@ struct CardView: View {
                           : "That didn't work: Chrome's settings didn't change."
                 noteFailed = !ok
             }
-        case .info:
-            break
+        case .openApp(let bundle, let steps):
+            // what Cool Head can't do itself: it opens the app where it's done, and says how
+            NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
+            let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
+            note = "Opened \(app). \(steps)"; noteFailed = false; acted = true
+            watcher.log("Opened an app to help with \(live.reportSubject)")
+        case .reveal(let path, let steps):
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            note = "Showed \((path as NSString).lastPathComponent) in Finder. \(steps)"; noteFailed = false; acted = true
+            watcher.log("Showed a folder in Finder for \(live.reportSubject)")
+        case .guide:
+            break              // the steps open under the option itself (FixRow)
         }
     }
 }
@@ -1015,7 +1025,9 @@ struct FixRow: View {
         case .lookUp: return "magnifyingglass"
         case .quitApp: return "xmark.circle"
         case .share: return "square.and.arrow.up"
-        case .info: return "lightbulb"
+        case .openApp: return "arrow.up.forward.app"
+        case .reveal: return "folder"
+        case .guide: return "list.bullet"
         case .openPage: return "gearshape"
         case .pauseJob, .pauseSync: return "pause.circle"
         case .chromeLimit: return "memorychip"
@@ -1028,6 +1040,9 @@ struct FixRow: View {
     var runUntil: (Fix, Date) -> Void = { _, _ in }
     @State private var choosing = false
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
+    /// For an option that shows how: the steps, shown under it once pressed.
+    var guideSteps: String? { if case .guide(let steps) = fix.kind { return steps }; return nil }
+    @State private var showingSteps = false
     /// 1 hour, 3 hours, and until 8pm while that is more than an hour away.
     var pauseChoices: [(String, Date)] {
         let now = Date()
@@ -1040,7 +1055,7 @@ struct FixRow: View {
 
     /// Opens something outside Cool Head (a web search, an app's settings, a sync app): an arrow out, not along.
     var opensElsewhere: Bool {
-        switch fix.kind { case .lookUp, .openPage, .pauseSync: return true; default: return false }
+        switch fix.kind { case .lookUp, .openPage, .pauseSync, .openApp, .reveal: return true; default: return false }
     }
     /// Closes or ends something: its icon in red, so the risk shows at a glance.
     var ends: Bool {
@@ -1054,24 +1069,15 @@ struct FixRow: View {
 
     // Each option is its own bordered tile, title and what it does inside it, with an arrow at the end: plainly a
     // button, plainly separate from the next (Phil, 15 November 2026: "the options provided lack clear delineation
-    // between them, and don't look clearly clickable"). Advice with nothing to press has no tile and no arrow.
+    // between them, and don't look clearly clickable"). Every option is one (Phil, 16 November 2026): what Cool Head
+    // can't do itself opens the app where it's done, or shows the steps right under it.
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if fix.kind == .info {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Image(systemName: "lightbulb").frame(width: 22).foregroundStyle(Ink.muted)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(title).font(.callout.weight(.semibold))
-                            if recommended { RecommendedTag(onAccent: false) }
-                        }
-                        if !line.isEmpty { Text(line).font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
-                    }
-                }
-                .padding(.horizontal, 11).padding(.vertical, 4)
-                .accessibilityElement(children: .combine)
-            } else {
-                Button { if isSyncPause { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } } else { run(fix) } } label: {
+                Button {
+                    if isSyncPause { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } }
+                    else if guideSteps != nil { withAnimation(.easeOut(duration: 0.15)) { showingSteps.toggle() } }
+                    else { run(fix) }
+                } label: {
                     HStack(alignment: .center, spacing: 10) {
                         Image(systemName: icon).font(.body).frame(width: 22)
                             .foregroundStyle(recommended ? Color.white : ends ? Color.red : Color.accentColor)
@@ -1085,7 +1091,7 @@ struct FixRow: View {
                             }
                         }
                         Spacer(minLength: 6)
-                        Image(systemName: opensElsewhere ? "arrow.up.right" : isSyncPause && choosing ? "chevron.down" : "chevron.right")
+                        Image(systemName: opensElsewhere ? "arrow.up.right" : (isSyncPause && choosing) || (guideSteps != nil && showingSteps) ? "chevron.down" : "chevron.right")
                             .font(.callout.weight(.bold)).opacity(0.75)
                             .help(opensElsewhere ? "Opens another app or your browser" : "")
                     }
@@ -1102,7 +1108,13 @@ struct FixRow: View {
                     }
                     .padding(.leading, 11)
                 }
-            }
+                if showingSteps, let steps = guideSteps {
+                    Text(steps)
+                        .font(.callout).foregroundStyle(Ink.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 11).padding(.vertical, 2)
+                        .onTapGesture {}              // reading the steps doesn't close the card
+                }
         }
     }
 }

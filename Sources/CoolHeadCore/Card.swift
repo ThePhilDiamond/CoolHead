@@ -47,7 +47,12 @@ public struct Fix: Identifiable {
         case cooler              // background priority: slower CPU and disk access, less heat
         case lookUp(String)      // a web search for this process name only
         case quitApp(String)     // a normal quit of the app at this bundle path, so it can ask to save
-        case info                // advice with nothing to press
+        // Every option is a button (Phil, 16 November 2026: "It's incongruous and unintuitive to have a mix of buttons and
+        // non-buttons. If I click something, even if it just navigates to a guide or explanation how to do the task, it
+        // would be better than a non-button."). What Cool Head can't do itself, it takes you to, or shows how:
+        case openApp(String, String)    // bring this app (bundle path) forward, then say these steps
+        case reveal(String, String)     // show this folder in Finder, then say these steps
+        case guide(String)              // show these steps under the option
         case share               // show the anonymised case report, then offer to open it as a GitHub issue
         case openPage(String, String)   // open a page of an app's own settings in that app: bundle path, address
         case pauseJob            // SIGSTOP until the Mac is plugged in; resumed then, or on request, or when Cool Head quits
@@ -62,6 +67,19 @@ public struct Fix: Identifiable {
     public let consequence: String
     public let kind: Kind
     public var recommended = false
+
+    /// An option that opens an app and says what to do there.
+    public static func openApp(_ id: String, _ title: String, bundle: String, steps: String, recommended: Bool = false) -> Fix {
+        let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
+        return Fix(id: id, title: title, consequence: "Opens \(app). \(steps)", kind: .openApp(bundle, steps), recommended: recommended)
+    }
+
+    /// An option that shows how to do something Cool Head can't do itself: `steps` appear under it when pressed.
+    public static func guide(_ id: String, _ title: String, _ consequence: String, steps: String, recommended: Bool = false) -> Fix {
+        Fix(id: id, title: title, consequence: consequence, kind: .guide(steps), recommended: recommended)
+    }
+
+    static let activityMonitor = "/System/Applications/Utilities/Activity Monitor.app"
 }
 
 /// What the user sees: one sentence saying what it is and whether it is fine; behind "Explore fixes", a short
@@ -93,7 +111,7 @@ public struct Card {
         switch f.kind {
         case .cooler, .pauseJob, .chromeLimit, .resume: return 1
         case .pauseSync: return 2
-        case .info, .openPage: return f.id == "nostop" ? 7 : 2
+        case .openPage, .openApp, .reveal, .guide: return 2
         case .lookUp: return 3
         case .restartBrowser: return 3     // closes the browser, but its tabs come back: less loss than quitting
         case .quitApp, .forceQuit: return 4
@@ -109,6 +127,7 @@ public struct Card {
         fixes.contains { f in
             switch f.kind {
             case .cooler, .stop, .quitApp, .lookUp, .openPage, .pauseJob, .pauseSync, .chromeLimit, .resume, .forceQuit, .restartBrowser: return true
+            // opening an app, showing a folder or showing how help, but don't act on the cause
             default: return false
             }
         }
@@ -183,7 +202,14 @@ public struct Card {
             if long {
                 if k.whenLong == "Look it up" { fixes.append(lookUp(e.name, recommended: true)) }
                 else {
-                    fixes.append(Fix(id: "advice", title: k.whenLong, consequence: k.risk ?? "", kind: .info, recommended: true))
+                    // what the catalogue advises, as a button: open the app it's about, or Activity Monitor to find the heat
+                    if k.whenLong.hasPrefix("Find what is heating") {
+                        fixes.append(Fix.openApp("advice", k.whenLong, bundle: Fix.activityMonitor, steps: "Click % CPU to put the busiest first.", recommended: true))
+                    } else if let b = e.appBundle {
+                        fixes.append(Fix.openApp("advice", k.whenLong, bundle: b, steps: k.risk ?? "", recommended: true))
+                    } else {
+                        fixes.append(Fix.guide("advice", k.whenLong, k.risk ?? "", steps: k.risk ?? k.whenLong, recommended: true))
+                    }
                     fixes.append(lookUp(e.name, recommended: false))
                 }
                 fixes.append(wait(until: nil, now: now, recommended: false))
@@ -194,11 +220,12 @@ public struct Card {
             if let bundle = e.quittableBundle, let app = e.quittableApp, k.risk != nil, k.whenLong.hasPrefix("Quit") {
                 fixes.append(Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(bundle)))
             }
-            if !e.mine { fixes.append(Fix(id: "nostop", title: "macOS needs this", consequence: "Stopping it would just restart it.", kind: .info)) }
             let head = !active ? "\(k.doing). It's quiet now."
                 : long ? "\(k.doing), for \(Fmt.duration(busyFor)). That's longer than usual."
                 : "\(k.doing). That's normal."
-            return Card(state: !active ? .quiet : long ? .unknown : .working, headline: head, explanation: explanation, fixes: fixes)
+            // a statement, not an option: macOS restarts its own programs
+            return Card(state: !active ? .quiet : long ? .unknown : .working, headline: head,
+                        explanation: explanation + (e.mine ? "" : " macOS needs it: stopping it would just restart it."), fixes: fixes)
         }
 
         // security, device management and VPN software: never stopped, slowed or quit (from System Sentinel's review,
@@ -208,9 +235,10 @@ public struct Card {
             let vpn = product.kind == .vpn
             return Card(state: .working,
                         headline: vpn ? "\(product.name) is your VPN, handling your network traffic." : "\(product.name) is security software, checking files as they're used.",
-                        explanation: "Cool Head won't stop or slow it: that could leave your Mac unprotected or break your organization's rules.",
-                        fixes: [vpn ? Fix(id: "disconnect", title: "Disconnect when you don't need it", consequence: "From its menu bar icon.", kind: .info)
-                                    : Fix(id: "tellit", title: "Tell whoever manages this Mac", consequence: "If it's busy for hours. It may be stuck scanning a big folder.", kind: .info)])
+                        explanation: "Cool Head won't stop or slow it: that could leave your Mac unprotected or break your organization's rules."
+                            + (vpn ? "" : " If it's busy for hours, tell whoever manages this Mac: it may be stuck scanning a big folder."),
+                        fixes: [vpn ? e.appBundle.map { Fix.openApp("disconnect", "Disconnect when you don't need it", bundle: $0, steps: "Disconnect there, or from its menu bar icon.") } : nil,
+                                lookUp(product.name, recommended: false)].compactMap { $0 })
         }
 
         // sync apps: catching up is normal, and pausing loses nothing; slowing or quitting come after
@@ -243,7 +271,7 @@ public struct Card {
             let canCool = e.mine && e.coresNow >= 0.5 && part != .graphics     // slowing graphics would slow all of it
             let page = { (url: String, title: String, why: String, rec: Bool) in
                 Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
-            let find = Fix(id: "find", title: part == .extensionPart ? "Find the busy extension" : "Find the busy tab", consequence: "In \(app): Window ▸ Task Manager, sort by CPU.", kind: .info)
+            let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Then Window ▸ Task Manager, and sort by CPU.")
             let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle))
             var fixes: [Fix?]
             switch part {
@@ -281,7 +309,8 @@ public struct Card {
                         headline: webkitGPU ? "A web page is drawing a lot: video or animation." : "A \(app) tab is working hard.",
                         explanation: webkitGPU ? "The process that draws web pages \(used) Usually a Safari tab; other apps that show web pages have one too."
                             : "One tab or extension \(used) Only \(app) knows which.",
-                        fixes: [Fix(id: "find", title: "Find the busy tab", consequence: "In \(app): \(tm), sort by CPU.", kind: .info, recommended: true),
+                        fixes: [(e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Then \(tm), and sort by CPU.", recommended: true) }
+                                    ?? Fix.guide("find", "Find the busy tab", "In \(app): \(tm), sort by CPU.", steps: "In \(app), choose \(tm), then sort by CPU. The busiest tab is at the top.", recommended: true),
                                 (e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp($0)) },
                                 lookUp(e.name, recommended: false),
                                 wait(until: nil, now: now, recommended: false)].compactMap { $0 })
@@ -296,7 +325,7 @@ public struct Card {
             if !active { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }
             return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
                         explanation: "That's normal while you play." + gpuLine + (warm ? " It's adding to the heat." : ""),
-                        fixes: [Fix(id: "settings", title: "Lower its graphics settings", consequence: "In the game's settings: lower quality or frame rate. Less heat, still smooth.", kind: .info, recommended: warm),
+                        fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower quality or frame rate. Less heat, still smooth.", recommended: warm),
                                 Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game))])
         }
 
