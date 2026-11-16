@@ -61,6 +61,6 @@ public struct SyncFeed: Equatable {
     public func fix(_ sync: String, recommended: Bool) -> Fix {
         let steps = "Move it to a folder \(sync) doesn't sync, such as one in your home folder, or exclude it in \(sync)'s settings."
         return Fix(id: "movebuild", title: "Keep \(folder) out of synced folders", consequence: "Shows it in Finder. " + steps,
-                   kind: .reveal(path, steps), recommended: recommended)
+                   kind: .reveal(path, steps), recommended: recommended).fixingTheCause()
     }
 }

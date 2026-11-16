@@ -6,7 +6,10 @@ struct PanelView: View {
     let watcher: Watcher
     @AppStorage("welcomed") private var welcomed = false
     // a screenshot limited to some cards shows neither, so it shows the cards as anyone would see them day to day
-    @State private var whatsNew = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] != nil ? nil : WhatsNew.pending
+    @State private var whatsNew = PanelView.limitedSnapshot ? nil : WhatsNew.pending
+    /// A screenshot limited to some cards (COOLHEAD_SNAPSHOT_ONLY) or to example cards (COOLHEAD_SNAPSHOT_SAMPLES):
+    /// no welcome or What's new, and the header follows only the cards shown.
+    static let limitedSnapshot = ["COOLHEAD_SNAPSHOT_ONLY", "COOLHEAD_SNAPSHOT_SAMPLES"].contains { ProcessInfo.processInfo.environment[$0] != nil }
 
     /// The middle scrolls; the panel grows with it up to this height, so it stays easy to read.
     static var maxMiddle: CGFloat { min(560, (NSScreen.main?.visibleFrame.height ?? 900) * 0.62) }
@@ -28,7 +31,7 @@ struct PanelView: View {
             // scrolls once it is taller than the limit
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    if !welcomed && ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] == nil { WelcomeCard { welcomed = true; WhatsNew.markSeen() } }
+                    if !welcomed && !PanelView.limitedSnapshot { WelcomeCard { welcomed = true; WhatsNew.markSeen() } }
                     else if let notes = whatsNew { WhatsNewCard(notes: notes) { WhatsNew.markSeen(); whatsNew = nil } }
                     UpdateBanner()
                     ForEach(watcher.notices, id: \.self) { n in
@@ -70,12 +73,19 @@ struct PanelView: View {
     /// so a screenshot never shows the person's own processes.
     /// The header's level: the watcher's, except in a screenshot limited to some cards, where it follows only those.
     var level: Watcher.Level {
-        guard ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] != nil else { return watcher.level }
+        guard PanelView.limitedSnapshot else { return watcher.level }
         if shownCards.contains(where: { $0.severity >= 2 }) { return .issue }
         return shownCards.contains(where: { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }) ? .warning : .good
     }
 
     var shownCards: [LiveCard] {
+        // COOLHEAD_SNAPSHOT_SAMPLES shows example cards (as `coolhead wording` names them, separated by |) in place of
+        // this Mac's, so a screenshot can show any kind of card and never the person's own processes
+        if let names = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"] {
+            let wanted = names.split(separator: "|").map(String.init)
+            let samples = Wording.samples()
+            return wanted.compactMap { w in samples.first { $0.0 == w }.map { LiveCard.sample($0.0, $0.1) } }
+        }
         guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards }
         let phrases = only.split(separator: "|").map(String.init)      // several phrases, separated by |
         return watcher.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }
@@ -108,6 +118,20 @@ struct PanelView: View {
     }
 }
 
+/// Over each group of options: what pressing one means, in words, once for the group.
+struct GroupHeading: View {
+    let doer: Fix.Doer
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: doer == .coolHead ? "bolt.fill" : "hand.point.up.left.fill")
+            Text(doer == .coolHead ? "ONE CLICK" : "DO IT YOURSELF").fontWeight(.bold).tracking(0.5)
+            Text(doer == .coolHead ? "Cool Head does it for you" : "Cool Head takes you there and shows how").foregroundStyle(Ink.muted)
+        }
+        .font(.caption)
+        .foregroundStyle(Ink.text)
+    }
+}
+
 struct CardView: View {
     let live: LiveCard
     let watcher: Watcher
@@ -122,6 +146,16 @@ struct CardView: View {
     // (Phil, 15 November 2026). They're worked out afresh the next time the panel opens.
     @State private var acted = false
     @State private var sharing = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SHARE"] != nil  // screenshots
+
+    /// The options in two groups: what Cool Head does in one click, then what you do, with Cool Head taking you there or
+    /// showing the steps (Phil, 16 November 2026: "I think the grouped layout is great"; "I think one click first is
+    /// right"). Each group keeps the card's order: the recommendation, then what does most about the problem.
+    var groups: [(Fix.Doer, [Fix])] {
+        [Fix.Doer.coolHead, .you].compactMap { d in
+            let fs = live.card.fixes.filter { $0.doer == d }
+            return fs.isEmpty ? nil : (d, fs)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -173,9 +207,13 @@ struct CardView: View {
                     if acted {
                         noteView
                     } else {
-                        ForEach(live.card.fixes) { f in
-                            FixRow(fix: f, cooled: watcher.isCooled(live), run: { act($0) }, runUntil: { act($0, until: $1) })
-                            if noteFor == f.id { noteView }
+                        ForEach(groups, id: \.0) { doer, fixes in
+                            GroupHeading(doer: doer).padding(.top, doer == groups.first?.0 ? 0 : 4)
+                            ForEach(fixes) { f in
+                                FixRow(fix: f, cooled: watcher.isCooled(live), betterThanRecommended: live.card.betterThanRecommended.contains { $0.id == f.id },
+                                       run: { act($0) }, runUntil: { act($0, until: $1) })
+                                if noteFor == f.id { noteView }
+                            }
                         }
                         // an option that's no longer listed (the card changed): the note goes at the end
                         if note != nil, !live.card.fixes.contains(where: { $0.id == noteFor }) { noteView }
@@ -1029,6 +1067,16 @@ struct Frost: View {
 struct FixRow: View {
     let fix: Fix
     let cooled: Bool
+    /// A task that does more about the problem than the recommended option: says "Fixes the cause".
+    var betterThanRecommended = false
+    /// The label in the option's bottom right corner (Phil, 16 November 2026: "smaller and justified in the bottom right
+    /// corner"): Caution for what interrupts or ends something, or Fixes the cause for a task that does more than the
+    /// recommendation. Never both: the options that need Caution are all ones Cool Head does.
+    var tag: OptionTag? {
+        if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red) }
+        if betterThanRecommended { return OptionTag(words: "FIXES THE CAUSE", symbol: "checkmark.seal.fill", color: .green) }
+        return nil
+    }
     let run: (Fix) -> Void
 
     /// A picture for each kind of option, so the list scans at a glance.
@@ -1100,26 +1148,30 @@ struct FixRow: View {
                     else if guideSteps != nil { withAnimation(.easeOut(duration: 0.15)) { showingSteps.toggle() } }
                     else { run(fix) }
                 } label: {
-                    HStack(alignment: .center, spacing: 10) {
+                    HStack(alignment: tag == nil ? .center : .top, spacing: 10) {
                         Image(systemName: icon).font(.body).frame(width: 22)
-                            .foregroundStyle(recommended ? Color.white : ends ? Color.red : Color.accentColor)
+                            .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : ends ? Color.red : Color.accentColor)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(title).font(.callout.weight(.semibold))
-                                if recommended { RecommendedTag(onAccent: true) }
+                                if recommended { RecommendedTag(onAccent: fix.doer == .coolHead) }
                             }
                             if !line.isEmpty {
-                                Text(line).font(.callout).opacity(0.8).fixedSize(horizontal: false, vertical: true)
+                                // the last line keeps room for the corner label, so the label never covers words
+                                (Text(line) + (tag.map { OptionTag.room($0.words) } ?? Text("")))
+                                    .accessibilityLabel(line)
+                                    .font(.callout).opacity(0.8).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         Spacer(minLength: 6)
                         Image(systemName: opensElsewhere ? "arrow.up.right" : (isSyncPause && choosing) || (guideSteps != nil && showingSteps) ? "chevron.down" : "chevron.right")
                             .font(.callout.weight(.bold)).opacity(0.75)
+                            .padding(.top, tag == nil ? 0 : 2)          // at the top, clear of the corner label
                             .help(opensElsewhere ? "Opens another app or your browser" : "")
                     }
                     .multilineTextAlignment(.leading)
                 }
-                .buttonStyle(OptionStyle(recommended: recommended))
+                .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: tag))
                 .accessibilityHint(line)
                 if choosing {
                     HStack(spacing: 6) {
@@ -1154,22 +1206,42 @@ struct FixRow: View {
 /// darkens when pressed. The recommended one is filled with the accent colour, in white.
 struct OptionStyle: ButtonStyle {
     let recommended: Bool
-    func makeBody(configuration: Configuration) -> some View { OptionTile(configuration: configuration, recommended: recommended) }
+    /// A task for you (Cool Head opens the place or shows the steps): an outline with a dashed border and no fill.
+    /// What Cool Head does itself stays a filled, solid tile.
+    let yours: Bool
+    var tag: OptionTag? = nil
+    func makeBody(configuration: Configuration) -> some View { OptionTile(configuration: configuration, recommended: recommended, yours: yours, tag: tag) }
 
     struct OptionTile: View {
         let configuration: ButtonStyleConfiguration
         let recommended: Bool
+        let yours: Bool
+        let tag: OptionTag?
         @State private var hovering = false
         var body: some View {
             let shape = RoundedRectangle(cornerRadius: 9)
             let wash: Double = configuration.isPressed ? 0.22 : hovering ? 0.13 : 0.07
+            let line = Color.primary.opacity(hovering ? 0.55 : 0.4)
+            let filled = recommended && !yours
             configuration.label
-                .foregroundStyle(recommended ? Color.white : Ink.text)
+                .foregroundStyle(filled ? Color.white : Ink.text)
                 .padding(.horizontal, 11).padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(shape.fill(recommended ? AnyShapeStyle(Color.accentColor.opacity(configuration.isPressed ? 0.75 : hovering ? 0.9 : 1))
-                                                   : AnyShapeStyle(Color.primary.opacity(wash))))
-                .overlay(shape.strokeBorder(recommended ? Color.clear : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1))
+                .background(shape.fill(filled ? AnyShapeStyle(Color.accentColor.opacity(configuration.isPressed ? 0.75 : hovering ? 0.9 : 1))
+                                       : yours ? AnyShapeStyle(Color.primary.opacity(configuration.isPressed ? 0.12 : hovering ? 0.05 : 0))
+                                       : AnyShapeStyle(Color.primary.opacity(wash))))
+                .overlay {
+                    if yours {
+                        shape.strokeBorder(recommended ? Color.accentColor : line, style: StrokeStyle(lineWidth: recommended ? 1.6 : 1.3, dash: [4, 3]))
+                    } else {
+                        shape.strokeBorder(filled ? Color.clear : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1)
+                    }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if let tag {
+                        OptionTag(words: tag.words, symbol: tag.symbol, color: tag.color, onAccent: filled).padding(.trailing, 7).padding(.bottom, 6)
+                    }
+                }
                 .contentShape(shape)
                 .onHover { h in
                     hovering = h
@@ -1193,12 +1265,43 @@ struct RecommendedButton: ButtonStyle {
     }
 }
 
+/// A small label in an option's bottom right corner, with a symbol, in its colour.
+struct OptionTag: View {
+    let words: String
+    let symbol: String
+    let color: Color
+    var onAccent = false
+    static let font = NSFont.systemFont(ofSize: 8.5, weight: .bold)
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol)
+            Text(words).tracking(0.5)
+        }
+        .font(Font(OptionTag.font))
+        .foregroundStyle(onAccent ? Color.white : color)
+        .padding(.horizontal, 5).padding(.vertical, 1.5)
+        .background(Capsule().fill(onAccent ? Color.white.opacity(0.22) : color.opacity(0.13)))
+        .fixedSize()
+    }
+    /// Room for the label at the end of the option's last line. The arrow's column already leaves about 49 points clear
+    /// at the right of the text; only a label wider than that needs more. The room is invisible letters, not spaces:
+    /// spaces at the end of a line hang past its edge instead of moving words down, so they'd let the label cover them.
+    static func room(_ words: String) -> Text {
+        let width = (words as NSString).size(withAttributes: [.font: font, .kern: 0.5]).width + 10 + 12 + 3   // ends, symbol, gap
+        let needed = width + 7 + 4 - 49                                                                     // its inset, and a gap
+        guard needed > 0 else { return Text("") }
+        let m = ("M" as NSString).size(withAttributes: [.font: NSFont.preferredFont(forTextStyle: .callout)]).width
+        return Text(" ") + Text(String(repeating: "M", count: Int((needed / m).rounded(.up)))).foregroundStyle(.clear)
+    }
+}
+
 /// "Recommended", as a small rounded tag beside the option's name.
 struct RecommendedTag: View {
     let onAccent: Bool
     var body: some View {
         Text("Recommended")
             .font(.caption2.weight(.semibold))
+            .fixedSize()
             .padding(.horizontal, 6).padding(.vertical, 1.5)
             .foregroundStyle(onAccent ? Color.accentColor : .white)
             .background(Capsule().fill(onAccent ? Color.white.opacity(0.92) : Color.accentColor))
@@ -1241,12 +1344,28 @@ struct SmallSwitch: View {
             Text(label).fixedSize().onTapGesture { isOn.toggle() }
             Toggle(label, isOn: $isOn)
                 .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .scaleEffect(0.78)
-                .frame(width: 30, height: 14)
+                .toggleStyle(PanelSwitch())
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// A switch drawn by Cool Head, filled with the accent colour when on. macOS's own switch draws "on" in grey unless its
+/// window belongs to the app in front, and the panel never makes Cool Head the app in front (it opens without taking
+/// focus from what you're using), so the system switch looked off when it was on (Phil, 16 November 2026: "the toggles
+/// seem to not show the fill when toggled \"on\"").
+struct PanelSwitch: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let on = configuration.isOn
+        Capsule()
+            .fill(on ? Color.accentColor : Color.primary.opacity(0.2))
+            .frame(width: 24, height: 14)
+            .overlay(alignment: on ? .trailing : .leading) {
+                Circle().fill(Color.white).shadow(color: .black.opacity(0.25), radius: 0.5, y: 0.5).padding(1.5)
+            }
+            .animation(.easeOut(duration: 0.12), value: on)
+            .contentShape(Capsule())
+            .onTapGesture { configuration.isOn.toggle() }
     }
 }
 

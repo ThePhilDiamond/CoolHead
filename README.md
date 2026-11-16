@@ -25,7 +25,7 @@ Activity Monitor shows numbers. Cool Head reads what a busy process is actually 
 
 > **Memory is tight. Google Chrome is using the most (3.7 GB).**
 
-A card worth watching has **Explore fixes**; a calm one has **Learn more**. Behind it are the options, always in the same order: the recommended one first, marked **Recommended**; then ones you can undo; then ones that close or lose something, least loss first. Each says in a few words what it would do. The clock in a card's corner hides it for 10 minutes, 30 minutes, or an hour, and it comes back sooner if things get worse.
+A card worth watching has **Explore fixes**; a calm one has **Learn more**. Behind it are the options in two groups: **One click**, which Cool Head does for you, then **Do it yourself**, where Cool Head takes you to the right place and shows how. A safe one-click option is recommended over a task, marked **Recommended**; within each group, the options that do the most come first. An option that interrupts or closes something is tagged **Caution**, and a task that does more than the recommended option, by fixing the cause, is tagged **Fixes the cause**. Each says in a few words what it would do. The clock in a card's corner hides it for 10 minutes, 30 minutes, or an hour, and it comes back sooner if things get worse.
 
 It keeps a cool head: a big job isn't a problem just because it's big, and stopping is recommended only when a job has stalled. When Cool Head can't tell, it says so.
 

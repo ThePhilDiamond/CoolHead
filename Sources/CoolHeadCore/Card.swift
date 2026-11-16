@@ -67,6 +67,11 @@ public struct Fix: Identifiable {
     public let consequence: String
     public let kind: Kind
     public var recommended = false
+    /// Set where the option is made when it differs from its kind's usual result (see `result`).
+    public var resultOverride: Result? = nil
+    /// Offered, but never made the recommendation by the one-click rule (see `Card.init`): set where the option is made,
+    /// for a reason that place knows (slowing the tab you're using, for one).
+    public var holdBack = false
 
     /// An option that opens an app and says what to do there.
     public static func openApp(_ id: String, _ title: String, bundle: String, steps: String, recommended: Bool = false) -> Fix {
@@ -80,6 +85,87 @@ public struct Fix: Identifiable {
     }
 
     static let activityMonitor = "/System/Applications/Utilities/Activity Monitor.app"
+
+    /// Who does the work when this option is pressed: Cool Head itself, or you, with Cool Head opening the place or
+    /// showing the steps. The two look different in the panel (Phil, 16 November 2026: "I want a clear visual cue for
+    /// 'buttons' that are a task for the user versus an automated action done by Cool Head.").
+    public enum Doer { case coolHead, you }
+    public var doer: Doer {
+        // one kind per line, with no default, so a new kind can't be added without saying who does it
+        switch kind {
+        case .wait: return .coolHead
+        case .stop: return .coolHead
+        case .cooler: return .coolHead
+        case .quitApp: return .coolHead
+        case .pauseJob: return .coolHead
+        case .chromeLimit: return .coolHead
+        case .resume: return .coolHead
+        case .forceQuit: return .coolHead
+        case .restartBrowser: return .coolHead
+        case .lookUp: return .you          // opens a web search for you to read
+        case .openApp: return .you         // opens the app; you do the steps there
+        case .reveal: return .you          // shows the folder in Finder; you do the steps there
+        case .guide: return .you           // shows the steps
+        case .openPage: return .you        // opens the settings page; you change it
+        case .pauseSync: return .you       // opens the sync app; you pause it there (Cool Head only reminds you)
+        case .share: return .you           // shows the report; you choose whether to send it
+        }
+    }
+
+    /// What pressing it does about the problem: ends the cause, eases it, or only tells you more. Options are ordered
+    /// by this within their group, and a task that fixes the cause says so beside a one-click recommendation that
+    /// doesn't (Phil, 16 November 2026: "we need to make it clear when a manual task would have better results").
+    public enum Result: Int, Comparable {
+        case informs = 0, eases = 1, fixesCause = 2
+        public static func < (a: Result, b: Result) -> Bool { a.rawValue < b.rawValue }
+    }
+    public var result: Result {
+        if let resultOverride { return resultOverride }
+        switch kind {
+        case .wait: return .informs
+        case .stop: return .fixesCause
+        case .cooler: return .eases
+        case .lookUp: return .informs
+        case .quitApp: return .fixesCause
+        case .openApp: return .eases
+        case .reveal: return .eases
+        case .guide: return .eases
+        case .share: return .informs
+        case .openPage: return .eases
+        case .pauseJob: return .eases
+        case .pauseSync: return .eases
+        case .chromeLimit: return .eases
+        case .resume: return .fixesCause
+        case .forceQuit: return .fixesCause
+        case .restartBrowser: return .fixesCause
+        }
+    }
+    /// The same option, marked as one that ends the cause.
+    public func fixingTheCause() -> Fix { var f = self; f.resultOverride = .fixesCause; return f }
+
+    /// Interrupts or ends something, so something may be lost: labelled Caution, with a warning sign, in its group
+    /// (Phil, 16 November 2026: "CAUTION recommendations should still be in the two groups, just with a large/clear
+    /// label and warning icon").
+    public var caution: Bool {
+        switch kind {
+        case .stop: return true
+        case .quitApp: return true
+        case .forceQuit: return true
+        case .restartBrowser: return true
+        case .wait: return false
+        case .cooler: return false
+        case .lookUp: return false
+        case .openApp: return false
+        case .reveal: return false
+        case .guide: return false
+        case .share: return false
+        case .openPage: return false
+        case .pauseJob: return false
+        case .pauseSync: return false
+        case .chromeLimit: return false
+        case .resume: return false
+        }
+    }
 }
 
 /// What the user sees: one sentence saying what it is and whether it is fine; behind "Explore fixes", a short
@@ -97,12 +183,33 @@ public struct Card {
         // Waiting isn't an option in the list: each card has a clock in its corner for that (10 minutes, 30 minutes or
         // an hour, never "until it's done"). The rest in one fixed order (Phil, 15 November 2026).
         var seen = false
-        let kept = fixes.filter { if case .wait = $0.kind { return false }; return true }.map { f -> Fix in
+        var kept = fixes.filter { if case .wait = $0.kind { return false }; return true }.map { f -> Fix in
             var f = f
             if f.recommended { if seen { f.recommended = false }; seen = true }    // one recommendation at most
             return f
         }
-        self.fixes = kept.enumerated().sorted { (Card.rank($0.element), $0.offset) < (Card.rank($1.element), $1.offset) }.map(\.element)
+        // One click first (Phil, 16 November 2026: "I think one click first is right, but we need to make it clear when
+        // a manual task would have better results"): where a card recommends something, and that is a task for you, an
+        // option Cool Head can do in one click without interrupting anything is recommended instead, the one that does
+        // most about the problem. A task that does more says so ("Fixes the cause"). A recommendation that interrupts
+        // (stopping a stuck job) was chosen for its card's reason, and stays.
+        if let rec = kept.first(where: \.recommended), rec.doer == .you, !rec.caution,
+           let i = kept.indices.filter({ kept[$0].doer == .coolHead && !kept[$0].caution && !kept[$0].holdBack && kept[$0].result >= .eases })
+                .max(by: { (kept[$0].result, -Card.rank(kept[$0]), -$0) < (kept[$1].result, -Card.rank(kept[$1]), -$1) }) {
+            for k in kept.indices { kept[k].recommended = k == i }
+        }
+        // the recommendation first; then what does most about the problem; then, at the same, what interrupts nothing;
+        // then the fixed order of kinds (see `rank`)
+        func key(_ f: Fix, _ at: Int) -> (Int, Int, Int, Int, Int) { (f.recommended ? 0 : 1, -f.result.rawValue, f.caution ? 1 : 0, Card.rank(f), at) }
+        self.fixes = kept.enumerated().sorted { key($0.element, $0.offset) < key($1.element, $1.offset) }.map(\.element)
+    }
+
+    /// Tasks for you that do more about the problem than the recommended option: shown with "Fixes the cause", so a
+    /// better result is clear even below the one-click options. (An option Cool Head does that fixes the cause by
+    /// quitting or stopping something is labelled Caution instead.)
+    public var betterThanRecommended: [Fix] {
+        guard let rec = recommended, rec.result < .fixesCause else { return [] }
+        return fixes.filter { !$0.recommended && $0.doer == .you && $0.result == .fixesCause }
     }
 
     /// The order every card's options are shown in, so they read the same way everywhere: the recommended option;
@@ -309,18 +416,18 @@ public struct Card {
             let canCool = e.mine && e.coresNow >= 0.5 && part != .graphics     // slowing graphics would slow all of it
             let page = { (url: String, title: String, why: String, rec: Bool) in
                 Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
-            let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.")
+            let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.").fixingTheCause()
             let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle))
             var fixes: [Fix?]
             switch part {
             case .tab:
-                fixes = [canCool ? Fix(id: "cooler", title: "Run this tab cooler", consequence: "Only this tab slows. Undo any time.", kind: .cooler, recommended: !inFront) : nil,
+                fixes = [canCool ? Fix(id: "cooler", title: "Run this tab cooler", consequence: "Only this tab slows. Undo any time.", kind: .cooler, recommended: !inFront, holdBack: inFront) : nil,
                          page("chrome://settings/performance", "Turn on Energy Saver", "Takes you to \(app)'s Performance settings. Less background work, lower frame rates.", inFront || !canCool),
                          find,
                          e.mine ? Fix(id: "closetab", title: "Close just that tab", consequence: "It shows a crash page; Reload brings it back. Anything typed in it is lost.", kind: .stop) : nil,
                          quit]
             case .extensionPart:
-                fixes = [page("chrome://extensions", "Turn off the extension", "Takes you to \(app)'s extensions page. Switch off the one you don't need.", true),
+                fixes = [page("chrome://extensions", "Turn off the extension", "Takes you to \(app)'s extensions page. Switch off the one you don't need.", true).fixingTheCause(),
                          canCool ? Fix(id: "cooler", title: "Run it cooler", consequence: "Only this extension slows. Undo any time.", kind: .cooler) : nil,
                          find,
                          e.mine ? Fix(id: "stopext", title: "Stop the extension", consequence: "\(app) says it crashed. Reload it from the extensions page.", kind: .stop) : nil,
@@ -347,8 +454,8 @@ public struct Card {
                         headline: webkitGPU ? "A web page is drawing a lot: video or animation." : "A \(app) tab is working hard.",
                         explanation: (webkitGPU ? "The process that draws web pages \(used) It's usually a Safari tab, though other apps that show web pages have one too."
                             : "One tab or extension \(used) Only \(app) knows which.") + Fmt.its([gpuLed ? nil : gpuClause]),
-                        fixes: [(e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Choose \(tm), then click CPU to put the busiest first.", recommended: true) }
-                                    ?? Fix.guide("find", "Find the busy tab", "In \(app), choose \(tm) and click CPU.", steps: ["In \(app), choose \(tm).", "Click CPU to put the busiest tab first.", "Close it, or reload it if you need it."], recommended: true),
+                        fixes: [((e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Choose \(tm), then click CPU to put the busiest first.", recommended: true) }
+                                    ?? Fix.guide("find", "Find the busy tab", "In \(app), choose \(tm) and click CPU.", steps: ["In \(app), choose \(tm).", "Click CPU to put the busiest tab first.", "Close it, or reload it if you need it."], recommended: true)).fixingTheCause(),
                                 (e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp($0)) },
                                 lookUp(e.name, recommended: false),
                                 wait(until: nil, now: now, recommended: false)].compactMap { $0 })

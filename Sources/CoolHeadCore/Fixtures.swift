@@ -21,6 +21,7 @@ public struct Fixture {
         graphicsChipChecks,
         hangChecks,
         namingChecks,
+        optionChecks,
         syncAndSecurityChecks,
     ]
 
@@ -104,11 +105,14 @@ public struct Fixture {
                        "Chrome's helpers count as Chrome; a Python script counts as a job"))
         var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
         let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, chrome: .available(4096))
-        review.append(("memory-browser", browserCard.recommended?.title.hasPrefix("Close Google Chrome's heaviest tabs") == true
+        // One Click First (Phil, 16 November 2026): Limit Chrome is recommended; closing the heaviest tabs fixes the cause
+        review.append(("memory-browser", browserCard.recommended?.id == "chromelimit"
+                       && browserCard.betterThanRecommended.map(\.id) == ["tabs"]
                        && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("Closes all tabs") }
                        && browserCard.headline.contains("Google Chrome is using the most"), browserCard.headline))
-        // Chrome's memory limit (Phil, 15 November 2026: "Yes, with the warning"): offered with the "managed" notice, never
-        // recommended, undoable; not offered when Chrome already has those settings, or for other browsers. Set and
+        // Chrome's memory limit (Phil, 15 November 2026: "Yes, with the warning"): offered with the "managed" notice,
+        // undoable, and recommended under One Click First (Phil, 16 November 2026: "What's the downside to Chrome saying
+        // it's managed by your organization? Seems immaterial to me... I think one click first is right"); not offered when Chrome already has those settings, or for other browsers. Set and
         // removed for real on a scratch settings domain, never on Chrome's.
         let gbs: [UInt64] = [4, 8, 16, 64].map { $0 * 1_073_741_824 }
         // a quarter of memory or Chrome's use now, whichever is lower, whole GB rounded down, at least 2 GB
@@ -139,7 +143,7 @@ public struct Fixture {
         CFPreferencesSetAppValue("MemorySaverModeSavings" as CFString, nil, scratch as CFString); CFPreferencesAppSynchronize(scratch as CFString)
         review.append(("chrome-memory-limit", capMBs == [2048, 2048, 3072, 4096, 9216]
                        && offered?.title == "Limit Chrome to 4 GB" && offered?.consequence.contains("managed by your organization") == true
-                       && offered?.recommended == false && browserCard.fixes.firstIndex { $0.id == "chromelimit" } == 1
+                       && offered?.recommended == true && browserCard.fixes.firstIndex { $0.id == "chromelimit" } == 0
                        && noRemove && secondOffered && notOffered && didSet && wrote && didRemove && leftAlone,
                        "limits \(capMBs); offered \(offered?.title ?? "no"), also when Chrome is second \(secondOffered); once on, no Remove option and the card explains it \(noRemove); set \(didSet) wrote \(wrote) removed \(didRemove); others' settings left alone \(leftAlone)"))
         // a sync app using the most memory: quitting loses nothing, so it says so, and Pause syncing is there too
@@ -150,7 +154,7 @@ public struct Fixture {
                        && driveQuit?.consequence.contains("Nothing is lost") == true && drivePause,
                        "\(driveQuit?.title ?? "no quit"): \(driveQuit?.consequence ?? ""); Pause syncing offered \(drivePause)"))
         // Restart Chrome, keeping your tabs: offered for Chromium browsers among the three biggest, never recommended,
-        // after the options that lose nothing and before Quit, with what doesn't come back said plainly
+        // right before Quit (both Caution, ordered by impact), with what doesn't come back said plainly
         let restartFix = browserCard.fixes.first { $0.id == "restart" }
         let browserOrder = browserCard.fixes.map(\.id).joined(separator: " ")
         let driveOrder = driveFirst.fixes.map(\.id).joined(separator: " ")
@@ -162,7 +166,7 @@ public struct Fixture {
         let restartCard = restartFix?.title == "Restart Google Chrome, keeping your tabs"
             && restartFix?.kind == .restartBrowser("/Applications/Google Chrome.app") && restartFix?.recommended == false
             && restartFix?.consequence == "Closes and reopens Google Chrome, freeing memory it built up. Your tabs come back; Incognito windows, unsent form text, and downloads in progress don't."
-            && browserOrder == "tabs chromelimit saver restart quit" && driveOrder.contains("chromelimit") && driveOrder.hasSuffix("restart quit2")
+            && browserOrder == "chromelimit tabs restart quit saver" && driveOrder == "quit restart quit2 chromelimit pause"
             && edgeRestart?.consequence.contains("InPrivate windows") == true && notChromium.isEmpty
             && BrowserRestart.note(.stillOpen, name: "Google Chrome").text.contains("so it wasn't reopened") && BrowserRestart.note(.stillOpen, name: "Google Chrome").failed
             && !BrowserRestart.note(.restarted(seconds: 3), name: "Google Chrome").failed
@@ -211,9 +215,10 @@ public struct Fixture {
         review.append(("heat-flags-causes", warmCard.explanation.contains("adding to the heat") && !coolCard.explanation.contains("heat")
                        && warmCard.fixes.contains { $0.kind == .cooler } && warmLive.severity == 1 && coolLive.severity == 0,
                        warmCard.explanation))
-        // Phil (15 November 2026), the option order, locked in: recommended first; then options you can undo, most
-        // helpful first; then options that close or lose something, least loss first; then sharing. Waiting is not
-        // in the list (a clock in the card's corner instead).
+        // The option order (Phil, 16 November 2026: "we could label risky actions while keeping them ordered by impact
+        // and grouped by action type which is more intuitive and consistent"): recommended first, and a task for you
+        // gives way to a safe one-click option (One Click First); then by result (fixes the cause, eases, informs); at
+        // equal result, Caution after the rest; then the older ranking. Waiting is not in the list (a clock instead).
         let shuffled = Card(state: .unknown, headline: "", explanation: "", fixes: [
             Fix(id: "share", title: "", consequence: "", kind: .share),
             Fix(id: "stop", title: "", consequence: "", kind: .stop),
@@ -225,9 +230,10 @@ public struct Fixture {
         let order = shuffled.fixes.map(\.id).joined(separator: " ")
         let everyCard = all(now).map { f in Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor), warm: true) }
         let allSorted = everyCard.allSatisfy { c in
-            c.fixes.map(Card.rank) == c.fixes.map(Card.rank).sorted() && !c.fixes.contains { if case .wait = $0.kind { return true }; return false }
+            let keys = c.fixes.map { [$0.recommended ? 0 : 1, -$0.result.rawValue, $0.caution ? 1 : 0, Card.rank($0)] }
+            return keys == keys.sorted { $0.lexicographicallyPrecedes($1) } && !c.fixes.contains { if case .wait = $0.kind { return true }; return false }
                 && c.fixes.filter(\.recommended).count <= 1 }
-        review.append(("option-order", order == "lookup cooler find quit stop share" && allSorted, order))
+        review.append(("option-order", order == "cooler quit stop find lookup share" && allSorted, order))
         // Games are protected (Phil, 15 November 2026): a game is calm and never offered Run it cooler; while warm it
         // recommends lower settings; quitting warns about unsaved progress; other busy work is offered to run cooler
         let game = Evidence.sample(name: "BloonsTD6", path: "/Users/x/Library/Application Support/Steam/steamapps/common/BloonsTD6/BloonsTD6.app/Contents/MacOS/BloonsTD6",
@@ -259,8 +265,10 @@ public struct Fixture {
         let c1 = tabBack.headline == "A Google Chrome tab is working hard." && tabBack.recommended?.title == "Run this tab cooler"
         let c2 = tabFront.recommended?.title == "Turn on Energy Saver"
         let c3 = tabBack.fixes.contains { $0.kind == Fix.Kind.openPage(chromeApp, "chrome://settings/performance") }
-        let c4 = ids(tabBack).hasSuffix("closetab quit") && ids(extCard).hasSuffix("stopext quit") && stopTitle == "Close just that tab"
-        let c5 = extCard.recommended?.kind == Fix.Kind.openPage(chromeApp, "chrome://extensions") && extCard.headline.contains("extension")
+        let c4 = ids(tabBack).contains("closetab quit") && ids(extCard).hasSuffix("stopext quit") && stopTitle == "Close just that tab"
+        // One Click First: the extension is run cooler; turning it off, which fixes the cause, is a task tagged as better
+        let c5 = extCard.recommended?.kind == Fix.Kind.cooler
+            && extCard.betterThanRecommended.contains { $0.kind == Fix.Kind.openPage(chromeApp, "chrome://extensions") } && extCard.headline.contains("extension")
         let c6 = gpuCard.recommended?.title == "Turn on Energy Saver" && !gpuCard.fixes.contains { $0.kind == Fix.Kind.cooler }
         let chromeOK = c1 && c2 && c3 && c4 && c5 && c6 && Card.subject(tabE) == "Google Chrome tab"
         review.append(("chrome-without-quitting", chromeOK, "background tab: \(ids(tabBack)); in front: \(tabFront.recommended?.title ?? "none"); extension: \(ids(extCard)); graphics: \(ids(gpuCard))"))
@@ -284,7 +292,8 @@ public struct Fixture {
         let appMain = Evidence.sample(name: "Xcode", path: "/Applications/Xcode.app/Contents/MacOS/Xcode", start: now.addingTimeInterval(-7200), cores: 2)
         let appOnBat = Card.make(appMain, now: now, busySince: min15, battery: 30)
         let gdBat = Card.make(gd, now: now, busySince: min15, battery: 40)
-        let syncKind: Bool = { if case .pauseSync = gdBat.recommended?.kind { return true }; return false }()
+        // a sync app on battery: Run it cooler (one click) is recommended, and Pause syncing is still offered
+        let syncKind = gdBat.recommended?.kind == Fix.Kind.cooler && gdBat.fixes.contains { if case .pauseSync = $0.kind { return true }; return false }
         let batteryLimits = pauses(hungryAt80) && !pauses(steadyAt80) && pauses(longAt80) && pauses(steadyAt40)
         let batteryOK = batteryLimits && hungryAt80.explanation.contains("draining your battery")
             && !plugged.fixes.contains { $0.kind == Fix.Kind.pauseJob } && !appOnBat.fixes.contains { $0.kind == Fix.Kind.pauseJob } && syncKind
@@ -376,7 +385,7 @@ public struct Fixture {
             Fixture(id: "job-no-signs", evidence: .sample(
                         name: "node", path: "/opt/homebrew/bin/node", args: ["node", "server.js"], cwd: "/Users/x/Site",
                         start: ago(3 * hour), cores: 1.2),
-                    busyFor: 3 * hour, expectState: .unknown, expectHeadline: "can't tell why", expectAction: "Look it up"),
+                    busyFor: 3 * hour, expectState: .unknown, expectHeadline: "can't tell why", expectAction: "Run it cooler"),
             Fixture(id: "spotlight-normal", evidence: .sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores",
                                                              start: ago(48 * hour), cores: 1.5),
                     busyFor: 0.5 * hour, expectState: .working, expectHeadline: "Spotlight is indexing", expectAction: nil),
