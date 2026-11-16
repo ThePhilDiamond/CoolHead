@@ -57,7 +57,10 @@ public enum NetworkCheck {
     public struct Talker: Equatable {
         public var name: String
         public var bytesPerSecond: Double
-        public init(name: String, bytesPerSecond: Double) { self.name = name; self.bytesPerSecond = bytesPerSecond }
+        public var bundle: String?      // the app it belongs to, if any, for a fix that opens or pauses it
+        public init(name: String, bytesPerSecond: Double, bundle: String? = nil) {
+            self.name = name; self.bytesPerSecond = bytesPerSecond; self.bundle = bundle
+        }
     }
 
     public struct Setup: Equatable {
@@ -170,6 +173,7 @@ public enum NetworkCheck {
             if line.hasPrefix(",") { blocks.append([]) } else if !blocks.isEmpty { blocks[blocks.count - 1].append(line) }
         }
         var totals: [String: Double] = [:]
+        var bundles: [String: String] = [:]
         for row in blocks.last ?? [] {
             let f = row.split(separator: ",", omittingEmptySubsequences: false)
             guard f.count >= 3, let dot = f[0].lastIndex(of: "."), let pid = pid_t(f[0][f[0].index(after: dot)...]) else { continue }
@@ -179,8 +183,9 @@ public enum NetworkCheck {
             let exe = path(pid)
             let name = Evidence.appName(exe) ?? (exe.map { CaseReport.isMacOS($0) } == true ? "macOS's \(raw)" : raw)
             totals[name, default: 0] += bytes
+            if let b = Evidence.bundle(exe) { bundles[name] = b }
         }
-        return totals.map { Talker(name: $0.key, bytesPerSecond: $0.value) }.sorted { $0.bytesPerSecond > $1.bytesPerSecond }
+        return totals.map { Talker(name: $0.key, bytesPerSecond: $0.value, bundle: bundles[$0.key]) }.sorted { $0.bytesPerSecond > $1.bytesPerSecond }
     }
 
     // MARK: Apple's test, run only when pressed
@@ -240,25 +245,143 @@ public enum NetworkCheck {
 
     // MARK: what it says
 
-    /// One sentence: is the network what's slow?
-    public static func verdict(_ o: Outcome) -> String {
-        switch o {
-        case .failed(let why): return why
-        case .done(let r) where r.rpm <= poorRPM:
-            return "Your connection is slow to respond when it's busy, so things online will feel slow even though the Mac is fine."
-        case .done(let r) where r.rpm < goodRPM:
-            return "Your connection responds fairly well; calls and busy pages may lag a little while it's in use."
-        case .done:
-            return "Your connection is fine, so if the Mac feels slow, the network is unlikely to be the cause."
-        }
+    /// The answer at the top: how it went (0 fine, 1 worth a look, 2 the network is the problem), a few words, and what
+    /// it means for someone who doesn't know what RPM is.
+    public struct Verdict: Equatable {
+        public var level: Int
+        public var title: String
+        public var meaning: String
     }
+
+    public static func verdict(_ o: Outcome) -> Verdict {
+        guard case .done(let r) = o else {
+            if case .failed(let why) = o { return Verdict(level: 2, title: "The test couldn't finish", meaning: why) }
+            return Verdict(level: 2, title: "", meaning: "")
+        }
+        if r.rpm <= poorRPM {
+            return Verdict(level: 2, title: "The network is slow to respond",
+                           meaning: "The Mac is fine. Things online lag while the connection is busy.")
+        }
+        if r.download < hdVideoMbps * 1_000_000 {
+            return Verdict(level: 2, title: "The network is slow",
+                           meaning: "The Mac is fine. The connection is too slow for HD video, so pages and downloads crawl.")
+        }
+        if r.rpm < goodRPM {
+            return Verdict(level: 1, title: "The network is a little slow to respond",
+                           meaning: "Fine for most things; calls and games may lag while something else uses the connection.")
+        }
+        return Verdict(level: 0, title: "The network is fine",
+                       meaning: "If the Mac feels slow, the cause is on the Mac, not the network.")
+    }
+
+    /// The download speed HD video needs (Netflix, 1080p: 5 Mbps).
+    static let hdVideoMbps = 5.0
+
+    /// Everyday tasks and the speed each needs, from the people who run them: the FCC's Broadband Speed Guide (web and
+    /// email 1 Mbps; online multiplayer games 4 Mbps), Netflix (HD 1080p 5 Mbps, 4K 15 Mbps) and Zoom (1080p video calls
+    /// 3.0 Mbps down and 3.8 up). Calls and games also need a responsive connection: speed alone doesn't stop the lag.
+    public struct Task: Equatable {
+        public let name: String
+        public let symbol: String
+        public let down: Double     // Mbps
+        public let up: Double
+        public let needsResponsive: Bool
+    }
+    public static let tasks: [Task] = [
+        Task(name: "Web", symbol: "globe", down: 1, up: 0, needsResponsive: false),
+        Task(name: "HD video", symbol: "play.rectangle", down: hdVideoMbps, up: 0, needsResponsive: false),
+        Task(name: "4K video", symbol: "4k.tv", down: 15, up: 0, needsResponsive: false),
+        Task(name: "Video calls", symbol: "video", down: 3.0, up: 3.8, needsResponsive: true),
+        Task(name: "Games", symbol: "gamecontroller", down: 4, up: 0, needsResponsive: true),
+    ]
+
+    /// How well a task will go: fine; laggy (fast enough, but slow to respond while busy); or too slow.
+    public enum Fit: Equatable { case fine, laggy, tooSlow }
+
+    public static func fit(_ t: Task, _ r: Result) -> Fit {
+        if r.download < t.down * 1_000_000 || r.upload < t.up * 1_000_000 { return .tooSlow }
+        if t.needsResponsive && r.rpm <= poorRPM { return .laggy }
+        return .fine
+    }
+
+    /// The wait for a reply while the connection is busy, in milliseconds: RPM is round trips a minute, so 60,000 / RPM.
+    public static func delay(_ r: Result) -> Int { Int((60_000 / Double(max(r.rpm, 1))).rounded()) }
+
+    /// What to do about it, only when the test found a problem and only for causes that apply, most useful first; each
+    /// is an option the person carries out, with Cool Head taking them to the place. Nothing here ever turns off a VPN
+    /// or security software itself. With nothing wrong, there is nothing to offer (an option to fix a fine network would
+    /// do harm).
+    public static func fixes(_ r: Result, _ s: Setup) -> [Fix] {
+        guard verdict(.done(r)).level > 0 else { return [] }
+        var out: [Fix] = []
+        // 1. something on this Mac filling the connection
+        if let t = s.talkers.first(where: { $0.bytesPerSecond >= 1_000_000 }), let b = t.bundle {
+            if let sync = SyncApps.app(bundle: b) {
+                out.append(Fix(id: "net-pause-sync", title: "Pause \(sync) for a while",
+                               consequence: "It was using \(rate(t.bytesPerSecond)). Syncing waits until you resume; nothing is lost.",
+                               kind: .pauseSync(b, sync)))
+            } else {
+                out.append(.openApp("net-busy-app", "Pause what \(t.name) is downloading", bundle: b,
+                                    steps: "It was using \(rate(t.bytesPerSecond)). Pause or finish its download, then test again."))
+            }
+        }
+        // 2. a weak Wi-Fi signal
+        if case .wifi(let w) = s.link, w.rssi <= weakSignal {
+            out.append(.guide("net-signal", "Get a stronger Wi-Fi signal", "The signal is weak (\(w.rssi) dBm).",
+                              steps: ["Move closer to the router, or away from walls, metal and microwaves.",
+                                      "Use a cable if you can: it's steadier than Wi-Fi.",
+                                      "Test again."]))
+            out.append(.openApp("net-diagnostics", "Ask Apple's Wireless Diagnostics", bundle: wirelessDiagnostics,
+                                steps: "It checks your Wi-Fi and suggests fixes, and doesn't change any settings."))
+        }
+        // 3. slow to respond under load: the router's queue (bufferbloat); the fix is its Smart Queue setting
+        if r.rpm < goodRPM {
+            out.append(.guide("net-smart-queue", "Turn on your router's Smart Queue",
+                              "Keeps the connection quick to respond while it's busy; top speed may drop a little.",
+                              steps: ["Open your router's settings (its app, or the address on its label).",
+                                      "Look for Smart Queue, SQM, QoS or Bufferbloat, and turn it on.",
+                                      "Test again."]))
+        }
+        // 4. AirDrop's radio link hopping channels (several reports, no Apple statement)
+        if r.rpm < goodRPM, case .wifi(let w) = s.link, s.awdlOn, !awdlChannels.contains(w.channel) {
+            out.append(Fix(id: "net-airdrop", title: "Set AirDrop to No One for a while",
+                           consequence: "Stopped regular stutters for some people; Apple hasn't said why. Others can't AirDrop to you until you set it back.",
+                           kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.AirDrop-Handoff-Settings.extension")))
+        }
+        // 5. iCloud Private Relay (one tester), a VPN, a proxy: test without them; Cool Head never turns them off
+        if r.rpm < goodRPM {
+            out.append(Fix(id: "net-private-relay", title: "Test with Private Relay off",
+                           consequence: "If it's on (Apple Account ▸ iCloud ▸ Private Relay), turn it off and test again. One tester found it cut responsiveness on two of three Macs.",
+                           kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.systempreferences.AppleIDSettings")))
+        }
+        if s.vpn {
+            out.append(.guide("net-vpn", "Test without the VPN", "Only if your work allows it.",
+                              steps: ["Disconnect the VPN from its menu bar icon.", "Test again.", "Reconnect it."]))
+        }
+        if s.proxy || s.autoProxy {
+            out.append(Fix(id: "net-proxy", title: "Check the proxy setting",
+                           consequence: "In Network ▸ Details ▸ Proxies. Turn it off only if you know you don't need it.",
+                           kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.Network-Settings.extension")))
+        }
+        // 6. slow, with a good signal or a cable: the line itself
+        if r.download < hdVideoMbps * 1_000_000 {
+            out.append(.guide("net-provider", "Compare with what you pay for", "Your plan's speed is on your bill or your provider's site.",
+                              steps: ["Restart the router (everyone's connection drops for a minute or two).", "Test again.",
+                                      "Still far below your plan? Call your provider."]))
+        }
+        if !out.isEmpty { out[0].recommended = true }
+        return out
+    }
+
+    static let systemSettings = "/System/Applications/System Settings.app"
+    public static let wirelessDiagnostics = "/System/Library/CoreServices/Applications/Wireless Diagnostics.app"
 
     /// The facts behind the verdict, one plain line each; `result` is nil before the test has been run.
     public static func lines(_ result: Result?, _ s: Setup) -> [String] {
         var out: [String] = []
         if let r = result {
             out.append("Speed: \(mbps(r.download)) down, \(mbps(r.upload)) up.")
-            out.append("Responsiveness: \(grouped(r.rpm)) round trips a minute while busy (\(poorRPM) or fewer is poor, \(grouped(goodRPM)) or more is good).")
+            out.append("Responsiveness: \(grouped(r.rpm)) round trips a minute while busy, a wait of about \(grouped(delay(r))) ms each (\(poorRPM) or fewer is poor, \(grouped(goodRPM)) or more is good).")
         }
         switch s.link {
         case .wifi(let w):
@@ -283,9 +406,6 @@ public enum NetworkCheck {
         case .local: out.append("Website names are looked up by another machine on your network, not your router.")
         case .internet: out.append("Website names are looked up by a server on the internet, set on this Mac or by a VPN or app.")
         case .none: out.append("No server is set to look up website names, so sites by name won't load.")
-        }
-        if let r = result, r.rpm < goodRPM {
-            out.append("If iCloud Private Relay is on, try the test again with it off: one tester found it cut responsiveness sharply on two of three Macs.")
         }
         let busy = s.talkers.filter { $0.bytesPerSecond >= talkerFloor }.prefix(3)
         out.append(busy.isEmpty ? "Nothing else was using much of the network\(result == nil ? "" : " before the test")."

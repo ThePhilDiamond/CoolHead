@@ -170,8 +170,13 @@ case "network":
     if argv.dropFirst().first == "--test" {
         print("Testing for up to \(NetworkCheck.testSeconds) seconds…")
         let outcome = await NetworkCheck.run()
-        print(NetworkCheck.verdict(outcome))
-        if case .done(let r) = outcome { result = r }
+        let v = NetworkCheck.verdict(outcome)
+        print("\(v.title). \(v.meaning)")
+        if case .done(let r) = outcome {
+            result = r
+            print("  " + NetworkCheck.tasks.map { "\($0.name): \(["fine", "laggy", "too slow"][[.fine, .laggy, .tooSlow].firstIndex(of: NetworkCheck.fit($0, r))!])" }.joined(separator: " · "))
+            for f in NetworkCheck.fixes(r, setup) { print("  \(f.recommended ? "→" : "·") \(f.title): \(f.consequence)") }
+        }
     }
     for line in NetworkCheck.lines(result, setup) { print("  \(line)") }
 case "wording":
