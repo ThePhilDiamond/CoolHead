@@ -15,6 +15,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead memory           who is using the memory, counted by app, and what could be done
   coolhead hangs            what's paused, stuck waiting on a drive, or not responding right now
   coolhead hardware         the drive, battery, crash restarts and ports, checked without a password
+  coolhead network          what the Mac can say about its connection; add --test to run Apple's network test
   coolhead history          what used the most energy and why the Mac woke, from macOS's power log (about a week)
   coolhead selftest         checks every recorded example gives the card it should
   coolhead wording          every card's text, from the recorded examples, to read the wording in one place
@@ -163,6 +164,22 @@ case "hardware":
     let report = HardwareReport.read(now: testNow)
     for line in report.summary() { print(line) }
     for c in report.cards(now: testNow) { print(""); printCard(c.card) }
+case "network":
+    // Apple's test fills the connection and uses data, so it runs only when asked for
+    let setup = NetworkCheck.readSetup()
+    var result: NetworkCheck.Result?
+    if argv.dropFirst().first == "--test" {
+        print("Testing for up to \(NetworkCheck.testSeconds) seconds…")
+        let outcome = await NetworkCheck.run()
+        let v = NetworkCheck.verdict(outcome)
+        print("\(v.title). \(v.meaning)")
+        if case .done(let r) = outcome {
+            result = r
+            print("  " + NetworkCheck.tasks.map { "\($0.name): \(["fine", "laggy", "too slow"][[.fine, .laggy, .tooSlow].firstIndex(of: NetworkCheck.fit($0, r))!])" }.joined(separator: " · "))
+            for f in NetworkCheck.fixes(r, setup) { print("  \(f.recommended ? "→" : "·") \(f.title): \(f.consequence)") }
+        }
+    }
+    for line in NetworkCheck.lines(result, setup) { print("  \(line)") }
 case "history":
     guard let h = PowerHistory.read() else { print("No history: this Mac's power log couldn't be read."); exit(0) }
     print(h.text)

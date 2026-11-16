@@ -12,7 +12,7 @@ Most of the work on Cool Head starts with a report. [Open an issue](../../issues
 
 ## Report a problem from the app
 
-If a fix caused trouble, or Cool Head isn't working right, use **Report a problem** (the speech-bubble icon at the bottom of the panel, or right-click the menu bar icon). It shows you everything it would share, and opens a GitHub issue for you to submit.
+If a fix caused trouble, or Cool Head isn't working right, use **Report a problem** (Report, among the tools along the bottom of the panel). It shows you everything it would share, and opens a GitHub issue for you to submit.
 
 ## Share a case it couldn't explain
 
@@ -47,7 +47,7 @@ If your change is something a user would notice, add one file for it in [changes
 - **Every sentence is written by hand.** No model rewords anything, so what you write is what people read. Write each sentence whole: say a fact once, start sentences with a capital (a name like "a script" can start one), give every step a verb ("Choose Window ▸ Task Manager"), and join several facts about one thing into one sentence ("It's adding to the heat and draining your battery") rather than a string of short ones. `coolhead wording` prints every card from the recorded examples, so you can read them all in one place before and after a change.
 - **Big is not broken.** Never suggest stopping a job just because it is big or long. Stopping is for stalled jobs, and the card must say what it would cost.
 - **Say "can't tell" when you can't.** A plain admission beats a guess.
-- **Everything stays on the Mac.** No network calls, no analytics. The only exception is Look it up, which the user presses, and which sends the process name only.
+- **Everything stays on the Mac.** No network calls, no analytics. The exceptions are ones the user presses: Look it up, which sends the process name only, and Test my network's Start test, which runs Apple's network test against Apple's servers.
 - **Light on the Mac.** Keep Cool Head's own CPU use under 0.5% of the Mac on average; check it in Activity Monitor.
 - **No administrator password.** Everything Cool Head reads is readable by the signed-in user.
 - **License-clean dependencies.** MIT, BSD, Apache-2.0 and similar only. No GPL, AGPL or LGPL code linked into what ships, because it would stop Cool Head from being offered under a commercial license. The project has no dependencies today.

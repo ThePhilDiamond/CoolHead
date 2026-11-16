@@ -6,7 +6,7 @@ import Foundation
 ///
 /// The one thing Cool Head keeps between launches besides its settings: the list itself, on this Mac only (an app's
 /// bundle identifier, or a script's or program's location, with the name to show). Nothing about what happened.
-/// Listed and removable from the right-click menu.
+/// Listed under Trusted, along the bottom of the panel: + trusts an app, − stops trusting one.
 public enum Trust {
     static let defaultsKey = "trusted"
     /// How long a trusted item may stay busy without a break before it is flagged anyway.
