@@ -89,6 +89,8 @@ public struct Card {
     public let headline: String
     public let explanation: String
     public let fixes: [Fix]
+    /// The processes this card names, as shown (see `Naming`): checked to be told apart on every example card.
+    public var names: [String] = []
 
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation
@@ -185,6 +187,18 @@ public struct Card {
 
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
                             frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil) -> Card {
+        var c = body(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery, syncFeed: syncFeed)
+        // the processes it names, as shown (see Naming): the process, when the card names it (macOS's own processes and
+        // security software are named by what they are instead: "Spotlight", "CrowdStrike Falcon"), and a game it is
+        // competing with
+        let text = c.headline + " " + c.explanation
+        c.names = [subject(e)].filter { text.contains($0) }
+            + (gameRunning.map { g in text.contains("competing with \(g)") ? [g] : [] } ?? [])
+        return c
+    }
+
+    static func body(_ e: Evidence, now: Date, busySince: Date?, warm: Bool, gameRunning: String?,
+                     frontApp: String?, battery: Int?, syncFeed: SyncFeed?) -> Card {
         let onBattery = battery != nil
         let who = subject(e)
         let since = busySince ?? e.start ?? now
@@ -459,8 +473,12 @@ public enum Fmt {
         return " It's \(joined)."
     }
 
-    /// The first letter in capitals, for a name that starts a sentence ("a script" → "A script").
-    public static func sentenceStart(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
+    /// A name at the start of a sentence: a leading "the", "a", "an" or "another" gets its capital ("the claude
+    /// command-line program" → "The claude …"); a name itself keeps its own spelling ("macOS", "claude", "train.py").
+    public static func sentenceStart(_ s: String) -> String {
+        for article in ["the ", "a ", "an ", "another "] where s.hasPrefix(article) { return article.prefix(1).uppercased() + s.dropFirst() }
+        return s
+    }
 
     public static func percent(_ f: Double) -> String { "\(Int((f * 100).rounded(.down)))%" }
 

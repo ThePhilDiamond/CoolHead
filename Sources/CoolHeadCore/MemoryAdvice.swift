@@ -14,6 +14,20 @@ public struct MemGroup {
     /// For a job: the process, to say what stopping it would cost.
     public var evidence: Evidence? = nil
     public var pid: pid_t? = nil
+    /// What it is, for naming it apart from others (see `Naming`); for a program that isn't an app, whether it was run
+    /// from a terminal. Taken from `kind` when not set.
+    public var what: Naming.What? = nil
+
+    public var named: Naming.Named {
+        let w: Naming.What
+        switch kind {
+        case .browser, .app: w = .app
+        case .job: w = .script
+        case .macOS: w = .macOS
+        case .other: w = what ?? .background
+        }
+        return Naming.Named(MemoryAdvice.label(self), w)
+    }
 }
 
 public enum MemoryAdvice {
@@ -63,7 +77,9 @@ public enum MemoryAdvice {
         if scriptLike { return MemGroup(key: "job-\(pid)", name: "a script", kind: .job, bundle: nil, bytes: footprint, count: 1, pid: pid) }
         let name = path.map { ($0 as NSString).lastPathComponent } ?? "process \(pid)"
         if let p = path, CaseReport.isMacOS(p) { return MemGroup(key: "macos-\(name)", name: name, kind: .macOS, bundle: nil, bytes: footprint, count: 1) }
-        return MemGroup(key: "other-\(name)", name: name, kind: .other, bundle: nil, bytes: footprint, count: 1)
+        var g = MemGroup(key: "other-\(name)", name: name, kind: .other, bundle: nil, bytes: footprint, count: 1)
+        g.what = Naming.what(path: path, hasTerminal: Proc.bsd(pid)?.hasTerminal ?? false)
+        return g
     }
 
     /// Adds processes of the same app together.
@@ -89,9 +105,12 @@ public enum MemoryAdvice {
                         fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true)])
         }
         let size = Fmt.bytes(top.bytes)
-        let head = "\(tight) \(Fmt.sentenceStart(label(top))) is using the most (\(size))."
+        // the three biggest, named so they can be told apart (see Naming)
+        let shown = Array(groups.prefix(3))
+        let names = Naming.distinct(shown.map(\.named))
+        let head = "\(tight) \(Fmt.sentenceStart(names[0])) is using the most (\(size))."
         // the next biggest, by name, so the card shows where the rest of the memory is (the biggest is in the headline)
-        let next = groups.dropFirst().prefix(2).map { "\(label($0)) (\(Fmt.bytes($0.bytes)))" }
+        let next = zip(shown.dropFirst(), names.dropFirst()).map { "\($1) (\(Fmt.bytes($0.bytes)))" }
         let expl = pressure(s) + (next.isEmpty ? "" : " Also using a lot: \(ListFormatter.localizedString(byJoining: next)).")
         var fixes: [Fix] = []
         var limitNote: String? = nil
@@ -159,7 +178,9 @@ public enum MemoryAdvice {
         }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
                          kind: .wait(now.addingTimeInterval(1800)), recommended: !fixes.contains { $0.recommended }))
-        return Card(state: .unknown, headline: head, explanation: expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
+        var card = Card(state: .unknown, headline: head, explanation: expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
+        card.names = names
+        return card
     }
 
     /// Why tight memory matters, in one line; it mentions swap only when the Mac is actually using it.

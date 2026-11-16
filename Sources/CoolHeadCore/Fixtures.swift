@@ -20,6 +20,7 @@ public struct Fixture {
         browserRestartChecks,
         graphicsChipChecks,
         hangChecks,
+        namingChecks,
         syncAndSecurityChecks,
     ]
 

@@ -19,6 +19,13 @@ public enum Wording {
         out.append(("memory-safari", MemoryAdvice.card([group("Safari", .browser, "/Applications/Safari.app", 4, 20)], mac: tight, now: now)))
         out.append(("memory-edge", MemoryAdvice.card([group("Microsoft Edge", .browser, "/Applications/Microsoft Edge.app", 4, 20)], mac: tight, now: now, chrome: .unavailable)))
         out.append(("memory-sync-app", MemoryAdvice.card([group("Google Drive", .app, "/Applications/Google Drive.app", 6, 3), chrome], mac: tight, now: now, chrome: .available(4096))))
+        // names that look alike: an app and a command-line program of the same name, told apart (see Naming)
+        var claudeCLI = MemGroup(key: "other-claude", name: "claude", kind: .other, bundle: nil, bytes: 1_600_000_000, count: 1)
+        claudeCLI.what = .commandLine
+        out.append(("memory-app-and-program-alike", MemoryAdvice.card([group("Claude", .app, "/Applications/Claude.app", 2.9, 4), claudeCLI], mac: tight, now: now)))
+        var node = MemGroup(key: "other-node", name: "node", kind: .other, bundle: nil, bytes: 3_000_000_000, count: 1)
+        node.what = .background
+        out.append(("memory-program-first", MemoryAdvice.card([node, group("Slack", .app, "/Applications/Slack.app", 1.2, 5)], mac: tight, now: now)))
         out.append(("memory-docker", MemoryAdvice.card([group("Docker", .app, "/Applications/Docker.app", 4, 3)], mac: tight, now: now)))
         out.append(("memory-job", MemoryAdvice.card([MemGroup(key: "job-1", name: "a script", kind: .job, bundle: nil, bytes: 3_000_000_000, count: 1, pid: 4242)], mac: tight, now: now)))
         // hangs
@@ -28,6 +35,9 @@ public enum Wording {
         out.append(("hang-paused-in-terminal", Hang.card(.paused, Fixture.withParent(job, "zsh"), stuckFor: 3600, terminal: "/System/Applications/Utilities/Terminal.app", now: now)))
         out.append(("hang-paused-by-something-else", Hang.card(.paused, Fixture.withParent(job, "launchd"), stuckFor: 600, waiting: ["ffmpeg", "ffmpeg"], now: now)))
         out.append(("hang-waiting-on-a-drive", Hang.card(.diskWait, Fixture.withParent(job, "launchd"), stuckFor: 300, volumes: ["Backup"], now: now)))
+        let ffmpeg = Evidence.sample(name: "ffmpeg", path: "/opt/homebrew/bin/ffmpeg", args: ["ffmpeg", "-i", "in.mov", "out.mp4"], cwd: "/Users/x/Movies",
+                                     start: now.addingTimeInterval(-7200), cores: 0)
+        out.append(("hang-started-a-program-of-its-own-name", Hang.card(.paused, Fixture.withParent(ffmpeg, "launchd"), stuckFor: 600, waiting: ["ffmpeg", "ffprobe"], now: now)))
         out.append(("hang-not-responding-new", Hang.card(.notResponding, app, stuckFor: 120, now: now)))
         out.append(("hang-not-responding-settled", Hang.card(.notResponding, app, stuckFor: 600, now: now)))
         // busy apps and processes the catalogue doesn't cover
