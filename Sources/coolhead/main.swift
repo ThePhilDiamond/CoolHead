@@ -14,6 +14,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead case <pid|name>  what "Share this case" would show for a process (nothing is sent)
   coolhead memory           who is using the memory, counted by app, and what could be done
   coolhead hangs            what's paused, stuck waiting on a drive, or not responding right now
+  coolhead hardware         the drive, battery, crash restarts and ports, checked without a password
   coolhead selftest         checks every recorded example gives the card it should
   coolhead wording          every card's text, from the recorded examples, to read the wording in one place
 """
@@ -157,8 +158,15 @@ case "hangs":
                             terminal: Hang.terminalApp(e, pid: pid)))
         print("")
     }
+case "hardware":
+    let report = HardwareReport.read(now: testNow)
+    for line in report.summary() { print(line) }
+    for c in report.cards(now: testNow) { print(""); printCard(c.card) }
 case "wording":
     for (id, c) in Wording.samples() { print("[\(id)]"); print(Wording.text(c)) }
+    for (id, r) in Fixture.hardwareSamples(Date()) {
+        for c in r.cards() { print("[hardware-\(id)]"); print(Wording.text(c.card)) }
+    }
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }
