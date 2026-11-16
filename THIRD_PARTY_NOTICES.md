@@ -1,10 +1,10 @@
 # Third-party notices
 
-Cool Head has no third-party code dependencies. It uses one piece of third-party material:
+Cool Head has no third-party code dependencies. It uses material from one project:
 
 ## System Sentinel
 
-The list of security, device management and VPN products in `Sources/CoolHeadCore/Protected.swift` (product names and the identifiers that recognise them) comes from System Sentinel's `SecurityAgents.swift`, https://github.com/andrewbakercloudscale/system-sentinel, used under the MIT License:
+The list of security, device management and VPN products in `Sources/CoolHeadCore/Protected.swift` (product names and the identifiers that recognise them) comes from System Sentinel's `SecurityAgents.swift`, https://github.com/andrewbakercloudscale/system-sentinel. The way `Sources/CoolHeadCore/GPU.swift` measures each app's use of the graphics chip (the `accumulatedGPUTime` in the `AppUsage` of each IOAccelerator user client, and its `IOUserClientCreator`) follows System Sentinel's approach. Both are used under the MIT License:
 
 ```
 MIT License
