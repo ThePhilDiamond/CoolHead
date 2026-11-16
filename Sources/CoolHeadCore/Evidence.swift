@@ -43,17 +43,23 @@ public struct Evidence {
     public let savesAsItGoes: Bool
     /// When its real work began: its lock file's own start time when the lock names it, else its start.
     public let workStart: Date?
+    /// Share of the graphics chip it is using, 0 to 1 (see `GPU`); nil where the Mac doesn't say.
+    public var gpuShare: Double? = nil
 
-    /// Samples the process twice, `interval` seconds apart, to measure CPU now.
-    /// With `measured`, uses CPU and disk writes the caller already measured (the watcher) and does not wait.
+    /// Samples the process twice, `interval` seconds apart, to measure CPU and graphics-chip use now.
+    /// With `measured`, uses CPU, disk writes and graphics-chip share the caller already measured (the watcher) and
+    /// does not wait.
     public static func gather(pid: pid_t, interval: TimeInterval = 1.0,
-                              measured: (cores: Double, written: UInt64)? = nil) -> Evidence? {
-        guard let b = Proc.bsd(pid) else { return limited(pid: pid, measured: measured) }
+                              measured: (cores: Double, written: UInt64)? = nil, gpu: Double? = nil) -> Evidence? {
+        let g1 = measured == nil ? GPU.times()[pid] : nil
+        guard let b = Proc.bsd(pid) else { return limited(pid: pid, measured: measured, gpu: gpu) }
         let u1 = measured == nil ? Proc.usage(pid) : nil
         let t1 = Date()
         if measured == nil { Thread.sleep(forTimeInterval: interval) }
         let u2 = Proc.usage(pid)
         let dt = max(0.001, Date().timeIntervalSince(t1))
+        let g2 = measured == nil ? GPU.times()[pid] : nil
+        let gpuShare = gpu ?? g2.map { GPU.share(from: g1 ?? $0, to: $0, seconds: dt) }
         var now = measured?.cores ?? 0, avg = 0.0, pshare: Double?
         if let z = u2 {
             if let a = u1 { now = max(0, z.cpuSeconds - a.cpuSeconds) / dt }
@@ -102,18 +108,18 @@ public struct Evidence {
                         performanceShare: pshare, memoryBytes: u2?.footprint ?? 0, ancestors: chain,
                         writing: writing, locks: locks, progress: progress,
                         bytesWrittenDuringSample: written, lastOutput: newest?.0, lastLine: last,
-                        savesAsItGoes: false, workStart: workStart)
+                        savesAsItGoes: false, workStart: workStart, gpuShare: gpuShare)
     }
 
     /// What can be known about a process owned by another user (root, or a macOS service account): macOS lets
     /// any user read its path, but not its details. CPU comes from the caller (the watcher reads it from ps).
-    static func limited(pid: pid_t, measured: (cores: Double, written: UInt64)?) -> Evidence? {
+    static func limited(pid: pid_t, measured: (cores: Double, written: UInt64)?, gpu: Double? = nil) -> Evidence? {
         guard let path = Proc.path(pid) else { return nil }
         let cores = measured?.cores ?? (Proc.psCPU()[pid] ?? 0) / 100
         return Evidence(pid: pid, name: (path as NSString).lastPathComponent, path: path, args: [], cwd: nil, start: nil,
                         mine: false, coresNow: cores, coresAverage: cores, performanceShare: nil, memoryBytes: 0,
                         ancestors: [], writing: [], locks: [], progress: nil, bytesWrittenDuringSample: 0,
-                        lastOutput: nil, lastLine: nil, savesAsItGoes: false, workStart: nil)
+                        lastOutput: nil, lastLine: nil, savesAsItGoes: false, workStart: nil, gpuShare: gpu)
     }
 
     /// Only regular files on this Mac's own disks: reading a pipe would wait forever, and a file on a network
@@ -127,6 +133,9 @@ public struct Evidence {
         path.hasSuffix(".dylib") || path.hasSuffix(".so") || path.contains(".framework/") || path.hasSuffix(".car")
             || path.hasPrefix("/System/") || path.hasPrefix("/usr/lib/") || path.hasPrefix("/private/var/db/")
     }
+
+    /// Using enough of the graphics chip to count as busy (a quarter of it or more).
+    public var gpuBusy: Bool { (gpuShare ?? 0) >= GPU.quietShare }
 
     public static func isLog(_ path: String) -> Bool {
         let ext = (path as NSString).pathExtension.lowercased()

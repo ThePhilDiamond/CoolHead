@@ -107,6 +107,8 @@ public final class Watcher {
         var lastWritten: UInt64 = 0
         var busySince: Date?
         var footprint: UInt64 = 0
+        var gpuTime: UInt64? = nil  // graphics-chip nanoseconds at the last tick
+        var gpu = 0.0              // smoothed share of the graphics chip, 0 to 1
     }
 
     public init() {}
@@ -363,7 +365,6 @@ public final class Watcher {
             tr.cpu = u.cpuSeconds
             tr.written = u.diskWritten
             tr.footprint = u.footprint
-            if tr.cores >= 0.5 { tr.busySince = tr.busySince ?? now } else if tr.cores < 0.25 { tr.busySince = nil }
             tracks[pid] = tr
         }
         // processes owned by other users (root, _mds_stores, _windowserver): macOS doesn't let us read their usage
@@ -375,11 +376,26 @@ public final class Watcher {
                 seen.insert(pid)
                 var tr = tracks[pid] ?? Track(cpu: 0, written: 0)
                 tr.cores = pc / 100
-                if tr.cores >= 0.5 { tr.busySince = tr.busySince ?? now } else if tr.cores < 0.25 { tr.busySince = nil }
                 tracks[pid] = tr
             }
         }
         tracks = tracks.filter { seen.contains($0.key) }
+        // the graphics chip, for every process whoever owns it (macOS's WindowServer draws the screen as another user)
+        let gpuTimes = GPU.times()
+        for pid in Array(tracks.keys) {
+            guard var tr = tracks[pid] else { continue }
+            if let t = gpuTimes[pid] {
+                if dt > 0, let last = tr.gpuTime {
+                    let g = GPU.share(from: last, to: t, seconds: dt)
+                    tr.gpu = tr.gpu == 0 ? g : 0.5 * tr.gpu + 0.5 * g
+                }
+                tr.gpuTime = t
+            } else { tr.gpuTime = nil; tr.gpu = 0 }
+            // busy: half a core, or half the graphics chip; quiet again under a quarter of both
+            if tr.cores >= 0.5 || tr.gpu >= GPU.busyShare { tr.busySince = tr.busySince ?? now }
+            else if tr.cores < 0.25 && tr.gpu < GPU.quietShare { tr.busySince = nil }
+            tracks[pid] = tr
+        }
         var state = MacState.read()
         // for screenshots: COOLHEAD_SNAPSHOT_WARM shows the Mac as warm, so a card shows what it recommends then
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_WARM"] != nil { state.thermal = "fair" }
@@ -388,10 +404,14 @@ public final class Watcher {
         guard dt > 0 else { publish(state, [], own: 0); return }
 
         let warm = state.thermal != "nominal"
-        let busy = tracks.filter { $0.key != me && $0.value.cores >= 0.5 && now.timeIntervalSince($0.value.busySince ?? now) >= 60 }
-            .sorted { $0.value.cores > $1.value.cores }.prefix(5)
+        // suspects: using half a core or half the graphics chip, for over a minute
+        let busy = tracks.filter { $0.key != me && ($0.value.cores >= 0.5 || $0.value.gpu >= GPU.busyShare)
+                && now.timeIntervalSince($0.value.busySince ?? now) >= 60 }
+            .sorted { max($0.value.cores, $0.value.gpu) > max($1.value.cores, $1.value.gpu) }.prefix(5)
         var live: [LiveCard] = []
-        let gathered = busy.compactMap { pid, tr in Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten)).map { (pid, tr, $0) } }
+        let gathered = busy.compactMap { pid, tr in
+            Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten), gpu: gpuTimes[pid] != nil ? tr.gpu : nil).map { (pid, tr, $0) }
+        }
         // a game being played comes first: other busy work is offered to run cooler to leave it more room
         let game = gathered.first { $0.2.gameBundle != nil }.flatMap { $0.2.gameBundle }
             .map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
@@ -418,7 +438,7 @@ public final class Watcher {
         live += macCards(state, now: now, explained: !live.isEmpty)
         if ProcessInfo.processInfo.environment["COOLHEAD_DEBUG"] != nil {
             let top = tracks.sorted { $0.value.cores > $1.value.cores }.prefix(3)
-                .map { "\($0.key):\(String(format: "%.2f", $0.value.cores)) since \($0.value.busySince.map { Int(now.timeIntervalSince($0)) } ?? -1)s" }
+                .map { "\($0.key):\(String(format: "%.2f", $0.value.cores)) gpu \(String(format: "%.2f", $0.value.gpu)) since \($0.value.busySince.map { Int(now.timeIntervalSince($0)) } ?? -1)s" }
             FileHandle.standardError.write("t+\(Int(ProcessInfo.processInfo.systemUptime - Watcher.launchUptime))s tick busy=\(busy.count) cards=\(live.map { $0.card.headline.prefix(50) }) top=\(top)\n".data(using: .utf8)!)
         }
 
@@ -466,7 +486,7 @@ public final class Watcher {
                 MemoryAdvice.group(pid: pid, path: Proc.path(pid), args: Proc.args(pid), footprint: tr.footprint)
             })
             for i in groups.indices.prefix(3) where groups[i].kind == .job {
-                if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, measured: (tracks[p]?.cores ?? 0, 0)) }
+                if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, measured: (tracks[p]?.cores ?? 0, 0), gpu: tracks[p].flatMap { $0.gpuTime != nil ? $0.gpu : nil }) }
             }
             let card = MemoryAdvice.card(groups, mac: s, now: now)
             let top = groups.first
@@ -573,6 +593,7 @@ extension Evidence {
         if let d = cwd, d != "/" { out.append("Folder: \(d)") }
         if let s = start { out.append("Started: \(Fmt.time(s)), \(Fmt.duration(Date().timeIntervalSince(s))) ago") }
         out.append("CPU: \(Fmt.cores(coresNow)) now; memory \(Fmt.bytes(memoryBytes))")
+        if let g = gpuShare { out.append("Graphics chip: \(Fmt.share(g)) of it now") }
         for w in writing.prefix(3) { out.append("Writing: \(w)") }
         if let p = progress { out.append("Progress: \(p.line) (written \(Fmt.time(p.lineTime)))") }
         for l in locks.prefix(2) { out.append("Lock: \((l.path as NSString).lastPathComponent)" + (l.note.map { ", \($0)" } ?? "")) }

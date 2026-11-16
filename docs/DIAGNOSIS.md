@@ -9,7 +9,7 @@ It never treats a big job as a problem just because it is big. Stopping somethin
 Every card comes from the same steps.
 
 1. **Symptom.** What you would notice: the Mac is hot, the battery drains, it is slow, memory is tight, or it won't sleep.
-2. **Suspects.** What contributes most to that symptom: for heat and battery, the processes using the most CPU for at least a minute; for memory, the largest; for sleep, whatever is holding the Mac awake.
+2. **Suspects.** What contributes most to that symptom: for heat and battery, the processes using half a core or more, or half of the graphics chip or more, for at least a minute; for memory, the largest; for sleep, whatever is holding the Mac awake.
 3. **Identify.** For each suspect, the facts a person would otherwise have to look up: its full command, the chain of parents up to the app or shell that started it, its working folder, the files it is writing, any lock files it holds, and how long it has been running.
 4. **State.** Whether it is doing its job:
    - **working**: it reports progress that is still advancing, or it is still writing output;
@@ -35,6 +35,7 @@ Every card has one button: **Explore fixes** on a card worth watching, **Learn m
 
 Some kinds of process have their own card, ahead of the states above:
 
+- **The graphics chip.** How much of it each process uses comes from the IORegistry, where each connection a process opens to the graphics chip records the time the chip has spent on its work. Two readings 10 seconds apart give its share. A process keeping the chip busy says so on its card ("It's keeping the graphics chip busy, about 70% of it."). Run it cooler isn't offered for the graphics chip, since it slows a process's CPU work, not its drawing; an app can be quit instead. On a Mac whose graphics driver doesn't publish it, Cool Head sees CPU only.
 - **Games** are calm and never slowed; while the Mac is warm, lower graphics settings is recommended. While a game runs, other busy work recommends Run it cooler.
 - **Browsers** (Chrome, Edge, Brave, Arc): a tab, an extension, or the graphics process, told apart by their launch arguments, each with the options that fit.
 - **Sync apps** recommend Pause syncing while the Mac is warm, with a reminder to resume.
