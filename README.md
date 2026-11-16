@@ -72,7 +72,7 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 <p align="center"><img src="docs/images/menu-icons.png" width="270" alt="The menu bar icons: Melting Snowflake whole, drooping, and in flames; and the snowflake with a green circle, yellow triangle, or red octagon, on dark and light menu bars"></p>
 
-Click the snowflake for the panel; its tools are along the bottom: Test my network, Trusted, Report a problem, Activity Monitor and Quit. Right-click it for the settings: updates, Save Battery When Unplugged, notifications, Open at Login, tool names, the menu bar icon, About and Quit.
+Click the snowflake for the panel; its tools are along the bottom: Test my network, Trusted, Report a problem and Quit. Right-click it for the settings: updates, Save Battery When Unplugged, notifications, Open at Login, tool names, the menu bar icon, About and Quit.
 
 After that, Cool Head keeps itself up to date: when a new version is out, the panel offers to install it, and checks the download is genuine first.
 

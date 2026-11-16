@@ -39,9 +39,8 @@ struct ToolsBar: View {
                 closeAll()
                 watcher.showReport = open
             }
-            ToolButton(symbol: "waveform.path.ecg", name: "Activity", tip: "Open Activity Monitor", labels: labels, on: false) {
-                NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"))
-            }
+            // no Activity Monitor button: it's not Cool Head's tool, and anyone who wants it knows where it is (Phil,
+            // 16 November 2026: "It's not our tool so we should drop it.")
             Spacer(minLength: 4)
             ToolButton(symbol: "power", name: "Quit", tip: "Quit Cool Head", labels: labels, on: false) { NSApp.terminate(nil) }
         }

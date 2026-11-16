@@ -90,8 +90,12 @@ struct NetworkView: View {
                 if let s = tester.setup { linkRow(s); busyRow(s) }
                 HStack(spacing: 10) {
                     Button("Start test") { tester.start() }.buttonStyle(RecommendedButton()).font(.callout)
-                    Text("Uses your whole connection for up to \(NetworkCheck.testSeconds) seconds, and some data.")
+                    Text(NetworkCheck.dataNote)
                         .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                }
+                if tester.setup?.mayBeMetered == true {
+                    Label(NetworkCheck.meteredNote, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true)
                 }
                 nerdyStuff(nil)
             case .testing(let started):
@@ -304,7 +308,7 @@ struct NetworkView: View {
         default:
             break       // guides open their steps under the option itself
         }
-        watcher.log("Test my network: \(f.title)")
+        watcher.log(NetworkCheck.logLine(f))         // the fix's id only: a title can name an app
     }
 
     /// The detail, one plain line each, folded away as on a card.

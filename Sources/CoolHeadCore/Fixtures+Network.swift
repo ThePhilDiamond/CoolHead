@@ -81,18 +81,38 @@ extension Fixture {
         networkQuality.700,90000000,0,
         coolhead.42,500000,0,
         syslogd.363,0,0,
+        x.501,99999999.666,10,0,
         """
         let paths: [pid_t: String] = [501: "/Applications/Dropbox.app/Contents/MacOS/Dropbox",
                                       502: "/Applications/Dropbox.app/Contents/Frameworks/Helper.app/Contents/MacOS/Dropbox Helper",
                                       300: "/usr/libexec/nsurlsessiond"]
-        let t = N.talkers(nettop: csv, mine: 42, path: { paths[$0] })
-        let t1 = t == [.init(name: "Dropbox", bytesPerSecond: 2_100_000, bundle: "/Applications/Dropbox.app"), .init(name: "macOS's nsurlsessiond", bytesPerSecond: 300_000)]
+        // a process named to look like "x.501,99999999" is read as itself (pid 666, 10 bytes), not as Dropbox
+        let names: [pid_t: String] = [501: "Dropbox", 502: "Dropbox Helper", 300: "nsurlsessiond", 700: "networkQuality",
+                                      42: "coolhead", 363: "syslogd", 666: "x.501,99999999"]
+        let t = N.talkers(nettop: csv, mine: 42, path: { paths[$0] }, name: { names[$0] })
+        let t1 = t.filter { $0.bytesPerSecond >= 100 } == [.init(name: "Dropbox", bytesPerSecond: 2_100_000, bundle: "/Applications/Dropbox.app"), .init(name: "macOS's nsurlsessiond", bytesPerSecond: 300_000)]
         let said = N.lines(nil, .init(link: .cable, talkers: t)).last ?? ""
         let t2 = said == "Using the network: Dropbox (2.1 MB a second), macOS's nsurlsessiond (300 KB a second)."
-        review.append(("network-who-is-using-it", t1 && t2, said))
+        let spoof = t.first { $0.name.hasPrefix("x.") }?.bytesPerSecond == 10
+            && N.talkers(nettop: csv, mine: 42, path: { paths[$0] }, name: { _ in "other" }).isEmpty
+        review.append(("network-who-is-using-it", t1 && t2 && spoof, "\(said) Spoofed name read as itself: \(spoof)"))
+
+        // security review, 16 November 2026: the activity log (which can go into a public Report a problem issue) says
+        // which fix was pressed by its fixed id only, never a title that names an app; a phone or metered connection
+        // is warned about the data the test uses; a result that isn't a finite number reads as a failed test
+        let secret = N.Setup(link: .wifi(.init(rssi: -80, noise: -90, rate: 100, channel: 36, band: "5 GHz")), awdlOn: true, vpn: true, proxy: true,
+                             talkers: [.init(name: "Secret Thesis Renderer", bytesPerSecond: 3_000_000, bundle: "/Users/alice/Projects/Secret Thesis Renderer.app")])
+        let logged = N.fixes(res(3, 1, 200), secret).map(N.logLine)
+        let leaks = logged.filter { l in ["Secret", "Thesis", "alice", "Renderer"].contains { l.contains($0) } }
+        let s1 = !logged.isEmpty && leaks.isEmpty && N.fixes(res(3, 1, 200), secret).first?.title.contains("Secret Thesis Renderer") == true
+        let s2 = N.Setup(link: .other).mayBeMetered && N.Setup(link: .cable, metered: true).mayBeMetered && !N.Setup(link: .cable).mayBeMetered
+        let s3 = { if case .failed = N.parse(Data(#"{"responsiveness":1e400,"dl_throughput":1}"#.utf8)) { return true }; return false }()
+            && N.parse(Data(#"{"responsiveness":5e300,"dl_throughput":1}"#.utf8)) == .done(.init(download: 1, upload: 0, rpm: 1_000_000))
+        review.append(("network-private-and-safe", s1 && s2 && s3,
+                       "log names no app \(s1) (\(logged.count) lines), metered warning \(s2), odd numbers \(s3)"))
 
         // every sentence follows the house style: no em dashes, no exclamation marks
-        let all = [poor, fair, fine, thin].flatMap { [$0.title, $0.meaning] } + [N.explainer] + N.fixes(res(50, 10, 200), busySync).flatMap { [$0.title, $0.consequence] } + wl + sl + cl + N.lines(nil, .init(link: .none, dns: .none)) + N.lines(nil, .init(link: .other, autoProxy: true, dns: .local))
+        let all = [poor, fair, fine, thin].flatMap { [$0.title, $0.meaning] } + [N.explainer, N.dataNote, N.meteredNote] + N.fixes(res(50, 10, 200), busySync).flatMap { [$0.title, $0.consequence] } + wl + sl + cl + N.lines(nil, .init(link: .none, dns: .none)) + N.lines(nil, .init(link: .other, autoProxy: true, dns: .local))
         let bad = all.filter { $0.contains("\u{2014}") || $0.contains("!") }
         review.append(("network-wording", bad.isEmpty, bad.isEmpty ? "\(all.count) sentences" : "breaks: \(bad)"))
 

@@ -138,6 +138,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// Nothing is left frozen: paused jobs carry on when Cool Head quits.
     func applicationWillTerminate(_ notification: Notification) {
         Watcher.shared.resumeAllPaused(why: "Cool Head quit")
+        // a running network test stops with Cool Head (macOS doesn't stop a program's children when it quits)
+        MainActor.assumeIsolated { NetworkTester.shared.close() }
     }
 
     @objc func setIconStyle(_ sender: NSMenuItem) {

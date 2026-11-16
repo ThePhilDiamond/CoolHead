@@ -22,9 +22,9 @@ The menu bar panel, 412 points wide, under the icon; its top and bottom stay put
 - Status line: "Running warm · 1 to watch" or "All calm".
 - Pinned at the top: anything running cooler or paused (frosted), and sync apps waiting to be resumed.
 - Cards: one short sentence each, with Explore fixes (worth watching) or Learn more (calm), and a clock in the corner to check back later.
-- Along the bottom: battery health, then the tools, each an icon with its name (names can be hidden): Network (Test my network), Trusted, Report, Activity (Activity Monitor) and Quit; each opens in the panel's middle, one at a time. Tools go along the bottom and settings in the right-click menu (Phil, 16 November 2026). The name and version ("Cool Head v0.4.5") sit small at the top right; clicking them checks for updates. Right-clicking the menu bar icon shows the settings: updates, Save Battery When Unplugged, Notifications, Open at Login, Show Tool Names, the menu bar icon, About and Quit.
+- Along the bottom: battery health, then the tools, each an icon with its name (names can be hidden): Network (Test my network), Trends (once the power-log charts are in), Trusted, Report and Quit; each opens in the panel's middle, one at a time. Tools go along the bottom and settings in the right-click menu (Phil, 16 November 2026). The name and version ("Cool Head v0.4.5") sit small at the top right; clicking them checks for updates. Right-clicking the menu bar icon shows the settings: updates, Save Battery When Unplugged, Notifications, Open at Login, Show Tool Names, the menu bar icon, About and Quit.
 
-No tabs, no tables, no process list. Activity Monitor is one click away, from the icon at the bottom of the panel, for anyone who wants the raw list.
+No tabs, no tables, no process list. Anyone who wants the raw list has Activity Monitor; Cool Head no longer links to it, since it isn't Cool Head's tool (Phil, 16 November 2026).
 
 ## Look
 

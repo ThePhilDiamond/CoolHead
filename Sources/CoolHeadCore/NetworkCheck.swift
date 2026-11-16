@@ -1,6 +1,7 @@
 import CoreWLAN
 import Darwin
 import Foundation
+import Network
 import SystemConfiguration
 
 /// "Test my network": tells a Mac that feels slow because of the network apart from one that's slow for other reasons.
@@ -33,7 +34,12 @@ public enum NetworkCheck {
     public static let talkerFloor = 100_000.0
 
     /// What the button says it will do, before it is pressed.
-    public static let explainer = "Runs Apple's network test. It uses your whole connection for up to \(testSeconds) seconds, and some data, so it runs only when you press it."
+    public static let explainer = "Runs Apple's network test. It uses your whole connection for up to \(testSeconds) seconds, so it runs only when you press it."
+    /// How much data the test can use: about the connection's speed times the run time, so a few gigabytes on a fast
+    /// line (an estimate, as in research node N-020; Apple doesn't say).
+    public static let dataNote = "Uses your whole connection for up to \(testSeconds) seconds: on a fast line, a few gigabytes of data."
+    /// Said before the test on a connection macOS marks as metered, or one that isn't Wi-Fi or cable (a phone, say).
+    public static let meteredNote = "This looks like a phone or metered connection, where the test could use a gigabyte or more of your data allowance."
 
     // MARK: what the Mac can say without a prompt
 
@@ -71,11 +77,15 @@ public enum NetworkCheck {
         public var autoProxy: Bool
         public var dns: DNS
         public var talkers: [Talker]
+        /// macOS marks the connection as metered (a phone hotspot, Low Data Mode).
+        public var metered: Bool
         public init(link: Link, awdlOn: Bool = false, vpn: Bool = false, proxy: Bool = false, autoProxy: Bool = false,
-                    dns: DNS = .router, talkers: [Talker] = []) {
+                    dns: DNS = .router, talkers: [Talker] = [], metered: Bool = false) {
             self.link = link; self.awdlOn = awdlOn; self.vpn = vpn; self.proxy = proxy; self.autoProxy = autoProxy
-            self.dns = dns; self.talkers = talkers
+            self.dns = dns; self.talkers = talkers; self.metered = metered
         }
+        /// Whether to warn about data before the test.
+        public var mayBeMetered: Bool { metered || link == .other }
     }
 
     /// Reads the connection, then watches network use for about a second (so call it off the main thread).
@@ -103,7 +113,20 @@ public enum NetworkCheck {
                      proxy: on("HTTPEnable") || on("HTTPSEnable") || on("SOCKSEnable"),
                      autoProxy: on("ProxyAutoConfigEnable") || on("ProxyAutoDiscoveryEnable"),
                      dns: dnsKind(dnsInfo?["ServerAddresses"] as? [String] ?? [], router: router),
-                     talkers: talkers())
+                     talkers: talkers(),
+                     metered: metered())
+    }
+
+    /// Whether macOS marks the current connection as expensive (a phone hotspot) or constrained (Low Data Mode).
+    static func metered() -> Bool {
+        let monitor = NWPathMonitor()
+        let answer = Locked(false)
+        let got = DispatchSemaphore(value: 0)
+        monitor.pathUpdateHandler = { path in answer.value = path.isExpensive || path.isConstrained; got.signal() }
+        monitor.start(queue: DispatchQueue(label: "coolhead.network-path"))
+        _ = got.wait(timeout: .now() + 1)
+        monitor.cancel()
+        return answer.value
     }
 
     /// The Wi-Fi link's signal, noise, rate and channel, or nil when it isn't connected.
@@ -159,6 +182,8 @@ public enum NetworkCheck {
         p.standardOutput = out
         p.standardError = FileHandle.nullDevice
         guard (try? p.run()) != nil else { return [] }
+        // it takes about a second; one that hangs is stopped, so the view never waits on it
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { if p.isRunning { p.terminate() } }
         let data = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
         return talkers(nettop: String(decoding: data, as: UTF8.self), mine: getpid())
@@ -166,8 +191,11 @@ public enum NetworkCheck {
 
     /// The second sample of nettop's CSV ("name.pid,bytes_in,bytes_out,"), named the way a person knows them: the app
     /// a process belongs to, or its own name, with "macOS's" before macOS's own. Cool Head and the test itself
-    /// are left out, and one app's processes are added together.
-    static func talkers(nettop: String, mine: pid_t, path: (pid_t) -> String? = Proc.path) -> [Talker] {
+    /// are left out, and one app's processes are added together. A process's name can hold commas, so each row is read
+    /// from the right (the byte counts are last), and a row counts only if its name matches the process with that
+    /// number: a program can't pass itself off as another app.
+    static func talkers(nettop: String, mine: pid_t, path: (pid_t) -> String? = Proc.path,
+                        name processName: (pid_t) -> String? = { Proc.bsd($0)?.name }) -> [Talker] {
         var blocks: [[Substring]] = []
         for line in nettop.split(separator: "\n") {
             if line.hasPrefix(",") { blocks.append([]) } else if !blocks.isEmpty { blocks[blocks.count - 1].append(line) }
@@ -175,11 +203,15 @@ public enum NetworkCheck {
         var totals: [String: Double] = [:]
         var bundles: [String: String] = [:]
         for row in blocks.last ?? [] {
+            // "name.pid,bytes_in,bytes_out," : the last field is empty, the two before it are the bytes
             let f = row.split(separator: ",", omittingEmptySubsequences: false)
-            guard f.count >= 3, let dot = f[0].lastIndex(of: "."), let pid = pid_t(f[0][f[0].index(after: dot)...]) else { continue }
-            let bytes = (Double(f[1]) ?? 0) + (Double(f[2]) ?? 0)
-            let raw = String(f[0][..<dot])
-            guard bytes > 0, pid != mine, raw != "networkQuality" else { continue }
+            guard f.count >= 4, f[f.count - 1].isEmpty else { continue }
+            let label = f[..<(f.count - 3)].joined(separator: ",")
+            guard let dot = label.lastIndex(of: "."), let pid = pid_t(label[label.index(after: dot)...]) else { continue }
+            let bytes = (Double(f[f.count - 3]) ?? 0) + (Double(f[f.count - 2]) ?? 0)
+            let raw = String(label[..<dot])
+            guard bytes > 0, bytes.isFinite, pid != mine, raw != "networkQuality",
+                  let real = processName(pid), real.hasPrefix(raw) || raw.hasPrefix(real) else { continue }
             let exe = path(pid)
             let name = Evidence.appName(exe) ?? (exe.map { CaseReport.isMacOS($0) } == true ? "macOS's \(raw)" : raw)
             totals[name, default: 0] += bytes
@@ -199,31 +231,41 @@ public enum NetworkCheck {
 
     public enum Outcome: Equatable { case done(Result), failed(String) }
 
-    /// Runs `networkQuality -c` and waits for it (up to `testSeconds`, plus a little to start and finish). Cancelling
-    /// the task stops the test.
+    /// Runs `networkQuality` and waits for it (up to `testSeconds`, plus a little to start and finish). Cancelling the
+    /// task stops the test, even if it comes just as the test starts: starting and stopping share one lock, so a
+    /// cancelled test never starts and a started one is always stopped.
     public static func run() async -> Outcome {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/networkQuality")
-        p.arguments = ["-c", "-M", "\(testSeconds)"]
+        p.arguments = ["-M", "\(testSeconds)", "-c"]          // -c last: it takes an optional file name
         let out = Pipe()
         p.standardOutput = out
         p.standardError = FileHandle.nullDevice
+        let state = Locked((cancelled: false, started: false))
         return await withTaskCancellationHandler {
             await withCheckedContinuation { (done: CheckedContinuation<Outcome, Never>) in
-                p.terminationHandler = { _ in
+                DispatchQueue.global().async {
+                    let ok: Bool? = state.with { s in
+                        if s.cancelled { return nil }
+                        guard (try? p.run()) != nil else { return false }
+                        s.started = true
+                        return true
+                    }
+                    guard let ok else { done.resume(returning: .failed("The test was stopped.")); return }
+                    guard ok else { done.resume(returning: .failed("Apple's network test isn't on this Mac (it comes with macOS 12 and later).")); return }
+                    // a test that hangs past its own limit is stopped, and reads as one that couldn't finish
+                    DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(testSeconds + 15)) { if p.isRunning { p.terminate() } }
+                    // read while it runs, so a full pipe can never hold it up
                     let data = out.fileHandleForReading.readDataToEndOfFile()
+                    p.waitUntilExit()
                     done.resume(returning: parse(data))
                 }
-                do { try p.run() } catch {
-                    p.terminationHandler = nil
-                    done.resume(returning: .failed("Apple's network test isn't on this Mac (it comes with macOS 12 and later)."))
-                    return
-                }
-                // a test that hangs past its own limit is stopped, and reads as one that couldn't finish
-                DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(testSeconds + 15)) { if p.isRunning { p.terminate() } }
             }
         } onCancel: {
-            if p.isRunning { p.terminate() }
+            state.with { s in
+                s.cancelled = true
+                if s.started && p.isRunning { p.terminate() }
+            }
         }
     }
 
@@ -236,11 +278,12 @@ public enum NetworkCheck {
         if j["error_code"] != nil {
             return .failed("The test couldn't reach Apple's test servers, so the connection may be down.")
         }
-        guard let rpm = (j["responsiveness"] as? NSNumber)?.doubleValue,
-              let down = (j["dl_throughput"] as? NSNumber)?.doubleValue else {
+        guard let rpm = (j["responsiveness"] as? NSNumber)?.doubleValue, rpm.isFinite,
+              let down = (j["dl_throughput"] as? NSNumber)?.doubleValue, down.isFinite else {
             return .failed("The test stopped before it had a result.")
         }
-        return .done(Result(download: down, upload: (j["ul_throughput"] as? NSNumber)?.doubleValue ?? 0, rpm: Int(rpm.rounded())))
+        let up = (j["ul_throughput"] as? NSNumber)?.doubleValue ?? 0
+        return .done(Result(download: max(0, down), upload: up.isFinite ? max(0, up) : 0, rpm: Int(min(max(rpm, 0), 1_000_000).rounded())))
     }
 
     // MARK: what it says
@@ -373,6 +416,10 @@ public enum NetworkCheck {
         return out
     }
 
+    /// What the activity log says when a fix is pressed: its fixed id only. A fix's title can name an app, and the log
+    /// can end up in a public Report a problem issue, so names never go into it.
+    public static func logLine(_ f: Fix) -> String { "Test my network: \(f.id) pressed" }
+
     static let systemSettings = "/System/Applications/System Settings.app"
     public static let wirelessDiagnostics = "/System/Library/CoreServices/Applications/Wireless Diagnostics.app"
 
@@ -432,4 +479,16 @@ public enum NetworkCheck {
     public static func rate(_ bytes: Double) -> String {
         bytes >= 1_000_000 ? String(format: "%.1f MB a second", bytes / 1_000_000) : "\(Int((bytes / 1000).rounded())) KB a second"
     }
+}
+
+/// A value shared between threads, behind a lock.
+final class Locked<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: T
+    init(_ value: T) { stored = value }
+    var value: T {
+        get { lock.lock(); defer { lock.unlock() }; return stored }
+        set { lock.lock(); stored = newValue; lock.unlock() }
+    }
+    @discardableResult func with<R>(_ body: (inout T) -> R) -> R { lock.lock(); defer { lock.unlock() }; return body(&stored) }
 }
