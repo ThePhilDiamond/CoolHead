@@ -14,6 +14,7 @@ What changed in each version of Cool Head, newest first, in plain words. The for
   - Each says what started it, and names programs it started that may be waiting on it.
 - `coolhead hangs` lists what's paused, waiting on a drive, or not responding right now.
 - **Restart Chrome, keeping your tabs**: when memory is tight and Chrome is one of the three biggest users, one click closes Chrome the normal way (so it can ask about downloads first) and reopens it with the same windows and tabs, freeing the memory Chrome builds up over time. Incognito windows, text typed into a form and not sent, and downloads in progress don't come back; the option says so. If Chrome hasn't closed within 20 seconds (it may be asking you something), it isn't reopened, and Cool Head tells you. Also for Microsoft Edge, Brave, Vivaldi, and Chromium.
+- **The graphics chip.** Cool Head now sees how much of the graphics chip each app uses. Something keeping it busy, about half of it or more for over a minute, gets a card even when it uses little CPU, and the card says how much: "It's keeping the graphics chip busy, about 70% of it." An app doing this can be quit from its card. Games stay calm and are never slowed, and Chrome's graphics process and Safari's web pages say how much of the chip they use. Each card's details show the graphics chip too, and `coolhead now` lists what is busy on it.
 
 ### Changed
 

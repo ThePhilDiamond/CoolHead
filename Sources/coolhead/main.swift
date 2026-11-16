@@ -54,6 +54,7 @@ func printEvidence(_ e: Evidence) {
     row("CPU now", Fmt.cores(e.coresNow))
     row("CPU average", Fmt.cores(e.coresAverage) + " since it started")
     row("fast cores", e.performanceShare.map { "\(Fmt.percent($0)) of its time on the performance cores" })
+    row("graphics", e.gpuShare.map { "\(Fmt.share($0)) of the graphics chip" })
     row("memory", Fmt.bytes(e.memoryBytes))
     for w in e.writing { row("writing", w) }
     for l in e.locks { row("lock", l.path + (l.note.map { "  (says: \($0))" } ?? "")) }
@@ -100,7 +101,12 @@ case "now":
     let state = MacState.read()
     printState(state)
     print("")
-    for (pid, cores) in busiest(limit: 8) where cores >= 0.25 {
+    // busy on the CPU, or on the graphics chip (measured over the same second)
+    let g1 = GPU.times(), t1 = Date()
+    let cpu = busiest(limit: 8).filter { $0.1 >= 0.25 }.map(\.0)
+    let g2 = GPU.times(), seconds = Date().timeIntervalSince(t1)
+    let drawing = g2.filter { GPU.share(from: g1[$0.key] ?? $0.value, to: $0.value, seconds: seconds) >= GPU.quietShare }.map(\.key)
+    for pid in cpu + drawing.filter({ !cpu.contains($0) }) {
         guard let e = Evidence.gather(pid: pid, interval: 0.5) else { continue }
         printCard(Card.make(e, now: testNow, warm: state.thermal != "nominal"))
         print("")
