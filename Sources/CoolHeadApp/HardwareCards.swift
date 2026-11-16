@@ -22,19 +22,13 @@ final class HardwareWatch {
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var alerted: Set<String> = []
 
-    /// For screenshots: COOLHEAD_SNAPSHOT_HARDWARE shows made-up findings instead of this Mac's (the sample names in
-    /// Fixtures+Hardware.swift, separated by |, or "all"), so no one's own Mac appears.
-    private var samples: [String]? {
-        ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"].map { $0.split(separator: "|").map(String.init) }
-    }
+    /// Screenshots show made-up cards (COOLHEAD_SNAPSHOT_SAMPLES, which includes every hardware card as "hardware-…")
+    /// or only some cards (COOLHEAD_SNAPSHOT_ONLY), never this Mac's own hardware findings.
+    private var snapshot: Bool { ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] != nil }
 
     func start() {
-        if let want = samples {
-            let all = Fixture.hardwareSamples(Date())
-            cards = all.filter { want.contains("all") || want.contains($0.0) }.flatMap { $0.1.cards() }
-            return
-        }
         refresh(force: true)
+        guard !snapshot else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { _ in Task { @MainActor in HardwareWatch.shared.refresh(force: true) } }
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { _ in
             Task { @MainActor in HardwareWatch.shared.refresh(force: true) }
@@ -43,7 +37,7 @@ final class HardwareWatch {
 
     /// Reads the checks again, off the main thread. Without `force`, at most once a minute (for the panel opening).
     func refresh(force: Bool = false) {
-        guard samples == nil, !reading else { return }
+        guard !reading else { return }
         let now = Date()
         if !force, let last = lastRead, now.timeIntervalSince(last) < 60 { return }
         let profile = lastProfile.map { now.timeIntervalSince($0) > 3600 } ?? true
@@ -58,7 +52,7 @@ final class HardwareWatch {
                 }
                 if profile { watch.lastProfile = now }
                 watch.report = fresh
-                watch.cards = fresh.cards(now: now)
+                watch.cards = watch.snapshot ? [] : fresh.cards(now: now)
                 watch.lastRead = now
                 watch.reading = false
                 for c in watch.cards where c.needsLook && !watch.alerted.contains(c.id) {

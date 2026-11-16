@@ -164,9 +164,6 @@ case "hardware":
     for c in report.cards(now: testNow) { print(""); printCard(c.card) }
 case "wording":
     for (id, c) in Wording.samples() { print("[\(id)]"); print(Wording.text(c)) }
-    for (id, r) in Fixture.hardwareSamples(Date()) {
-        for c in r.cards() { print("[hardware-\(id)]"); print(Wording.text(c.card)) }
-    }
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }

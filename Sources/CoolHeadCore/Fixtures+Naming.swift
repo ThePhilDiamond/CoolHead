@@ -12,6 +12,7 @@ extension Fixture {
             for n in c.names where !text.contains(n) && !text.contains(Fmt.sentenceStart(n)) { bad.append("\(id): names \"\(n)\" but doesn't show it") }
         }
         let named = samples.filter { !$0.1.names.isEmpty }.count
+        let aboutProcesses = samples.filter { !$0.0.hasPrefix("hardware-") }.count      // hardware cards name no process
         // the cases that started it: an app and a program alike; a program first in a sentence; a child of the same name
         func card(_ id: String) -> Card? { samples.first { $0.0 == id }?.1 }
         let alike = card("memory-app-and-program-alike")
@@ -23,7 +24,7 @@ extension Fixture {
             && child?.explanation.contains("another ffmpeg and ffprobe") == true
             && Naming.distinct([.init("a script", .script), .init("a script", .script)]) == ["a script", "another script"]
             && Fmt.sentenceStart("macOS's mds") == "macOS's mds" && Fmt.sentenceStart("the claude command-line program") == "The claude command-line program"
-        return [("names-tell-apart", bad.isEmpty && cases && named >= samples.count * 2 / 3,
-                 bad.isEmpty ? "\(named) of \(samples.count) example cards record their names; all can be told apart; cases \(cases)" : bad.joined(separator: "; "))]
+        return [("names-tell-apart", bad.isEmpty && cases && named >= aboutProcesses * 2 / 3,
+                 bad.isEmpty ? "\(named) of \(aboutProcesses) example cards about processes record their names; all can be told apart; cases \(cases)" : bad.joined(separator: "; "))]
     }
 }
