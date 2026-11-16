@@ -1029,7 +1029,8 @@ struct FixRow: View {
         case .reveal: return "folder"
         case .guide: return "list.bullet"
         case .openPage: return "gearshape"
-        case .pauseJob, .pauseSync: return "pause.circle"
+        case .pauseJob: return "pause.circle"
+        case .pauseSync: return "pause.circle"
         case .chromeLimit: return "memorychip"
         case .resume: return "play.circle"
         case .forceQuit: return "xmark.octagon"
@@ -1059,7 +1060,13 @@ struct FixRow: View {
     }
     /// Closes or ends something: its icon in red, so the risk shows at a glance.
     var ends: Bool {
-        switch fix.kind { case .stop, .quitApp, .forceQuit, .restartBrowser: return true; default: return false }
+        switch fix.kind {
+        case .stop: return true
+        case .quitApp: return true
+        case .forceQuit: return true
+        case .restartBrowser: return true
+        default: return false
+        }
     }
 
     /// Once it is already running cooler, "Back to full speed" isn't the recommendation.

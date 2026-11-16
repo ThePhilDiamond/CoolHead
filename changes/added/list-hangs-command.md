@@ -1,0 +1,1 @@
+- `coolhead hangs` lists what's paused, waiting on a drive, or not responding right now.

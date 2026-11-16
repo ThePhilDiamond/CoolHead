@@ -36,10 +36,10 @@ Every change, the maintainer's included, goes through a pull request: `main` acc
 
 ## Steps
 
-1. **During development**, each change a user would notice gets a line under `## [Unreleased]` in CHANGELOG.md, under Added, Changed or Fixed.
-2. **Choose the number** by the rules above: MINOR if anything under Unreleased is Added or Changed, PATCH if it's all Fixed.
+1. **During development**, each change a user would notice gets its own file in [changes/](changes/README.md), under `added/`, `changed/` or `fixed/`, so pull requests don't edit the same lines of CHANGELOG.md.
+2. **Choose the number** by the rules above: MINOR if anything is in `changes/added` or `changes/changed`, PATCH if it's all in `changes/fixed`.
 3. **Prepare the release** in one pull request named `Release X.Y.Z`:
-   - In CHANGELOG.md, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a new empty `## [Unreleased]` above it, and update the links at the bottom (`[Unreleased]` compares `vX.Y.Z...HEAD`; `[X.Y.Z]` compares the previous tag with `vX.Y.Z`).
+   - Run `scripts/gather-changes.sh X.Y.Z`: it moves every entry in `changes/` into a new `## [X.Y.Z] - YYYY-MM-DD` section of CHANGELOG.md, oldest first, under Added, Changed and Fixed, updates the links at the bottom (`[Unreleased]` compares `vX.Y.Z...HEAD`; `[X.Y.Z]` compares the previous tag with `vX.Y.Z`), and removes the entry files. Read the section through before committing.
    - Set `VERSION` and `CoolHead.version` to X.Y.Z.
    - If the version changes something a user sees, add its short note for the app's What's new (`WhatsNew` in `Sources/CoolHeadApp/PanelView.swift`).
    - Run `scripts/check-version.sh vX.Y.Z`, `swift build -c release` and `.build/release/coolhead selftest`.

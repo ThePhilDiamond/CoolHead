@@ -13,6 +13,15 @@ grep -q "version = \"$VERSION\"" Sources/CoolHeadCore/CaseReport.swift || fail "
 grep -q '^## \[Unreleased\]$' CHANGELOG.md || fail "CHANGELOG.md has no ## [Unreleased] section"
 # a merge left unfinished (15 November 2026: one was committed with its markers still in the changelog)
 ! grep -Eq '^(<<<<<<<|=======$|>>>>>>>)' CHANGELOG.md || fail "CHANGELOG.md still has merge conflict markers"
+# entries waiting for a release live in changes/, one file each, so pull requests don't edit the same lines
+unreleased=$(awk '/^## \[Unreleased\]$/ {on=1; next} /^## / {on=0} on' CHANGELOG.md | grep -c '^- ' || true)
+[ "$unreleased" -eq 0 ] || fail "CHANGELOG.md has entries under [Unreleased]; put each in its own file in changes/ (see changes/README.md)"
+for f in $(find changes -type f ! -path changes/README.md | sort); do
+  echo "$f" | grep -Eq '^changes/(added|changed|fixed)/[a-z0-9]+(-[a-z0-9]+)*\.md$' \
+    || fail "$f: entries go in changes/added, changes/changed or changes/fixed, named in lowercase words joined by hyphens, ending .md"
+  head -c 2 "$f" | grep -q '^- ' || fail "$f doesn't start with \"- \""
+  ! grep -Eq '^(<<<<<<<|=======$|>>>>>>>)' "$f" || fail "$f still has merge conflict markers"
+done
 grep -Eq "^## \[$VERSION\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md || fail "CHANGELOG.md has no dated ## [$VERSION] section"
 grep -q "^\[$VERSION\]: " CHANGELOG.md || fail "CHANGELOG.md has no [$VERSION] link at the bottom"
 
