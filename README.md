@@ -67,9 +67,9 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 1. Download the latest `Cool-Head-….zip` from [Releases](../../releases), and unzip it.
 2. Move **Cool Head** to Applications and open it. The first time, macOS may say it can't check the app (it isn't notarized yet): open **System Settings ▸ Privacy & Security** and choose **Open Anyway**.
-3. Look for the snowflake in the menu bar. Its badge shows the state by shape and color: a green circle when all is good, a yellow triangle when something is worth watching, a red octagon for a problem. Prefer something sillier? Right-click it and choose **Menu Bar Icon ▸ Melting Snowflake**: it melts as things heat up, and bursts into flames when there's a problem.
+3. Look for the snowflake in the menu bar. Its badge shows the state by shape and color: a green circle when all is good, a yellow triangle when something is worth watching, a red octagon for a problem. Prefer something sillier? Right-click it and choose **Menu Bar Icon ▸ Melting Snowflake**: it melts as things heat up, and bursts into flames when there's a problem, with a yellow or red bar underneath so the color is there at a glance.
 
-<p align="center"><img src="docs/images/menu-icons.png" width="270" alt="The menu bar icons: Melting Snowflake whole, drooping, and in flames; and the snowflake with a green circle, yellow triangle, or red octagon, on dark and light menu bars"></p>
+<p align="center"><img src="docs/images/menu-icons.png" width="270" alt="The menu bar icons: Melting Snowflake whole, drooping over a yellow bar, and in flames over a red bar; and the snowflake with a green circle, yellow triangle, or red octagon, on dark and light menu bars"></p>
 
 Click the snowflake for the panel. Right-click it for updates, Save Battery When Unplugged, the menu bar icon, your trusted apps and jobs, reporting a problem, and Quit.
 
