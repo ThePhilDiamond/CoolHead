@@ -22,6 +22,7 @@ public struct Fixture {
         graphicsChipChecks,
         hangChecks,
         hardwareChecks,
+        memorySignalChecks,
         namingChecks,
         networkChecks,
         optionChecks,

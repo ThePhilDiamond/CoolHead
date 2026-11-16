@@ -17,6 +17,13 @@ public struct MacState {
     public var memoryPressure = "unknown"             // normal, warning, critical
     public var swapUsedMB = 0.0
     public var swapTotalMB = 0.0
+    /// Free space on the startup disk, not counting space macOS may or may not free (purgeable). Swap files share it,
+    /// so when it runs out the Mac can't add more (Howard Oakley's test on macOS 26.6.2, research node N-006).
+    public var diskFreeBytes: UInt64?
+    /// Pages moved from memory to the swap files since startup; the Watcher turns them into `swappedOutMB`.
+    public var swapOutPages: UInt64?
+    /// Memory moved to the disk in about the last 2 minutes (set by the Watcher from `swapOutPages`).
+    public var swappedOutMB: Double?
     public var memoryGB = 0.0
     public var cores = 0
     public var performanceCores = 0
@@ -47,8 +54,26 @@ public struct MacState {
             s.swapUsedMB = Double(xsw.xsu_used) / 1_048_576
             s.swapTotalMB = Double(xsw.xsu_total) / 1_048_576
         }
+        if let free = try? URL(fileURLWithPath: "/").resourceValues(forKeys: [.volumeAvailableCapacityKey]).volumeAvailableCapacity, free >= 0 {
+            s.diskFreeBytes = UInt64(free)
+        }
+        var vm = vm_statistics64()
+        var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
+        let r = withUnsafeMutablePointer(to: &vm) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count) }
+        }
+        if r == KERN_SUCCESS { s.swapOutPages = vm.swapouts }
         s.readBattery()
         return s
+    }
+
+    /// Memory is tight: macOS says so (warning or critical), or the Mac is moving a lot of memory to its disk while
+    /// macOS still says normal (one report, untested, says the level can stay normal during heavy swapping; research
+    /// node N-002). "warning" or "critical", or nil when memory is fine.
+    public var memoryLevel: String? {
+        if memoryPressure == "warning" || memoryPressure == "critical" { return memoryPressure }
+        if memoryPressure == "normal", let mb = swappedOutMB, mb >= MemoryAdvice.heavySwapMB { return "warning" }
+        return nil
     }
 
     mutating func readBattery() {

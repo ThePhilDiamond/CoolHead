@@ -27,6 +27,11 @@ public enum Wording {
         var node = MemGroup(key: "other-node", name: "node", kind: .other, bundle: nil, bytes: 3_000_000_000, count: 1)
         node.what = .background
         out.append(("memory-program-first", MemoryAdvice.card([node, group("Slack", .app, "/Applications/Slack.app", 1.2, 5)], mac: tight, now: now)))
+        // a nearly full startup disk, and heavy swapping while macOS still says normal (research nodes N-002, N-006)
+        var lowDisk = tight; lowDisk.diskFreeBytes = 12_400_000_000
+        out.append(("memory-low-disk", MemoryAdvice.card([group("Slack", .app, "/Applications/Slack.app", 3.1, 5)], mac: lowDisk, now: now)))
+        var swapping = MacState(); swapping.memoryPressure = "normal"; swapping.swapUsedMB = 4200; swapping.swapTotalMB = 5120; swapping.swappedOutMB = 1400
+        out.append(("memory-heavy-swap", MemoryAdvice.card([group("Xcode", .app, "/Applications/Xcode.app", 6.2, 9)], mac: swapping, now: now)))
         out.append(("memory-docker", MemoryAdvice.card([group("Docker", .app, "/Applications/Docker.app", 4, 3)], mac: tight, now: now)))
         out.append(("memory-job", MemoryAdvice.card([MemGroup(key: "job-1", name: "a script", kind: .job, bundle: nil, bytes: 3_000_000_000, count: 1, pid: 4242)], mac: tight, now: now)))
         // hangs
