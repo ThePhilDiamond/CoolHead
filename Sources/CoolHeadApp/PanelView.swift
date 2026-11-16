@@ -1041,8 +1041,8 @@ struct FixRow: View {
     @State private var choosing = false
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
     /// For an option that shows how: the steps, shown under it once pressed.
-    var guideSteps: String? { if case .guide(let steps) = fix.kind { return steps }; return nil }
-    @State private var showingSteps = false
+    var guideSteps: [String]? { if case .guide(let steps) = fix.kind { return steps }; return nil }
+    @State private var showingSteps = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_STEPS"] != nil   // screenshots show the guides
     /// 1 hour, 3 hours, and until 8pm while that is more than an hour away.
     var pauseChoices: [(String, Date)] {
         let now = Date()
@@ -1108,12 +1108,21 @@ struct FixRow: View {
                     }
                     .padding(.leading, 11)
                 }
+                // the mini-guide (Phil, 15 November 2026: "a button that upon clicking opens a mini-guide to do the
+                // recommended tip (if it can't be automated)"): numbered steps under the option
                 if showingSteps, let steps = guideSteps {
-                    Text(steps)
-                        .font(.callout).foregroundStyle(Ink.text)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 11).padding(.vertical, 2)
-                        .onTapGesture {}              // reading the steps doesn't close the card
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("\(i + 1).").monospacedDigit().foregroundStyle(Ink.muted)
+                                Text(step).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .font(.callout).foregroundStyle(Ink.text)
+                    .padding(.horizontal, 11).padding(.vertical, 2)
+                    .accessibilityElement(children: .combine)
+                    .onTapGesture {}              // reading the steps doesn't close the card
                 }
         }
     }

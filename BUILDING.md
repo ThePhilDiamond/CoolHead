@@ -37,6 +37,7 @@ Screenshots for the project must never show your own processes. These settings s
 - `COOLHEAD_SNAPSHOT_ONLY=<phrase>`: show only cards whose headline contains the phrase (and no welcome or What's new).
 - `COOLHEAD_SNAPSHOT_AFTER=<seconds>`: wait this long first (a job needs a minute of being busy before it gets a card).
 - `COOLHEAD_SNAPSHOT_OPEN=1`: show cards open.
+- `COOLHEAD_SNAPSHOT_STEPS=1`: show each option's mini-guide open.
 - `COOLHEAD_SNAPSHOT_WARM=1`: treat the Mac as warm.
 - `COOLHEAD_TEST_MEMORY=1`: treat memory as tight, so the memory card shows.
 - `COOLHEAD_HANG_SECONDS=<seconds>`: show a card for a paused, drive-waiting or Not Responding process after this long, instead of minutes.

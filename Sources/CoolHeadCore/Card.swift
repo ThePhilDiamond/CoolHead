@@ -52,7 +52,7 @@ public struct Fix: Identifiable {
         // would be better than a non-button."). What Cool Head can't do itself, it takes you to, or shows how:
         case openApp(String, String)    // bring this app (bundle path) forward, then say these steps
         case reveal(String, String)     // show this folder in Finder, then say these steps
-        case guide(String)              // show these steps under the option
+        case guide([String])            // a mini-guide: these steps, numbered, under the option
         case share               // show the anonymised case report, then offer to open it as a GitHub issue
         case openPage(String, String)   // open a page of an app's own settings in that app: bundle path, address
         case pauseJob            // SIGSTOP until the Mac is plugged in; resumed then, or on request, or when Cool Head quits
@@ -75,7 +75,7 @@ public struct Fix: Identifiable {
     }
 
     /// An option that shows how to do something Cool Head can't do itself: `steps` appear under it when pressed.
-    public static func guide(_ id: String, _ title: String, _ consequence: String, steps: String, recommended: Bool = false) -> Fix {
+    public static func guide(_ id: String, _ title: String, _ consequence: String, steps: [String], recommended: Bool = false) -> Fix {
         Fix(id: id, title: title, consequence: consequence, kind: .guide(steps), recommended: recommended)
     }
 
@@ -208,7 +208,7 @@ public struct Card {
                     } else if let b = e.appBundle {
                         fixes.append(Fix.openApp("advice", k.whenLong, bundle: b, steps: k.risk ?? "", recommended: true))
                     } else {
-                        fixes.append(Fix.guide("advice", k.whenLong, k.risk ?? "", steps: k.risk ?? k.whenLong, recommended: true))
+                        fixes.append(Fix.guide("advice", k.whenLong, k.risk ?? "", steps: [k.whenLong + ".", k.risk].compactMap { $0 }, recommended: true))
                     }
                     fixes.append(lookUp(e.name, recommended: false))
                 }
@@ -310,7 +310,7 @@ public struct Card {
                         explanation: webkitGPU ? "The process that draws web pages \(used) Usually a Safari tab; other apps that show web pages have one too."
                             : "One tab or extension \(used) Only \(app) knows which.",
                         fixes: [(e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Then \(tm), and sort by CPU.", recommended: true) }
-                                    ?? Fix.guide("find", "Find the busy tab", "In \(app): \(tm), sort by CPU.", steps: "In \(app), choose \(tm), then sort by CPU. The busiest tab is at the top.", recommended: true),
+                                    ?? Fix.guide("find", "Find the busy tab", "In \(app): \(tm), sort by CPU.", steps: ["In \(app), choose \(tm).", "Sort by CPU: the busiest tab is at the top.", "Close it, or reload it if you need it."], recommended: true),
                                 (e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp($0)) },
                                 lookUp(e.name, recommended: false),
                                 wait(until: nil, now: now, recommended: false)].compactMap { $0 })

@@ -149,10 +149,12 @@ public enum Hang {
                             + "Usually a network drive that dropped, an external disk, or a disk that's very busy. It can't be stopped or quit until the answer comes."
                             + started + waits,
                         fixes: [Fix.guide("drive", drive.map { "Reconnect \($0)" } ?? "Reconnect your drives", "Reconnect the network drive or plug the disk back in. That often frees it.",
-                                          steps: "For a network drive: in Finder, choose Go ▸ Connect to Server, and connect to it again. For a disk: check its cable, or plug it back in. Once it answers, the process carries on by itself.",
+                                          steps: ["For a network drive: in Finder, choose Go ▸ Connect to Server, and connect to it again.",
+                                                  "For a disk: check its cable, or plug it back in.",
+                                                  "Once it answers, the stuck process carries on by itself."],
                                           recommended: true),
                                 Fix.guide("restart", "Restart if it won't clear", "If it's still stuck once the drive is back, restarting your Mac frees it.",
-                                          steps: "Save your work in other apps, then choose Apple menu ▸ Restart. A process stuck on a drive can't be ended any other way."),
+                                          steps: ["Save your work in other apps.", "Choose Apple menu ▸ Restart.", "A process stuck on a drive can't be ended any other way, so this frees it."]),
                                 Card.lookUp(e.name, recommended: false), Card.share])
 
         case .notResponding:

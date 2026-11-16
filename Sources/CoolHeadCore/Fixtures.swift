@@ -209,7 +209,7 @@ public struct Fixture {
             Fix(id: "quit", title: "", consequence: "", kind: .quitApp("/Applications/X.app")),
             Fix(id: "lookup", title: "", consequence: "", kind: .lookUp("x"), recommended: true),
             Fix(id: "cooler", title: "", consequence: "", kind: .cooler),
-            Fix(id: "find", title: "", consequence: "", kind: .guide(""))])
+            Fix(id: "find", title: "", consequence: "", kind: .guide([]))])
         let order = shuffled.fixes.map(\.id).joined(separator: " ")
         let everyCard = all(now).map { f in Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor), warm: true) }
         let allSorted = everyCard.allSatisfy { c in

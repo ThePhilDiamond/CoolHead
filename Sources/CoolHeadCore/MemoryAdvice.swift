@@ -99,7 +99,7 @@ public enum MemoryAdvice {
         case .browser:
             let menu = top.name == "Safari" ? "Window ▸ Activity" : top.name == "Firefox" ? "type about:processes" : "Window ▸ Task Manager"
             fixes.append(top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: "Then \(menu), and sort by Memory.", recommended: true) }
-                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "\(menu), sort by Memory.", steps: "In \(top.name), \(menu), then sort by Memory and close the tabs at the top you don't need.", recommended: true))
+                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "\(menu), sort by Memory.", steps: ["In \(top.name), \(menu).", "Sort by Memory.", "Close the tabs at the top that you don't need."], recommended: true))
             if top.name == "Google Chrome" {
                 let st = chrome ?? ChromeLimit.status(chromeUse: top.bytes)
                 if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
