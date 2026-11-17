@@ -7,7 +7,7 @@ enum ServedCard: ProcessCard {
     static let id = "served"
     static let kind = CardKind.explanation
     static let rule = "Research rule 4: a macOS service's work is credited to the app it's working for"
-    static func confidence(_ s: Situation) -> Confidence { .type("macOS says which app this part of macOS is working for") }
+    static func confidence(_ s: Situation) -> Confidence { .named("macOS says which app this part of macOS is working for") }
     static let samples = ["macos-service-for-app"]
 
     static func card(_ s: Situation) -> Card? {

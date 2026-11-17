@@ -416,7 +416,12 @@ public struct Card {
                        syncFeed: syncFeed, agent: agent, backupFeed: backupFeed, disguise: disguise, background: background, apps: apps))
     }
 
+    /// Sees every situation `make` is given, for `coolhead cards --why`, which reviews the reasons on every sample and
+    /// check varied many ways. Nil in the app.
+    nonisolated(unsafe) public static var observer: ((Situation) -> Void)?
+
     public static func make(_ s: Situation) -> Card {
+        observer?(s)
         var (c, choice) = Ranker.choose(s)
         c.choice = choice
         // the processes it names, as shown (see Naming): the process, when the card names it (macOS's own processes and

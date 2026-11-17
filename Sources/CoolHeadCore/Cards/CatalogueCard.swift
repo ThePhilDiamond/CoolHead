@@ -3,11 +3,11 @@ import Foundation
 /// One of macOS's own processes that the catalogue knows (Catalogue.swift): what it is doing, and whether this has
 /// gone on longer than usual.
 enum CatalogueCard: ProcessCard {
-    static let name = "a known part of macOS"
+    static let name = "a program we know by name"
     static let id = "catalogue"
     static let kind = CardKind.explanation
     static let rule = "Catalogue.swift: macOS's own processes, what each does and how long it usually takes"
-    static func confidence(_ s: Situation) -> Confidence { .named("we know this part of macOS by name") }
+    static func confidence(_ s: Situation) -> Confidence { .named("we know this program by name") }
     static let samples = ["spotlight-normal", "spotlight-long", "kernel-task-long", "docker-vm", "windowserver-old-electron", "time-machine-build"]
 
     static func card(_ s: Situation) -> Card? {

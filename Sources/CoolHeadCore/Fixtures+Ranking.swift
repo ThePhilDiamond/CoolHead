@@ -25,12 +25,25 @@ extension Fixture {
                        wrong.isEmpty && bare.isEmpty ? "\(ProcessCards.all.count) cards and \(ProcessCards.extras.count) extras, each card winning its \(ProcessCards.all.map { $0.samples.count }.reduce(0, +)) samples"
                                                      : (wrong + bare.map { "\($0) lists no sample" }).joined(separator: "; ")))
 
-        // no rule or weight leaves two cards tied, on any sample or made-up overlap
-        let sampleTies = Wording.samples(now: now).compactMap { id, c in c.choice.flatMap { $0.ties.isEmpty ? nil : "\(id): \($0.winner) or \($0.ties.joined(separator: ", "))" } }
+        // no two cards tie, on any sample or made-up overlap, each varied in warmth, battery, a game and the front app
+        var seen: [Situation] = []
+        Card.observer = { seen.append($0) }
+        _ = Wording.samples(now: now)
+        Card.observer = nil
+        var sampleTies: [String] = []
+        for s in seen { for warm in [false, true] { for battery in [nil, 30] as [Int?] { for game in [nil, "Lumen"] as [String?] {
+            for front in [nil, s.e.appBundle] as [String?] {
+                let v = Situation(s.e, now: s.now, busySince: s.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
+                                  syncFeed: s.syncFeed, agent: s.agent, backupFeed: s.backupFeed, disguise: s.disguise, background: s.background, apps: s.apps)
+                let c = Ranker.choose(v).1
+                let t = "\(s.e.name): \(c.winner) or \(c.ties.joined(separator: ", "))"
+                if !c.ties.isEmpty, !sampleTies.contains(t) { sampleTies.append(t) }
+            }
+        } } } }
         let overlaps = overlaps(now: now).map { want, s in (want, s, Ranker.choose(s).1) }
         let overlapTies = overlaps.filter { !$0.2.ties.isEmpty }.map { "\($0.1.e.name): \($0.2.winner) or \($0.2.ties.joined(separator: ", "))" }
         review.append(("ranking-no-ties", sampleTies.isEmpty && overlapTies.isEmpty,
-                       sampleTies.isEmpty && overlapTies.isEmpty ? "\(lines.count) samples and \(overlaps.count) overlaps" : "tied: " + (sampleTies + overlapTies).joined(separator: "; ")))
+                       sampleTies.isEmpty && overlapTies.isEmpty ? "\(seen.count) sample situations, each varied 16 ways, and \(overlaps.count) overlaps" : "tied: " + (sampleTies + overlapTies).joined(separator: "; ")))
         let missed = overlaps.filter { $0.0 != $0.2.winner }.map { "\($0.1.e.name) got \($0.2.winner), not \($0.0)" }
         review.append(("ranking-overlaps", missed.isEmpty,
                        missed.isEmpty ? overlaps.map { "\($0.1.e.name): \($0.2.winner) of \($0.2.matched.count)" }.joined(separator: "; ") : missed.joined(separator: "; ")))
@@ -53,7 +66,9 @@ extension Fixture {
             ("game", probe("Lumen Helper (Renderer)", helper(steam, "Lumen Helper (Renderer)"), ["--type=renderer"])),
             ("game", probe("Lumen Helper (GPU)", helper(steam, "Lumen Helper (GPU)"), ["--type=gpu-process"])),
             ("game", probe("Lumen", steam + "/Contents/MacOS/Lumen")),
-            ("catalogue", probe("mds_stores", "/System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Versions/A/Support/mds_stores", by: "/Applications/Google Drive.app")),
+            // can't happen today (macOS names the app only for its XPC services, and no catalogue entry is one): if one
+            // were added, the served card would win, since it also knows which app the work is for
+            ("served", probe("mds_stores", "/System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Versions/A/Support/mds_stores", by: "/Applications/Google Drive.app")),
             ("security-software", probe("Netskope Helper (Renderer)", helper("/Applications/Netskope Client.app", "Netskope Helper (Renderer)"), ["--type=renderer"])),
             ("web-page", probe("com.apple.WebKit.WebContent", webkit + "com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent", by: "/Applications/Safari.app")),
             ("web-page-in-app", probe("com.apple.WebKit.GPU", webkit + "com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU", by: "/System/Applications/Mail.app")),

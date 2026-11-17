@@ -196,19 +196,23 @@ public enum Ranker {
         public var ties: [String]
         /// The other cards that fitted, by name ("a busy program"), the closest first.
         public var others: [String] = []
-        /// Why this card won over the closest one, in plain words.
-        public var because: String?
+        /// Why this card won over the closest one, in plain words, and that reason's name ("confidence").
+        public var because: (text: String, kind: String)?
+        /// What following its advice involves, and that trade-off's name ("ends").
+        public var tradeOff: (text: String, kind: String)?
+        /// "confidence + ends": which sentences this card's line is made of, for reviewing every pattern.
+        public var pattern: String { [because?.kind ?? (others.isEmpty ? "alone" : "scored higher"), tradeOff?.kind ?? "no trade-off"].joined(separator: " + ") }
 
         /// For the card's Nerdy stuff, in plain words: "Picked over a web page and a busy program because we're more
         /// confident it will fix the problem: macOS says which app is showing this web page. One drawback: its advice
-        /// closes something." The reason is against the closest card. Nil when no other card fitted.
+        /// closes something." The reason is against the closest card. Nil when no other card fitted and the advice costs nothing.
         public var line: String? {
-            guard let closest = others.first else { return nil }
+            guard let closest = others.first else { return tradeOff?.text }
             func list(_ x: [String]) -> String {
                 x.count < 3 ? x.joined(separator: " and ") : x.dropLast().joined(separator: ", ") + ", and " + x.last!
             }
             _ = closest
-            return "Picked over \(list(others)) " + (because ?? "because it scored higher.")
+            return "We picked this card over \(list(others)) " + (because?.text ?? "because it scored higher.") + (tradeOff.map { " " + $0.text } ?? "")
         }
     }
 
@@ -223,21 +227,48 @@ public enum Ranker {
         }
     }
 
-    /// Why `a` beats `b`: the main thing in its favour, as "because …" with its reason, and at most one drawback; nil
-    /// when it doesn't win. It never says which factor matters more (that's in DIAGNOSIS.md).
-    static func why(_ a: Candidate, over b: Candidate) -> String? {
-        if a.type.kind == .identity, b.type.kind != .identity { return "because the program may be harmful, which comes before anything else." }
+    /// Why `a` beats `b`: the main thing in its favour, as "because …" with its reason, and the name of that reason
+    /// for review; nil when it doesn't win. It never says which factor matters more (that's in DIAGNOSIS.md).
+    static func why(_ a: Candidate, over b: Candidate) -> (text: String, kind: String)? {
+        if a.type.kind == .identity, b.type.kind != .identity {
+            return ("because whether a program is what it claims to be matters before anything else.", "identity")
+        }
         if b.type.kind == .identity, a.type.kind != .identity { return nil }
         let x = a.score, y = b.score
         guard x.total > y.total else { return nil }
-        let fixes = (a.card.recommended?.result ?? .informs) > .informs
-        let main = x.confidence > y.confidence ? "because we're more confident it\(fixes ? " " : "")\(fixes ? "will fix the problem" : "'s right"): \(a.confidence.reason)."
-            : x.impact > y.impact ? "because its advice does more about the problem."
-            : x.risk < y.risk ? "because its advice is safer."
-            : "because it's less work for you."
-        let drawback = x.risk > y.risk ? (x.risk == 3 ? "its advice is marked Caution" : "its advice ends something that's running")
-            : x.effort > y.effort ? "its advice is a task for you" : x.impact < y.impact ? "its advice eases the problem rather than fixing the cause" : nil
-        return main + (drawback.map { " One drawback: \($0)." } ?? "")
+        if x.confidence > y.confidence {
+            let result = a.card.recommended?.result ?? .informs
+            let what = result == .fixesCause ? " will fix the problem" : result == .eases ? " will help" : "'s right"
+            return ("because we're more confident it\(what): \(a.confidence.reason).", "confidence")
+        }
+        if x.impact > y.impact {
+            return ("because its advice does more: it \(x.impact == 3 ? "fixes the cause" : "eases the problem"), where the other card's \(y.impact == 2 ? "only eases it" : "only explains it").", "impact")
+        }
+        if x.risk < y.risk { return ("because its advice is safer.", "risk") }
+        return ("because its advice is less work for you: it's one click.", "effort")
+    }
+
+    /// What following this card's advice involves, so you can weigh it: what it ends, what it risks and what Cool Head
+    /// checked, that it's a task for you, or that a fuller fix is on the card too. Built from the option's own words, so
+    /// a check already made (what may be lost, that the app asks to save) is said. Nil when the advice costs nothing.
+    static func tradeOff(_ c: Card) -> (text: String, kind: String)? {
+        guard let r = c.recommended else { return nil }
+        func lower(_ t: String) -> String { t.prefix(1).lowercased() + t.dropFirst() }
+        let advice = "Our advice is to \(lower(r.title))"
+        if r.caution, let why = r.cautionReason {
+            // Stop's consequence is what was checked: how much work may be lost
+            let checked = r.kind == .stop ? " We checked what's at stake: \(lower(r.consequence))" : ""
+            return ("\(advice), which carries some risk: \(lower(why))\(checked)", "caution")
+        }
+        if r.interrupts { return ("\(advice), which ends something that's running: \(lower(r.consequence))", "ends") }
+        if r.result == .eases, let better = c.fixes.first(where: { $0.result == .fixesCause && !$0.recommended }) {
+            let how = r.doer == .coolHead ? " in one click" : ""
+            let but = better.doer == .you ? "is something you do" : better.caution ? "carries more risk" : "ends something that's running"
+            return ("\(advice), which eases the problem\(how); \(lower(better.title)), also on this card, fixes the cause but \(but).", "eases")
+        }
+        // the option itself, just above, says how
+        if r.doer == .you { return ("\(advice), which is something you do.", "task") }
+        return nil
     }
 
     /// The winning card, with the extras that apply, and why it won.
@@ -250,14 +281,15 @@ public enum Ranker {
         var reasons: [String] = [], ties: [String] = []
         let rest = candidates.filter { $0.type.id != best.type.id }.sorted { ($0.score.total, $1.type.id) > ($1.score.total, $0.type.id) }
         for c in rest {
-            if let w = why(best, over: c) { reasons.append("Chosen over \(c.type.id) (\(c.score.text)): \(w)") } else { ties.append(c.type.id) }
+            if let w = why(best, over: c) { reasons.append("Chosen over \(c.type.id) (\(c.score.text)): \(w.text)") } else { ties.append(c.type.id) }
         }
         var card = best.card
         for x in extras { if let added = x.add(to: card, s) { card = added } }
         card.cardID = best.type.id
         let scores = Dictionary(candidates.map { ($0.type.id, $0.score) }, uniquingKeysWith: { a, _ in a })
         return (card, Choice(winner: best.type.id, matched: candidates.map { $0.type.id }, scores: scores, reasons: reasons,
-                             ties: ties, others: rest.map { $0.type.name }, because: rest.first.flatMap { why(best, over: $0) }))
+                             ties: ties, others: rest.map { $0.type.name }, because: rest.first.flatMap { why(best, over: $0) },
+                             tradeOff: tradeOff(card)))
     }
 }
 
