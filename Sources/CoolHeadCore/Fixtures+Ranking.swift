@@ -12,7 +12,13 @@ extension Fixture {
             ? "\(lines.count) samples, as recorded"
             : "recorded: \(removed.prefix(3).joined(separator: " | ")); now: \(added.prefix(3).joined(separator: " | "))"
                 + " (\(removed.count) changed; if intended, run `coolhead ranking --write` and commit GoldenRanking.swift)"
+        // every sample's explanation, as recorded
+        let explained = Ranking.explanationLines(now: now), gold = Ranking.goldenExplanations
+        let lost = gold.filter { !explained.contains($0) }, new = explained.filter { !gold.contains($0) }
+        let explainedNote = lost.isEmpty && new.isEmpty ? "\(explained.count) explanations, as recorded"
+            : "recorded: \(lost.prefix(2).joined(separator: " | ")); now: \(new.prefix(2).joined(separator: " | ")) (\(max(lost.count, new.count)) changed; if intended, run `coolhead ranking --write`)"
         var review = [("golden-ranking", removed.isEmpty && added.isEmpty, note),
+                      ("golden-explanations", lost.isEmpty && new.isEmpty, explainedNote),
                       ("sample-ids-unique", repeated.isEmpty, repeated.isEmpty ? "\(ids.count) IDs" : "repeated: \(repeated.joined(separator: ", "))")]
 
         // every card has an ID of its own and at least one sample, and wins each sample it lists

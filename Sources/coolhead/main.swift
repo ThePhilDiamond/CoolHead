@@ -210,9 +210,12 @@ case "ranking":
     // every sample card's winner and options (see Ranking.swift); --write records them in GoldenRanking.swift
     let lines = Ranking.lines()
     if argv.dropFirst().first == "--write" {
-        do { try Ranking.source(lines).write(to: Ranking.file, atomically: true, encoding: .utf8) }
-        catch { print("coolhead: couldn't write \(Ranking.file.path): \(error.localizedDescription)"); exit(1) }
-        print("Wrote \(lines.count) lines to \(Ranking.file.path)")
+        let explained = Ranking.explanationLines()
+        do {
+            try Ranking.source(lines).write(to: Ranking.file, atomically: true, encoding: .utf8)
+            try Ranking.explanationsSource(explained).write(to: Ranking.explanationsFile, atomically: true, encoding: .utf8)
+        } catch { print("coolhead: couldn't write the golden files: \(error.localizedDescription)"); exit(1) }
+        print("Wrote \(lines.count) lines to \(Ranking.file.path) and \(explained.count) to \(Ranking.explanationsFile.path)")
     } else {
         for l in lines { print(l) }
     }

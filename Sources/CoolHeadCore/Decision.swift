@@ -139,7 +139,7 @@ public enum Decision {
         if b.caution, let cost = fb.cost { return (cost + stakes(fb.stakes, after: true), "risk") }
         if let why = fb.whyNot { return (why, "card's reason") }
         if b.interrupts, let cost = fb.cost { return (cost, "ends something") }
-        if b.doer == .you, r?.doer != .you { return ("you have to do it yourself", "effort") }
+        if b.doer == .you, r?.doer != .you { return ("you have to do that yourself", "effort") }
         return nil
     }
 

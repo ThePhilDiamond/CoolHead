@@ -1,1 +1,1 @@
-- A card about a busy process now says, in its Nerdy stuff, which other cards matched it and why this one was chosen; `coolhead cards` lists every kind of card, the rule it comes from and its samples.
+- A card about a busy process now explains its recommendation in its Nerdy stuff, in plain words: what Cool Head saw, why it recommends what it does, what that costs or what it checked, and why a stronger option isn't recommended. `coolhead cards` lists every kind of card, the rule it comes from and its samples.

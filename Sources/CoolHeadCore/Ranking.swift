@@ -14,6 +14,36 @@ public enum Ranking {
 
     public static func lines(now: Date = Date()) -> [String] { Wording.samples(now: now).map { line($0.0, $0.1) } }
 
+    /// Every sample card's explanation (its Nerdy stuff "We recommend …" line, see Decision.swift), one line each, with
+    /// clock times as "TIME" since the samples are made relative to now.
+    public static func explanationLines(now: Date = Date()) -> [String] {
+        Wording.samples(now: now).compactMap { id, c in
+            c.choice?.line.map { id + " · " + $0.replacingOccurrences(of: #"\b\d{1,2}(:\d{2})?(am|pm)\b"#, with: "TIME", options: .regularExpression) }
+        }
+    }
+
+    /// The explanations recorded in GoldenExplanations.swift.
+    public static var goldenExplanations: [String] { GoldenExplanations.text.split(separator: "\n").map(String.init) }
+
+    /// Where GoldenExplanations.swift is, beside GoldenRanking.swift.
+    public static let explanationsFile = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("GoldenExplanations.swift")
+
+    /// GoldenExplanations.swift's text for these lines.
+    public static func explanationsSource(_ lines: [String]) -> String {
+        """
+        // Written by `coolhead ranking --write`; checked by `coolhead selftest` (see Ranking.swift). One line per sample
+        // card that explains its recommendation: sample · the Nerdy stuff text, generated from the decision record
+        // (Decision.swift), clock times as TIME. Rewrite it in the pull request that changes a line, so the change shows
+        // in the diff.
+        enum GoldenExplanations {
+            static let text = #\"\"\"
+        \(lines.map { "    " + $0 }.joined(separator: "\n"))
+            \"\"\"#
+        }
+
+        """
+    }
+
     /// The lines recorded in GoldenRanking.swift.
     public static var golden: [String] { GoldenRanking.text.split(separator: "\n").map(String.init) }
 
