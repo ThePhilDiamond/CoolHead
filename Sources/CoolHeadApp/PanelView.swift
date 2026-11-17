@@ -21,7 +21,11 @@ struct PanelView: View {
     }
 
     /// The middle scrolls; the panel grows with it up to this height, so it stays easy to read.
-    static var maxMiddle: CGFloat { min(560, (NSScreen.main?.visibleFrame.height ?? 900) * 0.62) }
+    static var maxMiddle: CGFloat {
+        // screenshots of a whole long card (COOLHEAD_SNAPSHOT_TALL) aren't held to the screen's height
+        if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_TALL"] != nil { return 1600 }
+        return min(560, (NSScreen.main?.visibleFrame.height ?? 900) * 0.62)
+    }
     @State private var middleHeight: CGFloat = 0
 
     var body: some View {

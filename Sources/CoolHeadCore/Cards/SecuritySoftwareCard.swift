@@ -7,7 +7,7 @@ enum SecuritySoftwareCard: ProcessCard {
     static let id = "security-software"
     static let kind = CardKind.explanation
     static let rule = "System Sentinel's review, 15 November 2026: security software is never stopped, slowed or quit"
-    static func confidence(_ s: Situation) -> Confidence { .named("we know this security product by name") }
+    static func confidence(_ s: Situation) -> Confidence { .named("we know this security product") }
     static let samples = ["security-software", "vpn"]
 
     static func card(_ s: Situation) -> Card? {

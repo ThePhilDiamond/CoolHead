@@ -7,7 +7,15 @@ enum JobCard: ProcessCard {
     static let id = "job"
     static let kind = CardKind.catchAll
     static let rule = "Stopping is recommended only when a job has stalled (Phil); on battery, only the really hungry or long-running are paused (Phil, 15 November 2026)"
-    static func confidence(_ s: Situation) -> Confidence { .any("it fits any busy program") }
+    /// It fits any busy program, so it knows least; its reason is what it does know, from the job's own signs.
+    static func confidence(_ s: Situation) -> Confidence {
+        switch s.state {
+        case .stalled: return .any("it has stopped making progress")
+        case .working where s.e.progress != nil: return .any("its log says how far along it is")
+        case .waiting: return .any("it's waiting for another job")
+        default: return .any("we can't tell what it's doing from outside it")
+        }
+    }
     static let samples = ["job-with-progress", "job-stalled", "job-waiting", "job-no-signs", "job-just-started", "virtual-machine", "background-helper", "intel-app-26"]
 
     static func card(_ s: Situation) -> Card? {
