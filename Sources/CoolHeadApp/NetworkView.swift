@@ -14,12 +14,15 @@ final class NetworkTester: ObservableObject {
     @Published var shown = false
     @Published private(set) var phase = Phase.reading
     @Published private(set) var setup: NetworkCheck.Setup?
+    /// Where websites see the Mac, asked of Cloudflare as part of the test; nil before.
+    @Published private(set) var seen: NetworkCheck.Where?
     private var work: Task<Void, Never>?
 
     /// Opens the view and reads the connection; nothing is sent.
     func open() {
         shown = true
         phase = .reading
+        seen = nil
         work?.cancel()
         work = Task {
             let s = await Task.detached { NetworkCheck.readSetup() }.value
@@ -29,15 +32,20 @@ final class NetworkTester: ObservableObject {
         }
     }
 
-    /// Runs Apple's test. Who was using the network is read again first, since the test itself fills it.
+    /// Runs Apple's test, and asks Cloudflare where websites see the Mac alongside it (a few hundred bytes, so it
+    /// doesn't disturb the measurement). Who was using the network is read again first, since the test itself fills it.
     func start() {
         work?.cancel()
         phase = .testing(started: Date())
+        seen = nil
         work = Task {
             let s = await Task.detached { NetworkCheck.readSetup() }.value
             guard !Task.isCancelled else { return }
             setup = s
+            async let place = Task.detached { NetworkCheck.whereSeen(s) }.value
             let outcome = await NetworkCheck.run()
+            guard !Task.isCancelled else { return }
+            seen = await place
             guard !Task.isCancelled else { return }
             phase = .done(outcome)
         }
@@ -54,14 +62,16 @@ final class NetworkTester: ObservableObject {
     func close() {
         work?.cancel()
         work = nil
+        seen = nil
         shown = false
         phase = .reading
     }
 
     /// For renders: show a given state without reading or testing.
-    func show(_ phase: Phase, setup: NetworkCheck.Setup) {
+    func show(_ phase: Phase, setup: NetworkCheck.Setup, seen: NetworkCheck.Where? = nil) {
         work?.cancel()
         self.setup = setup
+        self.seen = seen
         self.phase = phase
         shown = true
     }
@@ -92,14 +102,12 @@ struct NetworkView: View {
                 signalTile
                 speedTiles(result)
             }
-            if let s = tester.setup, s.vpn || s.proxy || s.autoProxy {
-                HStack(spacing: 6) {
-                    if s.vpn { chip("VPN", "lock.fill") }
-                    if s.proxy || s.autoProxy { chip("Proxy", "arrow.triangle.branch") }
-                }
+            if let s = tester.setup, s.proxy || s.autoProxy {
+                HStack(spacing: 6) { chip("Proxy", "arrow.triangle.branch") }
             }
             meter(result)
             taskRow(result)
+            privacy
             actionRow
             if let r = result {
                 // the one fact the old Nerdy stuff held that nothing else shows, and only when it's the problem
@@ -129,6 +137,10 @@ struct NetworkView: View {
             switch tester.phase {
             case .reading:
                 statusText("ellipsis.circle", Ink.muted, "Checking your connection…", "Nothing is sent until you start the test.")
+            case .ready where tester.setup?.selfAssigned == true:
+                // the one reading that means the Mac can't go online at all, so it takes the top line
+                statusText("exclamationmark.triangle.fill", Color.orange, "The router didn't give this Mac an address",
+                           "So it can't go online. Turn Wi-Fi off and on, or restart the router.")
             case .ready:
                 let busy = tester.setup?.talkers.filter { $0.bytesPerSecond >= NetworkCheck.talkerFloor }.prefix(2) ?? []
                 statusText("play.circle", Ink.muted, "Ready to test",
@@ -309,6 +321,48 @@ struct NetworkView: View {
             Text("Responsiveness: " + (r.map { "\(NetworkCheck.grouped($0.rpm)) round trips a minute while busy" } ?? "after the test"))
                 .font(.caption2).foregroundStyle(Ink.muted)
         }
+    }
+
+    /// Its own section, filled the same way as the speed: the VPN and who looks website names up are read on the Mac
+    /// as the view opens; where websites see you comes with the test, which asks Cloudflare (Phil, 17 November 2026:
+    /// "why not just include it as part of the single network test? It should be a separate privacy section though").
+    /// Three tiles the size of the speed tiles, then one sentence on what it means; same size in every state.
+    var privacy: some View {
+        let s = tester.setup
+        let vpn = s.map { NetworkCheck.vpnSaid($0.vpn) }
+        let dns = s.map(NetworkCheck.dnsSaid)
+        let seen = tester.seen.map { NetworkCheck.whereSaid($0, s?.vpn) }
+        return VStack(alignment: .leading, spacing: 5) {
+            Text("PRIVACY").font(.caption.weight(.bold)).tracking(0.5).foregroundStyle(Ink.muted)
+            HStack(spacing: 8) {
+                privacyTile(vpn?.level == 0 ? "lock.shield.fill" : "lock.shield", vpn?.level ?? -1, vpn?.value, "VPN", waiting: s == nil)
+                    .help(s.map { $0.vpn.map(NetworkCheck.vpnLine) ?? "No VPN is connected." } ?? "")
+                privacyTile("character.magnify", -1, dns?.value, "Site lookup (DNS)", waiting: s == nil)
+                    .help(s.map(NetworkCheck.dnsLine) ?? "")
+                privacyTile("globe", seen?.level ?? -1, seen?.value, "Sites see you in", waiting: testing && seen == nil)
+                    .help(seen?.detail ?? "")
+            }
+            Text(s.map { NetworkCheck.privacySentence($0, tester.seen) } ?? " ")
+                .font(.caption).foregroundStyle(Ink.muted).lineLimit(2, reservesSpace: true)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// A tile like the speed tiles: a symbol and a word on top, what it is under it; dashes while waiting.
+    func privacyTile(_ symbol: String, _ level: Int, _ value: String?, _ label: String, waiting: Bool) -> some View {
+        tileFrame {
+            HStack(spacing: 5) {
+                Image(systemName: symbol).font(.caption.weight(.semibold))
+                    .foregroundStyle(value == nil || level < 0 ? Ink.muted : NetworkView.color(level))
+                if let value {
+                    Text(value).font(.system(.callout, design: .rounded).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.6)
+                } else if waiting {
+                    DashWave()
+                } else {
+                    Text("–").font(.system(.callout, design: .rounded).weight(.semibold)).foregroundStyle(Ink.muted)
+                }
+            }
+        } unit: { Text(label) }
     }
 
     func chip(_ words: String, _ symbol: String) -> some View {

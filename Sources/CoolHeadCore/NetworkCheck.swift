@@ -1,3 +1,4 @@
+import CoreServices
 import CoreWLAN
 import Darwin
 import Foundation
@@ -69,20 +70,54 @@ public enum NetworkCheck {
         }
     }
 
+    /// Who set the server that looks website names up: the network the Mac joined (the router hands it out), someone
+    /// on this Mac (Network settings ▸ Details ▸ DNS), or the VPN.
+    public enum DNSSource: Equatable { case network, thisMac, vpn }
+
+    /// A connected VPN, and what it carries. Read on the Mac only: macOS's own list of VPNs (as `scutil --nc list`
+    /// shows it) and which way the Mac would send traffic to a public address (a routing lookup that sends nothing).
+    public struct VPN: Equatable {
+        /// What goes through it: everything; everything but IPv6 (so some sites still see the person's own address);
+        /// or only traffic for particular addresses, such as a work or home network, with websites going directly.
+        public enum Carries: Equatable { case everything, notIPv6, someAddresses }
+        public var name: String?        // the VPN app's name, when macOS knows it
+        public var carries: Carries
+        /// Website names are looked up through it too (when they aren't, the internet provider still sees which sites).
+        public var lookups: Bool
+        public init(name: String? = nil, carries: Carries = .everything, lookups: Bool = true) {
+            self.name = name; self.carries = carries; self.lookups = lookups
+        }
+        /// Websites' traffic goes through it (IPv4 at least).
+        public var carriesWebsites: Bool { carries != .someAddresses }
+        /// "WireGuard", or "The VPN" when the app isn't known.
+        public var called: String { name ?? "The VPN" }
+    }
+
     public struct Setup: Equatable {
         public var link: Link
         public var awdlOn: Bool
-        public var vpn: Bool
+        public var vpn: VPN?
         public var proxy: Bool
         public var autoProxy: Bool
         public var dns: DNS
+        /// The name of a well-known public lookup service ("Cloudflare"), when that's the one in use.
+        public var dnsName: String?
+        public var dnsSetBy: DNSSource
+        /// The router's address on the local network, to say where its settings page is.
+        public var router: String?
+        /// The Mac gave itself an address (169.254.x.x) because the router didn't hand one out, so it can't go online.
+        public var selfAssigned: Bool
+        /// The Wi-Fi or cable interface under any VPN ("en0"), for the check that goes around the VPN.
+        public var physical: String?
         public var talkers: [Talker]
         /// macOS marks the connection as metered (a phone hotspot, Low Data Mode).
         public var metered: Bool
-        public init(link: Link, awdlOn: Bool = false, vpn: Bool = false, proxy: Bool = false, autoProxy: Bool = false,
-                    dns: DNS = .router, talkers: [Talker] = [], metered: Bool = false) {
+        public init(link: Link, awdlOn: Bool = false, vpn: VPN? = nil, proxy: Bool = false, autoProxy: Bool = false,
+                    dns: DNS = .router, dnsName: String? = nil, dnsSetBy: DNSSource = .network, router: String? = nil,
+                    selfAssigned: Bool = false, physical: String? = nil, talkers: [Talker] = [], metered: Bool = false) {
             self.link = link; self.awdlOn = awdlOn; self.vpn = vpn; self.proxy = proxy; self.autoProxy = autoProxy
-            self.dns = dns; self.talkers = talkers; self.metered = metered
+            self.dns = dns; self.dnsName = dnsName; self.dnsSetBy = dnsSetBy; self.router = router
+            self.selfAssigned = selfAssigned; self.physical = physical; self.talkers = talkers; self.metered = metered
         }
         /// Whether to warn about data before the test.
         public var mayBeMetered: Bool { metered || link == .other }
@@ -91,8 +126,10 @@ public enum NetworkCheck {
     /// Reads the connection, then watches network use for about a second (so call it off the main thread).
     public static func readSetup() -> Setup {
         let store = SCDynamicStoreCreate(nil, "Cool Head" as CFString, nil, nil)
-        let global = store.flatMap { SCDynamicStoreCopyValue($0, "State:/Network/Global/IPv4" as CFString) as? [String: Any] }
+        func value(_ key: String) -> [String: Any]? { store.flatMap { SCDynamicStoreCopyValue($0, key as CFString) as? [String: Any] } }
+        let global = value("State:/Network/Global/IPv4")
         let primary = global?["PrimaryInterface"] as? String
+        let primaryService = global?["PrimaryService"] as? String
         let router = global?["Router"] as? String
         // CoreWLAN: signal, noise, rate and channel need no permission; ssid() and bssid() stay nil without Location
         // Services, and Cool Head never calls them
@@ -104,17 +141,129 @@ public enum NetworkCheck {
             else if isVPN(p) { link = wifi.flatMap(reading).map(Link.wifi) ?? .other }
             else { link = p.hasPrefix("en") ? .cable : .other }
         }
-        let dnsInfo = store.flatMap { SCDynamicStoreCopyValue($0, "State:/Network/Global/DNS" as CFString) as? [String: Any] }
+        let servers = value("State:/Network/Global/DNS")?["ServerAddresses"] as? [String] ?? []
         let proxies = store.flatMap { SCDynamicStoreCopyProxies($0) as? [String: Any] } ?? [:]
         func on(_ k: String) -> Bool { (proxies[k] as? NSNumber)?.boolValue ?? false }
+
+        // a connected VPN from macOS's own list, and the tunnel it uses; or, for one that isn't in the list, a tunnel
+        // that is the Mac's main connection (how this was read before)
+        let tunnel = connectedVPN()
+        let tunnelInterface = tunnel.flatMap { t in
+            ["IPv4", "IPv6"].lazy.compactMap { value("State:/Network/Service/\(t.service)/\($0)")?["InterfaceName"] as? String }.first
+        } ?? primary.flatMap { isVPN($0) ? $0 : nil }
+        var vpn: VPN?
+        if let i = tunnelInterface {
+            // which way traffic to a public address would go: a lookup in the routing table, nothing is sent
+            let v4 = routeInterface(cloudflareV4), v6 = routeInterface(cloudflareV6)
+            let carries: VPN.Carries = v4 != i ? .someAddresses : (v6 == nil || v6 == i) ? .everything : .notIPv6
+            vpn = VPN(name: tunnel?.name, carries: carries, lookups: servers.first.flatMap(routeInterface) == i)
+        }
+        let first = servers.first
+        let setByHand = primaryService.flatMap { value("Setup:/Network/Service/\($0)/DNS")?["ServerAddresses"] as? [String] } ?? []
+        let setByVPN = tunnel.flatMap { value("State:/Network/Service/\($0.service)/DNS")?["ServerAddresses"] as? [String] } ?? []
+        let source: DNSSource = first.map { setByVPN.contains($0) } == true ? .vpn : first.map { setByHand.contains($0) } == true ? .thisMac : .network
+        let address = primaryService.flatMap { value("State:/Network/Service/\($0)/IPv4")?["Addresses"] as? [String] }?.first
         return Setup(link: link,
                      awdlOn: interfaceUp("awdl0"),
-                     vpn: primary.map(isVPN) ?? false,
+                     vpn: vpn,
                      proxy: on("HTTPEnable") || on("HTTPSEnable") || on("SOCKSEnable"),
                      autoProxy: on("ProxyAutoConfigEnable") || on("ProxyAutoDiscoveryEnable"),
-                     dns: dnsKind(dnsInfo?["ServerAddresses"] as? [String] ?? [], router: router),
+                     dns: dnsKind(servers, router: router),
+                     dnsName: first.flatMap(resolverName),
+                     dnsSetBy: source,
+                     router: router.flatMap { isPrivate($0) && !$0.contains(":") ? $0 : nil },
+                     selfAssigned: address?.hasPrefix("169.254.") == true,
+                     physical: primary.flatMap { isVPN($0) ? nil : $0 } ?? (wifi.flatMap(reading) != nil ? wifi?.interfaceName : nil),
                      talkers: talkers(),
                      metered: metered())
+    }
+
+    /// Cloudflare's public addresses, used only to ask the routing table which way internet traffic would go (nothing is
+    /// sent to them for that).
+    static let cloudflareV4 = "1.1.1.1", cloudflareV6 = "2606:4700:4700::1111"
+
+    /// The first connected VPN in macOS's list of network services (the list System Settings ▸ VPN shows), with its
+    /// app's name when it's one installed from an app ("VPN" services carry the app's bundle id), from
+    /// SystemConfiguration, as `scutil --nc list` reads it; no permission needed.
+    static func connectedVPN() -> (service: String, name: String?)? {
+        guard let prefs = SCPreferencesCreate(nil, "Cool Head" as CFString, nil),
+              let services = SCNetworkServiceCopyAll(prefs) as? [SCNetworkService] else { return nil }
+        for s in services {
+            guard let i = SCNetworkServiceGetInterface(s), let type = SCNetworkInterfaceGetInterfaceType(i) as String?,
+                  ["VPN", "IPSec", "PPP"].contains(type), let id = SCNetworkServiceGetServiceID(s) as String?,
+                  let c = SCNetworkConnectionCreateWithServiceID(nil, id as CFString, nil, nil),
+                  SCNetworkConnectionGetStatus(c) == .connected else { continue }
+            // a phone or modem dialling out is a PPP service too, but not a VPN: only PPP over L2TP or PPTP is
+            let inner = SCNetworkInterfaceGetInterface(i).flatMap { SCNetworkInterfaceGetInterfaceType($0) as String? }
+            if type == "PPP", !["L2TP", "PPTP"].contains(inner ?? "") { continue }
+            return (id, type == "VPN" ? inner.flatMap(appName) : nil)
+        }
+        return nil
+    }
+
+    /// An app's name from its bundle id ("com.wireguard.macos" is "WireGuard"), from Launch Services.
+    static func appName(_ bundle: String) -> String? {
+        guard let urls = LSCopyApplicationURLsForBundleIdentifier(bundle as CFString, nil)?.takeRetainedValue() as? [URL] else { return nil }
+        return urls.first?.deletingPathExtension().lastPathComponent
+    }
+
+    /// The interface the Mac would send traffic to an address through, from the routing table: a UDP socket "connected"
+    /// to the address picks a route and a local address, and sends nothing (UDP has no handshake). Nil with no route.
+    static func routeInterface(_ address: String) -> String? {
+        var hints = addrinfo()
+        hints.ai_flags = AI_NUMERICHOST
+        hints.ai_socktype = SOCK_DGRAM
+        var found: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(address, "53", &hints, &found) == 0, let ai = found else { return nil }
+        defer { freeaddrinfo(found) }
+        let fd = socket(ai.pointee.ai_family, SOCK_DGRAM, 0)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        guard connect(fd, ai.pointee.ai_addr, ai.pointee.ai_addrlen) == 0 else { return nil }
+        var local = sockaddr_storage()
+        var length = socklen_t(MemoryLayout<sockaddr_storage>.size)
+        let got = withUnsafeMutablePointer(to: &local) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &length) } }
+        guard got == 0 else { return nil }
+        let mine = withUnsafePointer(to: &local) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { numeric($0) } }
+        // the interface that holds that local address
+        var list: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&list) == 0 else { return nil }
+        defer { freeifaddrs(list) }
+        var p = list
+        while let a = p {
+            if let sa = a.pointee.ifa_addr, mine != nil, numeric(sa) == mine { return String(cString: a.pointee.ifa_name) }
+            p = a.pointee.ifa_next
+        }
+        return nil
+    }
+
+    /// An IPv4 or IPv6 socket address as text, or nil for any other kind.
+    static func numeric(_ sa: UnsafePointer<sockaddr>) -> String? {
+        let family = Int32(sa.pointee.sa_family)
+        guard family == AF_INET || family == AF_INET6 else { return nil }
+        let length = socklen_t(family == AF_INET6 ? MemoryLayout<sockaddr_in6>.size : MemoryLayout<sockaddr_in>.size)
+        var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        guard getnameinfo(sa, length, &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 else { return nil }
+        return String(cString: host)
+    }
+
+    /// Well-known public services that look website names up, by the addresses they publish.
+    static let resolvers: [(name: String, addresses: [String])] = [
+        ("Cloudflare", ["1.1.1.1", "1.0.0.1", "1.1.1.2", "1.0.0.2", "1.1.1.3", "1.0.0.3", "2606:4700:4700::"]),
+        ("Google", ["8.8.8.8", "8.8.4.4", "2001:4860:4860::"]),
+        ("Quad9", ["9.9.9.9", "149.112.112.112", "9.9.9.10", "149.112.112.10", "9.9.9.11", "2620:fe::"]),
+        ("OpenDNS", ["208.67.222.222", "208.67.220.220", "208.67.222.123", "208.67.220.123", "2620:119:35::", "2620:119:53::"]),
+        ("AdGuard", ["94.140.14.14", "94.140.15.15", "2a10:50c0::ad1:ff", "2a10:50c0::ad2:ff"]),
+        ("NextDNS", ["45.90.28.", "45.90.30.", "2a07:a8c0:", "2a07:a8c1:"]),
+    ]
+
+    /// The public service an address belongs to, or nil. An IPv4 address must match whole unless the list gives a
+    /// prefix (ending in "."); an IPv6 address matches on the prefix the service publishes.
+    static func resolverName(_ address: String) -> String? {
+        let a = address.lowercased()
+        return resolvers.first { r in
+            r.addresses.contains { p in p.hasSuffix(".") || p.contains(":") ? a.hasPrefix(p) : a == p }
+        }?.name
     }
 
     /// Whether macOS marks the current connection as expensive (a phone hotspot) or constrained (Low Data Mode).
@@ -286,6 +435,105 @@ public enum NetworkCheck {
         return .done(Result(download: max(0, down), upload: up.isFinite ? max(0, up) : 0, rpm: Int(min(max(rpm, 0), 1_000_000).rounded())))
     }
 
+    // MARK: where websites see you, checked only when pressed
+
+    /// Cloudflare's trace page: a few hundred bytes of plain text that include the address the request came from and
+    /// that address's country. It is the only request this check makes; Apple has no such page.
+    public static let tracePage = "https://www.cloudflare.com/cdn-cgi/trace"
+
+    /// What a website saw: the address a request came from (kept in memory only, never shown or logged) and its
+    /// country, as a two-letter code.
+    public struct Seen: Equatable {
+        public var address: String
+        public var country: String
+        public init(address: String, country: String) { self.address = address; self.country = country }
+    }
+
+    /// The check's answer. `around` is the same request sent over the Wi-Fi or cable directly, made only when a VPN
+    /// carries websites' traffic: the same address means the VPN isn't hiding it; a refusal means the VPN blocks
+    /// traffic that tries to go around it.
+    public enum Around: Equatable { case notAsked, same, other(Seen), blocked }
+    public enum Where: Equatable { case seen(Seen, around: Around), failed }
+
+    /// What the test also does, said before it is run.
+    public static func whereNote(_ s: Setup) -> String {
+        s.vpn?.carriesWebsites == true
+            ? "The test also asks Cloudflare, through the VPN and around it, which country websites see you in."
+            : "The test also asks Cloudflare which country websites see you in."
+    }
+
+    /// The Privacy section's one sentence: before the test, what the VPN does and what the test will ask; after it,
+    /// where websites see you, with any gap in the VPN after it.
+    public static func privacySentence(_ s: Setup, _ w: Where?) -> String {
+        let vpn = vpnSaid(s.vpn)
+        guard let w else { return vpn.detail + " " + whereNote(s) }
+        return whereSaid(w, s.vpn).detail + (vpn.level == 1 ? " " + vpn.detail : "")
+    }
+
+    /// Asks Cloudflare's trace page where the Mac's traffic comes from, through `/usr/bin/curl` by its full path with
+    /// fixed arguments, then, when a VPN carries websites' traffic, asks again bound to the Wi-Fi or cable. Takes up to
+    /// about 16 seconds, so call it off the main thread.
+    public static func whereSeen(_ s: Setup) -> Where {
+        // with a VPN, both requests use IPv4, so the two addresses compare like with like (a VPN that lets IPv6 go
+        // around it is told apart on the Mac, without a request)
+        let compare = s.vpn?.carriesWebsites == true ? s.physical : nil
+        guard let through = fetchTrace(interface: nil, ipv4: compare != nil).flatMap(trace) else { return .failed }
+        guard let physical = compare else { return .seen(through, around: .notAsked) }
+        guard let direct = fetchTrace(interface: physical, ipv4: true) else { return .seen(through, around: .blocked) }
+        guard let seen = trace(direct) else { return .seen(through, around: .blocked) }
+        return .seen(through, around: seen.address == through.address ? .same : .other(seen))
+    }
+
+    /// The trace page's text, or nil when it couldn't be fetched (in 8 seconds, over HTTPS only).
+    static func fetchTrace(interface: String?, ipv4: Bool) -> String? {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
+        p.arguments = ["--silent", "--max-time", "8", "--proto", "=https", "--max-filesize", "10000"]
+            + (ipv4 ? ["--ipv4"] : []) + (interface.map { ["--interface", $0] } ?? []) + [tracePage]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return nil }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return p.terminationStatus == 0 ? String(decoding: data.prefix(10_000), as: UTF8.self) : nil
+    }
+
+    /// The trace page's "ip=" and "loc=" lines; nil without both, or with a country that isn't two letters or digits.
+    public static func trace(_ text: String) -> Seen? {
+        var fields: [String: String] = [:]
+        for line in text.split(separator: "\n") {
+            let kv = line.split(separator: "=", maxSplits: 1)
+            if kv.count == 2 { fields[String(kv[0])] = String(kv[1]).trimmingCharacters(in: .whitespaces) }
+        }
+        guard let ip = fields["ip"], !ip.isEmpty, let loc = fields["loc"]?.uppercased(), loc.count == 2,
+              loc.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return nil }
+        return Seen(address: ip, country: loc)
+    }
+
+    /// A country's name from its two-letter code, in US English ("NL" is "Netherlands"); Cloudflare's "T1" is Tor.
+    public static func country(_ code: String) -> String {
+        if code == "T1" { return "the Tor network" }
+        return Locale(identifier: "en_US").localizedString(forRegionCode: code) ?? "an unknown place"
+    }
+
+    /// The answer in a few words and one plain sentence, with how it went (0 fine, 1 worth a look, 2 couldn't tell).
+    public static func whereSaid(_ w: Where, _ vpn: VPN?) -> (level: Int, value: String, detail: String) {
+        guard case .seen(let s, let around) = w else {
+            return (2, "Unknown", "Cloudflare didn't answer, so the connection may be down.")
+        }
+        let place = country(s.country)
+        guard let v = vpn else { return (0, place, "Your own address: no VPN is on.") }
+        guard v.carriesWebsites else { return (1, place, "Your own address: \(v.called) doesn't carry websites' traffic.") }
+        switch around {
+        case .same: return (1, place, "Your own address: \(v.called) isn't hiding it.")
+        case .other(let o) where o.country == s.country: return (0, place, "Through \(v.called), from a different address in the same country.")
+        case .other(let o): return (0, place, "Through \(v.called); without it, \(country(o.country)).")
+        case .blocked: return (0, place, "Through \(v.called), which stops traffic going around it.")
+        case .notAsked: return (0, place, "Through \(v.called).")
+        }
+    }
+
     // MARK: what it says
 
     /// The answer at the top: how it went (0 fine, 1 worth a look, 2 the network is the problem), a few words, and what
@@ -399,7 +647,8 @@ public enum NetworkCheck {
         if r.rpm < goodRPM {
             out.append(.guide("net-smart-queue", "Turn on your router's Smart Queue",
                               "Keeps the connection quick to respond while it's busy; top speed may drop a little.",
-                              steps: ["Open your router's settings (its app, or the address on its label).",
+                              steps: [s.router.map { "Open your router's settings: its app, or http://\($0) in a browser." }
+                                          ?? "Open your router's settings (its app, or the address on its label).",
                                       "Look for Smart Queue, SQM, QoS or Bufferbloat, and turn it on.",
                                       "Test again."]))
         }
@@ -415,7 +664,7 @@ public enum NetworkCheck {
                            consequence: "If it's on (Apple Account ▸ iCloud ▸ Private Relay), turn it off and test again. One tester found it cut responsiveness on two of three Macs.",
                            kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.systempreferences.AppleIDSettings")))
         }
-        if s.vpn {
+        if s.vpn?.carriesWebsites == true {
             out.append(.guide("net-vpn", "Test without the VPN", "Only if your work allows it.",
                               steps: ["Disconnect the VPN from its menu bar icon.", "Test again.", "Reconnect it."]))
         }
@@ -463,19 +712,79 @@ public enum NetworkCheck {
         case .other: out.append("Connected, but not by Wi-Fi or cable (perhaps through a phone).")
         case .none: out.append("Not connected to a network.")
         }
-        if s.vpn { out.append("A VPN is carrying your traffic, which adds a stop on the way to every site.") }
+        if s.selfAssigned {
+            out.append("The router didn't give this Mac an address, so it can't go online. Turn Wi-Fi off and on, or restart the router.")
+        }
+        if let v = s.vpn { out.append(vpnLine(v)) }
         if s.proxy { out.append("A proxy is set in Network settings, so web traffic goes through it first.") }
         if s.autoProxy { out.append("Automatic proxy setup is on in Network settings, so web traffic may go through a proxy first.") }
-        switch s.dns {
-        case .router: out.append("Website names are looked up by your router.")
-        case .local: out.append("Website names are looked up by another machine on your network, not your router.")
-        case .internet: out.append("Website names are looked up by a server on the internet, set on this Mac or by a VPN or app.")
-        case .none: out.append("No server is set to look up website names, so sites by name won't load.")
-        }
+        out.append(dnsLine(s))
         let busy = s.talkers.filter { $0.bytesPerSecond >= talkerFloor }.prefix(3)
         out.append(busy.isEmpty ? "Nothing else was using much of the network\(result == nil ? "" : " before the test")."
                    : "Using the network\(result == nil ? "" : " before the test"): " + busy.map { "\($0.name) (\(rate($0.bytesPerSecond)))" }.joined(separator: ", ") + ".")
         return out
+    }
+
+    /// What a VPN carries, in a sentence with what to do about any gap.
+    public static func vpnLine(_ v: VPN) -> String {
+        switch v.carries {
+        case .someAddresses:
+            return "\(v.called) is on, but carries only traffic for a few addresses (a work or home network, say); websites go directly and see your own address. If you meant it to hide your address, look in its settings for an option to send all traffic through it."
+        case .notIPv6:
+            return "\(v.called) is on, but newer IPv6 traffic goes around it, so some websites still see your own address. Look in its settings for an option to block that, often called leak protection."
+        case .everything where !v.lookups:
+            return "\(v.called) carries all your traffic, but website names are looked up outside it, so your internet provider can still see which sites you visit. Look in its settings for DNS leak protection."
+        case .everything:
+            return "\(v.called) carries all your traffic, including looking up website names, which adds a stop on the way to every site."
+        }
+    }
+
+    /// Who looks website names up, and who set that.
+    public static func dnsLine(_ s: Setup) -> String {
+        let who: String = {
+            switch s.dns {
+            case .router: return "your router"
+            case .local: return "another machine on your network, not your router"
+            case .internet: return s.dnsName ?? "a server on the internet"
+            case .none: return ""
+            }
+        }()
+        guard s.dns != .none else { return "No server is set to look up website names, so sites by name won't load." }
+        switch s.dnsSetBy {
+        case .network: return "Website names are looked up by \(who)" + (s.dns == .router ? "." : ", set by the network you joined.")
+        case .thisMac: return "Website names are looked up by \(who), set by hand on this Mac (Network settings ▸ Details ▸ DNS). If sites stop loading on another network, this is the first thing to remove."
+        case .vpn: return "Website names are looked up by \(who), set by \(s.vpn?.name ?? "your VPN")."
+        }
+    }
+
+    /// The VPN in a word or two and a short sentence, for the panel, with how it went (0 good, 1 a gap, -1 neutral).
+    public static func vpnSaid(_ v: VPN?) -> (level: Int, value: String, detail: String) {
+        guard let v else { return (-1, "Off", "No VPN is connected.") }
+        let name = v.name ?? "On"
+        switch v.carries {
+        case .someAddresses: return (-1, name, "It carries only a few addresses; websites go directly.")
+        case .notIPv6: return (1, name, "Its IPv6 traffic goes around it, so some sites see your own address.")
+        case .everything where !v.lookups: return (1, name, "Site names are looked up outside it, so your provider sees which sites you visit.")
+        case .everything: return (0, name, "All your traffic goes through it.")
+        }
+    }
+
+    /// Who looks website names up, in a word or two and a short sentence, for the panel.
+    public static func dnsSaid(_ s: Setup) -> (value: String, detail: String) {
+        let value: String = {
+            switch s.dns {
+            case .router: return "Router"
+            case .local: return "Local server"
+            case .internet: return s.dnsName ?? "Internet"
+            case .none: return "None"
+            }
+        }()
+        if s.dns == .none { return (value, "Sites won't load by name.") }
+        switch s.dnsSetBy {
+        case .network: return (value, s.dns == .router ? "Set by your network, the usual setup." : "Set by the network you joined.")
+        case .thisMac: return (value, "Set by hand on this Mac.")
+        case .vpn: return (value, "Set by \(s.vpn?.name ?? "the VPN").")
+        }
     }
 
     /// Bits a second as Mbps: "240 Mbps", "4.5 Mbps", "under 1 Mbps".
