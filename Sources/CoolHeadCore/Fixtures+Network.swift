@@ -42,7 +42,7 @@ extension Fixture {
 
         // fixes appear only when something is wrong, only for causes that apply, the busiest app first; a fine network
         // gets none (offering to fix it would do harm), and a VPN is never turned off by Cool Head
-        let busySync = N.Setup(link: .wifi(.init(rssi: -80, noise: -90, rate: 100, channel: 36, band: "5 GHz")), awdlOn: true, vpn: true,
+        let busySync = N.Setup(link: .wifi(.init(rssi: -80, noise: -90, rate: 100, channel: 36, band: "5 GHz")), awdlOn: true, vpn: .init(),
                                talkers: [.init(name: "Dropbox", bytesPerSecond: 2_000_000, bundle: "/Applications/Dropbox.app")])
         let f1 = N.fixes(res(50, 10, 200), busySync).map(\.id)
         let f2 = N.fixes(res(500, 40, 2400), busySync)
@@ -58,7 +58,7 @@ extension Fixture {
         // since Cool Head doesn't ask for Location
         let weak = N.Setup(link: .wifi(.init(rssi: -78, noise: -90, rate: 144, channel: 36, band: "5 GHz")), awdlOn: true)
         let strong149 = N.Setup(link: .wifi(.init(rssi: -54, noise: -89, rate: 864, channel: 149, band: "5 GHz")), awdlOn: true)
-        let cable = N.Setup(link: .cable, awdlOn: true, vpn: true, proxy: true, dns: .internet)
+        let cable = N.Setup(link: .cable, awdlOn: true, vpn: .init(), proxy: true, dns: .internet)
         let slow = N.Result(download: 90_000_000, upload: 10_000_000, rpm: 210)
         let quick = N.Result(download: 900_000_000, upload: 40_000_000, rpm: 2400)
         let wl = N.lines(slow, weak), sl = N.lines(quick, strong149), cl = N.lines(nil, cable)
@@ -68,7 +68,7 @@ extension Fixture {
             && !sl.contains { $0.contains("AirDrop") } && !cl.contains { $0.contains("AirDrop") }
         let l3 = !wl.contains { $0.contains("Private Relay") } && wl.contains { $0.contains("a wait of about 286 ms") }
         let l4 = wl.first == "Speed: 90 Mbps down, 10 Mbps up." && sl[1].hasPrefix("Responsiveness: 2,400 round trips a minute")
-            && cl.contains("Connected by cable.") && cl.contains { $0.hasPrefix("A VPN") } && cl.contains { $0.hasPrefix("A proxy") }
+            && cl.contains("Connected by cable.") && cl.contains { $0.hasPrefix("The VPN carries all your traffic") } && cl.contains { $0.hasPrefix("A proxy") }
             && cl.contains { $0.contains("a server on the internet") } && !cl.contains { $0.hasPrefix("Speed") }
         let l5 = N.mbps(4_520_000) == "4.5 Mbps" && N.mbps(400_000) == "under 1 Mbps" && N.mbps(1_234_000_000) == "1,234 Mbps"
             && N.lines(nil, .init(link: .wifi(.init(rssi: -50, noise: -89, rate: 1200, channel: 157, band: "5 GHz")))).contains("Wi-Fi is sending at up to 1,200 Mbps on channel 157 (5 GHz).")
@@ -114,7 +114,7 @@ extension Fixture {
         // security review, 16 November 2026: the activity log (which can go into a public Report a problem issue) says
         // which fix was pressed by its fixed id only, never a title that names an app; a phone or metered connection
         // is warned about the data the test uses; a result that isn't a finite number reads as a failed test
-        let secret = N.Setup(link: .wifi(.init(rssi: -80, noise: -90, rate: 100, channel: 36, band: "5 GHz")), awdlOn: true, vpn: true, proxy: true,
+        let secret = N.Setup(link: .wifi(.init(rssi: -80, noise: -90, rate: 100, channel: 36, band: "5 GHz")), awdlOn: true, vpn: .init(), proxy: true,
                              talkers: [.init(name: "Secret Thesis Renderer", bytesPerSecond: 3_000_000, bundle: "/Users/alice/Projects/Secret Thesis Renderer.app")])
         let logged = N.fixes(res(3, 1, 200), secret).map(N.logLine)
         let leaks = logged.filter { l in ["Secret", "Thesis", "alice", "Renderer"].contains { l.contains($0) } }
@@ -124,6 +124,56 @@ extension Fixture {
             && N.parse(Data(#"{"responsiveness":5e300,"dl_throughput":1}"#.utf8)) == .done(.init(download: 1, upload: 0, rpm: 1_000_000))
         review.append(("network-private-and-safe", s1 && s2 && s3,
                        "log names no app \(s1) (\(logged.count) lines), metered warning \(s2), odd numbers \(s3)"))
+
+        // a VPN is told apart by what it carries, read on the Mac with nothing sent: only "Test without the VPN" when it
+        // carries websites' traffic; each gap says what to look for in the VPN's settings; the app's name when known
+        let full = N.VPN(name: "WireGuard"), split = N.VPN(name: "WireGuard", carries: .someAddresses, lookups: false)
+        let v6 = N.VPN(carries: .notIPv6), dnsOut = N.VPN(name: "WireGuard", lookups: false)
+        let wifi44 = N.Link.wifi(.init(rssi: -80, noise: -90, rate: 100, channel: 44, band: "5 GHz"))
+        let vf1 = N.fixes(res(50, 10, 200), .init(link: wifi44, vpn: full)).contains { $0.id == "net-vpn" }
+            && !N.fixes(res(50, 10, 200), .init(link: wifi44, vpn: split)).contains { $0.id == "net-vpn" }
+        let vl = [N.vpnLine(full), N.vpnLine(split), N.vpnLine(v6), N.vpnLine(dnsOut)]
+        let vf2 = vl[0].hasPrefix("WireGuard carries all your traffic") && vl[1].contains("websites go directly") && vl[1].contains("send all traffic")
+            && vl[2].hasPrefix("The VPN is on, but newer IPv6 traffic") && vl[2].contains("leak protection")
+            && vl[3].contains("your internet provider can still see") && vl[3].contains("DNS leak protection")
+        let vf3 = N.vpnSaid(nil) == (-1, "Off", "No VPN is connected.") && N.vpnSaid(full).level == 0 && N.vpnSaid(dnsOut).level == 1
+            && N.vpnSaid(split).detail.contains("websites go directly") && N.vpnSaid(v6).value == "On"
+        review.append(("network-vpn", vf1 && vf2 && vf3, "test-without fix only when it carries websites \(vf1), lines \(vf2), panel words \(vf3): \(vl.joined(separator: " | "))"))
+
+        // who looks names up, named when it's a well-known service, with who set it; the router's own page in the
+        // Smart Queue steps; a Mac that gave itself an address is told to turn Wi-Fi off and on
+        let rn = N.resolverName("1.1.1.1") == "Cloudflare" && N.resolverName("2606:4700:4700::1111") == "Cloudflare"
+            && N.resolverName("8.8.4.4") == "Google" && N.resolverName("45.90.28.77") == "NextDNS" && N.resolverName("9.9.9.90") == nil
+            && N.resolverName("1.1.1.10") == nil && N.resolverName("192.168.1.1") == nil
+        let byHand = N.dnsLine(.init(link: .cable, dns: .internet, dnsName: "Cloudflare", dnsSetBy: .thisMac))
+        let byVPN = N.dnsLine(.init(link: .cable, vpn: full, dns: .internet, dnsName: "Quad9", dnsSetBy: .vpn))
+        let dl = byHand.hasPrefix("Website names are looked up by Cloudflare, set by hand on this Mac") && byHand.contains("first thing to remove")
+            && byVPN == "Website names are looked up by Quad9, set by WireGuard."
+            && N.dnsLine(.init(link: .cable)) == "Website names are looked up by your router."
+            && N.dnsSaid(.init(link: .cable, dns: .internet, dnsSetBy: .thisMac)) == ("Internet", "Set by hand on this Mac.")
+        let queue = N.fixes(res(300, 20, 250), .init(link: .cable, router: "192.168.1.1")).first { $0.id == "net-smart-queue" }
+        let rq = { if case .guide(let steps)? = queue?.kind { return steps.first == "Open your router's settings: its app, or http://192.168.1.1 in a browser." }; return false }()
+        let sa = N.lines(nil, .init(link: .wifi(.init(rssi: -50, noise: -90, rate: 600, channel: 44, band: "5 GHz")), selfAssigned: true))
+            .contains { $0.hasPrefix("The router didn't give this Mac an address") }
+        review.append(("network-dns-and-address", rn && dl && rq && sa, "services named \(rn), who set it \(dl), router page \(rq), self-assigned \(sa): \(byHand)"))
+
+        // where websites see you: Cloudflare's trace text read for its address and country (anything else refused); the
+        // address is only compared, never shown; with a VPN, the request around it tells hiding, not hiding and blocking apart
+        let traceText = "fl=12f1\nh=www.cloudflare.com\nip=203.0.113.7\nts=1763380000.1\nvisit_scheme=https\nloc=NL\ntls=TLSv1.3\nwarp=off\n"
+        let nl = N.Seen(address: "203.0.113.7", country: "NL"), us = N.Seen(address: "198.51.100.4", country: "US")
+        let tr = N.trace(traceText) == nl && N.trace("ip=1.2.3.4\nloc=<script>") == nil && N.trace("loc=US") == nil && N.trace("") == nil
+            && N.country("NL") == "Netherlands" && N.country("US") == "United States" && N.country("T1") == "the Tor network"
+        let seen = [N.whereSaid(.seen(nl, around: .other(us)), full), N.whereSaid(.seen(nl, around: .same), full),
+                    N.whereSaid(.seen(nl, around: .blocked), full), N.whereSaid(.seen(us, around: .notAsked), nil),
+                    N.whereSaid(.seen(us, around: .notAsked), split), N.whereSaid(.failed, nil)]
+        let ws = seen.map { $0.level } == [0, 1, 0, 0, 1, 2] && seen[0].value == "Netherlands" && seen[0].detail == "Through WireGuard; without it, United States."
+            && seen[1].detail == "Your own address: WireGuard isn't hiding it." && seen[3].detail == "Your own address: no VPN is on."
+            && !seen.contains { $0.value.contains("203.0") || $0.detail.contains("203.0") || $0.detail.contains("198.51") }
+        let note = N.whereNote(.init(link: .cable, vpn: full, physical: "en0")).contains("around it") && !N.whereNote(.init(link: .cable, vpn: split)).contains("around")
+            && N.privacySentence(.init(link: .cable), nil) == "No VPN is connected. The test also asks Cloudflare which country websites see you in."
+            && N.privacySentence(.init(link: .cable, vpn: dnsOut), .seen(nl, around: .other(us))) == "Through WireGuard; without it, United States. Site names are looked up outside it, so your provider sees which sites you visit."
+            && N.privacySentence(.init(link: .cable, vpn: full), .seen(nl, around: .blocked)) == "Through WireGuard, which stops traffic going around it."
+        review.append(("network-where-seen", tr && ws && note, "trace read \(tr), said \(ws), note \(note): \(seen.map { "\($0.value): \($0.detail)" }.joined(separator: " | "))"))
 
         // every sentence follows the house style: no em dashes, no exclamation marks
         // built in typed parts: one long expression of + and flatMap is too slow for the compiler's type checker
@@ -135,6 +185,11 @@ extension Fixture {
         all += cl
         all += N.lines(nil, .init(link: .none, dns: .none))
         all += N.lines(nil, .init(link: .other, autoProxy: true, dns: .local))
+        all += vl
+        all += [byHand, byVPN, N.whereNote(.init(link: .cable)), N.whereNote(.init(link: .cable, vpn: full)),
+                N.privacySentence(.init(link: .cable, vpn: v6), nil), N.privacySentence(.init(link: .cable, vpn: dnsOut), .failed)]
+        for x in seen { all += [x.value, x.detail] }
+        for v in [nil, full, split, v6, dnsOut] { let x = N.vpnSaid(v); all += [x.value, x.detail] }
         let bad = all.filter { $0.contains("\u{2014}") || $0.contains("!") }
         review.append(("network-wording", bad.isEmpty, bad.isEmpty ? "\(all.count) sentences" : "breaks: \(bad)"))
 
@@ -146,7 +201,7 @@ extension Fixture {
         let tool = FileManager.default.isExecutableFile(atPath: "/usr/bin/networkQuality")
         let kind: String = { switch s.link { case .wifi: return "Wi-Fi"; case .cable: return "cable"; case .other: return "other"; case .none: return "none" } }()
         review.append(("network-read", took < 5 && tool,
-                       "\(kind), AirDrop link \(s.awdlOn ? "on" : "off"), VPN \(s.vpn), \(s.talkers.count) processes moving data, read in \(String(format: "%.1f", took)) s; networkQuality present \(tool)"))
+                       "\(kind), AirDrop link \(s.awdlOn ? "on" : "off"), VPN \(s.vpn.map { "\($0.carries)" } ?? "off"), DNS set by \(s.dnsSetBy), \(s.talkers.count) processes moving data, read in \(String(format: "%.1f", took)) s; networkQuality present \(tool)"))
         return review
     }
 

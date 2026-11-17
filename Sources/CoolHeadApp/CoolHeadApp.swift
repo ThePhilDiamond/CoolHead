@@ -463,12 +463,22 @@ enum Snapshot {
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"] != nil { Tools.shared.hardware = true }
             // Test my network's result, with made-up figures (never this Mac's network)
             // (COOLHEAD_SNAPSHOT_NETWORK=reading, ready, testing or done: the page in that state)
+            // (COOLHEAD_SNAPSHOT_NETWORK_VPN=all, some or off: a made-up VPN carrying everything, only a few addresses, or
+            // none; "done" also shows where websites see you, made up too)
             if let state = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_NETWORK"] {
-                let setup = NetworkCheck.Setup(link: .wifi(.init(rssi: -58, noise: -92, rate: 864, channel: 44, band: "5 GHz")))
+                let kind = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_NETWORK_VPN"] ?? "all"
+                let vpn: NetworkCheck.VPN? = kind == "off" ? nil : .init(name: "WireGuard", carries: kind == "some" ? .someAddresses : .everything, lookups: kind != "some")
+                let setup = NetworkCheck.Setup(link: .wifi(.init(rssi: -58, noise: -92, rate: 864, channel: 44, band: "5 GHz")), vpn: vpn,
+                                               dns: vpn?.lookups == true ? .internet : .router, dnsName: vpn?.lookups == true ? "Quad9" : nil,
+                                               dnsSetBy: vpn?.lookups == true ? .vpn : .network, router: "192.168.1.1", physical: "en0")
                 let phase: NetworkTester.Phase = state == "reading" ? .reading : state == "ready" ? .ready
                     : state == "testing" ? .testing(started: Date().addingTimeInterval(-9))
                     : .done(.done(.init(download: 240_000_000, upload: 38_000_000, rpm: 1_100)))
-                NetworkTester.shared.show(phase, setup: setup)
+                let here = NetworkCheck.Seen(address: "198.51.100.4", country: "US")
+                let seen: NetworkCheck.Where? = state != "done" ? nil
+                    : vpn?.carriesWebsites == true ? .seen(.init(address: "203.0.113.7", country: "NL"), around: .other(here))
+                    : .seen(here, around: .notAsked)
+                NetworkTester.shared.show(phase, setup: setup, seen: seen)
             }
             // screenshots: run the card whose headline contains this phrase cooler first, to show the pinned row
             if let phrase = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_COOL"],
