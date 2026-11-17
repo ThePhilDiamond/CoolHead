@@ -48,7 +48,7 @@ extension Fixture {
                 ("caution-only-when-risky", wrongCalm.isEmpty && wrongRisky.isEmpty && alwaysRisky.isEmpty && gameQuitRisky,
                  "no Caution, recommended: \(calm.map(\.0).joined(separator: ", ")); Caution, not recommended: \(risky.map(\.0).joined(separator: ", ")); "
                  + "wrong: \(wrongCalm + wrongRisky), kinds without Caution \(alwaysRisky.count), game quit Caution \(gameQuitRisky)")]
-            + [cautionSaysWhy(samples)]
+            + [cautionSaysWhy(samples), textLeavesTheActionToItsOption(samples)]
     }
 
     /// Every Caution option, on every example card, says why when the pointer rests on its label (Phil, 16 November 2026:
@@ -62,5 +62,18 @@ extension Fixture {
         return ("caution-says-why", !cautious.isEmpty && missing.isEmpty && stray.isEmpty,
                 missing.isEmpty && stray.isEmpty ? "\(cautious.count) Caution options, each with a reason: " + reasons.joined(separator: " | ")
                     : "no reason: \(missing); reason without Caution: \(stray)")
+    }
+
+    /// A card's text gives the verdict and the evidence; the action is its recommended option, and the text doesn't
+    /// repeat it (Phil, 16 November 2026: "You included the action in the description, which then repeats in the
+    /// one-click. That's not ideal."). A mechanical check, the option's own title in the text: a reworded repeat still
+    /// needs reading for.
+    static func textLeavesTheActionToItsOption(_ samples: [(String, Card)]) -> (String, Bool, String) {
+        let repeats = samples.compactMap { id, c -> String? in
+            guard let r = c.recommended else { return nil }
+            return (c.headline + " " + c.explanation).lowercased().contains(r.title.lowercased()) ? "\(id): \(r.title)" : nil
+        }
+        return ("text-leaves-the-action-to-its-option", repeats.isEmpty,
+                repeats.isEmpty ? "\(samples.filter { $0.1.recommended != nil }.count) cards with a recommendation; none repeats it in its text" : repeats.joined(separator: "; "))
     }
 }

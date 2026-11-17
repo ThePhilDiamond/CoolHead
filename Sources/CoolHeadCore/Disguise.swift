@@ -216,7 +216,7 @@ public enum Disguise {
                       kind: .stopAndTrash([path], nil), recommended: true)
                 : reveal(path, "Drag it to the Trash, then empty the Trash.", true)
             return Card(state: .unknown, headline: "\(name) is pretending to be part of macOS.",
-                        explanation: "It uses a macOS name but runs from \(place(path)), without Apple's signature: a common malware trick. \(disclaimer) Stop and delete it.",
+                        explanation: "It uses a macOS name but runs from \(place(path)), without Apple's signature: a common malware trick. \(disclaimer)",
                         fixes: [fix, Card.share])
         case .unchecked(let name):
             return Card(state: .working, headline: "\(name) is probably part of macOS, but we couldn't confirm it.",
@@ -228,7 +228,7 @@ public enum Disguise {
                 + (protection.sealBroken || !path(isOnDataVolume: f) ? ["Type csrutil authenticated-root enable, and press Return."] : [])
                 + ["Restart."]
             return Card(state: .unknown, headline: "This copy of \(name) isn't Apple's.",
-                        explanation: "macOS's protection is off on this Mac, and this program in macOS's folders has been changed. \(disclaimer) Turn the protection back on.",
+                        explanation: "macOS's protection is off on this Mac, and this program in macOS's folders has been changed. \(disclaimer)",
                         fixes: [Fix.guide("protect", "Turn macOS's protection back on", "Stops anything changing macOS's own programs. Needs a restart into Recovery.",
                                           steps: steps, recommended: true),
                                 Fix.guide("reinstall", "Reinstall macOS", "Puts back Apple's own programs. Your files and apps are kept, but it takes a long time.",
@@ -254,7 +254,7 @@ public enum Disguise {
                                         "Enter an administrator password if asked."], recommended: true)
             }
             return Card(state: .unknown, headline: "A background item is pretending to be Apple's.",
-                        explanation: "\(label) starts \(file) from \(shown), without Apple's signature: a common malware trick. \(disclaimer) Turn it off and delete it.",
+                        explanation: "\(label) starts \(file) from \(shown), without Apple's signature: a common malware trick. \(disclaimer)",
                         fixes: [fix, Card.share])
         }
     }
