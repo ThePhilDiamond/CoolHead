@@ -3,6 +3,17 @@ import Foundation
 /// Checks for saving before a quit (see SaveAndQuit): which apps can be told to save, what osascript's answers mean,
 /// and how a quit option is worded.
 extension Fixture {
+    /// The example cards (see Wording): an app Cool Head can save in, on the memory card, and leaking.
+    static func saveAndQuitSamples(_ now: Date) -> [(String, Card)] {
+        let te = "/System/Applications/TextEdit.app"
+        let textEdit = MemGroup(key: te, name: "TextEdit", kind: .app, bundle: te, bytes: 6_200_000_000, count: 1)
+        let slack = MemGroup(key: "/Applications/Slack.app", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 1_200_000_000, count: 5)
+        var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 2500; tight.swapTotalMB = 4096
+        let leak = Leaks.Leak(from: 900_000_000, to: 6_200_000_000, since: now.addingTimeInterval(-3 * 3600))
+        return [("memory-save-and-quit", MemoryAdvice.card([textEdit, slack], mac: tight, now: now)),
+                ("memory-leaking-app-save", MemoryAdvice.card([textEdit, slack], mac: tight, now: now, leak: leak))]
+    }
+
     static func saveAndQuitChecks(_ now: Date) -> [(String, Bool, String)] {
         var review: [(String, Bool, String)] = []
 
@@ -34,17 +45,25 @@ extension Fixture {
             && SaveAndQuit.runBlocking(bundleID: "") == .failed("not an app identifier")
         review.append(("save-quit-answers", r2, "quit, not allowed, cancelled and other errors told apart; an identifier with quotes is refused"))
 
-        // the wording: a quit that relies on the app asking says Cool Head saves first, where it can; nothing else changes
-        let quit = Fix(id: "quit", title: "Quit Pages", consequence: "Frees 2.0 GB. Save your work first; it asks about anything unsaved.", kind: .quitApp(yes))
+        // where Cool Head can save, a quit is two options: save and quit (taking the quit's recommendation), and the plain
+        // quit, where the app asks; nothing is saved without its own press (Phil, 17 November 2026: "I don't think we
+        // should auto-save anything"); the same for Quit and reopen; others unchanged
+        let quit = Fix(id: "quit", title: "Quit Scripted", consequence: "Frees 2.0 GB. Save your work first; it asks about anything unsaved.", kind: .quitApp(yes), recommended: true)
         let plain = Fix(id: "quit", title: "Quit Plain", consequence: "Frees 2.0 GB. Save your work first; it asks about anything unsaved.", kind: .quitApp(no))
-        let slack = Fix(id: "quit", title: "Quit Slack", consequence: "Frees 1.1 GB. No messages until you reopen it.", kind: .quitApp(yes))
+        let slack = Fix(id: "quit2", title: "Quit Slack", consequence: "Frees 1.1 GB. No messages until you reopen it.", kind: .quitApp(yes))
         let reopen = Fix(id: "reopen", title: "Quit and reopen Scripted", consequence: "Save your work first. Gives back about 7.4 GB; some windows may not reopen.", kind: .restartApp(yes))
         let card = Card(state: .unknown, headline: "x", explanation: "y", fixes: [quit, plain, slack, reopen])
-        let r3 = card.fixes.first { $0.id == "quit" && $0.title == "Quit Pages" }?.consequence == "Frees 2.0 GB. Saves your work first, then quits."
-            && card.fixes.first { $0.title == "Quit Plain" }?.consequence == plain.consequence
-            && card.fixes.first { $0.title == "Quit Slack" }?.consequence == slack.consequence
-            && card.fixes.first { $0.id == "reopen" }?.consequence == "Saves your work first. Gives back about 7.4 GB; some windows may not reopen."
-        review.append(("save-quit-wording", r3, card.fixes.map { "\($0.title): \($0.consequence)" }.joined(separator: " | ")))
+        func f(_ title: String) -> Fix? { card.fixes.first { $0.title == title } }
+        let r3 = f("Save and quit Scripted")?.kind == .saveAndQuit(yes, reopen: false) && f("Save and quit Scripted")?.recommended == true
+            && f("Save and quit Scripted")?.consequence == "Frees 2.0 GB. Saves every open document first."
+            && f("Quit Scripted")?.consequence == "Frees 2.0 GB. It asks about anything unsaved." && f("Quit Scripted")?.recommended == false
+            && f("Quit Plain")?.consequence == plain.consequence && f("Save and quit Plain") == nil
+            && f("Quit Slack")?.consequence == slack.consequence && f("Save and quit Slack") == nil
+            && f("Save and reopen Scripted")?.kind == .saveAndQuit(yes, reopen: true)
+            && f("Save and reopen Scripted")?.consequence == "Saves every open document first. Gives back about 7.4 GB; some windows may not reopen."
+            && f("Quit and reopen Scripted")?.consequence == "It asks about anything unsaved. Gives back about 7.4 GB; some windows may not reopen."
+            && card.fixes.filter(\.recommended).count == 1
+        review.append(("save-quit-two-options", r3, card.fixes.map { "\($0.title)\($0.recommended ? " (recommended)" : ""): \($0.consequence)" }.joined(separator: " | ")))
         return review
     }
 }

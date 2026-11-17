@@ -384,25 +384,7 @@ struct CardView: View {
             show(watcher.setCooler(live, on: !watcher.isCooled(live)))
         case .quitApp(let bundle):
             // found by where the app is installed, not by its display name (which can differ, or be shared)
-            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }),
-               SaveAndQuit.scriptable(bundle: bundle), let id = app.bundleIdentifier {
-                // it can be told to save and quit (see SaveAndQuit); if macOS doesn't allow that, a normal quit
-                let name = app.localizedName ?? "The app"
-                note = "Asked \(name) to save your work and quit."; noteFailed = false; acted = true
-                Task {
-                    let o = await SaveAndQuit.run(bundleID: id)
-                    switch o {
-                    case .quit: note = "Saved your work in \(name) and quit it."
-                    case .cancelled: note = "\(name) is still open: the save was cancelled."; noteFailed = true; acted = false
-                    case .notAllowed, .failed:
-                        let ok = app.terminate()
-                        note = ok ? "Cool Head couldn't save for you, so \(name) was asked to quit; it asks about anything unsaved."
-                                  : "\(name) didn't quit. It may be asking you something."
-                        noteFailed = !ok
-                    }
-                    watcher.log("Quit pressed for \(live.reportSubject): save and quit, \(o == .quit ? "done" : o == .notAllowed ? "not allowed, quit normally" : o == .cancelled ? "cancelled" : "failed, quit normally")")
-                }
-            } else if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }) {
+            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }) {
                 let ok = app.terminate()
                 let name = app.localizedName ?? "The app"
                 if ok { note = "Asked \(name) to quit. If anything is unsaved, it asks you first."; noteFailed = false; acted = true }
@@ -428,25 +410,6 @@ struct CardView: View {
             note = "Asked \(name) to quit. It opens again once it has closed."; noteFailed = false; acted = true
             Task {
                 let w = watcher
-                // it saves first where the app allows it (see SaveAndQuit); once it has quit, the restart below finds it
-                // closed and reopens it
-                if SaveAndQuit.scriptable(bundle: bundle), let id = Bundle(path: bundle)?.bundleIdentifier {
-                    note = "Asked \(name) to save your work and quit. It opens again once it has closed."
-                    let saved = await SaveAndQuit.run(bundleID: id)
-                    w.log("Quit and reopen \(name) pressed: save and quit \(saved == .quit ? "done" : "not done")")
-                    if saved == .cancelled { note = "\(name) is still open: the save was cancelled."; noteFailed = true; acted = false; return }
-                    if saved == .quit {
-                        for _ in 0..<40 where NSWorkspace.shared.runningApplications.contains(where: { $0.bundleURL?.path == bundle && !$0.isTerminated }) {
-                            try? await Task.sleep(nanoseconds: 250_000_000)
-                        }
-                        let config = NSWorkspace.OpenConfiguration(); config.activates = true
-                        let reopened = (try? await NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: config)) != nil
-                        note = reopened ? "Saved your work and reopened \(name). The memory it had built up is free." : "\(name) saved and quit, but didn't reopen. Open it again from Applications."
-                        noteFailed = !reopened; acted = reopened
-                        if !reopened { Alerts.remind("\(name) saved and quit, but didn't reopen. Open it again from Applications.") }
-                        return
-                    }
-                }
                 let o = await BrowserRestart.restart(bundle: bundle, arguments: []) { step in w.log("Quit and reopen \(name) pressed: \(step)") }
                 let n: (text: String, failed: Bool) = {
                     if case .restarted = o { return ("Reopened \(name). The memory it had built up is free.", false) }
@@ -456,6 +419,32 @@ struct CardView: View {
                 }()
                 note = n.text; noteFailed = n.failed; acted = !n.failed
                 if n.failed { Alerts.remind(n.text) }
+            }
+        case .saveAndQuit(let bundle, let reopen):
+            // you chose to save (see SaveAndQuit): the app saves every open document and quits; if it can't be told to,
+            // it stays open and the note says so (nothing is quit without the save you asked for)
+            let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
+            guard let id = Bundle(path: bundle)?.bundleIdentifier else { note = "Cool Head couldn't find \(name)."; noteFailed = true; return }
+            note = "Asked \(name) to save every open document and quit."; noteFailed = false; acted = true
+            Task {
+                let o = await SaveAndQuit.run(bundleID: id)
+                watcher.log("Save and \(reopen ? "reopen" : "quit") pressed for \(live.reportSubject): \(o == .quit ? "saved and quit" : o == .cancelled ? "cancelled" : "not done")")
+                switch o {
+                case .quit:
+                    guard reopen else { note = "Saved and quit \(name)."; return }
+                    for _ in 0..<40 where NSWorkspace.shared.runningApplications.contains(where: { $0.bundleURL?.path == bundle && !$0.isTerminated }) {
+                        try? await Task.sleep(nanoseconds: 250_000_000)
+                    }
+                    let config = NSWorkspace.OpenConfiguration(); config.activates = true
+                    let reopened = (try? await NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: config)) != nil
+                    note = reopened ? "Saved and reopened \(name). The memory it had built up is free." : "\(name) saved and quit, but didn't reopen. Open it again from Applications."
+                    noteFailed = !reopened; acted = reopened
+                    if !reopened { Alerts.remind("\(name) saved and quit, but didn't reopen. Open it again from Applications.") }
+                case .cancelled:
+                    note = "\(name) is still open: the save was cancelled."; noteFailed = true; acted = false
+                case .notAllowed, .failed:
+                    note = "Cool Head couldn't save for you, so \(name) is still open. Save in it, then quit it."; noteFailed = true; acted = false
+                }
             }
         case .share:
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
@@ -1349,6 +1338,7 @@ struct FixRow: View {
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"
         case .restartApp: return "arrow.clockwise.circle"
+        case .saveAndQuit: return "square.and.arrow.down"
         case .stopAgent: return "power.circle"
         case .unloadModels: return "memorychip"
         case .deleteBuildData: return "trash"

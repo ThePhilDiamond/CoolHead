@@ -9,6 +9,7 @@ public enum Wording {
             (f.id, Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)))
         }
         out += Fixture.catalogueSamples(now)
+        out += Fixture.saveAndQuitSamples(now)
         out += Fixture.leakSamplesForWording(now)
         out += Fixture.leftoversSamples(now)
         out += Fixture.appBuildSamples(now)
