@@ -463,8 +463,9 @@ public struct Card {
         let macOSProgram = e.script == nil && (e.path.map(CaseReport.isMacOS) ?? true)
         let stoppable = e.mine && !macOSProgram && !appMain
         let stop: Fix? = stoppable ? Fix(id: "stop", title: "Stop it", consequence: stopConsequence(), kind: .stop, recommended: state == .stalled) : nil
-        let cooler: Fix? = e.mine && e.coresNow >= 0.5
-            ? Fix(id: "cooler", title: "Run it cooler", consequence: "Slower, but less heat. Undo any time.", kind: .cooler, recommended: false)
+        // only where it helps (see RunCooler): your own work above background priority, never macOS's own
+        let cooler: Fix? = RunCooler.offered(e)
+            ? Fix(id: "cooler", title: "Run it cooler", consequence: RunCooler.consequence(e), kind: .cooler, recommended: false)
             : nil
 
         // macOS's own processes: what it is doing, and whether this has gone on longer than usual
@@ -538,7 +539,7 @@ public struct Card {
                                 Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
                                     kind: .pauseSync(bundle, sync), recommended: warm || gameRunning != nil
                                         || (onBattery && (e.coresNow >= 2 || ((battery ?? 100) < 50 && e.coresNow >= 1)))),
-                                e.mine && e.coresNow >= 0.5 ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
+                                RunCooler.offered(e) ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
                                 Fix(id: "quit", title: "Quit \(sync)", consequence: "Stops syncing until you open it again.", kind: .quitApp(bundle))].compactMap { $0 })
         }
 
@@ -553,7 +554,7 @@ public struct Card {
                                : "\(what) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor)).")
                 + (part == .graphics ? "" : " Only \(app) knows which.")
                 + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil])
-            let canCool = e.mine && e.coresNow >= 0.5 && part != .graphics     // slowing graphics would slow all of it
+            let canCool = RunCooler.offered(e) && part != .graphics     // slowing graphics would slow all of it
             let page = { (url: String, title: String, why: String, rec: Bool) in
                 Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
             let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.").fixingTheCause()
