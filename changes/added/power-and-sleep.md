@@ -1,0 +1,1 @@
+- Cards for sleep and power: an app that has kept your Mac awake for hours (with Quit), Low Power Mode left on with the charger while your Mac is busy, and a battery that drained while asleep because the Mac kept waking, naming what woke it. The warm-but-nothing-busy card gives Apple's 10 to 35°C range, and a game's card says Game Mode gives it priority in full screen.

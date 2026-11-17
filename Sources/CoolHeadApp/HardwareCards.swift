@@ -71,3 +71,9 @@ final class HardwareWatch {
     /// Whether a hardware finding should turn the menu bar badge yellow.
     func needsLook(_ watcher: Watcher) -> Bool { visible(watcher).contains { $0.needsLook } }
 }
+
+extension HardwareWatch: CardSource {
+    func start(_ watcher: Watcher) { start() }
+    func panelOpened() { refresh() }       // at most once a minute
+    func cards(for watcher: Watcher) -> [LiveCard] { visible(watcher) }
+}
