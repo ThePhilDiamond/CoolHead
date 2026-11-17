@@ -16,13 +16,16 @@ public enum HardwarePage {
             return Verdict(level: 2, title: "Battery needs service", meaning: "The Battery page says what macOS reports and what to do.")
         }
         if crashes >= 2 {
-            return Verdict(level: 2, title: "Crash restarts", meaning: "The Mac restarted after a crash \(Hardware.times(crashes)) this week. Its card says what the report shows.")
+            return Verdict(level: 2, title: "Crash restarts", meaning: "The Mac restarted after a crash \(Hardware.times(crashes)) this week. Its card says what that means and what to try.")
         }
         if let d = r.drive, d.mediaErrors > 0 {
             return Verdict(level: 1, title: "Drive errors", meaning: "The drive couldn't correct some reads. Keep your backups current.")
         }
         if crashes == 1 {
-            return Verdict(level: 1, title: "One crash restart", meaning: "The Mac restarted after a crash this week. Once is usually nothing to worry about.")
+            // what it means and what to do, never a bare cause (Phil, 16 November 2026: "Otherwise this is scary and
+            // intimidating to a lay person with no clear path forward"); a second crash this week brings its card
+            let cause = CrashRestarts.plainCause(r.crashes.lastText.map(CrashRestarts.cause) ?? .unclear)
+            return Verdict(level: 1, title: "One crash restart", meaning: cause + " Once needs nothing from you. If it happens again, Cool Head shows a card with what to try.")
         }
         if r.ports.contains(where: { $0.overCurrent > 0 }) {
             return Verdict(level: 1, title: "A port was overloaded", meaning: "A device asked a port for more power than it can give.")
@@ -62,20 +65,13 @@ public enum HardwarePage {
         return t
     }
 
-    /// One line under the figures: the last crash restart this week and its cause if there was one; otherwise the
+    /// One line under the figures: when the last crash restart this week was, if there was one; otherwise the
     /// drive's wear in plain terms (how much has been written, and for how long it has been on).
     public struct Status: Equatable { public let symbol: String; public let text: String; public let detail: String?; public let level: Int }
     public static func status(_ r: HardwareReport, now: Date = Date()) -> Status {
+        // when, not why: the cause, in plain words with what to do, is in the verdict or on the crash card
         if let last = r.crashes.lastDate, now.timeIntervalSince(last) < 7 * 86400 {
-            let why: String? = r.crashes.lastText.map {
-                switch CrashRestarts.cause($0) {
-                case .stoppedResponding(let name): return "\(name) stopped responding"
-                case .kernelMemory: return "macOS ran out of its own memory"
-                case .driver(let id): return "a driver that isn't Apple's (\(id))"
-                case .unclear: return "the report doesn't say why"
-                }
-            }
-            return Status(symbol: "arrow.clockwise", text: "Last crash restart \(Fmt.time(last))", detail: why, level: 1)
+            return Status(symbol: "arrow.clockwise", text: "Last crash restart \(Fmt.time(last))", detail: nil, level: 1)
         }
         if let d = r.drive {
             return Status(symbol: "internaldrive", text: "About \(Hardware.size(d.bytesWritten)) written",

@@ -309,6 +309,23 @@ public struct CrashRestarts: Equatable {
         return .unclear
     }
 
+    /// What the cause means, in plain words, for the crash card and the Hardware page alike: what stopped and whether
+    /// that's usually software or hardware (Phil, 16 November 2026: "if we tell them there was an issue such as
+    /// "WindowServer stopped responding" we need to explain what it means and what to do about it").
+    public static func plainCause(_ c: Cause) -> String {
+        switch c {
+        case .stoppedResponding(let name):
+            let what = name == "WindowServer" ? "WindowServer, the part of macOS that draws the screen," : name
+            return "macOS restarted itself because \(what) stopped responding for two minutes. That's usually software, not hardware."
+        case .kernelMemory:
+            return "macOS ran out of its own working memory, which is usually a leak in software, often a driver."
+        case .driver(let id):
+            return "The report names \(id), a driver that isn't Apple's: update it from its maker, or remove it."
+        case .unclear:
+            return "macOS's report of the last crash doesn't make the cause clear. Most crashes are software, but a faulty accessory or a hardware fault can cause them."
+        }
+    }
+
     public var lines: [String] {
         var l: [String] = []
         if let d = lastDate { l.append("Last crash restart: \(Fmt.time(d))") } else { l.append("Last crash restart: none recorded") }
@@ -465,18 +482,7 @@ extension HardwareReport {
         // crash restarts: one after a crash is worth a look; several in a week more so
         let week = crashes.countThisWeek(now: now)
         if crashes.thisStartFollowedCrash == true || week >= 2 {
-            var why: String
-            switch crashes.lastText.map(CrashRestarts.cause) ?? .unclear {
-            case .stoppedResponding(let name):
-                let what = name == "WindowServer" ? "WindowServer, the part of macOS that draws the screen," : name
-                why = "macOS restarted itself because \(what) stopped responding for two minutes. That's usually software, not hardware."
-            case .kernelMemory:
-                why = "macOS ran out of its own working memory, which is usually a leak in software, often a driver."
-            case .driver(let id):
-                why = "The report names \(id), a driver that isn't Apple's: update it from its maker, or remove it."
-            case .unclear:
-                why = "macOS's report of the last crash doesn't make the cause clear. Most crashes are software, but a faulty accessory or a hardware fault can cause them."
-            }
+            let why = CrashRestarts.plainCause(crashes.lastText.map(CrashRestarts.cause) ?? .unclear)
             let headline = week >= 2 ? "Your Mac has crashed and restarted \(week) times this week." : "Your Mac restarted because of a crash."
             let repeatNote = week >= 2 ? " Crashes that keep happening with no common software can point to hardware: disconnect docks and hubs, then try Safe Mode." : " If it happens again, disconnect docks and hubs, then try Safe Mode."
             let safeMode = Fix.guide("safemode", "Try Safe Mode", "Starts the Mac with only Apple's own software. If the crashes stop there, the cause is software you added.", steps: appleSilicon ? [
