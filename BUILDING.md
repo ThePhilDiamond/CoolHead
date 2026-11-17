@@ -44,6 +44,7 @@ Screenshots for the project must never show your own processes. These settings s
 - `COOLHEAD_HANG_SECONDS=<seconds>`: show a card for a paused, drive-waiting or Not Responding process after this long, instead of minutes.
 - `COOLHEAD_SNAPSHOT_ONLY` takes several phrases separated by `|`.
 - `COOLHEAD_SNAPSHOT_COOL=<phrase>` or `COOLHEAD_SNAPSHOT_PAUSE=<phrase>`: run that card's process cooler, or pause it, first.
+- `COOLHEAD_SNAPSHOT_ABOUT=1`: also draw the About panel to `<prefix>-about-light.png` and `-dark.png`.
 
 The README's screenshots use a made-up job (a script in a folder named Photo Export that prints progress lines), started with `launchctl submit` so it runs at full priority, and the app run in the background with `ONLY`, `WARM` and `AFTER=100`.
 
