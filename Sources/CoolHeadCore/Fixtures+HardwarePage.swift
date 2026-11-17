@@ -36,18 +36,21 @@ extension Fixture {
         let calm = HardwarePage.parts(report { _ in }, now: now)
         let issue = HardwarePage.parts(HardwarePage.sample("issue", now: now), now: now)
         let ported = HardwarePage.parts(report { $0.ports = [PortErrors(name: "the MagSafe port", overCurrent: 2)] }, now: now)
-        let p1 = calm.map(\.kind) == [.drive, .crashes, .ports] && calm.map(\.level) == [0, 0, 0]
-            && calm[0].value == "Healthy" && calm[0].lines == ["Time Machine is set up to back it up."]
-            && calm[0].tiles.map { $0.value + " " + $0.unit } == ["3% life used", "18 TB written", "2,140 hours on", "34°C now"]
-            && issue[0].value == "Well worn" && issue[0].tiles.first?.level == 1
-            && issue[0].lines.last == "Time Machine isn't set up, so nothing backs this drive up."
-            && calm[1].value == "None this week" && calm[1].lines.isEmpty && calm[2].value == "No errors"
-            && issue[0].level == 1 && issue[1].value == "1 this week" && issue[1].level == 1
-            && issue[1].lines.count == 3 && issue[1].lines[0].hasPrefix("Last one ")
-            && issue[1].lines[1] == "WindowServer, the part of macOS that draws the screen, stopped responding, so macOS restarted. That's usually software, not hardware."
-            && issue[1].lines[2] == "A one-off crash like this isn't a concern. If it happens again in the next week, Cool Head will show you what to try."
-            && ported[2].value == "2 errors" && ported[2].lines == ["The MagSafe port: a device asked for too much power twice."] && ported[2].level == 1
-            && HardwarePage.parts(report { $0.drive = nil }, now: now).map(\.value) == ["Not read", "None this week", "No errors"]
+        // in parts, so the compiler checks each quickly (one long chain timed out on GitHub's build machine)
+        let tiles: [String] = calm[0].tiles.map { $0.value + " " + $0.unit }
+        let noDrive: [String] = HardwarePage.parts(report { $0.drive = nil }, now: now).map(\.value)
+        var p1 = calm.map(\.kind) == [.drive, .crashes, .ports] && calm.map(\.level) == [0, 0, 0]
+        p1 = p1 && calm[0].value == "Healthy" && calm[0].lines == ["Time Machine is set up to back it up."]
+        p1 = p1 && tiles == ["3% life used", "18 TB written", "2,140 hours on", "34°C now"]
+        p1 = p1 && issue[0].value == "Well worn" && issue[0].tiles.first?.level == 1
+        p1 = p1 && issue[0].lines.last == "Time Machine isn't set up, so nothing backs this drive up."
+        p1 = p1 && calm[1].value == "None this week" && calm[1].lines.isEmpty && calm[2].value == "No errors"
+        p1 = p1 && issue[0].level == 1 && issue[1].value == "1 this week" && issue[1].level == 1
+        p1 = p1 && issue[1].lines.count == 3 && issue[1].lines[0].hasPrefix("Last one ")
+        p1 = p1 && issue[1].lines[1] == "WindowServer, the part of macOS that draws the screen, stopped responding, so macOS restarted. That's usually software, not hardware."
+        p1 = p1 && issue[1].lines[2] == "A one-off crash like this isn't a concern. If it happens again in the next week, Cool Head will show you what to try."
+        p1 = p1 && ported[2].value == "2 errors" && ported[2].lines == ["The MagSafe port: a device asked for too much power twice."] && ported[2].level == 1
+        p1 = p1 && noDrive == ["Not read", "None this week", "No errors"]
         review.append(("hardware-page-parts", p1, (calm + issue + ported).map { "\($0.name): \($0.value)" + ($0.tiles.isEmpty ? "" : " [" + $0.tiles.map { $0.value + " " + $0.unit }.joined(separator: ", ") + "]") + ($0.lines.isEmpty ? "" : " / " + $0.lines.joined(separator: " ")) }.joined(separator: " | ")))
 
         // how it's running: the same level as the menu bar icon. Whole while nothing slows it and nothing needs acting
