@@ -399,6 +399,22 @@ struct CardView: View {
                 // the panel may have closed while the browser came to the front: a failure is also a notification
                 if n.failed { Alerts.remind(n.text) }
             }
+        case .restartApp(let bundle):
+            // the same quit, wait and reopen as a browser, without the browser's switch: the app reopens what it keeps
+            let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
+            note = "Asked \(name) to quit. It opens again once it has closed."; noteFailed = false; acted = true
+            Task {
+                let w = watcher
+                let o = await BrowserRestart.restart(bundle: bundle, arguments: []) { step in w.log("Quit and reopen \(name) pressed: \(step)") }
+                let n: (text: String, failed: Bool) = {
+                    if case .restarted = o { return ("Reopened \(name). The memory it had built up is free.", false) }
+                    if case .stillOpen = o { return ("\(name) is still open after \(Int(BrowserRestart.wait)) seconds, so it wasn't reopened. It may be asking you something.", true) }
+                    if case .reopenFailed(let why) = o { return ("\(name) closed but didn't reopen: \(why). Open it again from Applications.", true) }
+                    return BrowserRestart.note(o, name: name)
+                }()
+                note = n.text; noteFailed = n.failed; acted = !n.failed
+                if n.failed { Alerts.remind(n.text) }
+            }
         case .share:
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
@@ -1290,6 +1306,7 @@ struct FixRow: View {
         case .resume: return "play.circle"
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"
+        case .restartApp: return "arrow.clockwise.circle"
         case .stopAgent: return "power.circle"
         case .unloadModels: return "memorychip"
         case .deleteBuildData: return "trash"

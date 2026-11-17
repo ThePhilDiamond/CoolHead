@@ -145,6 +145,8 @@ public final class Watcher {
     public private(set) var agentsOff: [BackgroundAgents.Agent] = []
     public private(set) var backupExcluded: [String] = []
     @ObservationIgnored private var agentsReadAt = Date.distantPast
+    /// Each open app's memory and windows over the last hours, for spotting a leak (see Leaks).
+    @ObservationIgnored let leaks = Leaks.Tracker()
     /// macOS's own busy processes, read at most every 30 seconds each (see BackgroundWork).
     @ObservationIgnored private var backgroundReadings: [pid_t: (at: Date, reading: BackgroundWork.Reading)] = [:]
     public func refreshHeldBack(force: Bool = false) {
@@ -687,6 +689,16 @@ public final class Watcher {
             lc.heatCause = true
             out.append(lc)
         }
+        // every 5 minutes, each open app's memory (with its helpers) and windows, so a leak can be told from work
+        if leaks.due(now) {
+            let paths = tracks.keys.reduce(into: [pid_t: String]()) { m, p in if let path = Proc.path(p) { m[p] = path } }
+            let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { a -> (bundle: String, pid: pid_t, bytes: UInt64)? in
+                guard let b = a.bundleURL?.path else { return nil }
+                let bytes = paths.filter { $0.value.hasPrefix(b + "/") }.reduce(UInt64(0)) { $0 + (tracks[$1.key]?.footprint ?? 0) }
+                return (b, a.processIdentifier, bytes)
+            }
+            leaks.note(apps, windows: Leaks.windowCounts, now: now)
+        }
         if let level = s.memoryLevel {
             // count memory the way a person thinks of it: each app with all its helpers, each job on its own
             var groups = MemoryAdvice.merge(tracks.compactMap { pid, tr in
@@ -696,7 +708,7 @@ public final class Watcher {
                 if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, measured: (tracks[p]?.cores ?? 0, 0), gpu: tracks[p].flatMap { $0.gpuTime != nil ? $0.gpu : nil }) }
             }
             let models = groups.prefix(3).contains(where: MemoryAdvice.isOllama) ? Leftovers.loadedRecently(now: now) : nil
-            let card = MemoryAdvice.card(groups, mac: s, now: now, models: models,
+            let card = MemoryAdvice.card(groups, mac: s, now: now, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
                                          buildData: MemoryAdvice.lowDisk(s) ? Leftovers.buildDataSize(now: now) : nil)
             let top = groups.first
             let subject = top.map { g -> String in
