@@ -113,10 +113,10 @@ public enum CardKind: Int, Comparable, CaseIterable {
     /// Why a card of this kind comes before one of a later kind, in plain words.
     public var first: String {
         switch self {
-        case .identity: return "who a program really is matters more than what it's doing"
-        case .stalled: return "stuck work comes first"
-        case .explanation: return "it says what the process is doing, rather than only that it's busy"
-        case .catchAll: return "it fits better"
+        case .identity: return "a program that isn't what it claims to be may be harmful, and that matters more than how busy it is, so its options deal with what it is rather than slowing it down"
+        case .stalled: return "stuck work won't finish on its own, so waiting or slowing it wouldn't help, and it needs a different fix from work that's still moving"
+        case .explanation: return "it knows what the process is doing, so its advice fits the cause, where a general card can only suggest general steps"
+        case .catchAll: return "it fits this process better"
         }
     }
 }
@@ -229,11 +229,11 @@ public enum Ranker {
         if a.type.kind != b.type.kind { return (a.type.kind < b.type.kind, min(a.type.kind, b.type.kind).first) }
         if let why = refinement(a.type, over: b.type.id) { return (true, why) }
         if let why = refinement(b.type, over: a.type.id) { return (false, why) }
-        if a.risk != b.risk { return (a.risk < b.risk, "its options are less risky") }
+        if a.risk != b.risk { return (a.risk < b.risk, "its riskiest option is safer, so following it is less likely to lose your work or break something") }
         // then weights
-        if a.type.match != b.type.match { return (a.type.match > b.type.match, "it fits this process more exactly") }
+        if a.type.match != b.type.match { return (a.type.match > b.type.match, "it recognizes more about what this program is, so its advice is more likely to be right") }
         let sa = a.type.strength(s), sb = b.type.strength(s)
-        if sa != sb { return (sa > sb, "the evidence for it is stronger") }
+        if sa != sb { return (sa > sb, "more of what Cool Head sees points to it, so it's more likely to be right") }
         return nil
     }
 

@@ -8,7 +8,7 @@ enum WebPageInAppCard: ProcessCard {
     static let kind = CardKind.explanation
     static let rule = "Research rule 4: WebKit's work is credited to the app whose pages it shows"
     static let match = Match.category
-    static let refines = ["web-page": "it knows which app the page is in, so quitting that app is the advice"]
+    static let refines = ["web-page": "it knows which app is showing the page, so it can offer the step sure to stop the work: quitting that app, which asks you to save anything first; the general web page card would send you looking for a browser tab that isn't there"]
     static let samples = ["web-page-in-app"]
 
     static func card(_ s: Situation) -> Card? {

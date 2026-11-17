@@ -8,7 +8,7 @@ enum CatalogueCard: ProcessCard {
     static let kind = CardKind.explanation
     static let rule = "Catalogue.swift: macOS's own processes, what each does and how long it usually takes"
     static let match = Match.name
-    static let refines = ["served": "Cool Head knows what this part of macOS does"]
+    static let refines = ["served": "Cool Head knows what this part of macOS does and how long it usually takes, so it can tell you whether this is normal and when it should stop"]
     static let samples = ["spotlight-normal", "spotlight-long", "kernel-task-long", "docker-vm", "windowserver-old-electron", "time-machine-build"]
 
     static func card(_ s: Situation) -> Card? {

@@ -10,7 +10,7 @@ enum ChromiumBrowserCard: ProcessCard {
     static let kind = CardKind.explanation
     static let rule = "Phil, 15 November 2026: improve Chrome's performance without quitting it"
     static let match = Match.category
-    static let refines = ["web-page": "it can tell a tab from an extension, and can open the browser's own list of what's busy"]
+    static let refines = ["web-page": "it can tell whether a tab or an extension is busy and open the browser's own list of what's busy, so you can find and close the one causing it instead of quitting the whole browser"]
     static let samples = ["chrome-tab", "chrome-tab-in-front-warm", "chrome-extension", "chrome-graphics"]
 
     static func card(_ s: Situation) -> Card? {

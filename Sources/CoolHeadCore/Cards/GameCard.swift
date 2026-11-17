@@ -12,7 +12,7 @@ enum GameCard: ProcessCard {
     static let match = Match.category
     // Phil, 17 November 2026, for a game built on Chromium: the two cards share only quitting, and the Chromium card's
     // other options (its Task Manager, Chrome's settings, closing a tab) don't exist in a game, so they aren't merged
-    static let refines = ["chromium-browser": "games are never slowed down, and a game has no browser tabs or settings to offer"]
+    static let refines = ["chromium-browser": "games are never slowed down, so play stays smooth, and the browser card's options, such as closing a tab or changing browser settings, don't exist in a game and wouldn't work"]
     static let samples = ["game"]
 
     static func card(_ s: Situation) -> Card? {
