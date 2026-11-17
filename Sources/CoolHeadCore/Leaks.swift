@@ -98,7 +98,7 @@ public enum Leaks {
     public static func addition(_ l: Leak, app: String, bundle: String, now: Date, losesWork: Bool) -> (headline: String, sentence: String, fix: Fix) {
         let h = max(2, Int(now.timeIntervalSince(l.since) / 3600))
         let headline = "\(app) is using more than it usually does."
-        let sentence = "It's at \(Fmt.bytes(l.to)), up from \(Fmt.bytes(l.from)) \(hours(h)) ago with the same windows open: probably a leak. Save your work, then quit and reopen it."
+        let sentence = "It's at \(Fmt.bytes(l.to)), up from \(Fmt.bytes(l.from)) \(hours(h)) ago with the same windows open, so it's probably a leak."
         var fix = Fix(id: "reopen", title: "Quit and reopen \(app)",
                       consequence: "Save your work first. Gives back about \(Fmt.bytes(l.to - min(l.to, l.from))); some windows may not reopen.",
                       kind: .restartApp(bundle), recommended: true)
