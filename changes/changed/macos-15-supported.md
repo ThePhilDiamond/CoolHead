@@ -1,1 +1,0 @@
-- Cool Head supports macOS 15 Sequoia or later. It still opens on macOS 14 Sonoma, but it isn't tested there, and a later version will need macOS 15.

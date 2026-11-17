@@ -1,1 +1,0 @@
-- Terms of use, in TERMS.md and linked from About: Cool Head is provided as is, a card is its best judgement and not a guarantee, and what you choose to do with it is your responsibility.
