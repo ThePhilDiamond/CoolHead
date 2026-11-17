@@ -6,7 +6,7 @@ enum SyncAppCard: ProcessCard {
     static let id = "sync-app"
     static let kind = CardKind.explanation
     static let rule = "Sync apps catch up and stop; a build writing into a synced folder is the cause (Phil's Google Drive errors, 15 November 2026)"
-    static func confidence(_ s: Situation) -> Confidence { .named("it knows this sync app by name") }
+    static func confidence(_ s: Situation) -> Confidence { .named("we know this sync app by name") }
     static let samples = ["sync-app", "sync-app-warm-fed-by-a-build", "sync-app-fed-in-its-folder"]
 
     static func card(_ s: Situation) -> Card? {

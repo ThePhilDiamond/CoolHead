@@ -9,7 +9,7 @@ enum GameCard: ProcessCard {
     static let id = "game"
     static let kind = CardKind.explanation
     static let rule = "Phil, 15 November 2026: games are protected, never slowed"
-    static func confidence(_ s: Situation) -> Confidence { .named("the app itself says it is a game") }
+    static func confidence(_ s: Situation) -> Confidence { .named("the app itself says it's a game") }
     static let samples = ["game"]
 
     static func card(_ s: Situation) -> Card? {

@@ -7,7 +7,7 @@ enum WebPageInAppCard: ProcessCard {
     static let id = "web-page-in-app"
     static let kind = CardKind.explanation
     static let rule = "Research rule 4: WebKit's work is credited to the app whose pages it shows"
-    static func confidence(_ s: Situation) -> Confidence { .named("it's macOS's own web page process, and macOS says which app it's showing pages for") }
+    static func confidence(_ s: Situation) -> Confidence { .named("macOS says which app is showing this web page") }
     static let samples = ["web-page-in-app"]
 
     static func card(_ s: Situation) -> Card? {

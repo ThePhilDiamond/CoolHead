@@ -78,10 +78,10 @@ flowchart TD
     top -- Yes --> topWins["That card wins"]
     top -- No --> tie["A tie: the selftest fails and names both.<br/>Merge them if they share the fix;<br/>otherwise change a card's confidence or options, with the reason."]
     identityWins & topWins --> extras["Extras join the winner:<br/>a helper's Stop it starting by itself, an Intel app's note,<br/>older Electron apps on a busy WindowServer"]
-    extras --> why["Its Nerdy stuff names the closest other card<br/>and why this one was chosen over it"]
+    extras --> why["Its Nerdy stuff says which cards it was picked over,<br/>the main reason, and at most one drawback"]
 ```
 
-If two cards tie, the selftest fails and names both. Each card's Nerdy stuff names the other cards that fit and says what is better and worse about this one than the closest, without claiming which factor matters more. `coolhead cards --json` shows every card's score on every sample. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
+If two cards tie, the selftest fails and names both. Each card's Nerdy stuff says which cards it was picked over and the main reason, with at most one drawback: "Picked over a web page and a busy program because we're more confident it will fix the problem: macOS says which app is showing this web page. One drawback: its advice ends something that's running." `coolhead cards --json` shows every card's score on every sample. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
 
 Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
 

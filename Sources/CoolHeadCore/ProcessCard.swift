@@ -199,16 +199,16 @@ public enum Ranker {
         /// Why this card won over the closest one, in plain words.
         public var because: String?
 
-        /// For the card's Nerdy stuff, in plain words: "Also fits: a web page and a busy program. Chosen over a web page.
-        /// Cool Head is surer of it (…) and its advice is one click, though the advice does less." Nil when no other
-        /// card fitted.
+        /// For the card's Nerdy stuff, in plain words: "Picked over a web page and a busy program because we're more
+        /// confident it will fix the problem: macOS says which app is showing this web page. One drawback: its advice
+        /// closes something." The reason is against the closest card. Nil when no other card fitted.
         public var line: String? {
             guard let closest = others.first else { return nil }
             func list(_ x: [String]) -> String {
                 x.count < 3 ? x.joined(separator: " and ") : x.dropLast().joined(separator: ", ") + ", and " + x.last!
             }
-            let fits = others.count == 1 ? "Also fits: \(closest)." : "Also fits: \(list(others))."
-            return fits + (because.map { " Chosen over \(closest). " + $0 } ?? "")
+            _ = closest
+            return "Picked over \(list(others)) " + (because ?? "because it scored higher.")
         }
     }
 
@@ -223,24 +223,21 @@ public enum Ranker {
         }
     }
 
-    /// Why `a` beats `b`, in plain words, as facts about the two cards, ending in a full stop; nil when it doesn't. It
-    /// says what's better and what's worse about this card, never which factor matters more (that's in DIAGNOSIS.md).
+    /// Why `a` beats `b`: the main thing in its favour, as "because …" with its reason, and at most one drawback; nil
+    /// when it doesn't win. It never says which factor matters more (that's in DIAGNOSIS.md).
     static func why(_ a: Candidate, over b: Candidate) -> String? {
-        if a.type.kind == .identity, b.type.kind != .identity { return "It comes first because the program may be harmful." }
+        if a.type.kind == .identity, b.type.kind != .identity { return "because the program may be harmful, which comes before anything else." }
         if b.type.kind == .identity, a.type.kind != .identity { return nil }
         let x = a.score, y = b.score
         guard x.total > y.total else { return nil }
-        var pros: [String] = [], cons: [String] = []
-        if x.confidence > y.confidence { pros.append("Cool Head is surer of it (\(a.confidence.reason))") }
-        if x.impact > y.impact { pros.append(x.impact == 3 ? "its advice fixes the cause" : "its advice does more") }
-        if x.risk < y.risk { pros.append("its advice is safer") }
-        if x.effort < y.effort { pros.append(a.card.recommended == nil ? "there's nothing you need to do" : "its advice is one click") }
-        if x.impact < y.impact { cons.append("the advice does less") }
-        if x.risk > y.risk { cons.append(x.risk == 3 ? "the advice is marked Caution" : "the advice closes something") }
-        if x.effort > y.effort { cons.append("the advice is a task for you") }
-        func list(_ p: [String]) -> String { p.count < 3 ? p.joined(separator: " and ") : p.dropLast().joined(separator: ", ") + ", and " + p.last! }
-        let first = list(pros)
-        return first.prefix(1).uppercased() + first.dropFirst() + (cons.isEmpty ? "." : ", though \(list(cons)).")
+        let fixes = (a.card.recommended?.result ?? .informs) > .informs
+        let main = x.confidence > y.confidence ? "because we're more confident it\(fixes ? " " : "")\(fixes ? "will fix the problem" : "'s right"): \(a.confidence.reason)."
+            : x.impact > y.impact ? "because its advice does more about the problem."
+            : x.risk < y.risk ? "because its advice is safer."
+            : "because it's less work for you."
+        let drawback = x.risk > y.risk ? (x.risk == 3 ? "its advice is marked Caution" : "its advice ends something that's running")
+            : x.effort > y.effort ? "its advice is a task for you" : x.impact < y.impact ? "its advice eases the problem rather than fixing the cause" : nil
+        return main + (drawback.map { " One drawback: \($0)." } ?? "")
     }
 
     /// The winning card, with the extras that apply, and why it won.
