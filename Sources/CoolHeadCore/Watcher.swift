@@ -171,6 +171,16 @@ public final class Watcher {
         return r
     }
 
+    /// Whether a process's busy work is already at background priority, read at most every 30 seconds each.
+    @ObservationIgnored private var priorityReadings: [pid_t: (at: Date, value: Bool?)] = [:]
+    func backgroundPriority(_ pid: pid_t, _ now: Date) -> Bool? {
+        if let r = priorityReadings[pid], now.timeIntervalSince(r.at) < 30 { return r.value }
+        let v = RunCooler.alreadyBackground(pid)
+        priorityReadings = priorityReadings.filter { now.timeIntervalSince($0.value.at) < 600 }
+        priorityReadings[pid] = (now, v)
+        return v
+    }
+
     @discardableResult public func turnOnAgent(_ a: BackgroundAgents.Agent) -> Bool {
         let ok = BackgroundAgents.turnOn(a)
         log("Turn back on pressed for \(a.label): " + (ok ? "turned on" : "failed"))
@@ -548,7 +558,13 @@ public final class Watcher {
             .sorted { max($0.value.cores, $0.value.gpu) > max($1.value.cores, $1.value.gpu) }.prefix(5)
         var live: [LiveCard] = []
         let gathered = busy.compactMap { pid, tr in
-            Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten), gpu: gpuTimes[pid] != nil ? tr.gpu : nil).map { (pid, tr, $0) }
+            Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten), gpu: gpuTimes[pid] != nil ? tr.gpu : nil).map { e -> (pid_t, Track, Evidence) in
+                // your own busy work already at background priority: Run it cooler would do nothing (see RunCooler); not
+                // read once Cool Head has slowed it, so "Back to full speed" stays
+                var e = e
+                if e.mine, e.coresNow >= 0.5, cooled["\(pid)-\(e.start?.timeIntervalSince1970 ?? 0)"] == nil { e.atBackgroundPriority = backgroundPriority(pid, now) }
+                return (pid, tr, e)
+            }
         }
         // a game being played comes first: other busy work is offered to run cooler to leave it more room
         let game = gathered.first { $0.2.gameBundle != nil }.flatMap { $0.2.gameBundle }
