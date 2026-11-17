@@ -31,6 +31,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>${VERSION}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
+  <key>NSAppleEventsUsageDescription</key><string>When you press Quit, Cool Head asks the app to save your work before it quits.</string>
   <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Phil Diamond. Free and open source under the GNU AGPL v3.0.</string>
 </dict>
 </plist>

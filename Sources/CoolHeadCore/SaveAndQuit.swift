@@ -4,9 +4,10 @@ import Foundation
 /// user that'd be the best option for least effort most value"*; asked which way, *"Save for you, guard the rest"*).
 ///
 /// An app that supports AppleScript can be told `quit saving yes`: it saves its open documents, then quits (a document
-/// never saved before still asks where to save it). macOS asks you once per app whether Cool Head may control it; if
-/// you say no, or the app doesn't answer, Cool Head falls back to a normal quit, where the app asks about anything
-/// unsaved. Apps without AppleScript (most Electron apps: Slack, Figma, VS Code) get the normal quit. Stop and Force
+/// never saved before still asks where to save it). macOS doesn't ask permission for the quit command itself (tested
+/// 16 November 2026 with TextEdit on 26.6.2: a changed document saved and TextEdit quit, with no prompt for the quit);
+/// if an app ever refuses, or doesn't answer, Cool Head falls back to a normal quit, where the app asks about anything
+/// unsaved. Cool Head's Info.plist carries the reason macOS would show if it did ask (NSAppleEventsUsageDescription). Apps without AppleScript (most Electron apps: Slack, Figma, VS Code) get the normal quit. Stop and Force
 /// Quit can't save: they end a program at once, so the panel asks "Did you save?" first.
 public enum SaveAndQuit {
     /// The app supports AppleScript: its details say so, or it has a scripting dictionary.
@@ -18,7 +19,7 @@ public enum SaveAndQuit {
 
     public enum Outcome: Equatable {
         case quit                 // it saved and quit
-        case notAllowed           // macOS didn't let Cool Head control it (you said no)
+        case notAllowed           // macOS didn't let Cool Head control it
         case cancelled            // you cancelled a save dialog, so it stayed open
         case failed(String)       // anything else, with the error's own words
     }
