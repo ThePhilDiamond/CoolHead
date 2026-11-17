@@ -200,7 +200,8 @@ public enum MemoryAdvice {
             fixes.append(cost.losesWork ? quit2.losingWork() : quit2)
         }
         if lowDisk(s) {
-            if let b = Leftovers.buildDataFix(bytes: buildData) { var f = b; f.recommended = false; fixes.append(f) }
+            // frees disk the Mac can use as memory, and loses nothing: the advice when nothing else is
+            if let b = Leftovers.buildDataFix(bytes: buildData) { var f = b; f.recommended = !fixes.contains { $0.recommended }; fixes.append(f) }
             fixes.append(freeDisk)
         }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",

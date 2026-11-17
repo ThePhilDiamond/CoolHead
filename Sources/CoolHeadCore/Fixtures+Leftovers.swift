@@ -51,7 +51,7 @@ extension Fixture {
         let small = MemoryAdvice.card([memGroup("Xcode", 6.2, bundle: "/Applications/Xcode.app", kind: .app)], mac: leftoversMac(freeGB: 11), now: now, buildData: 400_000_000)
         let roomy = MemoryAdvice.card([memGroup("Xcode", 6.2, bundle: "/Applications/Xcode.app", kind: .app)], mac: leftoversMac(freeGB: 80), now: now, buildData: 14_300_000_000)
         let bd = low.fixes.first { $0.id == "builddata" }
-        let r3 = bd?.consequence == "Frees 14 GB. Xcode rebuilds what it needs, so the next build of each project takes longer." && bd?.caution == false
+        let r3 = bd?.consequence == "Frees 14 GB. Xcode rebuilds what it needs, so the next build of each project takes longer." && bd?.caution == false && low.recommended?.id == "builddata"
             && !small.fixes.contains { $0.id == "builddata" } && !roomy.fixes.contains { $0.id == "builddata" }
         review.append(("leftovers-build-data-option", r3, bd.map { "\($0.title): \($0.consequence)" } ?? "not offered"))
 
