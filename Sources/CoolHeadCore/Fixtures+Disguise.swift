@@ -67,7 +67,7 @@ extension Fixture {
         let text = { (c: Card) in c.headline + " " + c.explanation }
         let remove = minerCard.recommended
         let r3 = minerCard.state == .unknown && minerCard.headline == "mdworker_local is pretending to be part of macOS."
-            && minerCard.explanation == "It uses a macOS name but runs from a temporary folder, without Apple's signature: a common malware trick. We can't be certain it's harmful. Stop and delete it."
+            && minerCard.explanation == "It uses a macOS name but runs from a temporary folder, without Apple's signature: a common malware trick. We can't be certain it's harmful."
             && remove?.id == "remove" && remove?.kind == .stopAndTrash(["/private/tmp/mdworker_local"], nil) && remove?.caution == true
             && minerCard.fixes.map(\.id) == ["remove", "share"]
             && theirsCard.recommended?.id == "delete" && !theirsCard.fixes.contains { $0.interrupts }
