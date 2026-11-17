@@ -34,7 +34,10 @@ struct PanelView: View {
             // scrolls once it is taller than the limit
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    if !welcomed && !PanelView.limitedSnapshot { WelcomeCard { welcomed = true; WhatsNew.markSeen() } }
+                    // screenshots can show the welcome beside made-up cards (COOLHEAD_SNAPSHOT_WELCOME)
+                    if (!welcomed && !PanelView.limitedSnapshot) || ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_WELCOME"] != nil {
+                        WelcomeCard { welcomed = true; WhatsNew.markSeen() }
+                    }
                     else if let notes = whatsNew { WhatsNewCard(notes: notes) { WhatsNew.markSeen(); whatsNew = nil } }
                     UpdateBanner()
                     ForEach(watcher.notices, id: \.self) { n in
@@ -48,6 +51,8 @@ struct PanelView: View {
                     // the tools along the bottom open here, one at a time
                     if network.shown {
                         NetworkView(tester: network, watcher: watcher)
+                    } else if tools.settings {
+                        SettingsView()
                     } else if tools.trusted {
                         TrustedView(watcher: watcher)
                     } else if tools.battery {
@@ -557,79 +562,6 @@ struct ProblemView: View {
     }
 }
 
-/// The name and version at the top right, which is also the "check for updates" button: click it to check, and if
-/// there is a newer version it downloads, verifies and installs it. It says what it is doing in place, briefly.
-struct VersionButton: View {
-    let updater = Updater.shared
-    /// In the toolbar, drawn like the tools beside it: an icon with a word under it, or the word alone when the tools'
-    /// names are hidden.
-    var labels = true
-    @State private var hovering = false
-    @State private var spin = false
-
-    var body: some View {
-        Button {
-            Task {
-                await updater.check(quiet: false)
-                if case .available = updater.phase { await updater.install() }
-            }
-        } label: {
-            Group {
-                if labels {
-                    VStack(spacing: 3) {
-                        icon.font(.system(size: 15)).frame(height: 18)
-                        Text(word).font(.caption2)
-                    }
-                    .frame(minWidth: 52).padding(.vertical, 5)
-                } else {
-                    HStack(spacing: 4) {
-                        if case .idle = updater.phase {} else { icon }
-                        Text(word)
-                    }
-                    .font(.caption2).padding(.vertical, 6)
-                }
-            }
-            .fixedSize()
-            .foregroundStyle(hovering ? Ink.text : Ink.muted)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help("Cool Head \(CoolHead.version): check for updates")
-        .accessibilityLabel("Cool Head \(CoolHead.version): check for updates")
-    }
-
-    /// A few words, so it fits among the tools.
-    var word: String {
-        switch updater.phase {
-        case .checking: return "Checking"
-        case .installing: return "Updating"
-        case .upToDate: return "Up to date"
-        case .failed: return "Couldn't update"
-        case .available(let v): return "v\(v) ready"
-        case .idle: return "v\(CoolHead.version)"
-        }
-    }
-
-    @ViewBuilder var icon: some View {
-        switch updater.phase {
-        case .checking, .installing: spinner
-        case .upToDate: Image(systemName: "checkmark.circle")
-        case .failed: Image(systemName: "exclamationmark.circle")
-        case .available: Image(systemName: "arrow.down.circle")
-        case .idle: Image(systemName: "arrow.triangle.2.circlepath")
-        }
-    }
-
-    var spinner: some View {
-        Image(systemName: "arrow.triangle.2.circlepath")
-            .rotationEffect(.degrees(spin ? 360 : 0))
-            .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: spin)
-            .onAppear { spin = true }
-            .onDisappear { spin = false }
-    }
-}
-
 /// What's new in this version, shown once after an update that brought something worth telling.
 struct WhatsNewCard: View {
     let notes: [String]
@@ -743,6 +675,8 @@ enum WhatsNew {
 /// Shown once, on first launch, when the panel opens by itself: Cool Head has no window, and this is where it lives.
 struct WelcomeCard: View {
     let done: () -> Void
+    @AppStorage("iconStyle") private var iconStyle = "badge"
+    @State private var login = LoginItem.on
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -752,12 +686,13 @@ struct WelcomeCard: View {
             }
             Text("No window to keep open. It quietly watches your Mac and tells you why it's hot or slow.")
                 .font(.callout).foregroundStyle(Ink.text).fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: 5) {
-                badgeLine("circle.fill", .systemGreen, "All good")
-                badgeLine("exclamationmark.triangle.fill", NSColor(srgbRed: 1.0, green: 0.74, blue: 0.0, alpha: 1), "Worth watching")
-                badgeLine("xmark.octagon.fill", .systemRed, "Problem")
-            }
-            Text("Click the snowflake to open. Right-click for more.")
+            // the two icons at each level, to pick one by sight; the columns say what each level means (Phil,
+            // 17 November 2026: "a welcome window that shows the user the different icon options")
+            Text("Pick your menu bar icon").font(.callout.weight(.medium))
+            IconStylePicker(style: $iconStyle)
+                .onChange(of: iconStyle) { NotificationCenter.default.post(name: MenuIcon.changed, object: nil) }
+            SettingSwitch(title: "Open at login", detail: nil, on: Binding(get: { login }, set: { LoginItem.set($0); login = LoginItem.on }))
+            Text("Click the snowflake to open. Change these and more any time with the gear below.")
                 .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             Button("Got it", action: done).buttonStyle(.borderedProminent).controlSize(.small)
         }
@@ -765,13 +700,6 @@ struct WelcomeCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
-    }
-
-    func badgeLine(_ symbol: String, _ color: NSColor, _ meaning: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: symbol).foregroundStyle(Color(nsColor: color)).frame(width: 16)
-            Text(meaning).font(.callout).foregroundStyle(Ink.text)
-        }
     }
 }
 
@@ -792,7 +720,7 @@ struct UpdateBanner: View {
                 Button("Install") { Task { await updater.install() } }.buttonStyle(.borderedProminent).controlSize(.small)
             }
         case .installing, .checking, .upToDate:
-            EmptyView()          // the version label at the top right says these
+            EmptyView()          // the Settings page, beside the version, says these
         case .failed(let why):
             Label(why, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true)
         case .idle:
@@ -939,7 +867,7 @@ enum FrozenItem: Identifiable {
 
 /// Everything Cool Head is holding back, one line each at the top of the panel, in one frosted frame (Phil, 15 November
 /// 2026: "a horizontal line with frozen tasks at the top as single lines. Click to expand them for more info and then
-/// once expanded a button to unfreeze"). Undo lives here, never in the right-click menu, which is for settings only.
+/// once expanded a button to unfreeze"). Undo lives here, never on the Settings page or in the right-click menu.
 struct FrozenList: View {
     let watcher: Watcher
     var body: some View {

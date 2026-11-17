@@ -1,6 +1,6 @@
 # How Cool Head updates itself
 
-Cool Head checks GitHub for a newer release a minute after it opens and then once a day. When one exists, the panel says so, with **Install** and **What's new**. To check now, click **Cool Head v…** at the top right of the panel: it says "Up to date" for a moment, or downloads, verifies and installs the update. The right-click menu also has **Check for Updates…**, and **Check for Updates Automatically** to turn the daily check off.
+Cool Head checks GitHub for a newer release a minute after it opens and then once a day. When one exists, the panel says so, with **Install** and **What's new**. To check now, open the Settings page (the gear at the right end of the panel's toolbar) and click **Check Now** beside the version: it says "Up to date", or downloads, verifies and installs the update. **Check for updates automatically**, on the same page, turns the daily check off.
 
 ## What it sends
 
