@@ -438,6 +438,15 @@ enum Snapshot {
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] != nil { Watcher.shared.showReport = true }
             // the Battery tool's page, with a made-up battery when the screenshot uses example cards
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_BATTERY"] != nil { Tools.shared.battery = true }
+            // Test my network's result, with made-up figures (never this Mac's network)
+            // (COOLHEAD_SNAPSHOT_NETWORK=reading, ready, testing or done: the page in that state)
+            if let state = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_NETWORK"] {
+                let setup = NetworkCheck.Setup(link: .wifi(.init(rssi: -58, noise: -92, rate: 864, channel: 44, band: "5 GHz")))
+                let phase: NetworkTester.Phase = state == "reading" ? .reading : state == "ready" ? .ready
+                    : state == "testing" ? .testing(started: Date().addingTimeInterval(-9))
+                    : .done(.done(.init(download: 240_000_000, upload: 38_000_000, rpm: 1_100)))
+                NetworkTester.shared.show(phase, setup: setup)
+            }
             // screenshots: run the card whose headline contains this phrase cooler first, to show the pinned row
             if let phrase = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_COOL"],
                let c = Watcher.shared.cards.first(where: { $0.card.headline.contains(phrase) }) {
@@ -564,7 +573,8 @@ final class MenuPanel: NSPanel {
     override func close() {
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
         if isVisible { Watcher.shared.panelClosed() }
-        NetworkTester.shared.close()          // the network test never runs with the panel closed
+        // every tool closes with the panel, so it always opens with none open; a network test never runs unseen
+        MainActor.assumeIsolated { Tools.closeAll(Watcher.shared) }
         super.close()
     }
 

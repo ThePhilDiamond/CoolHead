@@ -27,6 +27,19 @@ extension Fixture {
             && N.fit(hd, res(300, 20, 100)) == .fine && N.fit(uhd, res(12, 20, 2000)) == .tooSlow && N.delay(res(1, 1, 300)) == 200
         review.append(("network-verdict-and-tasks", v1 && v2, "verdicts \(v1), tasks \(v2): \(poor.title) | \(fair.title) | \(fine.title) | \(thin.title)"))
 
+        // the result in one plain sentence: what's fine, then at most two things that aren't and what each affects
+        let strong = N.Link.wifi(.init(rssi: -55, noise: -92, rate: 864, channel: 44, band: "5 GHz"))
+        let weakLink = N.Link.wifi(.init(rssi: -80, noise: -90, rate: 50, channel: 1, band: "2.4 GHz"))
+        let sums = [N.summary(res(300, 40, 1500), strong), N.summary(res(300, 2, 1500), strong), N.summary(res(8, 20, 250), .cable),
+                    N.summary(res(2, 0.5, 100), weakLink)]
+        let summed = sums == [
+            "Fast enough for everything, from 4K video to calls and games.",
+            "Fine for browsing, HD video, 4K video and games, but uploads are slow, so video calls may break up.",
+            "Fine for browsing and HD video, but the delay is long, so calls and games may lag.",
+            "Fine for browsing, but the Wi-Fi signal is weak, and downloads are slow.",
+        ]
+        review.append(("network-summary", summed, sums.joined(separator: " | ")))
+
         // fixes appear only when something is wrong, only for causes that apply, the busiest app first; a fine network
         // gets none (offering to fix it would do harm), and a VPN is never turned off by Cool Head
         let busySync = N.Setup(link: .wifi(.init(rssi: -80, noise: -90, rate: 100, channel: 36, band: "5 GHz")), awdlOn: true, vpn: true,

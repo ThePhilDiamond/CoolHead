@@ -70,9 +70,9 @@ final class NetworkTester: ObservableObject {
 struct NetworkView: View {
     @ObservedObject var tester: NetworkTester
     let watcher: Watcher
-    @State private var nerdy = false
     @State private var note: String?
     @State private var allFixes = false
+    @State private var signalNumbers = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -82,48 +82,33 @@ struct NetworkView: View {
                 Button { tester.close() } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
             }
-            switch tester.phase {
-            case .reading:
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Looking at your connection…").foregroundStyle(Ink.muted) }
-                    .font(.callout)
-            case .ready:
-                if let s = tester.setup { linkRow(s); busyRow(s) }
-                HStack(spacing: 10) {
-                    Button("Start test") { tester.start() }.buttonStyle(RecommendedButton()).font(.callout)
-                    Text(NetworkCheck.dataNote)
-                        .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+            // one layout from the moment it opens, the same in every state: placeholders that turn into the data, so the
+            // page never grows as it goes (Phil, 16 November 2026: "We should have the fixed layout upon opening it, can
+            // show it's checking the connection, and then populate the data. But starting small and then expanding is
+            // jarring and not elegant."). Only fixes for a real problem add to it, after a test.
+            let result: NetworkCheck.Result? = { if case .done(.done(let r)) = tester.phase { return r }; return nil }()
+            status
+            HStack(spacing: 8) {
+                signalTile
+                speedTiles(result)
+            }
+            if let s = tester.setup, s.vpn || s.proxy || s.autoProxy {
+                HStack(spacing: 6) {
+                    if s.vpn { chip("VPN", "lock.fill") }
+                    if s.proxy || s.autoProxy { chip("Proxy", "arrow.triangle.branch") }
                 }
-                if tester.setup?.mayBeMetered == true {
-                    Label(NetworkCheck.meteredNote, systemImage: "exclamationmark.triangle.fill")
+            }
+            meter(result)
+            taskRow(result)
+            actionRow
+            if let r = result {
+                // the one fact the old Nerdy stuff held that nothing else shows, and only when it's the problem
+                // (Phil, 16 November 2026: "if any of it is useful it can show when the tests run")
+                if case .none = tester.setup?.dns {
+                    Label("No server is set to look up website names, so sites won't load by name.", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true)
                 }
-                nerdyStuff(nil)
-            case .testing(let started):
-                TimelineView(.periodic(from: started, by: 0.5)) { t in
-                    let done = min(1, t.date.timeIntervalSince(started) / Double(NetworkCheck.testSeconds))
-                    VStack(alignment: .leading, spacing: 6) {
-                        ProgressView(value: done).tint(.accentColor)
-                        HStack {
-                            Text("Testing… calls and downloads may slow for a moment.").font(.caption).foregroundStyle(Ink.muted)
-                            Spacer()
-                            Button("Stop") { tester.stop() }.buttonStyle(.bordered).controlSize(.small)
-                        }
-                    }
-                }
-            case .done(let outcome):
-                banner(NetworkCheck.verdict(outcome))
-                if case .done(let r) = outcome {
-                    tiles(r)
-                    meter(r)
-                    if let s = tester.setup { linkRow(s) }
-                    taskRow(r)
-                    fixList(r)
-                }
-                HStack {
-                    Button("Test again") { note = nil; allFixes = false; tester.start() }.buttonStyle(.bordered).controlSize(.small)
-                    Spacer()
-                }
-                if case .done(let r) = outcome { nerdyStuff(r) } else { nerdyStuff(nil) }
+                fixList(r)
             }
         }
         .padding(12)
@@ -136,45 +121,164 @@ struct NetworkView: View {
 
     static func color(_ level: Int) -> Color { [Color.green, .yellow, .orange][min(max(level, 0), 2)] }
 
-    /// The answer in a few words, and what it means in plain words.
-    func banner(_ v: NetworkCheck.Verdict) -> some View {
+    var testing: Bool { if case .testing = tester.phase { return true }; return false }
+
+    /// The top line, the same height in every state: checking, ready, testing (with the time left), or the answer.
+    @ViewBuilder var status: some View {
         HStack(alignment: .top, spacing: 9) {
-            Image(systemName: ["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(v.level, 2)])
-                .font(.title3).foregroundStyle(NetworkView.color(v.level))
+            switch tester.phase {
+            case .reading:
+                statusText("ellipsis.circle", Ink.muted, "Checking your connection…", "Nothing is sent until you start the test.")
+            case .ready:
+                let busy = tester.setup?.talkers.filter { $0.bytesPerSecond >= NetworkCheck.talkerFloor }.prefix(2) ?? []
+                statusText("play.circle", Ink.muted, "Ready to test",
+                           busy.isEmpty ? "Nothing else is using much of the network."
+                               : "Using it now: " + busy.map { "\($0.name) (\(NetworkCheck.rate($0.bytesPerSecond).replacingOccurrences(of: " a second", with: "/s")))" }.joined(separator: ", ") + ".")
+            case .testing(let started):
+                TimelineView(.periodic(from: started, by: 1)) { t in
+                    let left = max(1, NetworkCheck.testSeconds - Int(t.date.timeIntervalSince(started)))
+                    statusText("arrow.triangle.2.circlepath", Color.accentColor, "Testing…", "About \(left) seconds left. Calls and downloads may slow for a moment.")
+                }
+            case .done(let outcome):
+                let v = NetworkCheck.verdict(outcome)
+                // the answer, then what it means in plain words: what the connection is fine for and only what isn't
+                // (Phil, 16 November 2026); when it's fine, that the Mac, not the network, is where to look
+                let meaning: String = {
+                    guard case .done(let r) = outcome, let s = tester.setup else { return v.meaning }
+                    return NetworkCheck.summary(r, s.link) + (v.level == 0 ? " If the Mac feels slow, look at the Mac." : "")
+                }()
+                statusText(["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(v.level, 2)], NetworkView.color(v.level), v.title, meaning)
+            }
+        }
+        .frame(minHeight: 50, alignment: .top)      // room for a two-line explanation, so every state is the same height
+    }
+
+    func statusText(_ symbol: String, _ tint: Color, _ title: String, _ meaning: String) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: symbol).font(.title3).foregroundStyle(tint)
             VStack(alignment: .leading, spacing: 2) {
-                Text(v.title).font(.callout.weight(.semibold))
-                Text(v.meaning).font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                Text(title).font(.callout.weight(.semibold))
+                Text(meaning).font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
-    /// Download, upload and the wait when busy, as three numbers.
-    func tiles(_ r: NetworkCheck.Result) -> some View {
-        let downLevel = r.download < 5e6 ? 2 : r.download < 15e6 ? 1 : 0          // HD and 4K video
-        let upLevel = r.upload < 1e6 ? 2 : r.upload < 3.8e6 ? 1 : 0                // video calls
-        let waitLevel = r.rpm <= NetworkCheck.poorRPM ? 2 : r.rpm < NetworkCheck.goodRPM ? 1 : 0
-        return HStack(spacing: 8) {
-            tile("arrow.down", short(r.download), "Mbps down", downLevel)
-            tile("arrow.up", short(r.upload), "Mbps up", upLevel)
-            tile("timer", NetworkCheck.grouped(NetworkCheck.delay(r)), "ms wait when busy", waitLevel)
+    /// The signal, large and first, as a picture and a word (Phil, 16 November 2026: "signal strength numbers are less
+    /// important, but a clear visual indicator of the signal strength large and up front like the speed and quality
+    /// indicators is important"); the numbers are in its tooltip. Its bars cycle while the connection is read.
+    @ViewBuilder var signalTile: some View {
+        if tester.phase == .reading || tester.setup == nil {
+            tileFrame {
+                TimelineView(.periodic(from: .now, by: 0.35)) { t in
+                    let step = Int(t.date.timeIntervalSinceReferenceDate / 0.35) % 4
+                    Image(systemName: "wifi", variableValue: Double(step) / 3).font(.title3).foregroundStyle(Ink.muted)
+                }
+            } unit: { Text("signal") }
+        } else if let s = tester.setup {
+            let sig = NetworkView.signal(s.link)
+            // a click shows the numbers in the same space, and another shows the word again (Phil, 16 November 2026: "if
+            // a user clicks the signal box should we show the detailed numbers?")
+            tileFrame {
+                HStack(spacing: 5) {
+                    Image(systemName: sig.symbol, variableValue: sig.strength).font(.title3).foregroundStyle(NetworkView.color(sig.level))
+                    Text(signalNumbers ? sig.numbers : sig.word).font(.system(.callout, design: .rounded).weight(.semibold))
+                        .lineLimit(1).minimumScaleFactor(0.7).monospacedDigit()
+                }
+            } unit: { Text(signalNumbers ? sig.channel : sig.unit) }
+            .contentShape(Rectangle())
+            .onTapGesture { signalNumbers.toggle() }
+            .help(sig.detail + (signalNumbers ? ". Click for the word." : ". Click for the numbers."))
+            .accessibilityAddTraits(.isButton)
         }
     }
 
-    func tile(_ symbol: String, _ value: String, _ unit: String, _ level: Int) -> some View {
+    /// Signal strength in a word: Strong from -67 dBm, Fair down to the -75 dBm where a Mac starts looking for a better
+    /// access point (`NetworkCheck.weakSignal`), Weak below that. The thresholds are Cool Head's own.
+    static func signal(_ link: NetworkCheck.Link)
+        -> (symbol: String, strength: Double, word: String, unit: String, level: Int, detail: String, numbers: String, channel: String) {
+        switch link {
+        case .wifi(let w):
+            let level = w.rssi >= -67 ? 0 : w.rssi > NetworkCheck.weakSignal ? 1 : 2
+            let channel = "ch \(w.channel)" + (w.band.isEmpty ? "" : " · \(w.band)")
+            return ("wifi", min(1, max(0.05, Double(w.rssi + 90) / 30)), ["Strong", "Fair", "Weak"][level], "Wi-Fi signal", level,
+                    "\(w.rssi) dBm on channel \(w.channel)" + (w.band.isEmpty ? "" : " (\(w.band))"), "\(w.rssi) dBm", channel)
+        case .cable: return ("cable.connector", 1, "Cable", "connection", 0, "Connected by cable", "Cable", "connection")
+        case .other: return ("point.3.connected.trianglepath.dotted", 1, "Other", "connection", 0, "Connected, but not by Wi-Fi or cable", "Other", "connection")
+        case .none: return ("wifi.slash", 1, "None", "connection", 2, "Not connected to a network", "None", "connection")
+        }
+    }
+
+    /// Download, upload and the wait when busy: dashes before a test, dashes moving while it runs, then the figures.
+    @ViewBuilder func speedTiles(_ r: NetworkCheck.Result?) -> some View {
+        let downLevel = r.map { $0.download < 5e6 ? 2 : $0.download < 15e6 ? 1 : 0 } ?? 0          // HD and 4K video
+        let upLevel = r.map { $0.upload < 1e6 ? 2 : $0.upload < 3.8e6 ? 1 : 0 } ?? 0               // video calls
+        let waitLevel = r.map { $0.rpm <= NetworkCheck.poorRPM ? 2 : $0.rpm < NetworkCheck.goodRPM ? 1 : 0 } ?? 0
+        // plain labels under each figure, with its unit small beside it (Phil, 16 November 2026: "for a lay person that may
+        // be technical jargon"); "Delay" rather than "latency", as it's what people notice
+        tile("arrow.down", r.map { short($0.download) }, "Mbps", "Download", downLevel)
+        tile("arrow.up", r.map { short($0.upload) }, "Mbps", "Upload", upLevel)
+        tile("timer", r.map { NetworkCheck.grouped(NetworkCheck.delay($0)) }, "ms", "Delay", waitLevel)
+    }
+
+    func tile(_ symbol: String, _ value: String?, _ unit: String, _ label: String, _ level: Int) -> some View {
+        tileFrame {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Image(systemName: symbol).font(.caption.weight(.semibold))
+                    .foregroundStyle(value == nil ? Ink.muted : NetworkView.color(level))
+                if let value {
+                    // the figure gives way before its unit does, so "Mbps" is never cut off
+                    Text(value).font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                    Text(unit).font(.caption2).foregroundStyle(Ink.muted).fixedSize().layoutPriority(1)
+                } else if testing {
+                    DashWave()
+                } else {
+                    Text("–").font(.system(.title3, design: .rounded).weight(.semibold)).foregroundStyle(Ink.muted)
+                }
+            }
+        } unit: { Text(label) }
+    }
+
+    /// A tile's frame, the same size whatever it holds.
+    func tileFrame<Top: View, Unit: View>(@ViewBuilder _ top: () -> Top, @ViewBuilder unit: () -> Unit) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 4) {
-                Image(systemName: symbol).font(.caption.weight(.semibold)).foregroundStyle(NetworkView.color(level))
-                Text(value).font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
-            }
-            Text(unit).font(.caption2).foregroundStyle(Ink.muted).lineLimit(1).minimumScaleFactor(0.8)
+            top().frame(height: 24, alignment: .leading)
+            unit().font(.caption2).foregroundStyle(Ink.muted).lineLimit(1).minimumScaleFactor(0.8)
         }
-        .padding(.horizontal, 9).padding(.vertical, 7)
+        .padding(.horizontal, 8).padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7))
     }
 
-    /// Responsiveness on the draft's scale, Poor, Fair and Good, with a marker where this connection sits.
-    func meter(_ r: NetworkCheck.Result) -> some View {
+    /// Start, Stop or Test again, always in the same place, with what pressing it means.
+    @ViewBuilder var actionRow: some View {
+        HStack(spacing: 10) {
+            switch tester.phase {
+            case .reading, .ready:
+                Button("Start test") { tester.start() }.buttonStyle(RecommendedButton()).font(.callout)
+                    .disabled(tester.phase == .reading)
+                if tester.setup?.mayBeMetered == true {
+                    Label(NetworkCheck.meteredNote, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Color.orange)
+                } else {
+                    Text(NetworkCheck.dataNote).foregroundStyle(Ink.muted)
+                }
+            case .testing:
+                Button("Stop") { tester.stop() }.buttonStyle(.bordered)
+                Text("Stops the test; nothing is lost.").foregroundStyle(Ink.muted)
+            case .done:
+                Button("Test again") { note = nil; allFixes = false; tester.start() }.buttonStyle(.bordered)
+                Text(NetworkCheck.dataNote).foregroundStyle(Ink.muted)
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.caption)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(minHeight: 32)
+    }
+
+    /// Responsiveness on the draft's scale, Poor, Fair and Good, with a marker where this connection sits (none before a
+    /// test, so the scale is there from the start).
+    func meter(_ r: NetworkCheck.Result?) -> some View {
         // a log scale from 30 to 10,000 RPM, so the three bands each get room
         func x(_ rpm: Double) -> Double { min(1, max(0, (log10(rpm) - log10(30)) / (log10(10_000) - log10(30)))) }
         let poorEnd = x(Double(NetworkCheck.poorRPM)), fairEnd = x(Double(NetworkCheck.goodRPM))
@@ -183,14 +287,16 @@ struct NetworkView: View {
                 let w = g.size.width
                 ZStack(alignment: .leading) {
                     HStack(spacing: 2) {
-                        Capsule().fill(Color.orange.opacity(0.55)).frame(width: w * poorEnd - 2)
-                        Rectangle().fill(Color.yellow.opacity(0.55)).frame(width: w * (fairEnd - poorEnd) - 2)
-                        Capsule().fill(Color.green.opacity(0.55))
+                        Capsule().fill(Color.orange.opacity(r == nil ? 0.2 : 0.55)).frame(width: w * poorEnd - 2)
+                        Rectangle().fill(Color.yellow.opacity(r == nil ? 0.2 : 0.55)).frame(width: w * (fairEnd - poorEnd) - 2)
+                        Capsule().fill(Color.green.opacity(r == nil ? 0.2 : 0.55))
                     }
                     .frame(height: 6)
-                    Circle().fill(Ink.text).frame(width: 11, height: 11)
-                        .overlay(Circle().strokeBorder(Ink.card, lineWidth: 2))
-                        .offset(x: w * x(Double(r.rpm)) - 5.5)
+                    if let r {
+                        Circle().fill(Ink.text).frame(width: 11, height: 11)
+                            .overlay(Circle().strokeBorder(Ink.card, lineWidth: 2))
+                            .offset(x: w * x(Double(r.rpm)) - 5.5)
+                    }
                 }
             }
             .frame(height: 11)
@@ -200,30 +306,8 @@ struct NetworkView: View {
                 Text("Good").frame(maxWidth: .infinity, alignment: .trailing)
             }
             .font(.caption2).foregroundStyle(Ink.muted)
-            Text("Responsiveness: \(NetworkCheck.grouped(r.rpm)) round trips a minute while busy").font(.caption2).foregroundStyle(Ink.muted)
-        }
-    }
-
-    /// How the Mac is connected, at a glance.
-    @ViewBuilder func linkRow(_ s: NetworkCheck.Setup) -> some View {
-        HStack(spacing: 8) {
-            switch s.link {
-            case .wifi(let w):
-                let strength = min(1, max(0.05, Double(w.rssi + 90) / 40))
-                Image(systemName: "wifi", variableValue: strength)
-                    .foregroundStyle(w.rssi <= NetworkCheck.weakSignal ? Color.orange : Ink.text)
-                Text("Wi-Fi \(w.rssi <= NetworkCheck.weakSignal ? "signal weak" : "signal fine")").font(.callout)
-                Spacer()
-                Text("\(w.rssi) dBm · ch \(w.channel)\(w.band.isEmpty ? "" : " · \(w.band)")").font(.caption).foregroundStyle(Ink.muted).monospacedDigit()
-            case .cable:
-                Image(systemName: "cable.connector"); Text("Connected by cable").font(.callout); Spacer()
-            case .other:
-                Image(systemName: "point.3.connected.trianglepath.dotted"); Text("Connected another way").font(.callout); Spacer()
-            case .none:
-                Image(systemName: "wifi.slash").foregroundStyle(.orange); Text("Not connected").font(.callout); Spacer()
-            }
-            if s.vpn { chip("VPN", "lock.fill") }
-            if s.proxy || s.autoProxy { chip("Proxy", "arrow.triangle.branch") }
+            Text("Responsiveness: " + (r.map { "\(NetworkCheck.grouped($0.rpm)) round trips a minute while busy" } ?? "after the test"))
+                .font(.caption2).foregroundStyle(Ink.muted)
         }
     }
 
@@ -233,35 +317,26 @@ struct NetworkView: View {
             .background(Color.primary.opacity(0.08), in: Capsule())
     }
 
-    /// What's using the network now, if anything much.
-    @ViewBuilder func busyRow(_ s: NetworkCheck.Setup) -> some View {
-        let busy = s.talkers.filter { $0.bytesPerSecond >= NetworkCheck.talkerFloor }.prefix(3)
-        if !busy.isEmpty {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "arrow.up.arrow.down").font(.caption).foregroundStyle(Ink.muted)
-                Text(busy.map { "\($0.name) \(NetworkCheck.rate($0.bytesPerSecond).replacingOccurrences(of: " a second", with: "/s"))" }.joined(separator: " · "))
-                    .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
     /// Everyday tasks, each with a tick, a "laggy" mark or a cross.
-    func taskRow(_ r: NetworkCheck.Result) -> some View {
+    func taskRow(_ r: NetworkCheck.Result?) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("GOOD FOR").font(.caption.weight(.bold)).tracking(0.5).foregroundStyle(Ink.muted)
             HStack(spacing: 6) {
                 ForEach(NetworkCheck.tasks, id: \.name) { t in
-                    let f = NetworkCheck.fit(t, r)
+                    let f = r.map { NetworkCheck.fit(t, $0) }
                     VStack(spacing: 3) {
                         ZStack(alignment: .bottomTrailing) {
                             Image(systemName: t.symbol).font(.system(size: 15)).frame(width: 26, height: 20)
-                            Image(systemName: f == .fine ? "checkmark.circle.fill" : f == .laggy ? "exclamationmark.circle.fill" : "xmark.circle.fill")
-                                .font(.system(size: 10)).foregroundStyle(f == .fine ? Color.green : f == .laggy ? .yellow : .orange)
-                                .background(Circle().fill(Ink.card)).offset(x: 4, y: 3)
+                                .foregroundStyle(f == nil ? Ink.muted : Ink.text)
+                            if let f {
+                                Image(systemName: f == .fine ? "checkmark.circle.fill" : f == .laggy ? "exclamationmark.circle.fill" : "xmark.circle.fill")
+                                    .font(.system(size: 10)).foregroundStyle(f == .fine ? Color.green : f == .laggy ? .yellow : .orange)
+                                    .background(Circle().fill(Ink.card)).offset(x: 4, y: 3)
+                            }
                         }
                         Text(t.name).font(.caption2).lineLimit(1)
-                        Text(f == .fine ? "Fine" : f == .laggy ? "Laggy" : "Too slow").font(.caption2.weight(.semibold))
-                            .foregroundStyle(f == .fine ? Ink.muted : Color.orange)
+                        Text(f.map { $0 == .fine ? "Fine" : $0 == .laggy ? "Laggy" : "Too slow" } ?? "–").font(.caption2.weight(.semibold))
+                            .foregroundStyle(f == nil || f == .fine ? Ink.muted : Color.orange)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -312,29 +387,24 @@ struct NetworkView: View {
     }
 
     /// The detail, one plain line each, folded away as on a card.
-    @ViewBuilder func nerdyStuff(_ r: NetworkCheck.Result?) -> some View {
-        if let s = tester.setup {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).rotationEffect(.degrees(nerdy ? 90 : 0))
-                    Text("Nerdy stuff (detailed info)").font(.caption)
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { nerdy.toggle() } }
-                .accessibilityAddTraits(.isButton)
-                if nerdy {
-                    ForEach(NetworkCheck.lines(r, s), id: \.self) { line in
-                        Text(line).font(.caption).foregroundStyle(Ink.text).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-            .foregroundStyle(Ink.muted)
-        }
-    }
-
     func short(_ bits: Double) -> String {
         let m = bits / 1_000_000
         return m < 10 ? String(format: "%.1f", m) : NetworkCheck.grouped(Int(m.rounded()))
+    }
+}
+
+/// Dashes moving across a tile while the test runs, in place of the figure it's measuring: light, and no images.
+struct DashWave: View {
+    var body: some View {
+        // a step every 0.3 seconds: slow enough to read as calm (Phil, 16 November 2026: "slow down the animation on the numbers")
+        TimelineView(.periodic(from: .now, by: 0.3)) { t in
+            let step = Int(t.date.timeIntervalSinceReferenceDate / 0.3) % 4
+            HStack(spacing: 3) {
+                ForEach(0..<4, id: \.self) { i in
+                    Capsule().fill(Ink.muted.opacity(i == step ? 0.9 : 0.3)).frame(width: 7, height: 3)
+                }
+            }
+        }
+        .accessibilityLabel("Measuring")
     }
 }
