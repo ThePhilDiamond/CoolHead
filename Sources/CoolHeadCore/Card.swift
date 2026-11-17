@@ -630,7 +630,7 @@ public struct Card {
                                           consequence: "Frozen, nothing lost; it carries on when you plug in. A download may time out.",
                                           kind: .pauseJob, recommended: true) : nil
         let cool = cooler.map { c -> Fix in
-            var c = c; c.recommended = warm || forGame
+            var c = c; c.recommended = (warm || forGame) && !RunCooler.isVirtualMachine(e)   // slowing a VM slows all of it: offered, not advised
             if let g = gameRunning { c = Fix(id: c.id, title: c.title, consequence: "Leaves more power for \(g). Undo any time.", kind: c.kind, recommended: c.recommended) }
             return c
         }
