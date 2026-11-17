@@ -167,7 +167,9 @@ public enum Ranker {
         public var matched: [String]
         /// "Chosen over job: its kind comes first".
         public var reasons: [String]
-        /// Cards no rule or weight told apart from the winner: the selftest fails on any.
+        /// Cards no rule or weight told apart from the winner: the selftest fails on any. A tie is settled by merging the
+        /// two cards where they share the fix (Phil, 17 November 2026: "whenever there's a tie, as the tied items should
+        /// be merged"), otherwise by a rule with its reason.
         public var ties: [String]
 
         /// For the card's Nerdy stuff: "Why this card: chromium-browser. Chosen over web-page: it knows …; over job: …".
@@ -186,12 +188,24 @@ public enum Ranker {
     /// How risky an option is: Caution, then anything that interrupts, then the rest.
     static func risk(_ f: Fix) -> Int { f.caution ? 2 : f.interrupts ? 1 : 0 }
 
+    /// Why `card` says more than the card `other`, directly or through a chain: a card that refines one that refines
+    /// another refines that one too (the game card over the Chromium card over the web page card).
+    static func refinement(_ card: any ProcessCard.Type, over other: String, seen: Set<String> = []) -> String? {
+        if let why = card.refines[other] { return why }
+        for next in card.refines.keys.sorted() where !seen.contains(next) {
+            guard let t = ProcessCards.all.first(where: { $0.id == next }),
+                  refinement(t, over: other, seen: seen.union([card.id, next])) != nil else { continue }
+            return card.refines[next]! + ", and \(next) says more than \(other)"
+        }
+        return nil
+    }
+
     /// Whether `a` wins over `b`, and why; nil when nothing tells them apart.
     static func decide(_ a: Candidate, _ b: Candidate, _ s: Situation) -> (aWins: Bool, why: String)? {
         // rules, never traded against anything
         if a.type.kind != b.type.kind { return (a.type.kind < b.type.kind, "its kind comes first") }
-        if let why = a.type.refines[b.type.id] { return (true, why) }
-        if let why = b.type.refines[a.type.id] { return (false, why) }
+        if let why = refinement(a.type, over: b.type.id) { return (true, why) }
+        if let why = refinement(b.type, over: a.type.id) { return (false, why) }
         if a.risk != b.risk { return (a.risk < b.risk, "it's more cautious: its riskiest option is less risky") }
         // then weights
         if a.type.match != b.type.match { return (a.type.match > b.type.match, "it matches more specifically") }

@@ -59,7 +59,7 @@ The cards, by kind:
 When more than one card matches the same process, rules decide first, and are never traded against anything; weights decide only between cards the rules leave level:
 
 1. **Kind**, in the order above: a program named `mdworker` that isn't Apple's gets the disguise card, never Spotlight's.
-2. **A card that says more**: a card can state that it refines another, with its reason, and then wins over it. The Chrome card wins over the general web page card, because it knows the busy part is a tab or an extension and can open Chrome's Task Manager.
+2. **A card that says more**: a card can state that it refines another, with its reason, and then wins over it. The Chrome card wins over the general web page card, because it knows the busy part is a tab or an extension and can open Chrome's Task Manager; the game card wins over the Chrome card, for a game built on Chromium, because games are protected and a game has no tabs; and so the game card wins over the web page card too.
 3. **The more cautious card**: the one whose riskiest option is less risky. A sync app's helper that looks like a browser tab gets the sync card, which offers to pause syncing, rather than the tab card, which offers to close the tab.
 4. **How specifically it matches** (a weight): a list of named apps or products before a category, a category before anything busy.
 5. **How strong the evidence is** (a weight; no card uses it yet).

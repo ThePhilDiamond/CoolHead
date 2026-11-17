@@ -50,8 +50,8 @@ extension Fixture {
         let webkit = "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/"
         return [
             ("sync-app", probe("Dropbox Helper (Renderer)", helper("/Applications/Dropbox.app", "Dropbox Helper (Renderer)"), ["--type=renderer"])),
-            ("chromium-browser", probe("Lumen Helper (Renderer)", helper(steam, "Lumen Helper (Renderer)"), ["--type=renderer"])),
-            ("chromium-browser", probe("Lumen Helper (GPU)", helper(steam, "Lumen Helper (GPU)"), ["--type=gpu-process"])),
+            ("game", probe("Lumen Helper (Renderer)", helper(steam, "Lumen Helper (Renderer)"), ["--type=renderer"])),
+            ("game", probe("Lumen Helper (GPU)", helper(steam, "Lumen Helper (GPU)"), ["--type=gpu-process"])),
             ("game", probe("Lumen", steam + "/Contents/MacOS/Lumen")),
             ("catalogue", probe("mds_stores", "/System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Versions/A/Support/mds_stores", by: "/Applications/Google Drive.app")),
             ("security-software", probe("Netskope Helper (Renderer)", helper("/Applications/Netskope Client.app", "Netskope Helper (Renderer)"), ["--type=renderer"])),
