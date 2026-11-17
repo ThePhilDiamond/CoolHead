@@ -1,2 +1,0 @@
-- The memory card says how much memory your Mac moved to its disk in the last 2 minutes, and shows even when macOS still calls memory normal if that's over 1 GB.
-  - When memory is tight and the startup disk has less than 20 GB free, it says the disk limits how much your Mac can use as memory, and offers Free up disk space, which opens Storage settings.

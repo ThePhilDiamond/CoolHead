@@ -7,7 +7,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
-    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a warm Mac: a card saying a photo export job is 15% done and ready around 1:52pm, adding to the heat, with Run it cooler recommended and Stop it below">
+    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a warm Mac: a card saying a photo export job is 16% done and ready around 8:26pm, adding to the heat; under One click, Run it cooler is recommended and Stop it is marked Caution; the tools along the bottom are Network, Battery, Trends, Trusted and Report">
   </picture>
 </p>
 
@@ -15,7 +15,7 @@
 
 Activity Monitor shows numbers. Cool Head reads what a busy process is actually doing (its command, what started it, the files it writes, the progress it reports) and tells you, in one short sentence, whether that's fine:
 
-> **Photo Export is 15% done. Ready around 1:52pm.**
+> **Photo Export is 16% done. Ready around 8:26pm.**
 
 > **Spotlight is indexing your files. That's normal.**
 

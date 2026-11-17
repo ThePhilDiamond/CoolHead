@@ -629,6 +629,13 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.7.0": [
+            "Options come in two groups: One click, which Cool Head does for you, then Do it yourself. Risky ones say Caution.",
+            "Tools along the bottom: Test my network and Battery, each with its own page, and Trends for the past week's energy use.",
+            "Hardware checks with no password: the drive, the battery and charging, crash restarts, and USB-C ports.",
+            "The memory card notices memory moved to disk, and a startup disk that's nearly full.",
+            "Turn off another app's background helper, or keep a build's output out of Time Machine, in one click.",
+        ],
         // 0.6.1 repeats 0.6.0's notes without the Melting Snowflake bar, which 0.6.1 removed: only the newest version's
         // notes are shown, so someone updating from 0.5.0 straight to 0.6.1 still hears what 0.6.0 brought
         "0.6.1": [

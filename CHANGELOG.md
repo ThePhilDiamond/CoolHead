@@ -6,6 +6,50 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.7.0] - 2026-11-16
+
+### Added
+
+- Hardware checks, with no password. A card appears, saying what to do (including how to run Apple Diagnostics), when:
+  - the Mac's internal drive reports a fault, errors it couldn't correct, or heavy wear;
+  - the battery needs service, has recorded a fault, or holds under 80% of its original charge;
+  - it's plugged in but not charging, with the likely reason: on hold on purpose, too warm, or a charger that isn't keeping up;
+  - the Mac restarted because of a crash, or crashed more than once in a week;
+  - a device asked a USB-C port for more power than it can give, or keeps failing to connect.
+  - `coolhead hardware` prints every check, and what can't be checked: the memory, and Apple Diagnostics' own results.
+- Cool Head knows six more causes of heat, drain or a Mac that won't sleep, each with its source and the macOS versions it was seen on:
+  - macOS's sound service, which keeps the Mac awake while apps play or record sound; when it's busy for long, a virtual microphone or an app that hides the microphone dot is the likely cause.
+  - Contacts syncing on macOS 26.4 and later, where a Contacts widget is the likely cause.
+  - Messages catching up with iCloud.
+  - Aerial wallpaper and screen saver downloads on macOS 14 and 15.
+  - DisplayLink Manager drawing extra screens.
+  - Local AI models in Ollama and LM Studio.
+- **The past week**: which apps and parts of macOS used the most energy, which woke the chip most often, and why the Mac woke from sleep (on a timer, the lid, a charger, the Wi-Fi and Bluetooth chip), read from macOS's own power log. Cool Head reads only those figures, never the record of which app you were using, and keeps no copy. `coolhead history` prints the same in Terminal.
+- The memory card says how much memory your Mac moved to its disk in the last 2 minutes, and shows even when macOS still calls memory normal if that's over 1 GB.
+  - When memory is tight and the startup disk has less than 20 GB free, it says the disk limits how much your Mac can use as memory, and offers Free up disk space, which opens Storage settings.
+- **Stop it starting by itself.** When a busy process is another app's background helper (Google's updater, for one), its card offers to turn the helper off: stopped now and kept from starting at login, which stopping alone can't do, since macOS starts a helper again. It's marked Caution, because what the helper does for its app stops too, and it asks first. Turn it back on from its line at the top of the panel.
+- **Keep build output out of Time Machine.** When Time Machine is busy while a build keeps rewriting its output (Xcode's DerivedData, a project's build or node_modules folder), its card says so and offers to leave that folder out of later backups, in one click. Only folders a build makes again are offered. Back it up again from its line at the top of the panel.
+- **Test my network**, a tool along the bottom of the panel, for a Mac that feels slow when nothing on it is busy. It shows how the Mac is connected without asking for any permission, and runs Apple's own network test only when you press Start test, since the test fills your connection for up to 30 seconds.
+  - The page keeps one size from the moment it opens: the Wi-Fi signal (Strong, Fair or Weak, with the numbers a click away), download, upload and delay fill in as the test runs.
+  - The result says in a few words whether the network is the problem, then in one plain sentence what the connection is fine for and only what isn't, and marks web, HD and 4K video, video calls and games as Fine, Laggy or Too slow, from the speeds the FCC, Netflix and Zoom publish.
+  - When something is wrong, it offers fixes for the causes it found (a sync app filling the connection, a weak Wi-Fi signal, a router setting, AirDrop, iCloud Private Relay, a VPN or proxy), most useful first. When the network is fine, it offers none.
+
+### Changed
+
+- A card's options are in two groups: **One click**, which Cool Head does for you, then **Do it yourself**, where Cool Head takes you there and shows how. Your tasks have a dashed outline; Cool Head's are filled.
+  - When the recommended option would be a task for you, a safe one-click option that helps is recommended instead, such as Limit Chrome or Run it cooler.
+  - Options with consequences that can't be undone or known are tagged **Caution** in the tile's corner: Stop, Force Quit, Restart the browser, and quitting an app in the middle of something (containers, a call, a game, a browser's tabs). Quitting an app that asks to save, or loses nothing, such as Slack, isn't, and is recommended when it's the way to free memory.
+  - A task that fixes the cause when the recommended option only eases it, such as closing Chrome's heaviest tabs, is tagged **Fixes the cause**.
+  - Within each group, the options that do the most come first.
+  - The switches in the panel show their color when on, even while another app is in front.
+- **Tools along the bottom, settings in the right-click menu.** The bottom of the panel is now a row of tools, each an icon with its name: Network (Test my network), Battery, Trends (the past week from macOS's power log, with a chart icon), Trusted, and Report at the right, each opening in the panel's middle. The Activity Monitor and Quit buttons are gone; Quit is in the right-click menu. The settings move into a **Settings** submenu of the right-click menu, each one a toggle: Notifications and Open at Login, then how Cool Head looks: a new Hide Tool Names, and Melting Snowflake Icon, which replaces the Menu Bar Icon choice. Check for Updates stays at the top of the menu, and About and Quit at the bottom.
+  - **Battery** opens the battery's page, laid out like Test my network: whether it's healthy, three figures (how much charge it holds, its cycles against Apple's rating, its temperature), what it's doing now (on battery, charging, or plugged in and why it isn't charging), Low Power Mode, and the switch for **Battery Saver**, the setting first called Save Battery When Unplugged, which you may turn on and off as your day changes. The battery line above the tools is gone. A Mac with no battery has no Battery tool.
+  - Trusted is now a list in the panel, the standard macOS way: select one and press − to stop trusting it, or press + to choose an app to trust.
+
+### Fixed
+
+- The Docker card says Docker's virtual machine stops on its own 5 minutes after the last container stops (Docker's Resource Saver, on by default); it had said the machine keeps running.
+
 ## [0.6.1] - 2026-11-16
 
 ### Fixed
@@ -180,7 +224,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.4.5...v0.5.0
