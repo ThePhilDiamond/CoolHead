@@ -638,7 +638,7 @@ public struct Card {
         // priority slows its CPU work, not its drawing)
         let gpuApp = gpuLed ? e.quittableApp : nil
         let gpuQuit = gpuApp.flatMap { app in e.quittableBundle.map {
-            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. Save your work in it first.", kind: .quitApp($0)) } }
+            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. It asks about anything unsaved.", kind: .quitApp($0)) } }
         // while the Mac is warm, a busy job says it is part of why
         let heat = Fmt.its([gpuClause, warm && heating ? "adding to the heat" : nil,
                             forGame || (gameRunning != nil && gpuLed) ? "competing with \(gameRunning!)" : nil, drains ? "draining your battery" : nil])
