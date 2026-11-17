@@ -8,14 +8,16 @@ public enum Wording {
         var out: [(String, Card)] = Fixture.all(now).map { f in
             (f.id, Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)))
         }
-        out += Fixture.catalogueSamples(now)
-        out += Fixture.runCoolerSamples(now)
-        out += Fixture.servedSamples(now)
-        out += Fixture.leakSamplesForWording(now)
-        out += Fixture.leftoversSamples(now)
+        // each feature's sample cards, one line per feature, alphabetical, so changes made at the same time don't meet
         out += Fixture.appBuildSamples(now)
         out += Fixture.backgroundWorkSamples(now)
+        out += Fixture.catalogueSamples(now)
         out += Fixture.disguiseSamples(now)
+        out += Fixture.leakSamplesForWording(now)
+        out += Fixture.leftoversSamples(now)
+        out += Fixture.powerStateSamples(now)
+        out += Fixture.runCoolerSamples(now)
+        out += Fixture.servedSamples(now)
         // another app's background helper, and Time Machine copying a build's output
         out.append(("background-helper", Card.make(Evidence.sample(name: "GoogleUpdater", path: Fixture.updaterPath, start: now.addingTimeInterval(-3600), cores: 1.2),
                                                    now: now, busySince: now.addingTimeInterval(-1800), agent: Fixture.updaterAgent)))
