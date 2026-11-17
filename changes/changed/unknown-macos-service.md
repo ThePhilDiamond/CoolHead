@@ -1,0 +1,1 @@
+- A macOS service Cool Head doesn't know by name now says so: it's part of macOS, working in the background, and, when its work runs at low priority, that it uses little power even though it looks busy. Before, it got the card for an unknown program ("We can't tell why").

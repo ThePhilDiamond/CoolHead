@@ -24,6 +24,7 @@ public struct Fixture {
         browserRestartChecks,
         browserTamperingChecks,
         catalogueChecks,
+        crashLoopChecks,
         disguiseChecks,
         graphicsChipChecks,
         hangChecks,
@@ -40,6 +41,7 @@ public struct Fixture {
         runCoolerChecks,
         servedChecks,
         syncAndSecurityChecks,
+        unknownServiceChecks,
         updateCheckChecks,
     ]
 

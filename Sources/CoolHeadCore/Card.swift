@@ -628,6 +628,13 @@ public struct Card {
                                 wait(until: nil, now: now, recommended: false)].compactMap { $0 })
         }
 
+        // one of macOS's own services that isn't in the catalogue (see BackgroundWork.unknownCard, research rule 6)
+        if BackgroundWork.isService(e) {
+            return BackgroundWork.unknownCard(e, background, busyFor: busyFor, active: active,
+                                              used: "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))",
+                                              extra: Fmt.its([gpuClause, warm && heating ? "adding to the heat" : nil]), now: now)
+        }
+
         // games are protected (Phil, 15 November 2026: "if we "run it cooler" with a game, couldn't it adversely impact
         // performance? We may wish to protect games as a class we know will usually be busy and suggest killing other
         // tasks first to improve game performance"): busy is what a game does, so it's calm and never slowed down;
