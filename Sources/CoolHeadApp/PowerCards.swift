@@ -75,3 +75,8 @@ final class PowerWatch {
         cards.filter { c in watcher.snoozed[c.cause].map { $0.until <= now || c.severity > $0.severity } ?? true }
     }
 }
+
+extension PowerWatch: CardSource {
+    func panelOpened() { refresh() }       // at most once a minute
+    func cards(for watcher: Watcher) -> [LiveCard] { visible(watcher) }
+}
