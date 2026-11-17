@@ -63,6 +63,7 @@ public struct Fix: Identifiable {
         case restartBrowser(String)   // a normal quit of the browser at this bundle path, then reopen it with its last session
         case stopAgent(String, String)   // turn off another app's background helper (launchd label, its plist path): stopped now and at every login; undo any time
         case keepOutOfBackup(String)     // keep this folder out of Time Machine backups (a sticky exclusion, as tmutil addexclusion); undo any time
+        case stopAndTrash([String], String?)  // a program pretending to be macOS's (see Disguise): turn off its launch item (this plist), stop it, and move these files to the Trash
     }
     public let id: String
     public let title: String
@@ -108,6 +109,7 @@ public struct Fix: Identifiable {
         case .restartBrowser: return .coolHead
         case .stopAgent: return .coolHead
         case .keepOutOfBackup: return .coolHead
+        case .stopAndTrash: return .coolHead
         case .lookUp: return .you          // opens a web search for you to read
         case .openApp: return .you         // opens the app; you do the steps there
         case .reveal: return .you          // shows the folder in Finder; you do the steps there
@@ -146,6 +148,7 @@ public struct Fix: Identifiable {
         case .restartBrowser: return .fixesCause
         case .stopAgent: return .fixesCause        // it can't start again by itself
         case .keepOutOfBackup: return .fixesCause  // later backups skip what the job keeps rewriting
+        case .stopAndTrash: return .fixesCause     // it can't run or start again unless put back from the Trash
         }
     }
     /// The same option, marked as one that ends the cause.
@@ -163,6 +166,7 @@ public struct Fix: Identifiable {
         case .restartBrowser: return true
         case .stopAgent: return true
         case .keepOutOfBackup: return false
+        case .stopAndTrash: return true
         case .wait: return false
         case .cooler: return false
         case .lookUp: return false
@@ -190,6 +194,7 @@ public struct Fix: Identifiable {
         case .forceQuit: return true       // ends an app without asking it to save
         case .restartBrowser: return true  // private windows, unsent form text and downloads in progress don't come back
         case .stopAgent: return true       // what the helper does for its app (updates, sync, a licence check) isn't known, so stopping it may break something
+        case .stopAndTrash: return true       // what the program was doing isn't known; it can be put back from the Trash
         case .keepOutOfBackup: return false   // known and undoable: only rebuildable build output is offered, and the option says it won't be backed up
         case .wait: return false
         case .cooler: return false
@@ -273,6 +278,7 @@ public struct Card {
         case .quitApp: return 4
         case .forceQuit: return 4
         case .stopAgent: return 4
+        case .stopAndTrash: return 4
         case .stop: return f.id == "stop" ? 5 : 4      // closing one tab or extension loses less than quitting its browser
         case .share: return 6
         case .wait: return 8
@@ -299,6 +305,7 @@ public struct Card {
             case .restartBrowser: return true
             case .stopAgent: return true
             case .keepOutOfBackup: return true
+            case .stopAndTrash: return true
             // opening an app, showing a folder or showing how help, but don't act on the cause
             case .openApp: return false
             case .reveal: return false

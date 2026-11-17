@@ -52,7 +52,7 @@ public enum BackgroundAgents {
     public static func disguised(plist path: String) -> Agent? {
         guard folders.contains((path as NSString).deletingLastPathComponent),
               let item = Disguise.launchItems(in: [(path as NSString).deletingLastPathComponent]).first(where: { $0.plist == path }),
-              !item.appleSigned else { return nil }
+              item.signer == .other else { return nil }
         return Agent(label: item.label, plist: item.plist, program: item.program, owner: item.label)
     }
 
@@ -122,7 +122,7 @@ public enum BackgroundAgents {
     @discardableResult
     public static func turnOff(_ a: Agent, marker m: String = marker) -> Bool {
         // never macOS's own: a com.apple label only when Apple didn't sign what it starts (see Disguise)
-        guard !a.label.hasPrefix("com.apple.") || !Disguise.appleSigned(a.program) else { return false }
+        guard !a.label.hasPrefix("com.apple.") || Disguise.signer(a.program) == .other else { return false }
         launchctl(["disable", "\(domain)/\(a.label)"])
         launchctl(["bootout", "\(domain)/\(a.label)"])
         let ok = isDisabled(a.label) && !isLoaded(a.label)

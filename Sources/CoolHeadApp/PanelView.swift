@@ -284,7 +284,9 @@ struct CardView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
         .confirmationDialog(stopTitle, isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
             Button(confirmStop?.title ?? "Stop it", role: .destructive) {
-                if case .stopAgent(let label, let plist) = confirmStop?.kind {
+                if case .stopAndTrash(let paths, let plist) = confirmStop?.kind {
+                    show(watcher.stopAndTrash(live, paths: paths, launchItem: plist))
+                } else if case .stopAgent(let label, let plist) = confirmStop?.kind {
                     let ok = watcher.turnOffAgent(label: label, plist: plist)
                     show(ok ? .done("Turned off. It won't start by itself, even after a restart. Turn it back on from the top of this panel.")
                             : .failed("macOS didn't turn it off"))
@@ -347,7 +349,7 @@ struct CardView: View {
             note = "Opened \(name). Pause it from its menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false; acted = true
         case .wait(let until):
             watcher.snooze(live, until: until)
-        case .stop, .forceQuit, .stopAgent:
+        case .stop, .forceQuit, .stopAgent, .stopAndTrash:
             confirmStop = fix
         case .keepOutOfBackup(let path):
             let ok = watcher.keepOutOfBackup(path)
@@ -1163,6 +1165,7 @@ struct FixRow: View {
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"
         case .stopAgent: return "power.circle"
+        case .stopAndTrash: return "trash"
         case .keepOutOfBackup: return "clock.arrow.circlepath"
         }
     }
