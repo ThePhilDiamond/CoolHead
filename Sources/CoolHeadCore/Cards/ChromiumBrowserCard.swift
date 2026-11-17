@@ -13,6 +13,28 @@ enum ChromiumBrowserCard: ProcessCard {
     static let samples = ["chrome-tab", "chrome-tab-in-front-warm", "chrome-extension", "chrome-graphics"]
 
     static func card(_ s: Situation) -> Card? {
+        guard var c = made(s) else { return nil }
+        if let part = s.e.browserPart, let app = s.e.app {
+            let what = part == .tab ? "one \(app) tab" : part == .extensionPart ? "one \(app) extension" : "\(app)'s graphics process"
+            var signs = [s.gpuLed ? "has kept \(Fmt.share(s.gpu)) of the graphics chip busy for \(Fmt.duration(s.busyFor))"
+                                  : "has used about \(Fmt.cores(s.e.coresNow)) for \(Fmt.duration(s.busyFor))"]
+            if s.warm && s.heating { signs.append("is adding to the heat") }
+            c.diagnosis = Diagnosis(saw: what + " " + Decision.list(signs), subject: part == .extensionPart ? "the busy extension" : nil)
+            let inFront = s.frontApp == s.e.appBundle
+            c.optionFacts["cooler"] = OptionFacts(helps: part == .tab ? "slows only the busy tab" : "slows only the busy extension", undo: .anyTime)
+            c.optionFacts["page"] = OptionFacts(helps: part == .extensionPart ? "keeps it from running again"
+                                                : part == .graphics ? "lowers frame rates, so the graphics chip does less"
+                                                : "cuts \(app)'s background work and frame rates")
+            c.optionFacts["find"] = OptionFacts(helps: "shows which \(part == .extensionPart ? "extension" : "tab") is busy, so you can close it",
+                                                whyNot: inFront ? "you may be using the busy tab, and Energy Saver eases it without closing anything" : nil)
+            c.optionFacts["closetab"] = OptionFacts(helps: "ends the busy tab", cost: "anything typed in it is lost", undo: .other("Reload brings the page back."))
+            c.optionFacts["stopext"] = OptionFacts(helps: "ends the busy extension", cost: "\(app) says it crashed until you reload it")
+            c.optionFacts["quit"] = OptionFacts(helps: "ends the load completely", cost: "every tab closes")
+        }
+        return c
+    }
+
+    static func made(_ s: Situation) -> Card? {
         let e = s.e
         guard let part = e.browserPart, let app = e.app, let bundle = e.appBundle else { return nil }
         let inFront = s.frontApp == bundle                 // you're using the browser: the busy tab may be the one you're on

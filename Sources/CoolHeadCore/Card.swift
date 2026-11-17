@@ -279,6 +279,10 @@ public struct Card {
     public var cardID: String? = nil
     /// For a card about one busy process: every card that matched it, and why this one was chosen (see Ranker).
     public var choice: Ranker.Choice? = nil
+    /// What the card saw and what it thinks it means, and facts about its options in its own words, for the decision
+    /// record (see Decision.swift).
+    public var diagnosis: Diagnosis? = nil
+    public var optionFacts: [String: OptionFacts] = [:]
 
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation

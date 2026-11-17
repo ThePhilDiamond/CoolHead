@@ -68,6 +68,36 @@ public enum MemoryAdvice {
         "Music": .keeps("Stops the music."),
     ]
 
+    /// The same costs, as clauses for the decision record ("We recommend … but every container stops"), one per app;
+    /// the selftest checks every app in `quitRisks` has one.
+    static let quitCosts: [String: String] = [
+        "Docker": "every container stops",
+        "OrbStack": "every container and machine stops",
+        "Parallels Desktop": "the virtual machine shuts down, so save inside it first",
+        "UTM": "the virtual machine shuts down, so save inside it first",
+        "VMware Fusion": "the virtual machine shuts down, so save inside it first",
+        "Xcode": "builds and simulators stop",
+        "Final Cut Pro": "renders and exports stop",
+        "Adobe Premiere Pro": "renders and exports stop",
+        "DaVinci Resolve": "renders and exports stop",
+        "Logic Pro": "bounces stop, though Logic Pro asks to save",
+        "Slack": "no messages arrive until you reopen it",
+        "Microsoft Teams": "you leave any call, and no messages arrive until you reopen it",
+        "zoom.us": "you leave your meeting",
+        "Claude": "whatever Claude is doing stops",
+        "ChatGPT": "the conversation in progress ends",
+        "Terminal": "whatever is running in it stops",
+        "iTerm": "whatever is running in it stops",
+        "Warp": "whatever is running in it stops",
+        "Visual Studio Code": "whatever is running in it stops",
+        "Cursor": "whatever is running in it stops",
+        "Spotify": "the music stops",
+        "Music": "the music stops",
+    ]
+
+    /// What quitting an app costs, as a clause; nil for an app with no known cost beyond asking about unsaved work.
+    public static func quitCost(_ app: String) -> String? { quitCosts[app] }
+
     /// What quitting a sync app costs: nothing is lost; it stops syncing and catches up when it's opened again.
     static let syncQuit = "Syncing stops until you open it again, then catches up. Nothing is lost."
 

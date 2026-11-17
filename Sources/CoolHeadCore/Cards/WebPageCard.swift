@@ -16,6 +16,15 @@ enum WebPageCard: ProcessCard {
     static let samples = ["browser-tab", "safari-tab", "web-page-drawing"]
 
     static func card(_ s: Situation) -> Card? {
+        guard var c = made(s) else { return nil }
+        let app = s.webkit ? "Safari" : (s.e.app ?? "the browser")
+        c.diagnosis = Diagnosis(saw: s.webkitGPU ? "a web page is drawing a lot, usually video or animation" : "one \(app) tab or extension \(s.used.dropLast())")
+        c.optionFacts["find"] = OptionFacts(helps: "shows which tab is busy, so you can close it")
+        c.optionFacts["quit"] = OptionFacts(helps: "ends the load completely", cost: "every tab closes")
+        return c
+    }
+
+    static func made(_ s: Situation) -> Card? {
         let e = s.e
         guard let app = s.webkit ? "Safari" : e.app,
               s.webkit || e.name.contains("Renderer") || e.name.contains("Web Content") || e.name.contains("(Plugin)") else { return nil }

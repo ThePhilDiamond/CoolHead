@@ -13,6 +13,17 @@ enum GameCard: ProcessCard {
     static let samples = ["game"]
 
     static func card(_ s: Situation) -> Card? {
+        guard var c = made(s) else { return nil }
+        if let game = s.e.gameBundle {
+            let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
+            c.diagnosis = Diagnosis(saw: s.warm ? "\(name) is adding to the heat" : "\(name) is a game, and games keep your Mac busy while they run")
+            c.optionFacts["settings"] = OptionFacts(helps: "cools the Mac while you keep playing")
+            c.optionFacts["quit"] = OptionFacts(helps: "ends the load completely", cost: "unsaved progress may be lost, so save your game first")
+        }
+        return c
+    }
+
+    static func made(_ s: Situation) -> Card? {
         guard let game = s.e.gameBundle else { return nil }
         let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
         if !s.active { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }

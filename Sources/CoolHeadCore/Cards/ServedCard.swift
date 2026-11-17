@@ -11,6 +11,19 @@ enum ServedCard: ProcessCard {
     static let samples = ["macos-service-for-app"]
 
     static func card(_ s: Situation) -> Card? {
+        guard var c = made(s) else { return nil }
+        if let b = s.e.servedBy {
+            let app = Served.name(b)
+            c.diagnosis = Diagnosis(saw: "macOS is doing this work for \(app)")
+            let sync = SyncApps.app(bundle: b) != nil
+            let words = sync ? "nothing syncs until you open \(app) again" : MemoryAdvice.quitCost(app)
+            c.optionFacts["quit"] = OptionFacts(helps: "ends the work macOS is doing for it", cost: words,
+                                                stakes: words == nil ? .protected("\(app) asks about anything unsaved first") : nil)
+        }
+        return c
+    }
+
+    static func made(_ s: Situation) -> Card? {
         let e = s.e
         guard let b = e.servedBy, !s.webkit, s.active else { return nil }
         let app = Served.name(b)

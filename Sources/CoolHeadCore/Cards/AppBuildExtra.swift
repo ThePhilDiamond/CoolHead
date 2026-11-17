@@ -11,6 +11,9 @@ enum AppBuildExtra: CardExtra {
         guard let f = s.apps, s.disguise == nil, c.state != .quiet,
               let name = e.quittableApp ?? e.app, e.path.map({ !CaseReport.isMacOS($0) }) == true,
               let add = AppBuild.addition(f, app: name) else { return nil }
-        return Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: c.fixes + [add.fix])
+        var out = Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: c.fixes + [add.fix])
+        out.optionFacts["native"] = OptionFacts(helps: "runs it without Rosetta's translation, which takes less work", undo: .anyTime)
+        out.optionFacts["intel"] = OptionFacts(helps: "may find a version built for this Mac's chip")
+        return out
     }
 }

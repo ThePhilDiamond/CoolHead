@@ -30,12 +30,13 @@ extension Fixture {
         Card.observer = { seen.append($0) }
         _ = Wording.samples(now: now)
         Card.observer = nil
-        var sampleTies: [String] = []
+        var sampleTies: [String] = [], missing: [String] = []
         for s in seen { for warm in [false, true] { for battery in [nil, 30] as [Int?] { for game in [nil, "Lumen"] as [String?] {
             for front in [nil, s.e.appBundle] as [String?] {
                 let v = Situation(s.e, now: s.now, busySince: s.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
                                   syncFeed: s.syncFeed, agent: s.agent, backupFeed: s.backupFeed, disguise: s.disguise, background: s.background, apps: s.apps)
-                let c = Ranker.choose(v).1
+                let (card, c) = Ranker.choose(v)
+                for m in Decision.missing(card, id: c.winner) where !missing.contains(m) { missing.append(m) }
                 let t = "\(s.e.name): \(c.winner) or \(c.ties.joined(separator: ", "))"
                 if !c.ties.isEmpty, !sampleTies.contains(t) { sampleTies.append(t) }
             }
@@ -44,6 +45,8 @@ extension Fixture {
         let overlapTies = overlaps.filter { !$0.2.ties.isEmpty }.map { "\($0.1.e.name): \($0.2.winner) or \($0.2.ties.joined(separator: ", "))" }
         review.append(("ranking-no-ties", sampleTies.isEmpty && overlapTies.isEmpty,
                        sampleTies.isEmpty && overlapTies.isEmpty ? "\(seen.count) sample situations, each varied 16 ways, and \(overlaps.count) overlaps" : "tied: " + (sampleTies + overlapTies).joined(separator: "; ")))
+        // the decision record: every recommended option and every stronger one held back has its facts, written by hand
+        review.append(("decision-facts-complete", missing.isEmpty, missing.isEmpty ? "every card and option the samples reach, varied 16 ways" : missing.joined(separator: "; ")))
         let missed = overlaps.filter { $0.0 != $0.2.winner }.map { "\($0.1.e.name) got \($0.2.winner), not \($0.0)" }
         review.append(("ranking-overlaps", missed.isEmpty,
                        missed.isEmpty ? overlaps.map { "\($0.1.e.name): \($0.2.winner) of \($0.2.matched.count)" }.joined(separator: "; ") : missed.joined(separator: "; ")))

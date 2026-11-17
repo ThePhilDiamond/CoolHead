@@ -12,6 +12,11 @@ enum ElectronExtra: CardExtra {
               Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver",
               let add = AppBuild.electronAddition(f) else { return nil }
         let others = c.fixes.map { f -> Fix in var f = f; f.recommended = false; return f }
-        return Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: [add.fix] + others)
+        var out = Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: [add.fix] + others)
+        // the decision record: what it saw is now the apps, and updating them is what helps
+        let names = String(add.fix.title.dropFirst("Update ".count))
+        out.diagnosis = Diagnosis(saw: "\(names) \(names.contains(" and ") ? "are" : "is") built on an older Electron that makes this version of macOS draw slowly")
+        out.optionFacts[add.fix.id] = OptionFacts(helps: "gets versions built on a newer Electron, which fix the slowdown")
+        return out
     }
 }

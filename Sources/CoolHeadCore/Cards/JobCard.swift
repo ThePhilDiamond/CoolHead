@@ -19,6 +19,58 @@ enum JobCard: ProcessCard {
     static let samples = ["job-with-progress", "job-stalled", "job-waiting", "job-no-signs", "job-just-started", "virtual-machine", "background-helper", "intel-app-26"]
 
     static func card(_ s: Situation) -> Card? {
+        guard var c = made(s) else { return nil }
+        c.diagnosis = diagnosis(s)
+        c.optionFacts = facts(s)
+        return c
+    }
+
+    /// What it saw, from the job's own signs: "it has been busy for 3 hours without saying what it's doing and is
+    /// adding to the heat".
+    static func diagnosis(_ s: Situation) -> Diagnosis {
+        let e = s.e
+        var signs: [String]
+        var means: String? = nil
+        switch s.state {
+        case .working:
+            signs = [e.progress?.fraction.map { "is \(Fmt.percent($0)) done" } ?? (e.progress != nil ? "is making progress" : "is busy and still saving its work")]
+        case .waiting: signs = ["is waiting for another job and isn't using your Mac's power"]
+        case .stalled:
+            signs = ["hasn't made any progress for \(Fmt.duration(s.now.timeIntervalSince(e.progress?.lineTime ?? s.now)))"]
+            means = "it's stuck, using power without getting anywhere"
+        case .unknown: signs = ["'s been busy for \(Fmt.duration(s.busyFor)) without saying what it's doing"]
+        case .starting: signs = ["only just started"]
+        case .quiet: signs = ["is quiet now"]
+        }
+        if s.state != .stalled && s.state != .waiting && s.state != .quiet {
+            if s.onBattery && e.coresNow >= 1 { signs.append("is draining your battery") }
+            if s.warm && s.heating { signs.append("is adding to the heat") }
+            if let g = s.gameRunning, s.cooler != nil || s.gpuLed { signs.append("is competing with \(g)") }
+            if s.gpuLed { signs.append("is keeping the graphics chip busy") }
+        }
+        // "it's 96% done and is adding to the heat"
+        if signs[0].hasPrefix("is ") { signs[0] = "'s " + signs[0].dropFirst(3) } else if !signs[0].hasPrefix("'") { signs[0] = " " + signs[0] }
+        return Diagnosis(saw: "it" + Decision.list(signs), means: means)
+    }
+
+    /// Its options' facts, in its own words where the kind's words don't fit.
+    static func facts(_ s: Situation) -> [String: OptionFacts] {
+        var out: [String: OptionFacts] = [:]
+        if s.state == .stalled, let p = s.e.progress {
+            out["stop"] = OptionFacts(helps: "frees the power it's been using", cost: "it can't be undone", stakes: .nothingLostSince(Fmt.time(p.lineTime)))
+        } else {
+            out["stop"] = OptionFacts(helps: "ends the load completely", cost: "nothing gets a chance to save",
+                                      when: s.state == .unknown ? "if you know what it is and don't need it" : nil,
+                                      stakes: s.atStake >= 10 * 60 ? .mayLose(Fmt.duration(s.atStake)) : nil)
+        }
+        if let g = s.gameRunning { out["cooler"] = OptionFacts(helps: "leaves more power for \(g)", undo: .anyTime) }
+        if let app = s.e.quittableApp, s.gpuLed {
+            out["quit"] = OptionFacts(helps: "closes \(app), which lets the graphics chip rest", stakes: .protected("\(app) asks about anything unsaved first"))
+        }
+        return out
+    }
+
+    static func made(_ s: Situation) -> Card? {
         let e = s.e, now = s.now, who = s.who, warm = s.warm, cooler = s.cooler, stop = s.stop
         // while a game is being played, other busy work is the thing to slow, so the game runs smoothly
         let forGame = s.gameRunning != nil && cooler != nil

@@ -11,6 +11,12 @@ enum UnknownServiceCard: ProcessCard {
     static let samples = ["macos-unknown-low-priority", "macos-unknown-normal-priority"]
 
     static func card(_ s: Situation) -> Card? {
+        guard var c = made(s) else { return nil }
+        c.diagnosis = Diagnosis(saw: "it's part of macOS, working in the background")
+        return c
+    }
+
+    static func made(_ s: Situation) -> Card? {
         guard BackgroundWork.isService(s.e) else { return nil }
         return BackgroundWork.unknownCard(s.e, s.background, busyFor: s.busyFor, active: s.active,
                                           used: "has used about \(Fmt.cores(s.e.coresNow)) for \(Fmt.duration(s.busyFor))",

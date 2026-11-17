@@ -11,6 +11,16 @@ enum SecuritySoftwareCard: ProcessCard {
     static let samples = ["security-software", "vpn"]
 
     static func card(_ s: Situation) -> Card? {
+        guard var c = made(s) else { return nil }
+        if let product = SecuritySoftware.product(path: s.e.path, name: s.e.name) {
+            let vpn = product.kind == .vpn
+            c.diagnosis = Diagnosis(saw: vpn ? "\(product.name) is your VPN, handling your network traffic" : "\(product.name) is security software, checking files as they're used")
+            c.optionFacts["disconnect"] = OptionFacts(helps: "lightens the load", whyNot: "only you know when you can do without it")
+        }
+        return c
+    }
+
+    static func made(_ s: Situation) -> Card? {
         let e = s.e
         guard let product = SecuritySoftware.product(path: e.path, name: e.name) else { return nil }
         if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(product.name) is quiet now.", explanation: "", fixes: []) }

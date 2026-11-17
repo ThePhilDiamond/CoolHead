@@ -227,6 +227,7 @@ case "cards":
         Card.observer = nil
         seen += Fixture.overlaps().map(\.1)
         var patterns: [String: [String]] = [:]
+        var missing: [String] = []
         var count = 0
         for s in seen {
             for warm in [false, true] { for battery in [nil, 30] as [Int?] { for game in [nil, "Lumen"] as [String?] {
@@ -235,15 +236,17 @@ case "cards":
                                       syncFeed: s.syncFeed, agent: s.agent, backupFeed: s.backupFeed, disguise: s.disguise, background: s.background, apps: s.apps)
                     let (card, choice) = Ranker.choose(v)
                     count += 1
-                    let line = "[\(choice.winner)] \(card.headline) | " + (choice.line ?? "(no line: no other card fits)" + (choice.tradeOff.map { " " + $0.text } ?? ""))
+                    let line = "[\(choice.winner)] \(card.headline) | " + (choice.line ?? "(nothing to explain)")
+                    for m in Decision.missing(card, id: choice.winner) where !missing.contains(m) { missing.append(m) }
                     if !(patterns[choice.pattern] ?? []).contains(line) { patterns[choice.pattern, default: []].append(line) }
                 }
             } } }
         }
         print("\(seen.count) situations, \(count) variations, \(patterns.count) patterns\n")
+        if !missing.isEmpty { print("## Missing facts (\(missing.count))"); for m in missing.sorted() { print("- " + m) }; print("") }
         for (p, lines) in patterns.sorted(by: { $0.key < $1.key }) {
             print("## \(p) (\(lines.count) distinct)")
-            for l in lines.prefix(4) { print("- " + l) }
+            for l in lines { print("- " + l) }
             print("")
         }
     } else if argv.dropFirst().first == "--json" {

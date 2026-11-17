@@ -11,6 +11,42 @@ enum CatalogueCard: ProcessCard {
     static let samples = ["spotlight-normal", "spotlight-long", "kernel-task-long", "docker-vm", "windowserver-old-electron", "time-machine-build"]
 
     static func card(_ s: Situation) -> Card? {
+        guard var c = made(s) else { return nil }
+        let e = s.e
+        guard let k = Pattern.match(name: e.name, path: e.path, pid: e.pid) else { return c }
+        let updated = k.afterUpdate ? s.background?.update : nil
+        let long = updated == nil && s.busyFor > k.usualHours * 3600 && s.busyFor >= 20 * 60
+        if let feed = k.id == "time-machine" && s.active ? s.backupFeed : nil {
+            c.diagnosis = Diagnosis(saw: "Time Machine keeps copying \(feed.name), the build folder \(feed.who) writes, which changes every time it builds")
+            c.optionFacts["backup"] = OptionFacts(helps: "stops Time Machine copying \(feed.name) again and again", undo: .anyTime,
+                                                  stakes: .protected("it's build output, which a build makes again"))
+        } else if long {
+            c.diagnosis = Diagnosis(saw: "it's been busy for \(Fmt.duration(s.busyFor)), longer than the \(Fmt.duration(k.usualHours * 3600)) it usually takes")
+        } else {
+            c.diagnosis = Diagnosis(saw: k.doing + (updated != nil ? ", which is normal after an update" : ", which is normal"))
+        }
+        // what the catalogue's advice does, for each entry that has its own
+        let advice: [String: OptionFacts] = [
+            "kernel-task": OptionFacts(helps: "shows which app is making the heat that macOS is holding the chip back for"),
+            "docker-vm": OptionFacts(helps: "ends the virtual machine's load when nothing needs it"),
+            "sound": OptionFacts(helps: "removes the likely cause: a virtual microphone, or an app that hides the microphone dot"),
+            "contacts-sync": OptionFacts(helps: "removes the likely cause on macOS 26.4 and later"),
+            "messages-sync": OptionFacts(helps: "pauses the syncing that keeps it busy", cost: "older messages may not show on this Mac until you turn it on again"),
+            "aerial-downloads": OptionFacts(helps: "likely stops the new downloads"),
+            "displaylink": OptionFacts(helps: "starts it fresh", cost: "your DisplayLink screens go dark until it's running again"),
+            "local-ai-model": OptionFacts(helps: "frees the power and memory it's using",
+                                          cost: "anything using the model gets no answers until it loads again, which takes a few seconds"),
+        ]
+        if let f = advice[k.id] { c.optionFacts["advice"] = f }
+        c.optionFacts["lookup"] = OptionFacts(helps: "may say why it's taking longer than usual")
+        let quitCost = ["docker-vm": "every container stops", "displaylink": "your DisplayLink screens go dark until it's running again"]
+        if let cost = quitCost[k.id], let app = e.quittableApp {
+            c.optionFacts["quit"] = OptionFacts(helps: "ends \(app)'s load completely", cost: cost)
+        }
+        return c
+    }
+
+    static func made(_ s: Situation) -> Card? {
         let e = s.e
         guard let k = Pattern.match(name: e.name, path: e.path, pid: e.pid), e.progress == nil else { return nil }
         // after a macOS update, indexing and analysis are expected for hours to days (see BackgroundWork)
