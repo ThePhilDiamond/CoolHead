@@ -272,7 +272,8 @@ public struct Card {
         // an hour, never "until it's done"). The rest in one fixed order (Phil, 15 November 2026).
         var seen = false
         var kept = fixes.filter { if case .wait = $0.kind { return false }; return true }.map { f -> Fix in
-            var f = f
+            // a quit says it saves for you where the app allows it (see SaveAndQuit)
+            var f = SaveAndQuit.worded(f)
             if f.recommended { if seen { f.recommended = false }; seen = true }    // one recommendation at most
             return f
         }
@@ -629,7 +630,7 @@ public struct Card {
         // priority slows its CPU work, not its drawing)
         let gpuApp = gpuLed ? e.quittableApp : nil
         let gpuQuit = gpuApp.flatMap { app in e.quittableBundle.map {
-            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. It may ask you to save first.", kind: .quitApp($0)) } }
+            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. Save your work in it first.", kind: .quitApp($0)) } }
         // while the Mac is warm, a busy job says it is part of why
         let heat = Fmt.its([gpuClause, warm && heating ? "adding to the heat" : nil,
                             forGame || (gameRunning != nil && gpuLed) ? "competing with \(gameRunning!)" : nil, drains ? "draining your battery" : nil])

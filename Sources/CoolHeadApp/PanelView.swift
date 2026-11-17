@@ -351,7 +351,12 @@ struct CardView: View {
             note = "Opened \(name). Pause it from its menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false; acted = true
         case .wait(let until):
             watcher.snooze(live, until: until)
-        case .stop, .forceQuit, .stopAgent, .stopAndTrash, .deleteBuildData:
+        // Stop and Force Quit ask "Did you save?" on the option itself before this runs (see FixRow)
+        case .stop:
+            show(watcher.stop(live))
+        case .forceQuit:
+            show(watcher.forceQuit(live))
+        case .stopAgent, .stopAndTrash, .deleteBuildData:
             confirmStop = fix
         case .unloadModels(let names):
             show(watcher.unloadModels(names))
@@ -374,7 +379,25 @@ struct CardView: View {
             show(watcher.setCooler(live, on: !watcher.isCooled(live)))
         case .quitApp(let bundle):
             // found by where the app is installed, not by its display name (which can differ, or be shared)
-            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }) {
+            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }),
+               SaveAndQuit.scriptable(bundle: bundle), let id = app.bundleIdentifier {
+                // it can be told to save and quit (see SaveAndQuit); if macOS doesn't allow that, a normal quit
+                let name = app.localizedName ?? "The app"
+                note = "Asked \(name) to save your work and quit."; noteFailed = false; acted = true
+                Task {
+                    let o = await SaveAndQuit.run(bundleID: id)
+                    switch o {
+                    case .quit: note = "Saved your work in \(name) and quit it."
+                    case .cancelled: note = "\(name) is still open: the save was cancelled."; noteFailed = true; acted = false
+                    case .notAllowed, .failed:
+                        let ok = app.terminate()
+                        note = ok ? "Cool Head couldn't save for you, so \(name) was asked to quit; it asks about anything unsaved."
+                                  : "\(name) didn't quit. It may be asking you something."
+                        noteFailed = !ok
+                    }
+                    watcher.log("Quit pressed for \(live.reportSubject): save and quit, \(o == .quit ? "done" : o == .notAllowed ? "not allowed, quit normally" : o == .cancelled ? "cancelled" : "failed, quit normally")")
+                }
+            } else if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.path == bundle }) {
                 let ok = app.terminate()
                 let name = app.localizedName ?? "The app"
                 if ok { note = "Asked \(name) to quit. If anything is unsaved, it asks you first."; noteFailed = false; acted = true }
@@ -1179,6 +1202,11 @@ struct FixRow: View {
     /// For Pause syncing: how long, before anything happens.
     var runUntil: (Fix, Date) -> Void = { _, _ in }
     @State private var choosing = false
+    /// Stop and Force Quit end a program at once, with no chance to save: the first click asks "Did you save?" on the
+    /// option itself, and a second click within 5 seconds goes ahead (Phil, 16 November 2026: *"a first click to overlay
+    /// the button with a message to the effect of "Did you save? Click again to proceed/quit once saved."*).
+    @State private var armed = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ARMED"] != nil
+    var guarded: Bool { fix.kind == .stop || fix.kind == .forceQuit }
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
     /// For an option that shows how: the steps, shown under it once pressed.
     var guideSteps: [String]? { if case .guide(let steps) = fix.kind { return steps }; return nil }
@@ -1214,8 +1242,22 @@ struct FixRow: View {
                 Button {
                     if isSyncPause { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } }
                     else if guideSteps != nil { withAnimation(.easeOut(duration: 0.15)) { showingSteps.toggle() } }
-                    else { run(fix) }
+                    else if guarded && !armed {
+                        withAnimation(.easeOut(duration: 0.15)) { armed = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { withAnimation(.easeOut(duration: 0.15)) { armed = false } }
+                    }
+                    else { armed = false; run(fix) }
                 } label: {
+                    if guarded && armed {
+                        HStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22).foregroundStyle(Color.red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Did you save your work?").font(.callout.weight(.semibold))
+                                Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
+                            }
+                            Spacer(minLength: 6)
+                        }
+                    } else {
                     HStack(alignment: tag == nil ? .center : .top, spacing: 10) {
                         Image(systemName: icon).font(.body).frame(width: 22)
                             .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : ends ? Color.red : Color.accentColor)
@@ -1238,6 +1280,7 @@ struct FixRow: View {
                             .help(opensElsewhere ? "Opens another app or your browser" : "")
                     }
                     .multilineTextAlignment(.leading)
+                    }
                 }
                 .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: tag))
                 .accessibilityHint(line)
