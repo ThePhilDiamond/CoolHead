@@ -70,7 +70,6 @@ final class NetworkTester: ObservableObject {
 struct NetworkView: View {
     @ObservedObject var tester: NetworkTester
     let watcher: Watcher
-    @State private var nerdy = false
     @State private var note: String?
     @State private var allFixes = false
 
@@ -97,7 +96,6 @@ struct NetworkView: View {
                     Label(NetworkCheck.meteredNote, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true)
                 }
-                nerdyStuff(nil)
             case .testing(let started):
                 TimelineView(.periodic(from: started, by: 0.5)) { t in
                     let done = min(1, t.date.timeIntervalSince(started) / Double(NetworkCheck.testSeconds))
@@ -116,6 +114,12 @@ struct NetworkView: View {
                     tiles(r)
                     meter(r)
                     if let s = tester.setup { linkRow(s) }
+                    // the one fact the old Nerdy stuff held that nothing else shows, and only when it's the problem
+                    // (Phil, 16 November 2026: "if any of it is useful it can show when the tests run")
+                    if case .none = tester.setup?.dns {
+                        Label("No server is set to look up website names, so sites won't load by name.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true)
+                    }
                     taskRow(r)
                     fixList(r)
                 }
@@ -123,7 +127,6 @@ struct NetworkView: View {
                     Button("Test again") { note = nil; allFixes = false; tester.start() }.buttonStyle(.bordered).controlSize(.small)
                     Spacer()
                 }
-                if case .done(let r) = outcome { nerdyStuff(r) } else { nerdyStuff(nil) }
             }
         }
         .padding(12)
@@ -312,27 +315,6 @@ struct NetworkView: View {
     }
 
     /// The detail, one plain line each, folded away as on a card.
-    @ViewBuilder func nerdyStuff(_ r: NetworkCheck.Result?) -> some View {
-        if let s = tester.setup {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).rotationEffect(.degrees(nerdy ? 90 : 0))
-                    Text("Nerdy stuff (detailed info)").font(.caption)
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { nerdy.toggle() } }
-                .accessibilityAddTraits(.isButton)
-                if nerdy {
-                    ForEach(NetworkCheck.lines(r, s), id: \.self) { line in
-                        Text(line).font(.caption).foregroundStyle(Ink.text).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-            .foregroundStyle(Ink.muted)
-        }
-    }
-
     func short(_ bits: Double) -> String {
         let m = bits / 1_000_000
         return m < 10 ? String(format: "%.1f", m) : NetworkCheck.grouped(Int(m.rounded()))

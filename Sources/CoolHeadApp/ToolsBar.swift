@@ -60,13 +60,7 @@ struct ToolsBar: View {
         }
     }
 
-    func closeAll() {
-        network.close()
-        tools.trusted = false
-        tools.battery = false
-        watcher.showReport = false
-        if let trends, trends.shown { trends.toggle() }
-    }
+    func closeAll() { Tools.closeAll(watcher) }
 }
 
 /// Which of the panel's own tools is open (Report a problem's flag lives in the watcher, as before), and the setting
@@ -76,6 +70,17 @@ final class Tools: ObservableObject {
     static let shared = Tools()
     @Published var trusted = false
     @Published var battery = false
+
+    /// Closes every tool, in one place, so they all behave alike: opening one closes the others, and the panel always
+    /// opens with none open (Phil, 16 November 2026: "We need consistency across the tools, and I think the panel should
+    /// always open with no tools selected"). A network test still running is stopped.
+    static func closeAll(_ watcher: Watcher) {
+        NetworkTester.shared.close()
+        shared.trusted = false
+        shared.battery = false
+        watcher.showReport = false
+        watcher.showHistory = false
+    }
     /// Show each tool's name under its icon (on by default; Hide Tool Names in the right-click menu turns it off).
     nonisolated static let labelsKey = "toolLabels"
     static var labels: Bool {
