@@ -218,3 +218,31 @@ public enum Ranker {
         return (card, Choice(winner: best.type.id, matched: candidates.map { $0.type.id }, reasons: reasons, ties: ties))
     }
 }
+
+extension Ranker {
+    /// Every card and extra, as `coolhead cards` lists them: ID, kind, rule, how it matches, the cards it refines and
+    /// why, and each of its samples with the card it gets (wording as `coolhead wording` prints it).
+    public static func list(now: Date = Date()) -> [[String: Any]] {
+        let samples = Dictionary(Wording.samples(now: now).map { ($0.0, $0.1) }, uniquingKeysWith: { a, _ in a })
+        let cards: [[String: Any]] = ProcessCards.all.map { t in
+            ["id": t.id, "type": "card", "kind": "\(t.kind)", "rule": t.rule, "match": "\(t.match)", "refines": t.refines,
+             "samples": t.samples.map { id -> [String: Any] in
+                 guard let c = samples[id] else { return ["id": id] }
+                 return ["id": id, "headline": c.headline, "options": c.fixes.map(\.id), "recommended": c.recommended?.id ?? NSNull(),
+                         "why": c.choice?.line ?? NSNull()]
+             }]
+        }
+        let extras: [[String: Any]] = ProcessCards.extras.map { ["id": $0.id, "type": "extra", "rule": $0.rule] }
+        return cards + extras
+    }
+
+    /// The same, to read.
+    public static func listText(now: Date = Date()) -> [String] {
+        list(now: now).flatMap { d -> [String] in
+            var out = ["[\(d["id"]!)] \(d["type"]!)" + (d["kind"].map { ", \($0), matches by \(d["match"]!)" } ?? ""), "  Rule: \(d["rule"]!)"]
+            for (other, why) in ((d["refines"] as? [String: String]) ?? [:]).sorted(by: { $0.key < $1.key }) { out.append("  Over \(other): \(why)") }
+            for s in (d["samples"] as? [[String: Any]]) ?? [] { out.append("  Sample \(s["id"]!): \(s["headline"] ?? "missing")") }
+            return out + [""]
+        }
+    }
+}

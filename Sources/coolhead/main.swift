@@ -20,6 +20,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead selftest            checks every recorded example gives the card it should
   coolhead wording             every card's text, from the recorded examples, to read the wording in one place
   coolhead ranking [--write]   which card and option every sample gets; --write records it for the selftest
+  coolhead cards [--json]      every kind of card about a busy process: its rule, how it matches, its samples
 
 <name or PID>: the process's name as Activity Monitor shows it, or its PID (the number in Activity Monitor's PID
 column), without the angle brackets: coolhead why mds_stores. Part of a name is enough; when several processes match,
@@ -209,40 +210,13 @@ case "ranking":
     } else {
         for l in lines { print(l) }
     }
-case "compare-legacy":
-    // TEMPORARY (removed before merge): the ranker against the order before it, over every situation the samples and
-    // checks give Card.make, each varied in warmth, battery, a game, the front app and a background helper
-    var seen: [Situation] = []
-    Card.recorder = { seen.append($0) }
-    _ = Wording.samples()
-    if argv.dropFirst().first == "--all" { _ = Fixture.runAll() }
-    Card.recorder = nil
-    let probes = Fixture.overlaps().map(\.1)
-    for p in probes { let c = Ranker.choose(p).1; print("PROBE \(p.e.name): \(c.winner) of \(c.matched); \(c.reasons.joined(separator: "; "))" + (c.ties.isEmpty ? "" : " TIES \(c.ties)")) }
-    seen += probes
-    func show(_ c: Card) -> String {
-        "\(c.state) | \(c.headline) | \(c.explanation) | " + c.fixes.map { "\($0.id):\($0.title):\($0.consequence):\($0.recommended)" }.joined(separator: "; ") + " | \(c.names)"
+case "cards":
+    if argv.dropFirst().first == "--json" {
+        let data = try JSONSerialization.data(withJSONObject: Ranker.list(), options: [.prettyPrinted, .sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    } else {
+        for line in Ranker.listText() { print(line) }
     }
-    var compared = 0, differ = 0
-    for s in seen {
-        for warm in [false, true] { for battery in [nil, 80, 30] as [Int?] { for game in [nil, "Lumen Quest"] as [String?] {
-            for front in [nil, s.e.appBundle] as [String?] { for agent in [s.agent, nil] as [BackgroundAgents.Agent?] {
-                let v = Situation(s.e, now: s.now, busySince: s.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
-                                  syncFeed: s.syncFeed, agent: agent, backupFeed: s.backupFeed, disguise: s.disguise, background: s.background, apps: s.apps)
-                let a = Card.legacyMake(v.e, now: v.now, busySince: v.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
-                                        syncFeed: v.syncFeed, agent: agent, backupFeed: v.backupFeed, disguise: v.disguise, background: v.background, apps: v.apps)
-                let b = Card.make(v)
-                compared += 1
-                if show(a) != show(b) || a.cardID != b.cardID {
-                    differ += 1
-                    if differ <= 10 { print("DIFFERS \(v.e.name)\n  old: \(a.cardID ?? "-") \(show(a))\n  new: \(b.cardID ?? "-") \(show(b))") }
-                }
-                let ties = Ranker.choose(v).1.ties
-                if !ties.isEmpty, differ <= 10 { print("TIE \(v.e.name): \(Ranker.choose(v).1.winner) with \(ties)") }
-            } }
-        } } }
-    }
-    print("\(seen.count) situations, \(compared) variations compared, \(differ) differ")
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }

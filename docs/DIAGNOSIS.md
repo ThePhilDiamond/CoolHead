@@ -47,25 +47,30 @@ Stopping, running cooler and quitting are offered only for the person's own proc
 
 ## How a card is chosen
 
-The catalogue is one of several checks. Each busy process gets one card, from the first check below that applies, in this order (`Card.make` in [`Card.swift`](../Sources/CoolHeadCore/Card.swift)):
+The catalogue is one of several checks. Each kind of card about a busy process is its own file in [`Sources/CoolHeadCore/Cards`](../Sources/CoolHeadCore/Cards), every card that matches a process is made, and the ranker in [`ProcessCard.swift`](../Sources/CoolHeadCore/ProcessCard.swift) chooses one. `coolhead cards` lists every card with the rule it comes from and the samples it must win.
 
-1. **A program pretending to be part of macOS**: a macOS name used from outside macOS's folders without Apple's signature, or a background item labelled like Apple's that Apple didn't sign ([`Disguise.swift`](../Sources/CoolHeadCore/Disguise.swift)).
-2. **macOS's own work that seems stuck**: busy for over a day, judged by its priority and how long it has run, not by % CPU ([`BackgroundWork.swift`](../Sources/CoolHeadCore/BackgroundWork.swift)).
-3. **The catalogue**: macOS's own processes that Cool Head knows by name (below).
-4. **Security, device management and VPN software.**
-5. **Sync apps.**
-6. **Chromium browsers**: a tab, an extension or the graphics process.
-7. **A macOS service working for an app**, such as decoding video for it, and **web pages shown by another app**, such as Mail: the card names that app ([`Served.swift`](../Sources/CoolHeadCore/Served.swift)).
-8. **Web pages** in Safari or another browser.
-9. **A macOS service that isn't in the catalogue**: the card says it's part of macOS, working in the background.
-10. **Games.**
-11. **Anything else that's busy**: the states above (working, waiting, stalled, can't tell).
+The cards, by kind:
 
-The first check that applies wins, so the order decides between cards: a program named `mdworker` that isn't Apple's gets the disguise card, never Spotlight's. Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
+1. **Who it is**: a program pretending to be part of macOS, using a macOS name from outside macOS's folders without Apple's signature, or a background item labelled like Apple's that Apple didn't sign ([`Disguise.swift`](../Sources/CoolHeadCore/Disguise.swift)).
+2. **Stuck**: macOS's own work that seems stuck, busy for over a day, judged by its priority and how long it has run, not by % CPU ([`BackgroundWork.swift`](../Sources/CoolHeadCore/BackgroundWork.swift)).
+3. **What it's doing**: the catalogue (macOS's own processes that Cool Head knows by name, below); security, device management and VPN software; sync apps; Chromium browsers and apps built like them (a tab, an extension or the graphics process); a macOS service working for an app, such as decoding video for it, and web pages shown by another app, such as Mail, where the card names that app ([`Served.swift`](../Sources/CoolHeadCore/Served.swift)); web pages in Safari or another browser; and games.
+4. **When nothing more specific explains it**: a macOS service that isn't in the catalogue, which the card says is part of macOS, working in the background; and anything else that's busy, by the states above (working, waiting, stalled, can't tell).
+
+When more than one card matches the same process, rules decide first, and are never traded against anything; weights decide only between cards the rules leave level:
+
+1. **Kind**, in the order above: a program named `mdworker` that isn't Apple's gets the disguise card, never Spotlight's.
+2. **A card that says more**: a card can state that it refines another, with its reason, and then wins over it. The Chrome card wins over the general web page card, because it knows the busy part is a tab or an extension and can open Chrome's Task Manager.
+3. **The more cautious card**: the one whose riskiest option is less risky. A sync app's helper that looks like a browser tab gets the sync card, which offers to pause syncing, rather than the tab card, which offers to close the tab.
+4. **How specifically it matches** (a weight): a list of named apps or products before a category, a category before anything busy.
+5. **How strong the evidence is** (a weight; no card uses it yet).
+
+If no rule or weight tells two matching cards apart, the selftest fails and names both, and the tie is settled with a rule and its reason. Each card's Nerdy stuff says which cards it was chosen over, and why. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
+
+Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
 
 Some cards are about the whole Mac, not one busy process, and come from their own checks: memory that's tight, the hardware (the drive, battery, charging, crash restarts and ports), sleep and power (an app keeping the Mac awake, Low Power Mode left on with the charger while the Mac is busy, a battery that drained while asleep), browser settings Cool Head didn't make, and an app that keeps crashing (5 or more crash reports in 24 hours).
 
-**Rules.** Most of these checks come from a review of published evidence on what makes Macs hot, slow or awake, and the code names the rule each one comes from ("research rule 6"). Each rule is written as code, so unlike a catalogue entry it can't be added by filling in fields; open a "pattern" issue and it can be built. *(Planned: each card in its own file, chosen by stated rules and weights instead of by its place in this list.)*
+**Rules.** Most of these checks come from a review of published evidence on what makes Macs hot, slow or awake, and the code names the rule each one comes from ("research rule 6"). Each rule is written as code, so unlike a catalogue entry it can't be added by filling in fields; open a "pattern" issue and it can be built.
 
 ## The catalogue
 

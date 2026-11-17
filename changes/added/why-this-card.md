@@ -1,0 +1,1 @@
+- A card about a busy process now says, in its Nerdy stuff, which other cards matched it and why this one was chosen; `coolhead cards` lists every kind of card, the rule it comes from and its samples.
