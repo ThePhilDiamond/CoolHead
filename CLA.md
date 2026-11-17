@@ -1,6 +1,18 @@
 # Cool Head Individual Contributor License Agreement
 
-Thank you for contributing to Cool Head. This agreement is between you and Phil Diamond, the maintainer of Cool Head ("the Maintainer"). It applies to every Contribution you submit to the project, now or later. You sign it once, by commenting on your first pull request as the CLA bot asks.
+Version 1.0, published 17 November 2026
+
+## Why we ask (not part of the terms)
+
+Cool Head is free and open source under the GNU AGPL. Phil Diamond, who maintains it, also offers it under commercial licenses and may publish paid builds of it. You keep the copyright in what you contribute, so he needs your permission to include your work in those versions as well as the free one. This agreement gives that permission. It doesn't take your copyright, and it doesn't take back any right the AGPL gives anyone.
+
+For example, say you add a catalogue pattern for a process Cool Head didn't know. It goes into the free version under the AGPL, and stays there. It may also go into a version sold under a commercial license, or into a paid build. You still own it.
+
+If you'd rather not sign, you can still report a problem or describe a change in an issue; that doesn't need the agreement.
+
+## The terms
+
+Thank you for contributing to Cool Head. This agreement is between you and Phil Diamond, the maintainer of Cool Head ("the Maintainer"). It applies to every Contribution you submit to the project, including any you submitted before signing it, and any you submit later. You sign it once, by commenting on your first pull request with the sentence the CLA bot gives for this version.
 
 **1. Definitions.** "You" means the person signing. "Contribution" means any code, documentation, catalogue entry or other material you submit to the Cool Head project (for example a pull request, a patch or an issue attachment) that is intended to be included in it.
 
@@ -18,3 +30,11 @@ Thank you for contributing to Cool Head. This agreement is between you and Phil 
 **6. No other obligations.** You don't have to provide support for your Contributions. They are provided "as is", without warranties of any kind. The Maintainer is not obliged to use any Contribution.
 
 **7. Changes.** If anything you promised in section 5 stops being true, you agree to tell the Maintainer.
+
+**8. What the AGPL gave stays given.** Your Contribution, as included in any version of Cool Head that the Maintainer has published under the GNU AGPL, stays licensed under the AGPL to everyone who receives that version. Nothing in this agreement takes back or reduces any right the AGPL has given anyone.
+
+**9. Transfer.** The Maintainer may transfer his rights under this agreement to whoever takes over Cool Head from him, such as a company he sets up to own or run it, or someone who acquires it. From then on, "the Maintainer" means whoever received them. A transfer doesn't change your ownership of your Contributions, or section 8.
+
+## In short (not part of the terms)
+
+You keep the copyright in your work. What's published under the AGPL stays under the AGPL. Phil may also include your work in commercial licenses and paid builds, and may pass these rights on to whoever takes over Cool Head. Where this summary and the numbered terms differ, the numbered terms apply.

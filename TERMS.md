@@ -1,12 +1,12 @@
 # Terms of use
 
-Last changed: 16 November 2026
+Last changed: 17 November 2026
 
 These terms are between you and Phil Diamond, the maintainer of Cool Head ("the Maintainer"). They cover your use of Cool Head: the app, its command-line tool `coolhead`, the builds on this repository's Releases page, and this repository. By using Cool Head you agree to them; if you don't agree, don't use it.
 
 ## The license comes first
 
-Cool Head's code is licensed under the [GNU AGPL v3.0](LICENSE), or under a commercial license (see [COMMERCIAL.md](COMMERCIAL.md)). Nothing in these terms takes away a right the license gives you: you can still run, study, change, and share Cool Head as it allows, and where these terms would limit what the license lets you do with the code, the license wins. These terms cover what the license doesn't: what Cool Head's cards are, who is responsible for what you do with them, and who carries the cost if something goes wrong.
+Cool Head's code is licensed under the [GNU AGPL v3.0 only](LICENSE), or under a commercial license (see [COMMERCIAL.md](COMMERCIAL.md)). Nothing in these terms takes away a right the license gives you: you can still run, study, change, and share Cool Head as it allows, and where these terms would limit what the license lets you do with the code, the license wins. These terms cover what the license doesn't: what Cool Head's cards are, who is responsible for what you do with them, and who carries the cost if something goes wrong.
 
 ## Provided as is
 
