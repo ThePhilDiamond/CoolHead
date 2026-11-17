@@ -45,6 +45,9 @@ public struct Evidence {
     public let workStart: Date?
     /// Share of the graphics chip it is using, 0 to 1 (see `GPU`); nil where the Mac doesn't say.
     public var gpuShare: Double? = nil
+    /// Its busy work already runs at background priority, so Run it cooler would do nothing (see RunCooler); nil when
+    /// unknown, or when Cool Head itself slowed it.
+    public var atBackgroundPriority: Bool? = nil
 
     /// Samples the process twice, `interval` seconds apart, to measure CPU and graphics-chip use now.
     /// With `measured`, uses CPU, disk writes and graphics-chip share the caller already measured (the watcher) and

@@ -1,0 +1,1 @@
+- Run it cooler is offered only where it helps: not for work already running at background priority (slowing it further does nothing), and never for macOS's own programs. For a virtual machine it warns that everything running inside it slows down sharply.
