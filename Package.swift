@@ -10,9 +10,12 @@ let package = Package(
         .library(name: "CoolHeadCore", targets: ["CoolHeadCore"]),
     ],
     targets: [
-        .target(name: "CoolHeadCore", linkerSettings: [.linkedFramework("IOKit")]),
+        .target(name: "CoolHeadCore", linkerSettings: [.linkedFramework("IOKit")], plugins: ["Lists"]),
         .executableTarget(name: "coolhead", dependencies: ["CoolHeadCore"]),
         .executableTarget(name: "CoolHeadApp", dependencies: ["CoolHeadCore"],
-                          linkerSettings: [.linkedFramework("ServiceManagement"), .linkedFramework("UserNotifications")]),
+                          linkerSettings: [.linkedFramework("ServiceManagement"), .linkedFramework("UserNotifications")],
+                          plugins: ["Lists"]),
+        // writes the selftest's and the app's lists from the file names, while building (Plugins/Lists/Lists.swift)
+        .plugin(name: "Lists", capability: .buildTool()),
     ]
 )

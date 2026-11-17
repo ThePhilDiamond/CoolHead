@@ -3,7 +3,7 @@ import Foundation
 /// Checks for the memory signals beyond macOS's pressure level: memory moved to the disk, and free space on the
 /// startup disk (research nodes N-002 and N-006; Phil, 16 November 2026: "Memory additions first").
 extension Fixture {
-    static func memorySignalChecks(_ now: Date) -> [(String, Bool, String)] {
+    static func memorySignalsChecks(_ now: Date) -> [(String, Bool, String)] {
         var review: [(String, Bool, String)] = []
         func mac(_ pressure: String, swappedMB: Double? = nil, freeGB: Double? = nil) -> MacState {
             var s = MacState(); s.memoryPressure = pressure; s.swapUsedMB = 2000; s.swapTotalMB = 3072
@@ -39,4 +39,7 @@ extension Fixture {
                        "startup disk free \(live.diskFreeBytes.map { MemoryAdvice.diskGB($0) } ?? "unreadable"); swap-outs since startup \(live.swapOutPages.map(String.init) ?? "unreadable")"))
         return review
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func memorySignalsSamples(_ now: Date) -> [(String, Card)] { [] }
 }

@@ -15,7 +15,7 @@ extension Fixture {
         (0..<n).map { CrashLoops.Crash(app: app, bundle: bundle, time: now.addingTimeInterval(-ago - Double($0) * every)) }
     }
 
-    static func crashLoopChecks(_ now: Date) -> [(String, Bool, String)] {
+    static func crashLoopsChecks(_ now: Date) -> [(String, Bool, String)] {
         var review: [(String, Bool, String)] = []
         let t = now.addingTimeInterval(-3600)
 
@@ -60,7 +60,7 @@ extension Fixture {
     }
 
     /// For `coolhead wording` and screenshots: a made-up app that crashed 40 times since early yesterday evening.
-    static func crashLoopSamples(_ now: Date) -> [(String, Card)] {
+    static func crashLoopsSamples(_ now: Date) -> [(String, Card)] {
         CrashLoops.cards(CrashLoops.loops(crashes("Backblaze", bundle: "com.backblaze.bzbmenu", 40, every: 1800, ago: 900, now: now), now: now))
             .map { ("crash-loop", $0.card) }
     }

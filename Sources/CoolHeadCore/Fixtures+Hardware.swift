@@ -22,7 +22,7 @@ extension Fixture {
 
         // drive cards: a fault and uncorrected errors need a look and recommend backing up; wear is a note; a healthy
         // drive has no card
-        let samples = Fixture.hardwareSamples(now)
+        let samples = Fixture.hardwareReports(now)
         func sample(_ id: String) -> HardwareReport { samples.first { $0.0 == id }!.1 }
         let fault = sample("drive-fault").cards(now: now).first
         let errors = sample("drive-errors").cards(now: now).first
@@ -146,7 +146,7 @@ extension Fixture {
     }
 
     /// Made-up reports, one per hardware card, for `coolhead wording` and screenshots.
-    public static func hardwareSamples(_ now: Date) -> [(String, HardwareReport)] {
+    public static func hardwareReports(_ now: Date) -> [(String, HardwareReport)] {
         var d = DriveHealth(); d.spare = 100; d.spareThreshold = 99; d.percentUsed = 12; d.dataUnitsWritten = 40_000_000; d.powerOnHours = 3100
         d.temperatureC = 31
         var fault = d; fault.criticalWarning = 0b100; fault.mediaErrors = 41
@@ -179,4 +179,7 @@ extension Fixture {
                 ("port-power", HardwareReport(ports: [PortErrors(name: "USB-C port 1", overCurrent: 2)])),
                 ("port-drops", HardwareReport(ports: [PortErrors(name: "USB-C port 2", failedToConnect: 3)]))]
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func hardwareSamples(_ now: Date) -> [(String, Card)] { [] }
 }

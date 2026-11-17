@@ -85,4 +85,7 @@ extension Fixture {
                 "opened \(opened); \(restarted) (\(steps.joined(separator: ", "))); reopened \(back) with \(l.last ?? "nothing"); old copy gone \(oldGone); declining to quit: \(declined), not reopened \(leftAlone); quit and reopened plain \(plain), with no arguments \(plainBack); tidied \(quit) \(none)")
     }
 
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func browserRestartSamples(_ now: Date) -> [(String, Card)] { [] }
 }

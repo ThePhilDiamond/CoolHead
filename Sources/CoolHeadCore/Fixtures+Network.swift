@@ -149,4 +149,7 @@ extension Fixture {
                        "\(kind), AirDrop link \(s.awdlOn ? "on" : "off"), VPN \(s.vpn), \(s.talkers.count) processes moving data, read in \(String(format: "%.1f", took)) s; networkQuality present \(tool)"))
         return review
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func networkSamples(_ now: Date) -> [(String, Card)] { [] }
 }

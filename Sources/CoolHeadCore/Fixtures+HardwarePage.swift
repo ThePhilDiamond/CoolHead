@@ -104,4 +104,7 @@ extension Fixture {
         review.append(("hardware-page-gauges", g1, g.map { "\($0.name) \($0.percent)%" }.joined(separator: ", ")))
         return review
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func hardwarePageSamples(_ now: Date) -> [(String, Card)] { [] }
 }
