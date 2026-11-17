@@ -1,0 +1,1 @@
+- Cards for browser changes you didn't make: Chrome, Edge or Brave managed by settings Cool Head didn't make, on a Mac no organization manages (with a link to the browser's own policy page), and a browser a script started with an extension loaded from a folder (with the folder shown, and Quit).

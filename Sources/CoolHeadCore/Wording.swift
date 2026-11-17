@@ -11,6 +11,7 @@ public enum Wording {
         // each feature's sample cards, one line per feature, alphabetical, so changes made at the same time don't meet
         out += Fixture.appBuildSamples(now)
         out += Fixture.backgroundWorkSamples(now)
+        out += Fixture.browserTamperingSamples(now)
         out += Fixture.catalogueSamples(now)
         out += Fixture.disguiseSamples(now)
         out += Fixture.leakSamplesForWording(now)
