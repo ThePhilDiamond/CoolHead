@@ -320,6 +320,24 @@ public enum NetworkCheck {
     /// The download speed HD video needs (Netflix, 1080p: 5 Mbps).
     static let hdVideoMbps = 5.0
 
+    /// The result in one plain sentence: what the connection is fine for, then only what isn't and what it affects, at
+    /// most two things (Phil, 16 November 2026: "only share key info "everything is good except..."").
+    public static func summary(_ r: Result, _ link: Link) -> String {
+        var problems: [String] = []
+        if case .wifi(let w) = link, w.rssi <= weakSignal { problems.append("the Wi-Fi signal is weak") }
+        if r.download < hdVideoMbps * 1_000_000 { problems.append("downloads are slow") }
+        if r.upload < 3.8e6 { problems.append("uploads are slow, so video calls may break up") }
+        if r.rpm <= poorRPM { problems.append("the delay is long, so calls and games may lag") }
+        else if r.rpm < goodRPM { problems.append("the delay grows while the connection is busy") }
+        if problems.isEmpty { return "Fast enough for everything, from 4K video to calls and games." }
+        let phrase = ["Web": "browsing", "HD video": "HD video", "4K video": "4K video", "Video calls": "video calls", "Games": "games"]
+        let fine = tasks.filter { fit($0, r) == .fine }.compactMap { phrase[$0.name] }
+        let issues = problems.prefix(2).joined(separator: ", and ")
+        guard !fine.isEmpty else { return issues.prefix(1).uppercased() + issues.dropFirst() + "." }
+        let good = fine.count == 1 ? fine[0] : fine.dropLast().joined(separator: ", ") + " and " + fine.last!
+        return "Fine for \(good), but \(issues)."
+    }
+
     /// Everyday tasks and the speed each needs, from the people who run them: the FCC's Broadband Speed Guide (web and
     /// email 1 Mbps; online multiplayer games 4 Mbps), Netflix (HD 1080p 5 Mbps, 4K 15 Mbps) and Zoom (1080p video calls
     /// 3.0 Mbps down and 3.8 up). Calls and games also need a responsive connection: speed alone doesn't stop the lag.

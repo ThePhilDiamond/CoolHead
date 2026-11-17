@@ -72,6 +72,7 @@ struct NetworkView: View {
     let watcher: Watcher
     @State private var note: String?
     @State private var allFixes = false
+    @State private var signalNumbers = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -140,7 +141,13 @@ struct NetworkView: View {
                 }
             case .done(let outcome):
                 let v = NetworkCheck.verdict(outcome)
-                statusText(["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(v.level, 2)], NetworkView.color(v.level), v.title, v.meaning)
+                // the answer, then what it means in plain words: what the connection is fine for and only what isn't
+                // (Phil, 16 November 2026); when it's fine, that the Mac, not the network, is where to look
+                let meaning: String = {
+                    guard case .done(let r) = outcome, let s = tester.setup else { return v.meaning }
+                    return NetworkCheck.summary(r, s.link) + (v.level == 0 ? " If the Mac feels slow, look at the Mac." : "")
+                }()
+                statusText(["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(v.level, 2)], NetworkView.color(v.level), v.title, meaning)
             }
         }
         .frame(minHeight: 50, alignment: .top)      // room for a two-line explanation, so every state is the same height
@@ -169,27 +176,35 @@ struct NetworkView: View {
             } unit: { Text("signal") }
         } else if let s = tester.setup {
             let sig = NetworkView.signal(s.link)
+            // a click shows the numbers in the same space, and another shows the word again (Phil, 16 November 2026: "if
+            // a user clicks the signal box should we show the detailed numbers?")
             tileFrame {
                 HStack(spacing: 5) {
                     Image(systemName: sig.symbol, variableValue: sig.strength).font(.title3).foregroundStyle(NetworkView.color(sig.level))
-                    Text(sig.word).font(.system(.callout, design: .rounded).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                    Text(signalNumbers ? sig.numbers : sig.word).font(.system(.callout, design: .rounded).weight(.semibold))
+                        .lineLimit(1).minimumScaleFactor(0.7).monospacedDigit()
                 }
-            } unit: { Text(sig.unit) }
-            .help(sig.detail)
+            } unit: { Text(signalNumbers ? sig.channel : sig.unit) }
+            .contentShape(Rectangle())
+            .onTapGesture { signalNumbers.toggle() }
+            .help(sig.detail + (signalNumbers ? ". Click for the word." : ". Click for the numbers."))
+            .accessibilityAddTraits(.isButton)
         }
     }
 
     /// Signal strength in a word: Strong from -67 dBm, Fair down to the -75 dBm where a Mac starts looking for a better
     /// access point (`NetworkCheck.weakSignal`), Weak below that. The thresholds are Cool Head's own.
-    static func signal(_ link: NetworkCheck.Link) -> (symbol: String, strength: Double, word: String, unit: String, level: Int, detail: String) {
+    static func signal(_ link: NetworkCheck.Link)
+        -> (symbol: String, strength: Double, word: String, unit: String, level: Int, detail: String, numbers: String, channel: String) {
         switch link {
         case .wifi(let w):
             let level = w.rssi >= -67 ? 0 : w.rssi > NetworkCheck.weakSignal ? 1 : 2
+            let channel = "ch \(w.channel)" + (w.band.isEmpty ? "" : " · \(w.band)")
             return ("wifi", min(1, max(0.05, Double(w.rssi + 90) / 30)), ["Strong", "Fair", "Weak"][level], "Wi-Fi signal", level,
-                    "\(w.rssi) dBm on channel \(w.channel)" + (w.band.isEmpty ? "" : " (\(w.band))"))
-        case .cable: return ("cable.connector", 1, "Cable", "connection", 0, "Connected by cable")
-        case .other: return ("point.3.connected.trianglepath.dotted", 1, "Other", "connection", 0, "Connected, but not by Wi-Fi or cable")
-        case .none: return ("wifi.slash", 1, "None", "connection", 2, "Not connected to a network")
+                    "\(w.rssi) dBm on channel \(w.channel)" + (w.band.isEmpty ? "" : " (\(w.band))"), "\(w.rssi) dBm", channel)
+        case .cable: return ("cable.connector", 1, "Cable", "connection", 0, "Connected by cable", "Cable", "connection")
+        case .other: return ("point.3.connected.trianglepath.dotted", 1, "Other", "connection", 0, "Connected, but not by Wi-Fi or cable", "Other", "connection")
+        case .none: return ("wifi.slash", 1, "None", "connection", 2, "Not connected to a network", "None", "connection")
         }
     }
 
@@ -198,26 +213,30 @@ struct NetworkView: View {
         let downLevel = r.map { $0.download < 5e6 ? 2 : $0.download < 15e6 ? 1 : 0 } ?? 0          // HD and 4K video
         let upLevel = r.map { $0.upload < 1e6 ? 2 : $0.upload < 3.8e6 ? 1 : 0 } ?? 0               // video calls
         let waitLevel = r.map { $0.rpm <= NetworkCheck.poorRPM ? 2 : $0.rpm < NetworkCheck.goodRPM ? 1 : 0 } ?? 0
-        tile("arrow.down", r.map { short($0.download) }, "Mbps down", downLevel)
-        tile("arrow.up", r.map { short($0.upload) }, "Mbps up", upLevel)
-        tile("timer", r.map { NetworkCheck.grouped(NetworkCheck.delay($0)) }, "ms wait", waitLevel)
+        // plain labels under each figure, with its unit small beside it (Phil, 16 November 2026: "for a lay person that may
+        // be technical jargon"); "Delay" rather than "latency", as it's what people notice
+        tile("arrow.down", r.map { short($0.download) }, "Mbps", "Download", downLevel)
+        tile("arrow.up", r.map { short($0.upload) }, "Mbps", "Upload", upLevel)
+        tile("timer", r.map { NetworkCheck.grouped(NetworkCheck.delay($0)) }, "ms", "Delay", waitLevel)
     }
 
-    func tile(_ symbol: String, _ value: String?, _ unit: String, _ level: Int) -> some View {
+    func tile(_ symbol: String, _ value: String?, _ unit: String, _ label: String, _ level: Int) -> some View {
         tileFrame {
-            HStack(spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Image(systemName: symbol).font(.caption.weight(.semibold))
                     .foregroundStyle(value == nil ? Ink.muted : NetworkView.color(level))
                 if let value {
+                    // the figure gives way before its unit does, so "Mbps" is never cut off
                     Text(value).font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
-                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                    Text(unit).font(.caption2).foregroundStyle(Ink.muted).fixedSize().layoutPriority(1)
                 } else if testing {
                     DashWave()
                 } else {
                     Text("–").font(.system(.title3, design: .rounded).weight(.semibold)).foregroundStyle(Ink.muted)
                 }
             }
-        } unit: { Text(unit) }
+        } unit: { Text(label) }
     }
 
     /// A tile's frame, the same size whatever it holds.
@@ -377,8 +396,9 @@ struct NetworkView: View {
 /// Dashes moving across a tile while the test runs, in place of the figure it's measuring: light, and no images.
 struct DashWave: View {
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.15)) { t in
-            let step = Int(t.date.timeIntervalSinceReferenceDate / 0.15) % 4
+        // a step every 0.3 seconds: slow enough to read as calm (Phil, 16 November 2026: "slow down the animation on the numbers")
+        TimelineView(.periodic(from: .now, by: 0.3)) { t in
+            let step = Int(t.date.timeIntervalSinceReferenceDate / 0.3) % 4
             HStack(spacing: 3) {
                 ForEach(0..<4, id: \.self) { i in
                     Capsule().fill(Ink.muted.opacity(i == step ? 0.9 : 0.3)).frame(width: 7, height: 3)
