@@ -47,6 +47,15 @@ public enum BackgroundAgents {
         return Agent(label: label, plist: path, program: prog, owner: appName(prog) ?? label)
     }
 
+    /// A helper in your login session labelled like Apple's whose program Apple didn't sign (see Disguise), which its
+    /// card offers to turn off the same way; nil for anything else.
+    public static func disguised(plist path: String) -> Agent? {
+        guard folders.contains((path as NSString).deletingLastPathComponent),
+              let item = Disguise.launchItems(in: [(path as NSString).deletingLastPathComponent]).first(where: { $0.plist == path }),
+              item.signer == .other else { return nil }
+        return Agent(label: item.label, plist: item.plist, program: item.program, owner: item.label)
+    }
+
     /// Every helper in these folders.
     public static func all(in dirs: [String] = folders) -> [Agent] {
         dirs.flatMap { dir in
@@ -112,7 +121,8 @@ public enum BackgroundAgents {
     /// Turns it off: kept from loading at login, and stopped now. True when both took.
     @discardableResult
     public static func turnOff(_ a: Agent, marker m: String = marker) -> Bool {
-        guard !a.label.hasPrefix("com.apple.") else { return false }
+        // never macOS's own: a com.apple label only when Apple didn't sign what it starts (see Disguise)
+        guard !a.label.hasPrefix("com.apple.") || Disguise.signer(a.program) == .other else { return false }
         launchctl(["disable", "\(domain)/\(a.label)"])
         launchctl(["bootout", "\(domain)/\(a.label)"])
         let ok = isDisabled(a.label) && !isLoaded(a.label)

@@ -30,16 +30,27 @@ public struct Pattern {
     /// True once someone has checked the source says what the entry says (link it in the pull request).
     public var checked = false
 
-    public func matches(name: String, path: String?) -> Bool {
+    /// A name counts only from the kernel (`name` is the kernel's, never the name a program gives itself) and only for
+    /// macOS's own copy, in macOS's own folders. A missing path counts as macOS only for pid 0 (kernel_task, which has
+    /// no program file); for any other process it means Cool Head couldn't check, not that it's macOS (research rule 1,
+    /// node N-021: only pid 0 had no path among the processes tested).
+    public func matches(name: String, path: String?, pid: pid_t) -> Bool {
         let n = name.lowercased()
-        // a name alone could be anyone's program; it counts only for macOS's own copy (or when the path is unknown)
-        if names.contains(where: { $0.lowercased() == n }) { return path.map(CaseReport.isMacOS) ?? true }
+        // a name alone could be anyone's program
+        if names.contains(where: { $0.lowercased() == n }) { return path.map(CaseReport.isMacOS) ?? (pid == 0) }
         if let p = path, pathContains.contains(where: { p.contains($0) }) { return true }
         return false
     }
 
-    public static func match(name: String, path: String?) -> Pattern? {
-        catalogue.first { $0.matches(name: name, path: path) }
+    public static func match(name: String, path: String?, pid: pid_t) -> Pattern? {
+        catalogue.first { $0.matches(name: name, path: path, pid: pid) }
+    }
+
+    /// Whether a process name is one of macOS's that the catalogue knows (every `names` entry is macOS's own), or of a
+    /// family of them: Spotlight's workers are numbered and suffixed (mdworker_shared, mds_stores).
+    public static func isMacOSName(_ name: String) -> Bool {
+        let n = name.lowercased()
+        return n.hasPrefix("mdworker") || n.hasPrefix("mds_") || catalogue.contains { $0.names.contains { $0.lowercased() == n } }
     }
 }
 

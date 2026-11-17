@@ -20,7 +20,7 @@ public enum CaseReport {
     public static func make(_ e: Evidence, card: Card, mac: MacState, busySince: Date?, now: Date = Date()) -> String {
         var lines: [String] = []
         lines.append("**Process:** \(identity(e))")
-        lines.append("**What Cool Head said:** \(stateWords(card.state))" + (Pattern.match(name: e.name, path: e.path).map { " (catalogue entry `\($0.id)`)" } ?? " (no catalogue entry)"))
+        lines.append("**What Cool Head said:** \(stateWords(card.state))" + (Pattern.match(name: e.name, path: e.path, pid: e.pid).map { " (catalogue entry `\($0.id)`)" } ?? " (no catalogue entry)"))
         lines.append("**Busy for:** \(rough(now.timeIntervalSince(busySince ?? e.start ?? now)))")
         lines.append("**CPU:** about \(Fmt.cores(e.coresNow)) now, \(Fmt.cores(e.coresAverage)) on average since it started")
         if let p = e.performanceShare { lines.append("**On performance cores:** \(Int((p * 100).rounded()))% of its time") }

@@ -151,7 +151,7 @@ public final class Watcher {
         backupExcluded = UserDefaults.standard.stringArray(forKey: BackupExclusions.marker) == nil ? [] : BackupExclusions.excludedByCoolHead()
     }
     @discardableResult public func turnOffAgent(label: String, plist: String) -> Bool {
-        guard let a = BackgroundAgents.agent(plist: plist), a.label == label else { log("Stop it starting by itself pressed: plist not found"); return false }
+        guard let a = BackgroundAgents.agent(plist: plist) ?? BackgroundAgents.disguised(plist: plist), a.label == label else { log("Stop it starting by itself pressed: plist not found"); return false }
         let ok = BackgroundAgents.turnOff(a)
         log("Stop it starting by itself pressed for \(a.label): " + (ok ? "turned off" : "failed"))
         refreshHeldBack(force: true)
@@ -340,6 +340,22 @@ public final class Watcher {
         return ok ? .done("Stopped \(c.displaySubject.isEmpty ? "it" : c.displaySubject).") : .failed(why)
     }
 
+    /// For a program pretending to be macOS's (see Disguise): turns off the Apple-labelled launch item that starts it (yours
+    /// only), stops it, and moves its files to the Trash, where they can be put back. Never anything in macOS's own
+    /// folders or signed by Apple. Only after the person confirms.
+    public func stopAndTrash(_ c: LiveCard, paths: [String], launchItem: String?) -> Outcome {
+        guard !Disguise.refusesTrash(paths) else {
+            log("Stop and delete pressed for \(c.reportSubject): refused, part of macOS"); return .failed("it's part of macOS after all")
+        }
+        if let plist = launchItem, let a = BackgroundAgents.disguised(plist: plist) { BackgroundAgents.turnOff(a); refreshHeldBack(force: true) }
+        if let p = c.pid, sameProcess(c) { kill(p, SIGTERM) }
+        let failed = Disguise.moveToTrash(paths)
+        log("Stop and delete pressed for \(c.reportSubject): " + (failed.isEmpty ? "stopped and moved to the Trash" : "stopped; \(failed.count) file(s) not moved"))
+        if failed.isEmpty { cards.removeAll { $0.cause == c.cause } }
+        return failed.isEmpty ? .done("Stopped it and moved it to the Trash. You can put it back from there.")
+            : .failed("macOS didn't let Cool Head move \(failed.joined(separator: " and ")) to the Trash; drag it there in Finder, which asks for your password")
+    }
+
     /// Lets a process carry on that something other than Cool Head paused. Checked by reading back its state.
     public func resumeStopped(_ c: LiveCard) -> Outcome {
         guard let p = c.pid, sameProcess(c) else { log("Resume pressed for \(c.reportSubject): it had already gone"); return .gone }
@@ -524,14 +540,14 @@ public final class Watcher {
         }
         for (pid, tr, e) in gathered {
             let feed = SyncApps.app(bundle: e.appBundle).flatMap { SyncFeed.find(sync: $0, writers: writers) }
-            let backup = Pattern.match(name: e.name, path: e.path)?.id == "time-machine" ? BackupExclusions.find(writers: fileWriters) : nil
+            let backup = Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "time-machine" ? BackupExclusions.find(writers: fileWriters) : nil
             // another app's background helper, by its program or a program that started it, up to the first regular app
             // (an app you use is quit, never turned off)
             let programs = ([(pid, e.path)] + e.ancestors.map { ($0.pid, $0.path) })
                 .prefix { NSRunningApplication(processIdentifier: $0.0)?.activationPolicy != .regular }.compactMap(\.1)
             let agent = e.mine ? BackgroundAgents.owner(of: Array(programs)) : nil
             let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
-                              syncFeed: feed, agent: agent, backupFeed: backup)
+                              syncFeed: feed, agent: agent, backupFeed: backup, disguise: Disguise.find(e))
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)
