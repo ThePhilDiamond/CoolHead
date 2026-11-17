@@ -127,11 +127,10 @@ public enum MemoryAdvice {
         var fixes: [Fix] = []
         var limitNote: String? = nil
         // the biggest app has been leaking: quitting and reopening it gives the memory back, so that's the advice
-        var leakNote = ""
+        var leaking: (headline: String, sentence: String, fix: Fix)? = nil
         if let l = leak, top.kind == .app, let b = top.bundle {
-            let add = Leaks.addition(l, app: top.name, bundle: b, now: now, losesWork: quitRisks[top.name]?.losesWork == true)
-            leakNote = add.sentence
-            fixes.append(add.fix)
+            leaking = Leaks.addition(l, app: top.name, bundle: b, now: now, losesWork: quitRisks[top.name]?.losesWork == true)
+            fixes.append(leaking!.fix)
         }
 
         switch top.kind {
@@ -165,7 +164,7 @@ public enum MemoryAdvice {
             } else if let b = top.bundle, SecuritySoftware.product(path: b + "/", name: top.name) == nil {   // never security software
                 // recommended when quitting loses nothing reopening can't bring back (Slack, or an app that asks to save)
                 let cost = quitRisks[top.name]
-                var quit = Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). " + (cost?.words ?? "It'll ask to save first."),
+                var quit = Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). " + (cost?.words ?? "Save your work first; it asks about anything unsaved."),
                                kind: .quitApp(b), recommended: cost?.losesWork != true)
                 if cost?.losesWork == true { quit = quit.losingWork() }
                 fixes.append(quit)
@@ -196,15 +195,19 @@ public enum MemoryAdvice {
         if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
                                                         && SecuritySoftware.product(path: $0.bundle! + "/", name: $0.name) == nil }), let b = alt.bundle {
             let cost = alt.kind == .browser ? QuitCost.loses("Closes all tabs.") : SyncApps.app(bundle: b) != nil ? QuitCost.keeps(syncQuit)
-                : (quitRisks[alt.name] ?? QuitCost.keeps("It'll ask to save first."))
+                : (quitRisks[alt.name] ?? QuitCost.keeps("Save your work first; it asks about anything unsaved."))
             let quit2 = Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees \(Fmt.bytes(alt.bytes)). " + cost.words, kind: .quitApp(b))
             fixes.append(cost.losesWork ? quit2.losingWork() : quit2)
         }
         if lowDisk(s) { fixes.append(freeDisk) }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
                          kind: .wait(now.addingTimeInterval(1800)), recommended: !fixes.contains { $0.recommended }))
-        var card = Card(state: .unknown, headline: head, explanation: expl + leakNote + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
-        card.names = names
+        // a leak: the verdict leads, with its evidence and advice alone, and a plain quit of the same app isn't offered too,
+        // so the choice is easy
+        if leaking != nil { fixes.removeAll { $0.id == "quit" } }
+        var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
+                        explanation: leaking?.sentence ?? expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
+        card.names = leaking != nil ? [top.name] : names
         return card
     }
 

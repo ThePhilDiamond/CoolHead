@@ -63,10 +63,14 @@ extension Fixture {
         let chromeCard = MemoryAdvice.card([chrome], mac: leakTightMac(), now: now, leak: steady)
         let none = MemoryAdvice.card([pages], mac: leakTightMac(), now: now)
         let r = card.recommended
-        let r3 = card.explanation.contains("Pages has grown from 1.1 GB to 8.5 GB over 3 hours with the same windows open: that's usually a leak. We can't be certain. Quit and reopen it to get the memory back.")
+        let r3 = card.headline == "Memory is tight: Pages is using 8.5 GB, far more than it needs."
+            && card.explanation == "With the same windows open, it used 1.1 GB three hours ago: probably a leak. Save your work, then quit and reopen it."
+            && r?.consequence.hasPrefix("Save your work first.") == true && !card.fixes.contains { $0.id == "quit" }
+            && (card.headline + " " + card.explanation).split(separator: " ").count <= 40
             && r?.id == "reopen" && r?.kind == .restartApp(pagesBundle) && r?.caution == false && r?.title == "Quit and reopen Pages"
             && claudeCard.recommended?.caution == true && !chromeCard.fixes.contains { $0.id == "reopen" } && !none.fixes.contains { $0.id == "reopen" }
-        review.append(("leak-card", r3, card.explanation + " Options: \(card.fixes.map(\.id)); \(r?.consequence ?? "")"))
+        let parts = "[claude caution \(claudeCard.recommended?.caution == true) \(claudeCard.recommended?.id ?? "-"); chrome \(!chromeCard.fixes.contains { $0.id == "reopen" }); none \(!none.fixes.contains { $0.id == "reopen" }); words \((card.headline + " " + card.explanation).split(separator: " ").count)] "
+        review.append(("leak-card", r3, parts + card.headline + " " + card.explanation + " Options: \(card.fixes.map(\.id)); \(r?.consequence ?? "")"))
 
         // on this Mac: the window list can be read without a permission
         let counts = Leaks.windowCounts()

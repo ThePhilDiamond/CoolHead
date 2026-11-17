@@ -85,16 +85,24 @@ public enum Leaks {
         }
     }
 
-    /// What the memory card says about a leaking app, and its option: quit it the normal way (it asks to save), then
-    /// open it again. Caution only where quitting loses work (see MemoryAdvice.quitRisks).
-    public static func addition(_ l: Leak, app: String, bundle: String, now: Date, losesWork: Bool) -> (sentence: String, fix: Fix) {
-        let hours = Int(now.timeIntervalSince(l.since) / 3600)
-        let span = hours < 2 ? "two hours" : "\(hours) hours"
-        let sentence = " \(app) has grown from \(Fmt.bytes(l.from)) to \(Fmt.bytes(l.to)) over \(span) with the same windows open: that's usually a leak. We can't be certain. Quit and reopen it to get the memory back."
+    /// "two hours", "11 hours": a number of hours in words for small numbers, so a sentence reads easily.
+    static func hours(_ h: Int) -> String {
+        let words = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+        return h == 1 ? "an hour" : (h < words.count ? words[h] : "\(h)") + " hours"
+    }
+
+    /// What the memory card says about a leaking app, anchored on what the same app used earlier with the same windows
+    /// open (Phil, 16 November 2026: "anchor against typical use ... make it easy to make a decision"): a verdict for
+    /// the headline, one sentence with the evidence and the advice, and the option, saving first. Caution only where
+    /// quitting loses work (see MemoryAdvice.quitRisks).
+    public static func addition(_ l: Leak, app: String, bundle: String, now: Date, losesWork: Bool) -> (headline: String, sentence: String, fix: Fix) {
+        let h = max(2, Int(now.timeIntervalSince(l.since) / 3600))
+        let headline = "\(app) is using \(Fmt.bytes(l.to)), far more than it needs."
+        let sentence = "With the same windows open, it used \(Fmt.bytes(l.from)) \(hours(h)) ago: probably a leak. Save your work, then quit and reopen it."
         var fix = Fix(id: "reopen", title: "Quit and reopen \(app)",
-                      consequence: "Gives back about \(Fmt.bytes(l.to - min(l.to, l.from))). It asks to save first, and may not bring back every window you had open.",
+                      consequence: "Save your work first. Gives back about \(Fmt.bytes(l.to - min(l.to, l.from))); some windows may not reopen.",
                       kind: .restartApp(bundle), recommended: true)
         if losesWork { fix = fix.losingWork() }
-        return (sentence, fix)
+        return (headline, sentence, fix)
     }
 }
