@@ -1236,28 +1236,13 @@ struct FrostStyle {
     var wild: [Wild] = []
     struct Wild { enum Edge { case top, left, right }; var edge: Edge; var at: CGFloat; var lean: CGFloat; var length: CGFloat; var curl: CGFloat }
 
-    /// Versions to compare (COOLHEAD_SNAPSHOT_FROST); the first batch was sparse, even, corners and wild (Phil, 16
-    /// November 2026: "Corners is close, but it needs a bit more texture and 1-2 wild ferns somewhere other than a
-    /// corner"), so this batch builds on corners.
-    static let corners = FrostStyle(seed: 0x5EED5, edgeSpacing: 38, edgeLength: 5...12, cornerFerns: 4, cornerLength: 26...50, curl: 0.5)
-    static let versions: [String: FrostStyle] = [
-        "corners": { var s = corners; s.reachers = 1; s.reachLength = 70; return s }(),
-        // 1: corners, some grain, one wild fern from the top, leaning right
-        "one": { var s = corners; s.grain = 140
-            s.wild = [Wild(edge: .top, at: 0.62, lean: 0.55, length: 62, curl: 0.7)]; return s }(),
-        // 2: more grain, two wild ferns: one from the top, one from the right side
-        "two": { var s = corners; s.grain = 240; s.edgeSpacing = 30
-            s.wild = [Wild(edge: .top, at: 0.38, lean: -0.6, length: 58, curl: -0.8),
-                      Wild(edge: .right, at: 0.45, lean: 0.5, length: 54, curl: 0.6)]; return s }(),
-        // 3: needles mostly, edge ferns a touch longer, one long sweeping fern from the left side
-        "three": { var s = corners; s.grain = 200; s.edgeLength = 7...15; s.seed = 0xB10C
-            s.wild = [Wild(edge: .left, at: 0.4, lean: -0.75, length: 80, curl: 0.9)]; return s }(),
-        // 4: heaviest texture, denser edges, two short wild ferns from the top at different places
-        "four": { var s = corners; s.grain = 320; s.edgeSpacing = 26; s.edgeLength = 6...14; s.seed = 0x1CE
-            s.wild = [Wild(edge: .top, at: 0.3, lean: 0.6, length: 46, curl: 0.9),
-                      Wild(edge: .top, at: 0.78, lean: -0.5, length: 40, curl: -0.7)]; return s }(),
-    ]
-    static let current: FrostStyle = versions[ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FROST"] ?? "corners"] ?? versions["corners"]!
+    /// The frost in use: Phil chose it from two batches of renders (16 November 2026: "I think version 4 of the frost is
+    /// the best"): ferns fanning from the corners, short ones along the edges, the most texture, and two short wild
+    /// ferns from the top. Change a number here and render to tune it.
+    static let current = FrostStyle(seed: 0x1CE, edgeSpacing: 26, edgeLength: 6...14, cornerFerns: 4, cornerLength: 26...50,
+                                    curl: 0.5, grain: 320,
+                                    wild: [Wild(edge: .top, at: 0.3, lean: 0.6, length: 46, curl: 0.9),
+                                           Wild(edge: .top, at: 0.78, lean: -0.5, length: 40, curl: -0.7)])
 }
 
 /// One option: a button with what it would cause underneath. The recommended one stands out.
