@@ -7,9 +7,11 @@ import Security
 /// `Pattern.matches`). So a program that calls itself by one of macOS's names from anywhere else isn't macOS's. Miners
 /// hidden in pirated apps have run as `mdworker_local` and `mdworker_shared` from /private/tmp and /usr/local/bin
 /// (Jamf Threat Labs, 23 February 2023; Intego, 9 March 2023), and a backdoor has used the label com.apple.qtop for its
-/// helper in ~/Library/LaunchAgents (Jamf, September 2025). The card says "isn't macOS's own" and "worth a look", never
-/// "malware": an Apple installer has left an unsigned com.apple.installer.osmessagetracing.plist in
-/// /Library/LaunchDaemons (Apple Community 254334032), and someone's own tool can share a name with one of macOS's.
+/// helper in ~/Library/LaunchAgents (Jamf, September 2025). The card says what Cool Head thinks ("pretending to be part
+/// of macOS"), a brief disclaimer, and its advice (Phil, 16 November 2026: "Say what we think, use a brief disclaimer,
+/// then give our advice"). It never says "is malware": an Apple installer has left an unsigned
+/// com.apple.installer.osmessagetracing.plist in /Library/LaunchDaemons (Apple Community 254334032), and someone's own
+/// tool can share a name with one of macOS's.
 ///
 /// Apple's own programs outside macOS's folders (Xcode's simulators run copies of macOS's services) pass the test
 /// `anchor apple`, which only programs Apple signed pass; a Developer ID or no signature fails it. "No Team ID" is not
@@ -153,59 +155,54 @@ public enum Disguise {
         return dir.hasPrefix(home + "/") ? "~" + dir.dropFirst(home.count) : dir
     }
 
-    /// The names miners have used (see the sources above): the card says so for these.
-    static let minerNames: Set<String> = ["mdworker_local", "mdworker_shared"]
+    /// The one disclaimer every finding carries, kept short: the terms of use say the rest.
+    static let disclaimer = "We can't be certain it's harmful."
 
     /// The card for a finding, in place of the usual one: who it is comes before what it's doing (research rules,
-    /// "Order of evaluation").
+    /// "Order of evaluation"). What Cool Head thinks, the disclaimer, then its advice, which is the recommended option.
     public static func card(_ f: Finding, _ e: Evidence) -> Card {
-        let lookUp = Card.lookUp(e.name, recommended: false)
-        let stop: Fix? = e.mine && e.path.map({ !CaseReport.isMacOS($0) }) == true
-            ? Fix(id: "stop", title: "Stop it", consequence: "Only if you know what it is. It may start again if something keeps restarting it.", kind: .stop)
-            : nil
+        let delete = { (path: String, steps: String, rec: Bool) in
+            Fix(id: "delete", title: "Delete it", consequence: "Shows it in Finder, to drag to the Trash.", kind: .reveal(path, steps), recommended: rec).fixingTheCause()
+        }
         switch f {
         case .macOSName(let name, let path):
-            let miner = minerNames.contains(name.lowercased()) ? " Miners hidden in pirated apps have used this exact name." : ""
-            return Card(state: .unknown, headline: "This calls itself \(name), a name macOS uses, but it isn't macOS's own.",
-                        explanation: "macOS's programs with names like this live in its protected folders, signed by Apple; this one runs from \(place(path)), and Apple didn't sign it."
-                            + miner + " If it's yours, that's fine. If you don't know it, it's worth a look.",
-                        fixes: [Fix(id: "reveal", title: "Show it in Finder", consequence: "Shows where it is, and what's beside it.",
-                                    kind: .reveal(path, "Its folder, and the app you installed around the time it appeared, usually say where it came from."), recommended: true),
-                                lookUp, stop, Card.share].compactMap { $0 })
+            let stop: Fix? = e.mine ? Fix(id: "stop", title: "Stop it", consequence: "Ends it now. Delete it too, or it may come back.", kind: .stop, recommended: true) : nil
+            return Card(state: .unknown, headline: "\(name) is pretending to be part of macOS.",
+                        explanation: "It uses a macOS name but runs from \(place(path)), without Apple's signature: a common malware trick. \(disclaimer) Stop it, then delete it.",
+                        fixes: [stop, delete(path, "Drag it to the Trash, then empty the Trash.", stop == nil), Card.share].compactMap { $0 })
         case .unchecked(let name):
-            return Card(state: .unknown, headline: "\(name) has a name macOS uses, but Cool Head couldn't check where it lives.",
-                        explanation: "macOS didn't say where its program is, so Cool Head can't tell whether it's macOS's own, which lives in macOS's protected folders.",
-                        fixes: [Card.lookUp(e.name, recommended: true), Card.share])
-        case .notAppleSigned(let name, let path):
-            return Card(state: .unknown, headline: "\(name) is in macOS's folders, but Apple didn't sign this copy.",
-                        explanation: "System Integrity Protection is off on this Mac, so macOS's folders aren't protected and a program in them can be replaced. macOS's own \(name) is signed by Apple; this one isn't. If you turned protection off yourself, you may know why; if not, it's worth a look.",
-                        fixes: [Fix(id: "reveal", title: "Show it in Finder", consequence: "Shows where it is.", kind: .reveal(path, "macOS's own copy would be signed by Apple."), recommended: true),
-                                Fix.guide("sip", "Turn System Integrity Protection back on", "Protects macOS's folders again. Needs a restart into Recovery.",
+            return Card(state: .working, headline: "\(name) is probably part of macOS, but we couldn't confirm it.",
+                        explanation: "macOS didn't say where its program lives. Nothing to do unless it stays busy for hours.",
+                        fixes: [Card.share])
+        case .notAppleSigned(let name, _):
+            return Card(state: .unknown, headline: "This copy of \(name) isn't Apple's.",
+                        explanation: "System Integrity Protection is off, so macOS's own programs can be replaced, and this one has been. \(disclaimer) Turn protection back on and reinstall macOS; your files are kept.",
+                        fixes: [Fix.guide("restore", "Turn protection on and reinstall macOS", "Puts back Apple's own copy. Your files and apps are kept.",
                                           steps: ["Shut down your Mac.", "Press and hold the power button until the startup options appear, then choose Options to start in Recovery.",
-                                                  "Choose Utilities ▸ Terminal, type csrutil enable, and press Return.", "Restart."]),
-                                lookUp, Card.share])
+                                                  "Choose Utilities ▸ Terminal, type csrutil enable, press Return, then quit Terminal.",
+                                                  "Choose Reinstall macOS and follow the steps."], recommended: true).fixingTheCause(),
+                                Card.share])
         case .appleLabel(let label, let plist, let program):
             let folder = (plist as NSString).deletingLastPathComponent
-            let daemon = folder == "/Library/LaunchDaemons"
             let shown = folder == NSHomeDirectory() + "/Library/LaunchAgents" ? "your LaunchAgents folder" : folder
             let file = (program as NSString).lastPathComponent
-            var fixes: [Fix?] = [Fix(id: "reveal", title: "Show the item in Finder", consequence: "Shows its file, \((plist as NSString).lastPathComponent).",
-                                     kind: .reveal(plist, "It starts \(file)."), recommended: true)]
-            if daemon {
+            var off: Fix?
+            if folder == "/Library/LaunchDaemons" {
                 // the system's own launch items need an administrator to turn off (see the padlock line in the research)
-                fixes.append(Fix.guide("loginitems", "Turn it off in Login Items", "Needs an administrator password.",
-                                       steps: ["Open System Settings ▸ General ▸ Login Items & Extensions.",
-                                               "Under Allow in the Background, find the item for \(file) and switch it off.",
-                                               "Enter an administrator password if asked."]))
+                off = Fix.guide("loginitems", "Turn it off in Login Items", "Needs an administrator password.",
+                                steps: ["Open System Settings ▸ General ▸ Login Items & Extensions.",
+                                        "Under Allow in the Background, find the item for \(file) and switch it off.",
+                                        "Enter an administrator password if asked."], recommended: true)
             } else if e.mine {
                 // in your login session: the same turning off as another app's helper (see BackgroundAgents), which allows a
                 // com.apple label only when Apple didn't sign the program
-                fixes.append(BackgroundAgents.fix(BackgroundAgents.Agent(label: label, plist: plist, program: program, owner: label)))
+                var a = BackgroundAgents.fix(BackgroundAgents.Agent(label: label, plist: plist, program: program, owner: label))
+                a.recommended = true
+                off = a
             }
-            fixes += [lookUp, stop, Card.share]
-            return Card(state: .unknown, headline: "A background item is labelled like Apple's, but Apple didn't sign its program.",
-                        explanation: "\(e.name) was started by \(label), from \(shown). Apple's own background items are signed by Apple. An Apple installer has left one like this before, so it may be harmless; if you don't know it, it's worth a look.",
-                        fixes: fixes.compactMap { $0 })
+            return Card(state: .unknown, headline: "A background item is pretending to be Apple's.",
+                        explanation: "\(label) starts \(file) from \(shown), without Apple's signature: a common malware trick. \(disclaimer) Turn it off, then delete it.",
+                        fixes: [off, delete(plist, "Drag it to the Trash, and its program, \(file), too.", off == nil), Card.share].compactMap { $0 })
         }
     }
 }

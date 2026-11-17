@@ -52,31 +52,32 @@ extension Fixture {
             && judge(simulator, signed: apple) == nil && judge(script) == nil && judge(unrelated) == nil
         review.append(("disguise-macos-name-elsewhere", r2, "miner \(String(describing: judge(miner))); renamed \(String(describing: judge(renamed))); Apple-signed simulator copy, a script and mdserve not flagged"))
 
-        // the card: who it is, where it runs, "worth a look", never "malware"; showing it is recommended; stopping it is
-        // offered with Caution; the miner sentence only for the names miners used
+        // the card: what Cool Head thinks, one short disclaimer, then its advice, which is the recommended option (Phil,
+        // 16 November 2026: "Say what we think, use a brief disclaimer, then give our advice"); few words; never "is malware"
         let minerCard = Card.make(miner, now: now, disguise: judge(miner))
-        let ownCard = Card.make(own, now: now, disguise: judge(own))
+        let theirs = disguiseEvidence("mdworker_shared", "/usr/local/bin/mdworker_shared", mine: false, now: now)
+        let theirsCard = Card.make(theirs, now: now, disguise: judge(theirs))
         let text = { (c: Card) in c.headline + " " + c.explanation }
-        let r3 = minerCard.state == .unknown && minerCard.headline == "This calls itself mdworker_local, a name macOS uses, but it isn't macOS's own."
-            && text(minerCard).contains("runs from a temporary folder") && text(minerCard).contains("Miners hidden in pirated apps")
-            && minerCard.recommended?.id == "reveal" && minerCard.fixes.contains { $0.id == "stop" && $0.caution }
-            && !text(ownCard).contains("Miners") && text(ownCard).contains("If it's yours, that's fine.")
-            && ![minerCard, ownCard].contains { text($0).lowercased().contains("malware") }
-        review.append(("disguise-card", r3, text(minerCard) + " Options: \(minerCard.fixes.map(\.id))"))
+        let r3 = minerCard.state == .unknown && minerCard.headline == "mdworker_local is pretending to be part of macOS."
+            && minerCard.explanation == "It uses a macOS name but runs from a temporary folder, without Apple's signature: a common malware trick. We can't be certain it's harmful. Stop it, then delete it."
+            && minerCard.recommended?.id == "stop" && minerCard.fixes.map(\.id) == ["stop", "delete", "share"]
+            && theirsCard.recommended?.id == "delete" && !theirsCard.fixes.contains { $0.id == "stop" }
+            && text(theirsCard).contains("runs from /usr/local/bin")
+        review.append(("disguise-card", r3, text(minerCard) + " Options: \(minerCard.fixes.map(\.id)); not yours: \(theirsCard.fixes.map(\.id))"))
 
         // a path that couldn't be read: "couldn't check", not macOS and not a disguise
         let unread = disguiseEvidence("mds_stores", nil, args: [], pid: 4321, mine: false, now: now)
         let kernel = disguiseEvidence("kernel_task", nil, args: [], pid: 0, mine: false, now: now)
         let unreadCard = Card.make(unread, now: now, disguise: judge(unread))
         let r4 = judge(unread) == .unchecked(name: "mds_stores") && judge(kernel) == nil
-            && unreadCard.headline.contains("couldn't check where it lives") && !unreadCard.fixes.contains { $0.id == "stop" }
+            && unreadCard.headline == "mds_stores is probably part of macOS, but we couldn't confirm it." && !unreadCard.fixes.contains { $0.id == "stop" }
         review.append(("disguise-unchecked-path", r4, unreadCard.headline))
 
         // with System Integrity Protection off, macOS's folders aren't protected: a catalogue name there must be Apple's
         let mds = disguiseEvidence("mds_stores", mdsPath, mine: false, now: now)
         let offCard = Card.make(mds, now: now, disguise: judge(mds, sip: true))
         let r5 = judge(mds) == nil && judge(mds, sip: true, signed: apple) == nil && judge(mds, sip: true) == .notAppleSigned(name: "mds_stores", path: mdsPath)
-            && offCard.fixes.contains { $0.id == "sip" } && !offCard.fixes.contains { $0.id == "stop" }
+            && offCard.recommended?.id == "restore" && !offCard.fixes.contains { $0.id == "stop" }
             && Disguise.sipOffSaid("System Integrity Protection status: disabled.") && !Disguise.sipOffSaid("System Integrity Protection status: enabled.")
             && Disguise.sipOffSaid("System Integrity Protection status: enabled (Custom Configuration).\n\n\tFilesystem Protections: disabled")
         review.append(("disguise-protection-off", r5, offCard.headline))
@@ -95,9 +96,13 @@ extension Fixture {
         let system = Card.make(qtop, now: now, disguise: judge(qtop, items: [daemonItem]))
         let r6 = judge(qtop, items: [qtopItem]) == .appleLabel(label: "com.apple.qtop", plist: qtopItem.plist, program: qtopProgram)
             && judge(child, items: [qtopItem]) != nil && judge(qtop, items: [signedItem]) == nil && judge(qtop) == nil
-            && yours.fixes.contains { $0.id == "agent" } && !yours.fixes.contains { $0.id == "loginitems" } && yours.recommended?.id == "reveal"
-            && system.fixes.contains { $0.id == "loginitems" } && !system.fixes.contains { $0.id == "agent" }
-            && text(yours).contains("from your LaunchAgents folder")
+            && yours.recommended?.id == "agent" && yours.fixes.map(\.id) == ["agent", "delete", "share"]
+            && system.recommended?.id == "loginitems" && !system.fixes.contains { $0.id == "agent" }
+            && text(yours).contains("com.apple.qtop starts qtop from your LaunchAgents folder")
+        // every finding's card: a verdict, the one disclaimer, advice; at most 40 words; never "is malware"
+        let all = [minerCard, theirsCard, yours, system, offCard]
+        let short = all.allSatisfy { text($0).split(separator: " ").count <= 40 && text($0).contains(Disguise.disclaimer) && !text($0).contains("is malware") && $0.recommended != nil }
+        review.append(("disguise-wording", short, all.map { "\(text($0).split(separator: " ").count) words" }.joined(separator: ", ")))
         review.append(("disguise-apple-label", r6, text(yours) + " Options: \(yours.fixes.map(\.id)); system's: \(system.fixes.map(\.id))"))
 
         // on this Mac, for real: Apple's own program passes `anchor apple`, a file Cool Head writes doesn't; plists labelled
