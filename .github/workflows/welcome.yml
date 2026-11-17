@@ -1,4 +1,9 @@
-# Thanks first-time contributors and points them at the guide.
+# Thanks first-time contributors and points them at the guide: once, on a person's own first issue or first pull request.
+#
+# It used actions/first-interaction@v3, which welcomed anyone whose pull request came before their first issue, on every
+# pull request (it checked "first issue" on pull requests too), and counted everyone's pull requests, not the author's
+# own, when checking for a first pull request (reported upstream: actions/first-interaction#369; fixes open as #402 and
+# #410). This counts only the author's own earlier issues or pull requests.
 name: Welcome
 
 on:
@@ -14,9 +19,25 @@ permissions:
 jobs:
   welcome:
     runs-on: ubuntu-latest
+    # never the owner, members or collaborators: they aren't new
+    if: >-
+      !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+        github.event_name == 'issues' && github.event.issue.author_association || github.event.pull_request.author_association)
     steps:
-      - uses: actions/first-interaction@v3
+      - uses: actions/github-script@v9
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          issue_message: "Thanks for your first report. If it's about a process Cool Head got wrong, the output of `coolhead why <name>` helps most; please check it for anything private first."
-          pr_message: "Thanks for your first pull request. `coolhead selftest` runs on it automatically; if you added a catalogue pattern, please link its source in the description (see docs/DIAGNOSIS.md)."
+          script: |
+            const isPR = context.eventName === 'pull_request_target'
+            const item = isPR ? context.payload.pull_request : context.payload.issue
+            const author = item.user.login
+            if (item.user.type === 'Bot' || author.endsWith('[bot]')) return core.info(`${author} is a bot: no welcome`)
+            // the issues list holds both issues and pull requests; a pull request has a pull_request field
+            const mine = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner, repo: context.repo.repo, creator: author, state: 'all', per_page: 100,
+            })
+            const earlier = mine.filter(i => i.number < item.number && (i.pull_request !== undefined) === isPR)
+            if (earlier.length > 0) return core.info(`${author} has ${earlier.length} earlier ${isPR ? 'pull requests' : 'issues'}: no welcome`)
+            const body = isPR
+              ? "Thanks for your first pull request. `coolhead selftest` runs on it automatically; if you added a catalogue pattern, please link its source in the description (see docs/DIAGNOSIS.md)."
+              : "Thanks for your first report. If it's about a process Cool Head got wrong, the output of `coolhead why <name>` helps most; please check it for anything private first."
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: item.number, body })
