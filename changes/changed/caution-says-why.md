@@ -1,0 +1,1 @@
+- Rest the pointer on a Caution label to see why the option is risky: "It ends at once, without a chance to save or finish what it was doing." Fixes the cause says why too.
