@@ -19,6 +19,7 @@ public struct Fixture {
     static let suites: [(Date) -> [(String, Bool, String)]] = [
         appBuildChecks,
         backgroundAndBackupChecks,
+        backgroundWorkChecks,
         batteryPageChecks,
         browserRestartChecks,
         catalogueChecks,

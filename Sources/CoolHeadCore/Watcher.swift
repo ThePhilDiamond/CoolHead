@@ -145,6 +145,8 @@ public final class Watcher {
     public private(set) var agentsOff: [BackgroundAgents.Agent] = []
     public private(set) var backupExcluded: [String] = []
     @ObservationIgnored private var agentsReadAt = Date.distantPast
+    /// macOS's own busy processes, read at most every 30 seconds each (see BackgroundWork).
+    @ObservationIgnored private var backgroundReadings: [pid_t: (at: Date, reading: BackgroundWork.Reading)] = [:]
     public func refreshHeldBack(force: Bool = false) {
         if UserDefaults.standard.data(forKey: BackgroundAgents.marker) == nil { agentsOff = [] }
         else if force || Date().timeIntervalSince(agentsReadAt) >= 60 { agentsOff = BackgroundAgents.turnedOff(); agentsReadAt = Date() }
@@ -157,6 +159,16 @@ public final class Watcher {
         refreshHeldBack(force: true)
         return ok
     }
+    /// For one of macOS's own processes: its priority, a recent update, and whether it is stuck (see BackgroundWork).
+    func background(_ e: Evidence, _ busySince: Date?, _ state: MacState, _ now: Date) -> BackgroundWork.Reading? {
+        guard e.script == nil, let p = e.path, CaseReport.isMacOS(p) else { return nil }
+        if let r = backgroundReadings[e.pid], now.timeIntervalSince(r.at) < 30 { return r.reading }
+        let r = BackgroundWork.read(e, busySince: busySince, efficiencyCores: state.efficiencyCores, now: now, track: true)
+        backgroundReadings = backgroundReadings.filter { now.timeIntervalSince($0.value.at) < 600 }
+        backgroundReadings[e.pid] = (now, r)
+        return r
+    }
+
     @discardableResult public func turnOnAgent(_ a: BackgroundAgents.Agent) -> Bool {
         let ok = BackgroundAgents.turnOn(a)
         log("Turn back on pressed for \(a.label): " + (ok ? "turned on" : "failed"))
@@ -547,7 +559,7 @@ public final class Watcher {
                 .prefix { NSRunningApplication(processIdentifier: $0.0)?.activationPolicy != .regular }.compactMap(\.1)
             let agent = e.mine ? BackgroundAgents.owner(of: Array(programs)) : nil
             let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
-                              syncFeed: feed, agent: agent, backupFeed: backup, disguise: Disguise.find(e),
+                              syncFeed: feed, agent: agent, backupFeed: backup, disguise: Disguise.find(e), background: background(e, tr.busySince, state, now),
                               apps: AppBuild.facts(e, isWindowServer: Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver"))
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())

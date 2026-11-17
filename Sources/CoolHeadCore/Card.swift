@@ -377,12 +377,13 @@ public struct Card {
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
                             frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil,
                             agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil,
-                            apps: AppBuild.Facts? = nil) -> Card {
+                            background: BackgroundWork.Reading? = nil, apps: AppBuild.Facts? = nil) -> Card {
         // who it is comes first: a program borrowing macOS's name or an Apple label gets that card, whatever it's doing
-        // (see Disguise)
+        // (see Disguise); then macOS's own work that is stuck (see BackgroundWork)
         var c = disguise.map { Disguise.card($0, e) }
+            ?? BackgroundWork.stuckCard(e, background, now: now)
             ?? body(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery,
-                    syncFeed: syncFeed, backupFeed: backupFeed)
+                    syncFeed: syncFeed, backupFeed: backupFeed, background: background)
         // another app's background helper: stopping it doesn't last, since launchd starts it again, so turning it off is
         // offered too (see BackgroundAgents); never on macOS's own or security software, which never get here as agents
         if let a = agent, e.mine, c.state != .quiet, !c.fixes.contains(where: { $0.id == "agent" }) {
@@ -409,7 +410,8 @@ public struct Card {
     }
 
     static func body(_ e: Evidence, now: Date, busySince: Date?, warm: Bool, gameRunning: String?,
-                     frontApp: String?, battery: Int?, syncFeed: SyncFeed?, backupFeed: BackupFeed? = nil) -> Card {
+                     frontApp: String?, battery: Int?, syncFeed: SyncFeed?, backupFeed: BackupFeed? = nil,
+                     background: BackgroundWork.Reading? = nil) -> Card {
         let onBattery = battery != nil
         let who = subject(e)
         let since = busySince ?? e.start ?? now
@@ -443,12 +445,18 @@ public struct Card {
 
         // macOS's own processes: what it is doing, and whether this has gone on longer than usual
         if let k = Pattern.match(name: e.name, path: e.path, pid: e.pid), e.progress == nil {
-            let long = busyFor > k.usualHours * 3600 && busyFor >= 20 * 60
+            // after a macOS update, indexing and analysis are expected for hours to days (see BackgroundWork)
+            let updated = k.afterUpdate ? background?.update : nil
+            let long = updated == nil && busyFor > k.usualHours * 3600 && busyFor >= 20 * 60
+            // its busy threads at background priority: on the efficiency cores, little power whatever % CPU says
+            let cool = active && background?.cool == true
+                ? " It's running at low priority, on the chip's efficiency cores, so it uses little power even though it looks busy." : ""
             // Time Machine copying a build's output: the build folder is the cause to fix (see BackupExclusions)
             let feed = k.id == "time-machine" && active ? backupFeed : nil
             let explanation = (long
                 ? "It usually takes under \(Fmt.duration(k.usualHours * 3600))."
-                : k.usually + (k.endsOnItsOwn ? " It stops on its own." : "")) + Fmt.its([gpuClause])
+                : updated.map { "You updated to macOS \($0.version) \(BackgroundWork.ago($0.date, now: now)); this usually goes on for hours or days after an update." }
+                    ?? k.usually + (k.endsOnItsOwn ? " It stops on its own." : "")) + cool + Fmt.its([gpuClause])
                 + (feed.map { " " + $0.sentence() } ?? "")
             var fixes: [Fix] = feed.map { [$0.fix(recommended: true)] } ?? []
             if long {
@@ -474,6 +482,7 @@ public struct Card {
             }
             let head = !active ? "\(k.doing). It's quiet now."
                 : long ? "\(k.doing). It's been \(Fmt.duration(busyFor)), longer than usual."
+                : updated != nil ? "\(k.doing). That's normal after an update."
                 : "\(k.doing). That's normal."
             // a statement, not an option: macOS restarts its own programs
             return Card(state: !active ? .quiet : long ? .unknown : .working, headline: head,

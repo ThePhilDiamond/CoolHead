@@ -1,0 +1,2 @@
+- Cards about macOS's own background work read it by priority and time, not % CPU: Spotlight indexing at low priority says it runs on the efficiency cores and uses little power; after a macOS update it says "You updated to macOS 27.2 2 days ago", and that's normal for hours or days.
+  - macOS's own work busy for over a day says it seems stuck, and advises a restart. Still busy after a restart, it says only Apple can fix it, and offers to check for a macOS update or tell Apple.
