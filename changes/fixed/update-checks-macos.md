@@ -1,0 +1,1 @@
+- An update that needs a newer macOS than your Mac has is no longer installed over the copy that works: Cool Head says which macOS it needs, keeps your copy, and stops offering that version.

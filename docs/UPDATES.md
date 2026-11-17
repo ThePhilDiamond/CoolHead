@@ -12,6 +12,7 @@ One request to GitHub's public API for the latest release of this repository. If
 2. The matching public key is built into the app (`Sources/CoolHeadApp/Updater.swift`).
 3. Before installing, the app checks the signature against that key, and refuses the update if it doesn't match, so a changed or substituted download is never installed.
 4. It also checks the download is Cool Head (same bundle identifier), at the version announced, with an intact code signature.
+5. It checks the update can run on this Mac: the macOS version the update needs (its `LSMinimumSystemVersion`) against this Mac's. If this Mac is older, the update isn't installed, the working copy stays, the panel says which macOS it needs, and that version isn't offered again. Versions before 0.8.0 don't make this check, so a release that needs a newer macOS than its users have must say so in its notes.
 5. It moves the running copy to the Trash (so it can be put back) and puts the new one in its place, then reopens.
 
 A release without a signature can't be installed from inside the app; the panel says so and points to the release page.

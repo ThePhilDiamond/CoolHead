@@ -57,7 +57,9 @@ final class Updater {
                     .flatMap { $0["browser_download_url"] as? String }.flatMap(URL.init(string:))
             }
             zip = asset(".zip"); sig = asset(".zip.sig")
-            if Updater.newer(version, than: CoolHead.version) {
+            // an update already found to need a newer macOS isn't offered again (a later one is)
+            let tooNew = UserDefaults.standard.string(forKey: Updater.needsNewerMacOSKey) == version
+            if Updater.newer(version, than: CoolHead.version) && !tooNew {
                 phase = .available(version)
                 Watcher.shared.log("Update available: \(version)")
             } else if !quiet {
@@ -99,6 +101,13 @@ final class Updater {
                   info["CFBundleShortVersionString"] as? String == version else {
                 throw Problem("the download wasn't the expected version of Cool Head")
             }
+            // 2a. it must run on this Mac: an update built for a newer macOS would replace a working copy with one
+            // macOS refuses to open, so it isn't installed, and isn't offered again
+            let minimum = info["LSMinimumSystemVersion"] as? String
+            guard UpdateCheck.runs(minimum: minimum) else {
+                UserDefaults.standard.set(version, forKey: Updater.needsNewerMacOSKey)
+                throw Problem(UpdateCheck.tooOld(version: version, minimum: minimum ?? "?"))
+            }
             try Updater.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", app.path])
             // 3. replace this copy (the old one goes to the Trash, so it can be put back) and reopen
             let here = Bundle.main.bundleURL
@@ -115,6 +124,9 @@ final class Updater {
             Watcher.shared.log("Update to \(version) failed")
         }
     }
+
+    /// The version that turned out to need a newer macOS than this Mac has (see UpdateCheck).
+    static let needsNewerMacOSKey = "updateNeedsNewerMacOS"
 
     nonisolated static func newer(_ a: String, than b: String) -> Bool {
         let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }

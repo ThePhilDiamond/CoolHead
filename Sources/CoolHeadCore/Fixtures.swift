@@ -36,6 +36,7 @@ public struct Fixture {
         optionChecks,
         powerHistoryChecks,
         syncAndSecurityChecks,
+        updateCheckChecks,
     ]
 
     public static func runAll() -> [(String, Bool, String)] {
