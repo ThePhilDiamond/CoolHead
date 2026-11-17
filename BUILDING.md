@@ -40,6 +40,9 @@ Screenshots for the project must never show your own processes. These settings s
 - `COOLHEAD_SNAPSHOT_ONLY=<phrase>`, such as `COOLHEAD_SNAPSHOT_ONLY=Spotlight`: show only cards whose headline contains that phrase (and no welcome or What's new). For several, separate them with `|` and put the whole value in quotes.
 - `COOLHEAD_SNAPSHOT_AFTER=<seconds>`, such as `COOLHEAD_SNAPSHOT_AFTER=70`: wait this many seconds first (a job needs a minute of being busy before it gets a card).
 - `COOLHEAD_SNAPSHOT_OPEN=1`: show cards open.
+- `COOLHEAD_SNAPSHOT_SETTINGS=1`: show the Settings page open.
+- `COOLHEAD_SNAPSHOT_WELCOME=1`: show the first-launch welcome, even beside made-up example cards.
+- `-toolLabels YES` or `-toolLabels NO`, after the command: show or hide the tools' names for this screenshot only, without changing your own setting.
 - `COOLHEAD_SNAPSHOT_STEPS=1`: show each option's mini-guide open.
 - `COOLHEAD_SNAPSHOT_WARM=1`: treat the Mac as warm.
 - `COOLHEAD_SNAPSHOT_HISTORY=<prefix>`, such as `COOLHEAD_SNAPSHOT_HISTORY=/tmp/panel` (instead of `COOLHEAD_SNAPSHOT`): draw the history view with made-up history to `<prefix>-history-light.png` and `-dark.png`, and quit, before watching starts.
