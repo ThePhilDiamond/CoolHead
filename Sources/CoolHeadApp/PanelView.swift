@@ -909,7 +909,9 @@ struct FrozenList: View {
                 FrozenLine(item: item, watcher: watcher)
             }
         }
-        .padding(.horizontal, 30).padding(.vertical, 10)       // text in the clear middle, off the frost
+        // text in the clear middle, off the frost; more room at the bottom, where frost settles thickest, so the last
+        // line (often Report a problem) never sits on it
+        .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 18)
         .frozen()
     }
 }
@@ -1003,10 +1005,11 @@ enum IceTint {
 /// and fading through a soft, uneven inner edge into clear glass, with a few feather-like crystals reaching in and
 /// some sparkles. Vector shapes from a fixed pattern, so it never shimmers and costs almost nothing.
 struct Frost: View {
+    var style = FrostStyle.current
     var body: some View {
         Canvas { ctx, size in
             let w = size.width, h = size.height
-            var seed: UInt64 = 0xF2057
+            var seed: UInt64 = style.seed
             func rnd() -> CGFloat {
                 seed = seed &* 6364136223846793005 &+ 1442695040888963407
                 return CGFloat((seed >> 33) % 10_000) / 10_000
@@ -1108,13 +1111,56 @@ struct Frost: View {
                 ctx.stroke(branches, with: .color(.white.opacity(0.8)), style: StrokeStyle(lineWidth: 0.5, lineCap: .round))
                 ctx.stroke(stem, with: .color(.white.opacity(0.95)), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
             }
-            // in the corners only, where frost gathers; the middle stays clear (Phil, 15 November 2026)
-            fern(from: CGPoint(x: 4, y: h - 4), angle: -.pi / 3.2, length: min(50, h * 0.72), curl: 0.45)
-            fern(from: CGPoint(x: 6, y: h - 3), angle: -0.35, length: min(30, h * 0.42), curl: -0.3)
-            fern(from: CGPoint(x: w - 5, y: h - 4), angle: -.pi + .pi / 4, length: min(42, h * 0.62), curl: -0.4)
-            fern(from: CGPoint(x: w - 6, y: h - 3), angle: -.pi + 0.3, length: min(24, h * 0.36), curl: 0.3)
-            fern(from: CGPoint(x: 4, y: 4), angle: .pi / 4.5, length: min(26, h * 0.4), curl: 0.3)
-            fern(from: CGPoint(x: w - 4, y: 4), angle: .pi - .pi / 4, length: min(22, h * 0.36), curl: -0.3)
+            // ferns grow all along the edges, more and longer in the corners, and one or two reach further in (Phil,
+            // 16 November 2026: "Ice typically builds more in the corners, but the ferns can grow along the edge, with
+            // only one or two growing more out into the middle"). Placed from the style's own seed, so the pattern looks
+            // random but is the same every time it's drawn. The bottom edge keeps its ferns short, where text sits.
+            let st = style
+            let scale = min(1, h / 90)
+            func range(_ r: ClosedRange<CGFloat>) -> CGFloat { r.lowerBound + rnd() * (r.upperBound - r.lowerBound) }
+            // along each edge: (start, end, inward angle, whether it's the bottom)
+            let edges: [(CGPoint, CGPoint, CGFloat, Bool)] = [
+                (CGPoint(x: 0, y: 2), CGPoint(x: w, y: 2), .pi / 2, false),          // top, growing down
+                (CGPoint(x: w - 2, y: 0), CGPoint(x: w - 2, y: h), .pi, false),      // right, growing left
+                (CGPoint(x: w, y: h - 2), CGPoint(x: 0, y: h - 2), -.pi / 2, true),  // bottom, growing up
+                (CGPoint(x: 2, y: h), CGPoint(x: 2, y: 0), 0, false),                // left, growing right
+            ]
+            for (a, b, inward, bottom) in edges {
+                let len = hypot(b.x - a.x, b.y - a.y)
+                var d = st.edgeSpacing * rnd()
+                while d < len {
+                    let t = d / len
+                    let corner = min(t, 1 - t) * len < 26
+                    if !corner {
+                        let pt = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+                        // hug the edge: lean well over to one side or the other
+                        let lean = (rnd() < 0.5 ? -1 : 1) * (0.5 + rnd() * 0.6)
+                        let l = range(st.edgeLength) * (bottom ? 0.6 : 1) * max(scale, 0.6)
+                        fern(from: pt, angle: inward + lean, length: l, curl: (rnd() - 0.5) * st.curl)
+                    }
+                    d += st.edgeSpacing * (0.5 + rnd())
+                }
+            }
+            // the corners, where frost gathers: several ferns fanning out from each
+            let q: CGFloat = .pi / 4
+            let corners: [(CGFloat, CGFloat, CGFloat)] = [(3, 3, q), (w - 3, 3, 3 * q), (w - 3, h - 3, -3 * q), (3, h - 3, -q)]
+            for (cx, cy, diag) in corners {
+                for k in 0..<st.cornerFerns {
+                    let fan: CGFloat = CGFloat(k) / CGFloat(max(st.cornerFerns - 1, 1)) - 0.5
+                    let spread: CGFloat = fan * 1.3 + (rnd() - 0.5) * 0.3
+                    fern(from: CGPoint(x: cx + (rnd() - 0.5) * 6, y: cy + (rnd() - 0.5) * 6), angle: diag + spread,
+                         length: range(st.cornerLength) * scale, curl: (rnd() - 0.5) * st.curl)
+                }
+            }
+            // one or two that reach further in, from the sides or the top (never the bottom, where text sits)
+            for _ in 0..<st.reachers {
+                let side = rnd()
+                let (pt, inward): (CGPoint, CGFloat) = side < 0.35 ? (CGPoint(x: 2, y: h * (0.2 + rnd() * 0.5)), 0)
+                    : side < 0.7 ? (CGPoint(x: w - 2, y: h * (0.2 + rnd() * 0.5)), .pi)
+                    : (CGPoint(x: w * (0.15 + rnd() * 0.7), y: 2), .pi / 2)
+                let along = (rnd() < 0.5 ? -1 : 1) * (0.35 + rnd() * 0.4)
+                fern(from: pt, angle: inward + along, length: st.reachLength * (0.8 + rnd() * 0.4) * max(scale, 0.7), curl: (rnd() - 0.5) * st.curl * 1.5)
+            }
 
             // sparkles near the frost: dots, and a few four-pointed glints
             for i in 0..<14 {
@@ -1139,6 +1185,29 @@ struct Frost: View {
         }
         .allowsHitTesting(false)
     }
+}
+
+/// The frost's ferns, as a few numbers, so the pattern can be tuned without redrawing it by hand: how far apart the
+/// ferns along the edges are, how long they grow, how many fan out of each corner and how long, how many reach further
+/// in, and how much they curl. `seed` picks the random pattern; the same seed draws the same frost every time.
+struct FrostStyle {
+    var seed: UInt64
+    var edgeSpacing: CGFloat
+    var edgeLength: ClosedRange<CGFloat>
+    var cornerFerns: Int
+    var cornerLength: ClosedRange<CGFloat>
+    var reachers: Int
+    var reachLength: CGFloat
+    var curl: CGFloat
+
+    /// Versions to compare (COOLHEAD_SNAPSHOT_FROST=sparse, even, corners or wild); "even" until one is chosen.
+    static let versions: [String: FrostStyle] = [
+        "sparse": FrostStyle(seed: 0xF2057, edgeSpacing: 46, edgeLength: 6...14, cornerFerns: 2, cornerLength: 18...34, reachers: 1, reachLength: 58, curl: 0.5),
+        "even": FrostStyle(seed: 0xA11CE, edgeSpacing: 30, edgeLength: 7...16, cornerFerns: 3, cornerLength: 20...38, reachers: 2, reachLength: 52, curl: 0.6),
+        "corners": FrostStyle(seed: 0x5EED5, edgeSpacing: 38, edgeLength: 5...12, cornerFerns: 4, cornerLength: 26...50, reachers: 1, reachLength: 70, curl: 0.5),
+        "wild": FrostStyle(seed: 0xC0FFEE, edgeSpacing: 22, edgeLength: 8...20, cornerFerns: 3, cornerLength: 22...42, reachers: 2, reachLength: 64, curl: 1.0),
+    ]
+    static let current: FrostStyle = versions[ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FROST"] ?? "even"] ?? versions["even"]!
 }
 
 /// One option: a button with what it would cause underneath. The recommended one stands out.
