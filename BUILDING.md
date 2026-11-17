@@ -16,7 +16,7 @@ swift build -c release
 .build/release/coolhead now
 ```
 
-`coolhead now` shows the Mac's heat, power, battery and memory, and a card for each busy process. `coolhead why <pid or name>` shows one process's card and the facts behind it. `coolhead selftest` checks every recorded example still gives the card it should.
+`coolhead now` shows the Mac's heat, power, battery and memory, and a card for each busy process. `coolhead why <name or PID>` shows one process's card and the facts behind it: type the process's name or PID from Activity Monitor in place of `<name or PID>`, as in `.build/release/coolhead why mds_stores`. `coolhead selftest` checks every recorded example still gives the card it should.
 
 ## The menu bar app
 
@@ -26,24 +26,26 @@ scripts/build-app.sh
 
 This builds `build/Cool Head.app`, ad-hoc signed. Open it from Finder; it appears in the menu bar, not the Dock. Because the build is not notarized by Apple, macOS may ask you to confirm the first time you open it.
 
-To see the panel without clicking (for screenshots or checks), this waits 25 seconds and writes `panel-light.png`, `panel-dark.png` and `panel-menu.png` (the menu bar icons), then quits:
+To see the panel without clicking (for screenshots or checks), this waits 25 seconds and writes `/tmp/panel-light.png`, `/tmp/panel-dark.png` and `/tmp/panel-menu.png` (the menu bar icons), then quits. The value of `COOLHEAD_SNAPSHOT`, here `/tmp/panel`, is the prefix: the start of each file's path, which the settings below call `<prefix>`.
 
 ```bash
 COOLHEAD_SNAPSHOT=/tmp/panel "build/Cool Head.app/Contents/MacOS/Cool Head"
 ```
 
-Screenshots for the project must never show your own processes. These settings shape them:
+Screenshots for the project must never show your own processes. These settings shape them; each goes before the command, like `COOLHEAD_SNAPSHOT` above:
 
-- `COOLHEAD_SNAPSHOT_ONLY=<phrase>`: show only cards whose headline contains the phrase (and no welcome or What's new).
-- `COOLHEAD_SNAPSHOT_AFTER=<seconds>`: wait this long first (a job needs a minute of being busy before it gets a card).
+- `COOLHEAD_SNAPSHOT_SAMPLES=<sample names>`, such as `COOLHEAD_SNAPSHOT_SAMPLES="crash-loop|job-with-progress"`: show made-up example cards instead of this Mac's. The names are the ones in square brackets in what `.build/release/coolhead wording` prints; separate several with `|`, and keep the quotes.
+- `COOLHEAD_SNAPSHOT_RUNNING=cool`, `hot` or `fire`: show made-up values at the top of the panel (heat and fans) instead of this Mac's.
+
+- `COOLHEAD_SNAPSHOT_ONLY=<phrase>`, such as `COOLHEAD_SNAPSHOT_ONLY=Spotlight`: show only cards whose headline contains that phrase (and no welcome or What's new). For several, separate them with `|` and put the whole value in quotes.
+- `COOLHEAD_SNAPSHOT_AFTER=<seconds>`, such as `COOLHEAD_SNAPSHOT_AFTER=70`: wait this many seconds first (a job needs a minute of being busy before it gets a card).
 - `COOLHEAD_SNAPSHOT_OPEN=1`: show cards open.
 - `COOLHEAD_SNAPSHOT_STEPS=1`: show each option's mini-guide open.
 - `COOLHEAD_SNAPSHOT_WARM=1`: treat the Mac as warm.
-- `COOLHEAD_SNAPSHOT_HISTORY=<prefix>` (instead of `COOLHEAD_SNAPSHOT`): draw the history view with made-up history to `<prefix>-history-light.png` and `-dark.png`, and quit, before watching starts.
+- `COOLHEAD_SNAPSHOT_HISTORY=<prefix>`, such as `COOLHEAD_SNAPSHOT_HISTORY=/tmp/panel` (instead of `COOLHEAD_SNAPSHOT`): draw the history view with made-up history to `<prefix>-history-light.png` and `-dark.png`, and quit, before watching starts.
 - `COOLHEAD_TEST_MEMORY=1`: treat memory as tight, so the memory card shows.
-- `COOLHEAD_HANG_SECONDS=<seconds>`: show a card for a paused, drive-waiting or Not Responding process after this long, instead of minutes.
-- `COOLHEAD_SNAPSHOT_ONLY` takes several phrases separated by `|`.
-- `COOLHEAD_SNAPSHOT_COOL=<phrase>` or `COOLHEAD_SNAPSHOT_PAUSE=<phrase>`: run that card's process cooler, or pause it, first.
+- `COOLHEAD_HANG_SECONDS=<seconds>`, such as `COOLHEAD_HANG_SECONDS=10`: show a card for a paused, drive-waiting or Not Responding process after this long, instead of minutes.
+- `COOLHEAD_SNAPSHOT_COOL=<phrase>` or `COOLHEAD_SNAPSHOT_PAUSE=<phrase>`, with a phrase from a card's headline as for `COOLHEAD_SNAPSHOT_ONLY`: run that card's process cooler, or pause it, first.
 - `COOLHEAD_SNAPSHOT_ABOUT=1`: also draw the About panel to `<prefix>-about-light.png` and `-dark.png`.
 
 The README's screenshots use a made-up job (a script in a folder named Photo Export that prints progress lines), started with `launchctl submit` so it runs at full priority, and the app run in the background with `ONLY`, `WARM` and `AFTER=100`.

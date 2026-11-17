@@ -9,16 +9,20 @@ if BrowserRestart.isTestApp(Bundle.main.bundleIdentifier) { BrowserRestart.runTe
 let usage = """
 coolhead: explains what is keeping this Mac busy, hot or awake.
 
-  coolhead now              the Mac's state and a card for each busy process
-  coolhead why <pid|name>   the card and the evidence for one process
-  coolhead case <pid|name>  what "Share this case" would show for a process (nothing is sent)
-  coolhead memory           who is using the memory, counted by app, and what could be done
-  coolhead hangs            what's paused, stuck waiting on a drive, or not responding right now
-  coolhead hardware         the drive, battery, crash restarts and ports, checked without a password
-  coolhead network          what the Mac can say about its connection; add --test to run Apple's network test
-  coolhead history          what used the most energy and why the Mac woke, from macOS's power log (about a week)
-  coolhead selftest         checks every recorded example gives the card it should
-  coolhead wording          every card's text, from the recorded examples, to read the wording in one place
+  coolhead now                 the Mac's state and a card for each busy process
+  coolhead why <name or PID>   the card and the evidence for one process
+  coolhead case <name or PID>  what "Share this case" would show for a process (nothing is sent)
+  coolhead memory              who is using the memory, counted by app, and what could be done
+  coolhead hangs               what's paused, stuck waiting on a drive, or not responding right now
+  coolhead hardware            the drive, battery, crash restarts and ports, checked without a password
+  coolhead network             what the Mac can say about its connection; add --test to run Apple's network test
+  coolhead history             what used the most energy and why the Mac woke, from macOS's power log (about a week)
+  coolhead selftest            checks every recorded example gives the card it should
+  coolhead wording             every card's text, from the recorded examples, to read the wording in one place
+
+<name or PID>: the process's name as Activity Monitor shows it, or its PID (the number in Activity Monitor's PID
+column), without the angle brackets: coolhead why mds_stores. Part of a name is enough; when several processes match,
+the busiest is used. Put a name with spaces in quotes: coolhead why "Google Chrome Helper".
 """
 
 func busiest(limit: Int, interval: TimeInterval = 1.0) -> [(pid_t, Double)] {

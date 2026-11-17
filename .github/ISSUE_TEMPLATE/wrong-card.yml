@@ -16,6 +16,6 @@ body:
   - type: textarea
     id: evidence
     attributes:
-      label: What `coolhead why <name>` printed
-      description: Read it first. It shows command lines and folder names; remove anything private.
+      label: What `coolhead why <name or PID>` printed
+      description: "In Terminal, with the process's name or PID from Activity Monitor in place of <name or PID>, for example: coolhead why mds_stores. The README's Command line section shows how to run it. Read it first: it shows command lines and folder names; remove anything private."
       render: text

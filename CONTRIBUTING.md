@@ -8,7 +8,7 @@ Most of the work on Cool Head starts with a report. [Open an issue](../../issues
 
 - the Cool Head version and your macOS version,
 - what you saw on the card, and what you think was really going on,
-- what `coolhead why <name>` printed for that process. Read it over before posting: it shows command lines and folder names.
+- what `coolhead why <name or PID>` printed for that process, with the process's name or PID from Activity Monitor in place of `<name or PID>` (for example `coolhead why mds_stores`). [Command line](README.md#command-line) in the README shows how to run it, step by step. Read what it prints before posting: it shows command lines and folder names.
 
 ## Report a problem from the app
 
@@ -16,7 +16,7 @@ If a fix caused trouble, or Cool Head isn't working right, use **Report a proble
 
 ## Share a case it couldn't explain
 
-When a card says "Can't tell" or "looks stuck", **Share this case** shows you an anonymised report and opens it as a GitHub issue for you to submit. You see every word first. `coolhead case <name>` prints the same report in Terminal.
+When a card says "Can't tell" or "looks stuck", **Share this case** shows you an anonymised report and opens it as a GitHub issue for you to submit. You see every word first. `coolhead case <name or PID>` prints the same report in Terminal (see [Command line](README.md#command-line) for how to run it).
 
 ## Teach it a pattern
 
@@ -33,13 +33,17 @@ The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns 
 
 - Every change arrives as a pull request and is merged by squashing, so main reads as one commit per change.
 - **Start every branch from main**, never from another pull request's branch. Squash merging gives main a new commit for each pull request, so a branch built on another one conflicts as soon as that one merges.
-- **Write where no one else is writing**, so pull requests made at the same time don't conflict: a changelog entry is its own file in `changes/` (below); a feature's selftest checks go in their own file, `Sources/CoolHeadCore/Fixtures+<Feature>.swift`, listed by one line in `Fixture.suites`; and lists that grow (option kinds, SECURITY.md's points) have one item per line. Two pull requests that must edit the same lines are made one after the other.
+- **Write where no one else is writing**, so pull requests made at the same time don't conflict: a changelog entry is its own file in `changes/` (below); a feature's selftest checks go in their own file, named for the feature (`Sources/CoolHeadCore/Fixtures+CrashLoops.swift` for the crash-loop card), listed by one line in `Fixture.suites`; and lists that grow (option kinds, SECURITY.md's points) have one item per line. Two pull requests that must edit the same lines are made one after the other.
 - The CI must pass (`build`: the build, `coolhead selftest`, and packaging the app), and the maintainer reviews and approves.
 - main can't be force-pushed or deleted. The rules are in [`.github/rulesets/protect-main.json`](.github/rulesets/protect-main.json), and `scripts/apply-repo-settings.sh` applies them along with the repository's other settings.
 
 ### Changelog and releases
 
 If your change is something a user would notice, add one file for it in [changes/](changes/README.md): `changes/added/`, `changes/changed/` or `changes/fixed/`, named in a few words joined by hyphens, holding one line in plain words that starts `- `. Don't edit CHANGELOG.md itself; the release gathers these files into it. Releases are made by the maintainer; how versions are numbered and every step of a release are in [RELEASING.md](RELEASING.md).
+
+### Writing the docs
+
+Write for someone who has never opened Terminal. Every step names where it happens and what to press ("Open Terminal: it's in Applications ▸ Utilities"). A placeholder in angle brackets, such as `<name or PID>`, is explained where it's used: what to type in its place, where to find it, and an example with a real value (`coolhead why mds_stores`). A command for `coolhead` links to [Command line](README.md#command-line) in the README the first time a page uses it, since the tool needs its full path until it's set up.
 
 ### How the code is meant to work
 

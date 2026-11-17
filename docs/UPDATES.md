@@ -20,7 +20,7 @@ A release without a signature can't be installed from inside the app; the panel 
 ## The key
 
 - The private key lives in two places only: the repository secret `UPDATE_SIGNING_KEY`, used by the release workflow, and the maintainer's password manager. It is never committed.
-- Make a key pair once, with `swift scripts/update-key.swift <folder>`; it prints the public key for `Updater.swift`.
+- Make a key pair once, with `swift scripts/update-key.swift <folder>`, where `<folder>` is the folder to write the private key to, such as `.secrets` (which git ignores, so the key is never committed); it prints the public key for `Updater.swift`.
 - If the private key is ever lost or exposed, make a new pair and ship a release with the new public key. Versions with the old key can't verify updates signed with the new one, so those users download that one release by hand.
 
 ## Tested

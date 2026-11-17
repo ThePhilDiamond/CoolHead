@@ -17,14 +17,14 @@ Every card comes from the same steps.
    - **stalled**: it has reported no progress for longer than 30 minutes and longer than three of its own usual gaps between progress lines;
    - **can't tell**: it has been busy for a long time with no sign either way.
 5. **Match.** It is looked up in the [catalogue](../Sources/CoolHeadCore/Catalogue.swift) of known patterns: what it is, when it is normal, how long is normal, and the risk of stopping it.
-6. **Card.** One sentence: what it is and whether that is fine. Behind **Explore fixes**: how we know, and the options, each with its consequence, the recommended one first.
+6. **Card.** One sentence: what it is and whether that is fine. Behind **Explore fixes** (or **Learn more** on a calm card): how we know, and the options, each with its consequence, the recommended one first.
 7. **Afterwards.** Whether the action helped. *(Planned: power and heat before and after.)*
 
 Where these steps cannot reach an answer, the card says so plainly ("Can't tell whether it is working or stuck") and offers **Look it up**, a web search for the process name only. Cards that can't reach an answer, or that look stuck, also offer **Share this case**: an anonymised report of what Cool Head saw, shown in full first, which you can open as a GitHub issue. Shared cases are reviewed and become catalogue entries through pull requests; nothing reaches the catalogue automatically, and the catalogue only changes with app releases.
 
 ## What each state allows
 
-Every card has one button: **Explore fixes** on a card worth watching, **Learn more** on a calm one. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause, in one order on every card: the recommended option first; then options you can undo, most helpful first; then options that close or lose something, least loss first (closing one browser tab before quitting the browser); then Share this case. Waiting isn't an option: the clock in each card's corner hides it for 10 minutes, 30 minutes, or an hour. Every option is a button: what Cool Head can't do itself, it opens the app where it's done (and says how), takes you to the settings page, shows the folder in Finder, or shows the steps under the option. What is recommended follows the state:
+Every card has one button: **Explore fixes** on a card worth watching, **Learn more** on a calm one. It opens how Cool Head knows (the evidence in a sentence or two) and the options, each with what it would cause, in two groups: **One click**, which Cool Head does for you, then **Do it yourself**, where Cool Head takes you to the right place and shows how. A safe one-click option is recommended over a task for you. Within each group, the options that do the most come first, and an option whose consequences can't be undone or known is marked **Caution** and is never the recommended one. Waiting isn't an option: the clock in each card's corner hides it for 10 minutes, 30 minutes, or an hour. Every option is a button: what Cool Head can't do itself, it opens the app where it's done (and says how), takes you to the settings page, shows the folder in Finder, or shows the steps under the option. What is recommended follows the state:
 
 | State | Card says | Recommended | Stopping |
 | --- | --- | --- | --- |
@@ -45,6 +45,28 @@ Some kinds of process have their own card, ahead of the states above:
 
 Stopping, running cooler and quitting are offered only for the person's own processes. Stop is never offered for macOS's own programs or for an app's main program; Quit is offered only for the main program of an app installed in an Applications folder. What stopping would cost is stated as "up to": Cool Head can see how long a job has run, not how much of that it has already saved.
 
+## How a card is chosen
+
+The catalogue is one of several checks. Each busy process gets one card, from the first check below that applies, in this order (`Card.make` in [`Card.swift`](../Sources/CoolHeadCore/Card.swift)):
+
+1. **A program pretending to be part of macOS**: a macOS name used from outside macOS's folders without Apple's signature, or a background item labelled like Apple's that Apple didn't sign ([`Disguise.swift`](../Sources/CoolHeadCore/Disguise.swift)).
+2. **macOS's own work that seems stuck**: busy for over a day, judged by its priority and how long it has run, not by % CPU ([`BackgroundWork.swift`](../Sources/CoolHeadCore/BackgroundWork.swift)).
+3. **The catalogue**: macOS's own processes that Cool Head knows by name (below).
+4. **Security, device management and VPN software.**
+5. **Sync apps.**
+6. **Chromium browsers**: a tab, an extension or the graphics process.
+7. **A macOS service working for an app**, such as decoding video for it, and **web pages shown by another app**, such as Mail: the card names that app ([`Served.swift`](../Sources/CoolHeadCore/Served.swift)).
+8. **Web pages** in Safari or another browser.
+9. **A macOS service that isn't in the catalogue**: the card says it's part of macOS, working in the background.
+10. **Games.**
+11. **Anything else that's busy**: the states above (working, waiting, stalled, can't tell).
+
+The first check that applies wins, so the order decides between cards: a program named `mdworker` that isn't Apple's gets the disguise card, never Spotlight's. Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
+
+Some cards are about the whole Mac, not one busy process, and come from their own checks: memory that's tight, the hardware (the drive, battery, charging, crash restarts and ports), sleep and power (an app keeping the Mac awake, Low Power Mode left on with the charger while the Mac is busy, a battery that drained while asleep), browser settings Cool Head didn't make, and an app that keeps crashing (5 or more crash reports in 24 hours).
+
+**Rules.** Most of these checks come from a review of published evidence on what makes Macs hot, slow or awake, and the code names the rule each one comes from ("research rule 6"). Each rule is written as code, so unlike a catalogue entry it can't be added by filling in fields; open a "pattern" issue and it can be built. *(Planned: each card in its own file, chosen by stated rules and weights instead of by its place in this list.)*
+
 ## The catalogue
 
 Each entry in [`Catalogue.swift`](../Sources/CoolHeadCore/Catalogue.swift) has:
@@ -64,4 +86,4 @@ Each entry in [`Catalogue.swift`](../Sources/CoolHeadCore/Catalogue.swift) has:
 3. Run `swift build -c release && .build/release/coolhead selftest`. Every example must pass.
 4. In the pull request, link the source and say how you checked it.
 
-If you have seen a process misbehave and don't know why, [open a "pattern" issue](../../../issues/new?template=pattern.yml) with what `coolhead why <name>` printed. Read it first: it shows command lines and folder names.
+If you have seen a process misbehave and don't know why, [open a "pattern" issue](../../../issues/new?template=pattern.yml) with what `coolhead why <name or PID>` printed, with the process's name or PID from Activity Monitor in place of `<name or PID>` (for example `coolhead why mds_stores`). [Command line](../README.md#command-line) in the README shows how to run it, step by step. Read what it prints first: it shows command lines and folder names.

@@ -87,19 +87,43 @@ Or build it yourself: see [BUILDING.md](BUILDING.md).
 
 ## Command line
 
-The app includes `coolhead`, for Terminal and for scripts:
+The app includes `coolhead`, a command-line tool that prints the same cards as text: to read them in full, to paste into a report, or to use in scripts. To use it:
+
+1. Open **Terminal**: it's in Applications ▸ Utilities, or press Command-Space and type Terminal.
+2. Paste a command and press Return. Until you do step 3, start each command with the tool's full path, in quotes, because macOS doesn't know where `coolhead` is:
+
+   ```bash
+   "/Applications/Cool Head.app/Contents/MacOS/coolhead" now
+   ```
+
+3. To type just `coolhead` from then on, run this once, then open a new Terminal window:
+
+   ```bash
+   echo "alias coolhead='/Applications/Cool\ Head.app/Contents/MacOS/coolhead'" >> ~/.zshrc
+   ```
+
+   It adds one line to `.zshrc`, the file Terminal reads when a window opens. To undo it, delete that line. If you built Cool Head yourself, the tool is at `.build/release/coolhead` in the project folder instead (see [BUILDING.md](BUILDING.md)).
+
+| Command | What it prints |
+|---|---|
+| `coolhead now` | The Mac's heat, power, battery and memory, and a card for each busy process |
+| `coolhead why <name or PID>` | One process's card, and the facts behind it |
+| `coolhead case <name or PID>` | What **Share this case** would show for one process (nothing is sent) |
+| `coolhead memory` | Who is using the memory, counted by app, and what could be done |
+| `coolhead hangs` | What's paused, stuck waiting on a drive, or not responding |
+| `coolhead hardware` | The drive, battery, crash restarts and ports |
+| `coolhead network` | How the Mac is connected; add `--test` to run Apple's network test |
+| `coolhead history` | What used the most energy in the past week, and why the Mac woke |
+
+**`<name or PID>`** stands for the process you're asking about. Type its name as Activity Monitor shows it, or its PID (the number in Activity Monitor's PID column), in place of `<name or PID>`, without the angle brackets:
 
 ```bash
-coolhead now
+coolhead why mds_stores
 ```
 
-```bash
-coolhead why <pid or name>
-```
+Part of a name is enough, and when several processes match, it picks the busiest. Put a name with spaces in quotes: `coolhead why "Google Chrome Helper"`.
 
-```bash
-coolhead hangs
-```
+What `why` and `case` print can include command lines and folder names. Read it before you paste it anywhere.
 
 ## Contributing
 
