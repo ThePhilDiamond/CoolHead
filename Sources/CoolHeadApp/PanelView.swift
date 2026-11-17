@@ -291,6 +291,8 @@ struct CardView: View {
             Button(confirmStop?.title ?? "Stop it", role: .destructive) {
                 if case .stopAndTrash(let paths, let plist) = confirmStop?.kind {
                     show(watcher.stopAndTrash(live, paths: paths, launchItem: plist))
+                } else if case .deleteBuildData(let folder) = confirmStop?.kind {
+                    show(watcher.deleteBuildData(folder))
                 } else if case .stopAgent(let label, let plist) = confirmStop?.kind {
                     let ok = watcher.turnOffAgent(label: label, plist: plist)
                     show(ok ? .done("Turned off. It won't start by itself, even after a restart. Turn it back on from the top of this panel.")
@@ -354,8 +356,10 @@ struct CardView: View {
             note = "Opened \(name). Pause it from its menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false; acted = true
         case .wait(let until):
             watcher.snooze(live, until: until)
-        case .stop, .forceQuit, .stopAgent, .stopAndTrash:
+        case .stop, .forceQuit, .stopAgent, .stopAndTrash, .deleteBuildData:
             confirmStop = fix
+        case .unloadModels(let names):
+            show(watcher.unloadModels(names))
         case .keepOutOfBackup(let path):
             let ok = watcher.keepOutOfBackup(path)
             let name = (path as NSString).lastPathComponent
@@ -1171,6 +1175,8 @@ struct FixRow: View {
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"
         case .stopAgent: return "power.circle"
+        case .unloadModels: return "memorychip"
+        case .deleteBuildData: return "trash"
         case .stopAndTrash: return "trash"
         case .keepOutOfBackup: return "clock.arrow.circlepath"
         }
