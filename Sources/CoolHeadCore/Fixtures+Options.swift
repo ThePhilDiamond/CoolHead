@@ -48,5 +48,19 @@ extension Fixture {
                 ("caution-only-when-risky", wrongCalm.isEmpty && wrongRisky.isEmpty && alwaysRisky.isEmpty && gameQuitRisky,
                  "no Caution, recommended: \(calm.map(\.0).joined(separator: ", ")); Caution, not recommended: \(risky.map(\.0).joined(separator: ", ")); "
                  + "wrong: \(wrongCalm + wrongRisky), kinds without Caution \(alwaysRisky.count), game quit Caution \(gameQuitRisky)")]
+            + [cautionSaysWhy(samples)]
+    }
+
+    /// Every Caution option, on every example card, says why when the pointer rests on its label (Phil, 16 November 2026:
+    /// "mousing over the caution label should explain why it's got the warning"); and only Caution options have a reason.
+    static func cautionSaysWhy(_ samples: [(String, Card)]) -> (String, Bool, String) {
+        let fixes = samples.flatMap { s in s.1.fixes.map { (s.0, $0) } }
+        let cautious = fixes.filter { $0.1.caution }
+        let missing = cautious.filter { ($0.1.cautionReason ?? "").isEmpty }.map { "\($0.0): \($0.1.title)" }
+        let stray = fixes.filter { !$0.1.caution && $0.1.cautionReason != nil }.map { "\($0.0): \($0.1.title)" }
+        let reasons = Set(cautious.map { "\($0.1.title) → \($0.1.cautionReason ?? "")" }).sorted()
+        return ("caution-says-why", !cautious.isEmpty && missing.isEmpty && stray.isEmpty,
+                missing.isEmpty && stray.isEmpty ? "\(cautious.count) Caution options, each with a reason: " + reasons.joined(separator: " | ")
+                    : "no reason: \(missing); reason without Caution: \(stray)")
     }
 }

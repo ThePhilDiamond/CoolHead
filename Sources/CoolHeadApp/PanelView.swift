@@ -1139,8 +1139,9 @@ struct FixRow: View {
     /// corner"): Caution for what has consequences that can't be undone or known, or Fixes the cause for a task that does more than the
     /// recommendation. Never both: the options that need Caution are all ones Cool Head does.
     var tag: OptionTag? {
-        if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red) }
-        if betterThanRecommended { return OptionTag(words: "FIXES THE CAUSE", symbol: "checkmark.seal.fill", color: .green) }
+        if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red, help: fix.cautionReason) }
+        if betterThanRecommended { return OptionTag(words: "FIXES THE CAUSE", symbol: "checkmark.seal.fill", color: .green,
+                                                    help: "This does more about the problem than the recommended option, but you do it yourself.") }
         return nil
     }
     let run: (Fix) -> Void
@@ -1300,7 +1301,7 @@ struct OptionStyle: ButtonStyle {
                 }
                 .overlay(alignment: .bottomTrailing) {
                     if let tag {
-                        OptionTag(words: tag.words, symbol: tag.symbol, color: tag.color, onAccent: filled).padding(.trailing, 7).padding(.bottom, 6)
+                        OptionTag(words: tag.words, symbol: tag.symbol, color: tag.color, help: tag.help, onAccent: filled).padding(.trailing, 7).padding(.bottom, 6)
                     }
                 }
                 .contentShape(shape)
@@ -1331,6 +1332,8 @@ struct OptionTag: View {
     let words: String
     let symbol: String
     let color: Color
+    /// Why it's there, shown when the pointer rests on it (see `Fix.cautionReason`).
+    var help: String? = nil
     var onAccent = false
     static let font = NSFont.systemFont(ofSize: 8.5, weight: .bold)
     var body: some View {
@@ -1343,6 +1346,7 @@ struct OptionTag: View {
         .padding(.horizontal, 5).padding(.vertical, 1.5)
         .background(Capsule().fill(onAccent ? Color.white.opacity(0.22) : color.opacity(0.13)))
         .fixedSize()
+        .help(help ?? "")
     }
     /// Room for the label at the end of the option's last line. The arrow's column already leaves about 49 points clear
     /// at the right of the text; only a label wider than that needs more. The room is invisible letters, not spaces:
