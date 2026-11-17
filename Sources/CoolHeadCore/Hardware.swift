@@ -149,7 +149,10 @@ public struct DriveHealth: Equatable {
         var score: Int32 = 0
         guard IOCreatePlugInInterfaceForService(svc, clientID, plugInID, &plugIn, &score) == KERN_SUCCESS,
               let plugIn, let table = plugIn.pointee?.pointee else { return nil }
-        defer { _ = table.Release(plugIn) }
+        // IODestroyPlugInInterface stops the plug-in, which closes the drive's record, then releases it. Releasing alone
+        // left the record open, and the drive lets only one program open it, so every later read failed until Cool
+        // Head quit (Phil, 17 November 2026: "there's zero drive info").
+        defer { IODestroyPlugInInterface(plugIn) }
         var raw: LPVOID?
         guard table.QueryInterface(plugIn, CFUUIDGetUUIDBytes(interfaceID), &raw) == S_OK, let raw else { return nil }
         let smart = raw.assumingMemoryBound(to: UnsafeMutablePointer<SMARTInterface>.self).pointee.pointee

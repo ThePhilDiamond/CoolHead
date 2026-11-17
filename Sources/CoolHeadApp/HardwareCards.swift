@@ -67,9 +67,6 @@ final class HardwareWatch {
     func visible(_ watcher: Watcher, now: Date = Date()) -> [LiveCard] {
         cards.filter { c in watcher.snoozed[c.cause].map { $0.until <= now || c.severity > $0.severity } ?? true }
     }
-
-    /// Whether a hardware finding should turn the menu bar badge yellow.
-    func needsLook(_ watcher: Watcher) -> Bool { visible(watcher).contains { $0.needsLook } }
 }
 
 extension HardwareWatch: CardSource {

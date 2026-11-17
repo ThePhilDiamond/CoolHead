@@ -26,19 +26,10 @@ struct PanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // fixed at the top
-            HStack(alignment: .firstTextBaseline) {
-                Image(systemName: Badge.symbol(level))
-                    .foregroundStyle(Color(nsColor: Badge.color(level)))
-                    .accessibilityLabel(level == .good ? "All good" : level == .warning ? "Worth watching" : "Problem")
-                Text(status).font(.headline)
-                Spacer()
-                VersionButton()
-            }
-            .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
-            Divider()
-            // how it's running, whenever the panel opens: heat, and how busy the chip and memory are
-            RunningStrip(watcher: watcher)
+            // fixed at the top: the snowflake, what's happening and how busy the chip and memory are, in one row; the
+            // status is its title (Phil, 17 November 2026: "remove the top bar so the top is just the large icon, what's
+            // happening, and the chip and memory data"). The version is in the toolbar along the bottom.
+            RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level)
             Divider()
             // scrolls once it is taller than the limit
             ScrollView {
@@ -100,12 +91,8 @@ struct PanelView: View {
 
     /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase (or any of several, separated by |),
     /// so a screenshot never shows the person's own processes.
-    /// The header's level: the watcher's, except in a screenshot limited to some cards, where it follows only those.
-    var level: Watcher.Level {
-        guard PanelView.limitedSnapshot else { return watcher.level }
-        if shownCards.contains(where: { $0.severity >= 2 }) { return .issue }
-        return shownCards.contains(where: { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }) ? .warning : .good
-    }
+    /// The header's level: the same rule, and the same cards, as the snowflake below it and the menu bar icon.
+    var level: Watcher.Level { watcher.level(shownCards, thermal: RunningStrip.snapshotThermal) }
 
     var shownCards: [LiveCard] {
         // COOLHEAD_SNAPSHOT_SAMPLES shows example cards (as `coolhead wording` names them, separated by |) in place of
@@ -129,7 +116,7 @@ struct PanelView: View {
         var watch: String?
         if stuck > 0 { watch = "\(stuck) looks stuck" + (n > stuck ? ", \(n - stuck) to watch" : "") }
         else if n > 0 { watch = "\(n) to watch" }
-        let heat: String? = ["serious": "Running hot", "critical": "Running hot", "fair": "Running warm"][watcher.mac.thermal]
+        let heat: String? = ["serious": "Running hot", "critical": "Running hot", "fair": "Running warm"][RunningStrip.snapshotThermal ?? watcher.mac.thermal]
         switch (heat, watch) {
         case let (h?, w?): return "\(h) · \(w)"
         case let (nil, w?): return w.prefix(1).uppercased() + w.dropFirst()
@@ -574,6 +561,9 @@ struct ProblemView: View {
 /// there is a newer version it downloads, verifies and installs it. It says what it is doing in place, briefly.
 struct VersionButton: View {
     let updater = Updater.shared
+    /// In the toolbar, drawn like the tools beside it: an icon with a word under it, or the word alone when the tools'
+    /// names are hidden.
+    var labels = true
     @State private var hovering = false
     @State private var spin = false
 
@@ -584,37 +574,51 @@ struct VersionButton: View {
                 if case .available = updater.phase { await updater.install() }
             }
         } label: {
-            HStack(spacing: 4) {
-                switch updater.phase {
-                case .checking:
-                    spinner
-                    Text("Checking for updates…")
-                case .installing:
-                    spinner
-                    Text("Downloading the update…")
-                case .upToDate:
-                    Image(systemName: "checkmark.circle")
-                    Text("Up to date")
-                case .failed:
-                    Image(systemName: "exclamationmark.circle")
-                    Text("Couldn't update")
-                case .available(let v):
-                    Image(systemName: "arrow.down.circle")
-                    Text("v\(v) available")
-                case .idle:
-                    if hovering { Image(systemName: "arrow.triangle.2.circlepath") }
-                    Text("Cool Head v\(CoolHead.version)")
+            Group {
+                if labels {
+                    VStack(spacing: 3) {
+                        icon.font(.system(size: 15)).frame(height: 18)
+                        Text(word).font(.caption2)
+                    }
+                    .frame(minWidth: 52).padding(.vertical, 5)
+                } else {
+                    HStack(spacing: 4) {
+                        if case .idle = updater.phase {} else { icon }
+                        Text(word)
+                    }
+                    .font(.caption2).padding(.vertical, 6)
                 }
             }
-            .font(.caption2)
+            .fixedSize()
             .foregroundStyle(hovering ? Ink.text : Ink.muted)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help("Check for updates")
-        .accessibilityLabel("Cool Head \(CoolHead.version). Check for updates")
-        .disabled(updater.phase == .checking || updater.phase == .installing)
+        .help("Cool Head \(CoolHead.version): check for updates")
+        .accessibilityLabel("Cool Head \(CoolHead.version): check for updates")
+    }
+
+    /// A few words, so it fits among the tools.
+    var word: String {
+        switch updater.phase {
+        case .checking: return "Checking"
+        case .installing: return "Updating"
+        case .upToDate: return "Up to date"
+        case .failed: return "Couldn't update"
+        case .available(let v): return "v\(v) ready"
+        case .idle: return "v\(CoolHead.version)"
+        }
+    }
+
+    @ViewBuilder var icon: some View {
+        switch updater.phase {
+        case .checking, .installing: spinner
+        case .upToDate: Image(systemName: "checkmark.circle")
+        case .failed: Image(systemName: "exclamationmark.circle")
+        case .available: Image(systemName: "arrow.down.circle")
+        case .idle: Image(systemName: "arrow.triangle.2.circlepath")
+        }
     }
 
     var spinner: some View {
@@ -942,13 +946,14 @@ struct FrozenList: View {
         let items = FrozenItem.all(watcher)
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                if i > 0 { Divider().opacity(0.6) }
-                FrozenLine(item: item, watcher: watcher)
+                if i > 0 { Divider().opacity(0.6).padding(.horizontal, 30) }
+                // text in the clear middle, off the frost; more room at the bottom, where frost settles thickest, so
+                // the last line (often Report a problem) never sits on it. The room is inside each line, so a click
+                // anywhere in the frame opens the line it's beside (Phil, 17 November 2026: "The click box should
+                // fill the whole area.")
+                FrozenLine(item: item, watcher: watcher, top: i == 0 ? 10 : 0, bottom: i == items.count - 1 ? 18 : 0)
             }
         }
-        // text in the clear middle, off the frost; more room at the bottom, where frost settles thickest, so the last
-        // line (often Report a problem) never sits on it
-        .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 18)
         .frozen()
     }
 }
@@ -958,6 +963,9 @@ struct FrozenList: View {
 struct FrozenLine: View {
     let item: FrozenItem
     let watcher: Watcher
+    /// Extra room above and below, inside the line's click area: the frame's own margin for the first and last line.
+    var top: CGFloat = 0
+    var bottom: CGFloat = 0
     /// Screenshots can show the lines open (COOLHEAD_SNAPSHOT_HELD_OPEN).
     @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HELD_OPEN"] != nil
     @State private var failed: String?
@@ -988,7 +996,7 @@ struct FrozenLine: View {
             }
             if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 30).padding(.top, 8 + top).padding(.bottom, 8 + bottom)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture { toggle() }

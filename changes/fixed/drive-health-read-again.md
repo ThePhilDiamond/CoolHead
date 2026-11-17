@@ -1,0 +1,1 @@
+- The drive's health disappeared from Hardware after Cool Head first read it: Cool Head kept the drive's health record open, so every later read failed, in the app and in `coolhead hardware`, until it quit.

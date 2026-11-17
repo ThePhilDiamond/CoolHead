@@ -11,12 +11,12 @@ protocol CardSource: AnyObject {
     func panelOpened()
     /// Its cards, less those the person has chosen to wait on.
     func cards(for watcher: Watcher) -> [LiveCard]
-    /// Whether one of them should turn the menu bar badge yellow.
-    func needsLook(_ watcher: Watcher) -> Bool
 }
 
-extension CardSource {
-    func needsLook(_ watcher: Watcher) -> Bool { cards(for: watcher).contains { $0.needsLook } }
+extension Watcher {
+    /// The level the menu bar icon shows: every card on screen, the watcher's and every source's, by the same rule as
+    /// the snowflake at the top of the panel (`Watcher.level(_:)`).
+    @MainActor var screenLevel: Level { level(cards + CardSources.all.flatMap { $0.cards(for: self) }) }
 }
 
 /// Every card source, in one place, so a new kind of card is one line here and nowhere else (Phil, 17 November 2026:

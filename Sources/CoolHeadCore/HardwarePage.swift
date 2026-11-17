@@ -30,9 +30,11 @@ public enum HardwarePage {
         if let d = r.drive, d.percentUsed >= 80 {
             return Verdict(level: 1, title: "Drive well worn", meaning: "It still works; keep your backups current.")
         }
-        return Verdict(level: 0, title: "Hardware looks healthy", meaning: r.drive != nil
-            ? "No warnings from the drive or the ports, and no crash restarts this week."
-            : "No warnings from the ports, and no crash restarts this week.")
+        // names what was checked (Phil, 17 November 2026: "the hardware tool says "hardware looks healthy" but doesn't
+        // say WHAT hardware")
+        return r.drive != nil
+            ? Verdict(level: 0, title: "Drive and ports look healthy", meaning: "No warnings from either, and no crash restarts this week.")
+            : Verdict(level: 0, title: "Ports look healthy", meaning: "No warnings from them and no crash restarts this week. The drive's health couldn't be read.")
     }
 
     /// One part of the Mac, with everything about it together: its name, a few words for how it is, and a line or two
@@ -41,13 +43,15 @@ public enum HardwarePage {
         public enum Kind: String { case drive, crashes, ports }
         public let kind: Kind; public let symbol: String; public let name: String; public let value: String; public let level: Int
         public let lines: [String]
+        /// Figures shown as tiles, above the lines.
+        public var tiles: [Tile] = []
     }
+    public typealias Tile = BatteryPage.Tile
     public static func parts(_ r: HardwareReport, now: Date = Date()) -> [Part] {
         var out: [Part] = []
         if let d = r.drive {
             // the drive's wear and what wears it (writing, and time on), its temperature, and any errors, in one place
-            var lines = ["About \(Hardware.size(d.bytesWritten)) written over \(Hardware.count(d.powerOnHours)) hours"
-                + (d.temperatureC.map { ", now at \($0)°C" } ?? "") + "."]
+            var lines: [String] = []
             if !d.warnings.isEmpty { lines.append("It reports: " + d.warnings.joined(separator: ", ") + ". Back up now.") }
             if d.mediaErrors > 0 { lines.append("It couldn't correct \(Hardware.count(d.mediaErrors)) reads. Keep your backups current.") }
             // whether anything backs it up, since every drive warning ends in "back up" (Phil, 16 November 2026: "we can
@@ -57,8 +61,20 @@ public enum HardwarePage {
             case .setUp?: lines.append("Time Machine is set up to back it up.")
             case nil: break
             }
-            out.append(Part(kind: .drive, symbol: "internaldrive", name: "Drive", value: "\(d.percentUsed)% of its life used",
-                            level: d.fault ? 2 : (d.percentUsed >= 80 || d.mediaErrors > 0) ? 1 : 0, lines: lines))
+            let level = d.fault ? 2 : (d.percentUsed >= 80 || d.mediaErrors > 0) ? 1 : 0
+            // the figures as tiles, as Test my network shows its own (Phil, 17 November 2026: "maybe we want boxes like
+            // we have for the network test with life used, amount written, hours of writing, and temperature?")
+            var tiles = [Tile(symbol: "gauge.with.dots.needle.33percent", value: "\(d.percentUsed)%", unit: "life used", level: d.percentUsed >= 80 ? 1 : 0),
+                         Tile(symbol: "square.and.pencil", value: Hardware.size(d.bytesWritten), unit: "written", level: 0),
+                         Tile(symbol: "clock", value: Hardware.count(d.powerOnHours), unit: "hours on", level: 0)]
+            if let t = d.temperatureC { tiles.append(Tile(symbol: "thermometer.medium", value: "\(t)°C", unit: "now", level: t >= 70 ? 1 : 0)) }
+            out.append(Part(kind: .drive, symbol: "internaldrive", name: "Drive",
+                            value: ["Healthy", d.fault ? "Needs a look" : d.mediaErrors > 0 ? "Errors" : "Well worn", "Needs a look"][level],
+                            level: level, lines: lines, tiles: tiles))
+        } else {
+            // never left out without a word: an Intel Mac's drive, or a read that failed
+            out.append(Part(kind: .drive, symbol: "internaldrive", name: "Drive", value: "Not read",
+                            level: 0, lines: ["Cool Head couldn't read its health record. It tries again every 10 minutes."]))
         }
         // crash restarts: the count, when the last one was, and what it means with what to do, together (Phil, 16
         // November 2026: "The crash time is at the bottom but the crash description is at the top"); short, in plain
@@ -96,12 +112,35 @@ public enum HardwarePage {
     /// slows itself instead of spinning up. Nil: not known.
     public enum Fans: Equatable { case none, rpm([Int]) }
 
-    /// How it's running now, drawn with the menu bar icon's melting snowflake (Phil, 16 November 2026: "explain how
-    /// it's running and what it means in a fun visual way that mirrors our menu icon and the spirit of the app"), at the
-    /// top of the panel. From macOS's own thermal state: nominal, fair, serious, critical. `icon`: 0 a whole snowflake,
-    /// 1 melting, 2 in flames.
-    public struct Running: Equatable { public let icon: Int; public let title: String; public let meaning: String; public let fans: String? }
-    public static func running(thermal: String, fans: Fans?) -> Running {
+    /// How it's running now, drawn with the menu bar icon's snowflake (Phil, 16 November 2026: "explain how it's running
+    /// and what it means in a fun visual way that mirrors our menu icon and the spirit of the app"), at the top of the
+    /// panel. The snowflake is the Mac keeping a cool head, so it shows the same level as the menu bar icon, worked out
+    /// here once for both (Phil, 17 November 2026: "The snowflake is meant to represent the Mac keeping a cool head,
+    /// whether temperature or speed. So if anything is slowing it down, we want to show the snowflake melting. If there
+    /// are issues requiring action that are only moderate in impact, that's melting. If severe, that's the 'on fire'
+    /// icon."). `icon`: 0 a whole snowflake, 1 melting, 2 in flames. The meaning names the worst cause.
+    /// No title of its own: the panel's status ("1 to watch", "All calm") is the title, since the icon is a picture, not
+    /// a word for what's wrong (Phil, 17 November 2026: "The text shouldn't say "Starting to melt" - that's an
+    /// abstraction taking the icon too far.").
+    public struct Running: Equatable { public let icon: Int; public let meaning: String; public let fans: String? }
+
+    /// What the cards on screen say, for the snowflake: what's stuck, memory, heat with a cause, and anything else that
+    /// needs a look.
+    public struct Signs: Equatable {
+        public var stuck = 0
+        public var memoryCritical = false
+        public var memoryTight = false
+        public var addingHeat = false
+        public var toWatch = 0
+        public var resumeSync = false
+        public init(stuck: Int = 0, memoryCritical: Bool = false, memoryTight: Bool = false, addingHeat: Bool = false,
+                    toWatch: Int = 0, resumeSync: Bool = false) {
+            self.stuck = stuck; self.memoryCritical = memoryCritical; self.memoryTight = memoryTight
+            self.addingHeat = addingHeat; self.toWatch = toWatch; self.resumeSync = resumeSync
+        }
+    }
+
+    public static func running(thermal: String, signs: Signs = Signs(), fans: Fans?) -> Running {
         let fanText: String? = {
             switch fans {
             case .none?: return "No fans: it slows itself down to stay cool, silently."
@@ -112,16 +151,22 @@ public enum HardwarePage {
             case nil: return nil
             }
         }()
-        switch thermal {
-        case "fair":
-            return Running(icon: 1, title: "Warming up", meaning: "It's warm, but still running at full speed.", fans: fanText)
-        case "serious":
-            return Running(icon: 1, title: "Running hot", meaning: "macOS is slowing it a little to cool it down.", fans: fanText)
-        case "critical":
-            return Running(icon: 2, title: "Too hot", meaning: "macOS is slowing it hard. Give it a break on a hard surface, out of the sun.", fans: fanText)
-        default:
-            return Running(icon: 0, title: "Keeping its cool", meaning: "A normal temperature, at full speed.", fans: fanText)
-        }
+        let speed = thermal == "fair" ? "Warm, but at full speed" : "A normal temperature, at full speed"
+        // severe first: in flames
+        let (icon, meaning): (Int, String) = {
+            if thermal == "critical" { return (2, "macOS is slowing it hard to cool it down. Give it a break on a hard surface, out of the sun.") }
+            if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower. The card below says what's using it.") }
+            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "It isn't making progress. Its card below says what to try." : "They aren't making progress. Their cards below say what to try.") }
+            // moderate: melting
+            if thermal == "serious" { return (1, "macOS is slowing it a little to cool it down.") }
+            if signs.memoryTight { return (1, "Memory is tight, so it's slower than it could be.") }
+            if signs.addingHeat { return (1, "It's warm, and something below is adding to it.") }
+            if signs.toWatch > 0 { return (1, speed + (signs.toWatch == 1 ? ". The card below needs a look." : ". The cards below need a look.")) }
+            if signs.resumeSync { return (1, "It's time to resume syncing.") }
+            // nothing slowing it and nothing to act on: whole, even when it's warm
+            return (0, speed + ".")
+        }()
+        return Running(icon: icon, meaning: meaning, fans: fanText)
     }
 
     /// How busy the chip and memory are, for the gauges beside it: a percentage, and a level for its colour (Phil, 16

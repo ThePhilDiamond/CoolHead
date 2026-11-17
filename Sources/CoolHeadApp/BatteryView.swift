@@ -38,7 +38,7 @@ struct BatteryView: View {
                 }
                 let tiles = BatteryPage.tiles(b)
                 if !tiles.isEmpty {
-                    HStack(spacing: 8) { ForEach(tiles, id: \.symbol) { tile($0) } }
+                    HStack(spacing: 8) { ForEach(tiles, id: \.symbol) { FigureTile(t: $0) } }
                 }
                 let s = BatteryPage.status(b)
                 HStack(spacing: 8) {
@@ -90,12 +90,17 @@ struct BatteryView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 
-    /// One figure, drawn as Test my network draws its own.
-    func tile(_ t: BatteryPage.Tile) -> some View {
+}
+
+/// One figure in a tile, drawn as Test my network draws its own: the Battery page's figures and the drive's.
+struct FigureTile: View {
+    let t: BatteryPage.Tile
+    var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Image(systemName: t.symbol).font(.caption.weight(.semibold)).foregroundStyle(NetworkView.color(t.level))
                 Text(t.value).font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.6)
             }
             Text(t.unit).font(.caption2).foregroundStyle(Ink.muted).lineLimit(1).minimumScaleFactor(0.8)
         }

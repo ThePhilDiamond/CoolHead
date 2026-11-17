@@ -473,12 +473,27 @@ public final class Watcher {
     /// What the menu bar shows, by shape and colour, so it reads without relying on colour alone:
     /// a green circle when all is well, a yellow triangle when something needs a look, a red octagon for a problem.
     public enum Level { case good, warning, issue }
-    public var level: Level {
-        if cards.contains(where: { $0.severity >= 2 }) || mac.thermal == "serious" || mac.thermal == "critical" { return .issue }
-        // a warm Mac with a cause on screen needs a look; a cause already running cooler has been dealt with
-        if cards.contains(where: { $0.needsLook || ($0.heatCause && !isCooled($0)) }) { return .warning }
-        if syncPauses.contains(where: { $0.until <= Date() }) { return .warning }          // time to resume syncing
-        return .good
+    /// The level of the watcher's own cards. The panel and the menu bar use `level(_:)` with every card on screen.
+    public var level: Level { level(cards) }
+
+    /// The level for these cards and this Mac's heat: the same rule as the snowflake at the top of the panel (see
+    /// `HardwarePage.running`), so the menu bar icon and the panel always agree.
+    public func level(_ cards: [LiveCard], thermal: String? = nil) -> Level {
+        [.good, .warning, .issue][HardwarePage.running(thermal: thermal ?? mac.thermal, signs: signs(cards), fans: nil).icon]
+    }
+
+    /// What these cards say, for the snowflake. Memory is its own sign; a stuck card or critical memory is severe; a
+    /// warm Mac with a cause on screen needs a look, unless that cause is already running cooler.
+    public func signs(_ cards: [LiveCard]) -> HardwarePage.Signs {
+        func memory(_ c: LiveCard) -> Bool { c.id.hasPrefix("memory-") }
+        var s = HardwarePage.Signs()
+        s.stuck = cards.filter { $0.card.state == .stalled }.count
+        s.memoryCritical = cards.contains { memory($0) && $0.severity >= 2 }
+        s.memoryTight = cards.contains { memory($0) && $0.severity < 2 && $0.needsLook }
+        s.addingHeat = cards.contains { $0.heatCause && !isCooled($0) }
+        s.toWatch = cards.filter { !memory($0) && $0.card.state != .stalled && $0.needsLook }.count
+        s.resumeSync = syncPauses.contains { $0.until <= Date() }                       // time to resume syncing
+        return s
     }
 
     // MARK: - Sampling

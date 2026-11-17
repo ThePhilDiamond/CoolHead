@@ -123,6 +123,15 @@ extension Fixture {
                               live.drive.map { "\($0.percentUsed)% used, \($0.mediaErrors) errors" } ?? "not readable",
                               live.battery.map { "\($0.condition ?? "condition unknown"), \($0.maxCapacity.map { "\($0)%" } ?? "?")" } ?? "none",
                               live.crashes.countThisWeek(now: now), live.ports.count)))
+
+        // the drive's record is closed after each read: the drive lets one program open it at a time, so a record left
+        // open makes every later read fail (as in 0.8.0, until Cool Head quit). Read it twice more; if it could be read
+        // once, it must be read both times. Not readable at all (another program has it open, or no NVMe drive) passes.
+        let again = (DriveHealth.read(), DriveHealth.read())
+        let closes = live.drive == nil || (again.0 != nil && again.1 != nil)
+        review.append(("hardware-drive-closes", closes, live.drive == nil
+            ? "not readable on this Mac now (another program may have it open), so not tested"
+            : "read 3 times in a row: " + [live.drive, again.0, again.1].map { $0 == nil ? "failed" : "ok" }.joined(separator: ", ")))
         return review
     }
 
