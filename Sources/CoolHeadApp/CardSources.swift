@@ -19,17 +19,8 @@ extension Watcher {
     @MainActor var screenLevel: Level { level(cards + CardSources.all.flatMap { $0.cards(for: self) }) }
 }
 
-/// Every card source, in one place, so a new kind of card is one line here and nowhere else (Phil, 17 November 2026:
-/// "we need to make sure it doesn't compromise the architecture/security of the app"). The list is fixed when the app
-/// is built: nothing is loaded or chosen while it runs. One per line, alphabetical, so changes made at the same time
-/// add their lines in different places. Each source says it's a CardSource in its own file. To see what starts at
-/// launch, read this list.
-@MainActor
-enum CardSources {
-    static let all: [any CardSource] = [
-        BrowserWatch.shared,
-        CrashWatch.shared,
-        HardwareWatch.shared,
-        PowerWatch.shared,
-    ]
-}
+// Every card source is listed in `CardSources.all`, which the build writes from the file names (Plugins/Lists): each
+// <Name>Cards.swift file declares `<Name>Watch.shared`, a CardSource, so a new kind of card is one new file and no
+// edit anywhere else (Phil, 17 November 2026: "we need to make sure it doesn't compromise the architecture/security of
+// the app"). The list is fixed when the app is built: nothing is loaded or chosen while it runs. To see what starts at
+// launch, list the *Cards.swift files, or read the generated file in .build/plugins/outputs.

@@ -41,4 +41,7 @@ extension Fixture {
         review.append(("sync-fed-by-a-build", placesOK && fedOK, "places \(placesOK); \(fed.recommended?.title ?? "none"): \(fed.explanation)"))
         return review
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func syncAndSecuritySamples(_ now: Date) -> [(String, Card)] { [] }
 }

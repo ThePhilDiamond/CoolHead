@@ -3,7 +3,7 @@ import Foundation
 /// Checks for how options are grouped and labelled (see `Fix.doer`, `Fix.caution`, `Card.betterThanRecommended`). Runs
 /// over every example card, the same list `coolhead wording` prints.
 extension Fixture {
-    static func optionChecks(_ now: Date) -> [(String, Bool, String)] {
+    static func optionsChecks(_ now: Date) -> [(String, Bool, String)] {
         let samples = Wording.samples(now: now)
         var bad: [String] = []
         for (id, c) in samples {
@@ -76,4 +76,7 @@ extension Fixture {
         return ("text-leaves-the-action-to-its-option", repeats.isEmpty,
                 repeats.isEmpty ? "\(samples.filter { $0.1.recommended != nil }.count) cards with a recommendation; none repeats it in its text" : repeats.joined(separator: "; "))
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func optionsSamples(_ now: Date) -> [(String, Card)] { [] }
 }

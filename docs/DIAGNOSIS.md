@@ -47,25 +47,53 @@ Stopping, running cooler and quitting are offered only for the person's own proc
 
 ## How a card is chosen
 
-The catalogue is one of several checks. Each busy process gets one card, from the first check below that applies, in this order (`Card.make` in [`Card.swift`](../Sources/CoolHeadCore/Card.swift)):
+The catalogue is one of several checks. Each kind of card about a busy process is its own file in [`Sources/CoolHeadCore/Cards`](../Sources/CoolHeadCore/Cards), every card that fits a process is made, and the ranker in [`ProcessCard.swift`](../Sources/CoolHeadCore/ProcessCard.swift) chooses one. `coolhead cards` lists every card with the rule it comes from and the samples it must win.
 
-1. **A program pretending to be part of macOS**: a macOS name used from outside macOS's folders without Apple's signature, or a background item labelled like Apple's that Apple didn't sign ([`Disguise.swift`](../Sources/CoolHeadCore/Disguise.swift)).
-2. **macOS's own work that seems stuck**: busy for over a day, judged by its priority and how long it has run, not by % CPU ([`BackgroundWork.swift`](../Sources/CoolHeadCore/BackgroundWork.swift)).
-3. **The catalogue**: macOS's own processes that Cool Head knows by name (below).
-4. **Security, device management and VPN software.**
-5. **Sync apps.**
-6. **Chromium browsers**: a tab, an extension or the graphics process.
-7. **A macOS service working for an app**, such as decoding video for it, and **web pages shown by another app**, such as Mail: the card names that app ([`Served.swift`](../Sources/CoolHeadCore/Served.swift)).
-8. **Web pages** in Safari or another browser.
-9. **A macOS service that isn't in the catalogue**: the card says it's part of macOS, working in the background.
-10. **Games.**
-11. **Anything else that's busy**: the states above (working, waiting, stalled, can't tell).
+The cards, by what they're about:
 
-The first check that applies wins, so the order decides between cards: a program named `mdworker` that isn't Apple's gets the disguise card, never Spotlight's. Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
+1. **Who it is**: a program pretending to be part of macOS, using a macOS name from outside macOS's folders without Apple's signature, or a background item labelled like Apple's that Apple didn't sign ([`Disguise.swift`](../Sources/CoolHeadCore/Disguise.swift)).
+2. **Stuck**: macOS's own work that seems stuck, busy for over a day, judged by its priority and how long it has run, not by % CPU ([`BackgroundWork.swift`](../Sources/CoolHeadCore/BackgroundWork.swift)).
+3. **What it's doing**: the catalogue (programs Cool Head knows by name, mostly macOS's own, below); security, device management and VPN software; sync apps; Chromium browsers and apps built like them (a tab, an extension or the graphics process); a macOS service working for an app, such as decoding video for it, and web pages shown by another app, such as Mail, where the card names that app ([`Served.swift`](../Sources/CoolHeadCore/Served.swift)); web pages in Safari or another browser; and games.
+4. **When nothing more specific explains it**: a macOS service that isn't in the catalogue, which the card says is part of macOS, working in the background; and anything else that's busy, by the states above (working, waiting, stalled, can't tell).
+
+When more than one card fits the same process, each is scored on four things, from its own data, and the highest total wins (Phil, 17 November 2026: "prioritized in order of some aggregate of highest impact, lowest risk, highest confidence, lowest effort"):
+
+- **Confidence**, how surely it fits, from 0 to 3: 3 when it knows this exact app, product or part of macOS (or the app says it's a game, or one of its own tabs); 2 when it knows what kind of program this is; 1 when it goes only by a process's name, which other programs can share; 0 for the busy-job card, which fits anything. **It counts twice.** That's a choice made against the samples, not a measured truth: with all four counted the same, a Chromium-style helper inside security software, a sync app or a game would get the browser-tab card and its "Run this tab cooler", and six cases would tie.
+- **Impact** of its advice, the recommended option: 3 if it fixes the cause, 2 if it eases it, 1 if it only informs. A card that recommends nothing still tells you what's happening, so it counts as informing.
+- **Risk** of its advice: 3 for Caution, 1 if it interrupts something, 0 otherwise. It's taken away.
+- **Effort** of its advice: 1 for a task for you, 0 for one click or nothing to do. It's taken away.
+
+Total: 2 × confidence + impact − risk − effort.
+
+One rule is outside the score: a card saying a program isn't what it claims to be always wins, because a score could let a busy-looking explanation outweigh a warning that a program may be harmful.
+
+The same, as a flow chart:
+
+```mermaid
+flowchart TD
+    start["Every card that fits a busy process<br/>(the busy-job card always does)"] --> identity
+    identity{"Does one say the program isn't<br/>what it claims to be?"} -- Yes --> identityWins["That card wins"]
+    identity -- No --> score["Score each card:<br/>2 × confidence + impact − risk − effort"]
+    score --> top{"Is one total highest?"}
+    top -- Yes --> topWins["That card wins"]
+    top -- No --> tie["A tie: the selftest fails and names both.<br/>Merge them if they share the fix;<br/>otherwise change a card's confidence or options, with the reason."]
+    identityWins & topWins --> extras["Extras join the winner:<br/>a helper's Stop it starting by itself, an Intel app's note,<br/>older Electron apps on a busy WindowServer"]
+    extras --> why["Its Nerdy stuff explains the recommendation,<br/>from the decision record"]
+```
+
+If two cards tie, the selftest fails and names both. Each card's Nerdy stuff explains its recommendation in plain words, generated from a **decision record** ([`Decision.swift`](../Sources/CoolHeadCore/Decision.swift)), never reworded by a model:
+
+- **What the card saw, and what it means**, written by each card for each situation it covers: "it hasn't made any progress for 2 hours", "it's stuck, using power without getting anywhere".
+- **Facts about each option**, written once for each kind of option, or by the card where its option needs its own words, each a clause for one role: how it helps, what it costs, whether it can be undone, when it's the right choice, and what Cool Head checked (worked out, such as "you could lose up to 3 hours of work").
+- **The comparison**: the strongest option the card doesn't recommend, and the factor that holds it back (its risk, what it ends, the effort, or the card's own reason).
+
+One template turns them into text: "We recommend [doing it] because [what we saw], so [what it means]. That [how it helps]." Then what it costs, or that it takes one click and can be undone, then "Instead, [the stronger option] [how it helps], but [the deciding factor]." For example: "We recommend running Site cooler because it's been busy for 3 hours without saying what it's doing. That moves Site to background priority, so it uses less power and makes less heat. It takes one click and can be undone any time. Stop Site only if you know what it is and don't need it: it ends the load completely, but nothing gets a chance to save, and you could lose up to 3 hours of work." The selftest fails when a card or option the samples reach lacks a fact it needs, and [`GoldenExplanations.swift`](../Sources/CoolHeadCore/GoldenExplanations.swift) records every sample's text, so a change shows in the pull request's diff. `coolhead cards --why` lists every explanation across the samples and checks, each varied in warmth, battery, a game and the front app. `coolhead cards --json` shows every card's score on every sample. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
+
+Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
 
 Some cards are about the whole Mac, not one busy process, and come from their own checks: memory that's tight, the hardware (the drive, battery, charging, crash restarts and ports), sleep and power (an app keeping the Mac awake, Low Power Mode left on with the charger while the Mac is busy, a battery that drained while asleep), browser settings Cool Head didn't make, and an app that keeps crashing (5 or more crash reports in 24 hours).
 
-**Rules.** Most of these checks come from a review of published evidence on what makes Macs hot, slow or awake, and the code names the rule each one comes from ("research rule 6"). Each rule is written as code, so unlike a catalogue entry it can't be added by filling in fields; open a "pattern" issue and it can be built. *(Planned: each card in its own file, chosen by stated rules and weights instead of by its place in this list.)*
+**Rules.** Most of these checks come from a review of published evidence on what makes Macs hot, slow or awake, and the code names the rule each one comes from ("research rule 6"). Each rule is written as code, so unlike a catalogue entry it can't be added by filling in fields; open a "pattern" issue and it can be built.
 
 ## The catalogue
 

@@ -15,4 +15,7 @@ extension Fixture {
             && UpdateCheck.runs(minimum: "14.0")          // this Mac, as built
         return [("update-checks-macos", ok, zip(cases, results).map { "\($0.0.0 ?? "none") on \($0.0.1.majorVersion).\($0.0.1.minorVersion): \($0.1 ? "installs" : "kept")" }.joined(separator: ", "))]
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func updateCheckSamples(_ now: Date) -> [(String, Card)] { [] }
 }

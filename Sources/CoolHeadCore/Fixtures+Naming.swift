@@ -27,4 +27,7 @@ extension Fixture {
         return [("names-tell-apart", bad.isEmpty && cases && named >= aboutProcesses * 2 / 3,
                  bad.isEmpty ? "\(named) of \(aboutProcesses) example cards about processes record their names; all can be told apart; cases \(cases)" : bad.joined(separator: "; "))]
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func namingSamples(_ now: Date) -> [(String, Card)] { [] }
 }
