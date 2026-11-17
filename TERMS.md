@@ -48,7 +48,7 @@ The Maintainer may change these terms. Changes are made in this file, in this re
 
 ## Governing law
 
-These terms are governed by the laws of [GOVERNING LAW: STATE OR COUNTRY, TO BE FILLED IN], without regard to its conflict-of-law rules. Any dispute about Cool Head or these terms goes to the courts of [VENUE: PLACE, TO BE FILLED IN], unless the law where you live gives you the right to bring it there.
+These terms are governed by the laws of the Commonwealth of Virginia and, where it applies, the federal law of the United States, without regard to Virginia's conflict-of-law rules. Any dispute about Cool Head or these terms goes to the state courts in Fairfax County, Virginia, or the United States District Court for the Eastern District of Virginia, unless the law where you live gives you the right to bring it there.
 
 ## The rest
 
