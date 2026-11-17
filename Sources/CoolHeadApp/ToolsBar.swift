@@ -36,7 +36,9 @@ struct ToolsBar: View {
             }
             // the hardware checks on one page, after Battery, the other part of the Mac itself (Phil, 16 November 2026:
             // "Yes build the hardware tool page")
-            ToolButton(symbol: "stethoscope", name: "Hardware", tip: "Hardware checks", labels: labels, on: tools.hardware) {
+            // a drive: most of the page is about it (Phil, 16 November 2026: "maybe we should use a drive icon instead of a
+            // stethoscope?")
+            ToolButton(symbol: "internaldrive", name: "Hardware", tip: "Hardware checks", labels: labels, on: tools.hardware) {
                 let open = !tools.hardware
                 closeAll()
                 tools.hardware = open

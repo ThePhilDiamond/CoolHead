@@ -36,7 +36,8 @@ extension Fixture {
         let issue = HardwarePage.parts(HardwarePage.sample("issue", now: now), now: now)
         let ported = HardwarePage.parts(report { $0.ports = [PortErrors(name: "the MagSafe port", overCurrent: 2)] }, now: now)
         let p1 = calm.map(\.kind) == [.drive, .crashes, .ports] && calm.map(\.level) == [0, 0, 0]
-            && calm[0].value == "3% of its life used" && calm[0].lines == ["About 18 TB written over 2,140 hours, now at 34°C."]
+            && calm[0].value == "3% of its life used" && calm[0].lines == ["About 18 TB written over 2,140 hours, now at 34°C.", "Time Machine is set up to back it up."]
+            && issue[0].lines.last == "Time Machine isn't set up, so nothing backs this drive up."
             && calm[1].value == "None this week" && calm[1].lines.isEmpty && calm[2].value == "No errors"
             && issue[0].level == 1 && issue[1].value == "1 this week" && issue[1].level == 1
             && issue[1].lines.count == 3 && issue[1].lines[0].hasPrefix("Last one ")
@@ -56,13 +57,12 @@ extension Fixture {
             && HardwarePage.running(thermal: "nominal", fans: nil).fans == nil
         review.append(("hardware-page-running", r1, states.map { "\($0.title): \($0.meaning)" }.joined(separator: " | ")))
 
-        // the gauges: the chip's share in use, and memory pressure (never "memory used")
+        // the gauges: a percentage each, coloured by level; memory by macOS's own pressure, not "memory used"
         let g = [HardwarePage.chip(busy: 0.2), HardwarePage.chip(busy: 0.6), HardwarePage.chip(busy: 0.9),
-                 HardwarePage.memory(pressure: "normal", swappingNow: false), HardwarePage.memory(pressure: "warning", swappingNow: true),
-                 HardwarePage.memory(pressure: "critical", swappingNow: true)]
-        let g1 = g.map(\.level) == [0, 1, 2, 0, 1, 2] && g[0].words == "The chip is 20% busy, with room to spare."
-            && g[4].words == "Memory is getting full, and macOS is moving some to disk."
-        review.append(("hardware-page-gauges", g1, g.map(\.words).joined(separator: " | ")))
+                 HardwarePage.memory(freePercent: 58, pressure: "normal"), HardwarePage.memory(freePercent: 22, pressure: "warning"),
+                 HardwarePage.memory(freePercent: 8, pressure: "critical")]
+        let g1 = g.map(\.level) == [0, 1, 2, 0, 1, 2] && g.map(\.percent) == [20, 60, 90, 42, 78, 92]
+        review.append(("hardware-page-gauges", g1, g.map { "\($0.name) \($0.percent)%" }.joined(separator: ", ")))
         return review
     }
 }

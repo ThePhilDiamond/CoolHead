@@ -17,6 +17,8 @@ public struct HardwareReport {
     public var crashes = CrashRestarts()
     public var ports: [PortErrors] = []
     public var appleSilicon = true
+    /// Whether Time Machine has somewhere to back up to; nil: not read.
+    public var timeMachine: TimeMachine? = nil
 
     public init(drive: DriveHealth? = nil, battery: BatteryHealth? = nil, crashes: CrashRestarts = CrashRestarts(),
                 ports: [PortErrors] = [], appleSilicon: Bool = true) {
@@ -26,8 +28,25 @@ public struct HardwareReport {
     /// Reads everything. `profile` also asks System Information for the battery's condition and Maximum Capacity
     /// (about 0.15 s), which is worth doing once an hour, not every few minutes.
     public static func read(profile: Bool = true, now: Date = Date()) -> HardwareReport {
-        HardwareReport(drive: DriveHealth.read(), battery: BatteryHealth.read(profile: profile), crashes: CrashRestarts.read(now: now),
-                       ports: PortErrors.read(), appleSilicon: (sysctlInt("hw.optional.arm64") ?? 0) == 1)
+        var r = HardwareReport(drive: DriveHealth.read(), battery: BatteryHealth.read(profile: profile), crashes: CrashRestarts.read(now: now),
+                               ports: PortErrors.read(), appleSilicon: (sysctlInt("hw.optional.arm64") ?? 0) == 1)
+        r.timeMachine = TimeMachine.read()
+        return r
+    }
+}
+
+// MARK: - Backups
+
+/// Whether Time Machine is set up, from `tmutil destinationinfo` (any user, about 0.01 s). When it last backed up isn't
+/// read: Time Machine's settings file can't be opened without an administrator, and `tmutil latestbackup` tries to
+/// mount the backup drive, which can stall on a network one (tested 16 November 2026, macOS 26.6.2, no destination set).
+/// Sync apps (iCloud Drive, Google Drive, Dropbox, Box) aren't counted: they keep files the same everywhere, so a file
+/// deleted or damaged here is deleted or damaged there too.
+public enum TimeMachine: Equatable {
+    case notSetUp, setUp
+    public static func read() -> TimeMachine? {
+        guard let out = Hardware.run("/usr/bin/tmutil", ["destinationinfo"]).map({ String(decoding: $0, as: UTF8.self) }) else { return nil }
+        return out.contains("No destinations configured") ? .notSetUp : out.contains("Name") || out.contains("Kind") ? .setUp : nil
     }
 }
 

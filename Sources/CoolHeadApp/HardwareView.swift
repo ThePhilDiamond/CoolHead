@@ -20,7 +20,7 @@ struct HardwareView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Label("Hardware", systemImage: "stethoscope").font(.body.weight(.semibold))
+                Label("Hardware", systemImage: "internaldrive").font(.body.weight(.semibold))
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
@@ -80,6 +80,13 @@ struct HardwareView: View {
                 Text($0).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 26)
             }
+            // nothing backs the drive up: one click to Time Machine's settings
+            if p.kind == .drive, report?.timeMachine == .notSetUp {
+                Button("Set up Time Machine") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Time-Machine-Settings.extension")!)
+                }
+                .buttonStyle(.bordered).controlSize(.small).padding(.leading, 26)
+            }
         }
         .padding(.horizontal, 9).padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -107,12 +114,12 @@ struct RunningStrip: View {
     }
     var gauges: [HardwarePage.Gauge] {
         switch snapshot {
-        case "hot": return [HardwarePage.chip(busy: 0.62), HardwarePage.memory(pressure: "warning", swappingNow: true)]
-        case "fire": return [HardwarePage.chip(busy: 0.93), HardwarePage.memory(pressure: "critical", swappingNow: true)]
-        case .some: return [HardwarePage.chip(busy: 0.18), HardwarePage.memory(pressure: "normal", swappingNow: false)]
+        case "hot": return [HardwarePage.chip(busy: 0.62), HardwarePage.memory(freePercent: 22, pressure: "warning")]
+        case "fire": return [HardwarePage.chip(busy: 0.93), HardwarePage.memory(freePercent: 8, pressure: "critical")]
+        case .some: return [HardwarePage.chip(busy: 0.18), HardwarePage.memory(freePercent: 58, pressure: "normal")]
         case nil:
-            if PanelView.limitedSnapshot { return [HardwarePage.chip(busy: 0.18), HardwarePage.memory(pressure: "normal", swappingNow: false)] }
-            return [HardwarePage.chip(busy: load.busy), HardwarePage.memory(pressure: watcher.mac.memoryPressure, swappingNow: (watcher.mac.swapOutPages ?? 0) > 0)]
+            if PanelView.limitedSnapshot { return [HardwarePage.chip(busy: 0.18), HardwarePage.memory(freePercent: 58, pressure: "normal")] }
+            return [HardwarePage.chip(busy: load.busy), HardwarePage.memory(freePercent: load.memoryFree, pressure: watcher.mac.memoryPressure)]
         }
     }
 
@@ -120,7 +127,6 @@ struct RunningStrip: View {
         let r = running
         HStack(spacing: 10) {
             Image(nsImage: Snowflake.image(icon: r.icon, scale: 1.4))
-                .help([r.meaning, r.fans].compactMap { $0 }.joined(separator: " "))
             VStack(alignment: .leading, spacing: 0) {
                 Text(r.title).font(.callout.weight(.semibold))
                 Text(r.meaning).font(.caption).foregroundStyle(Ink.muted).lineLimit(2).fixedSize(horizontal: false, vertical: true)
@@ -133,27 +139,34 @@ struct RunningStrip: View {
         .onDisappear { load.stop() }
     }
 
-    /// A gauge: its name over a short bar, filled to its share in its level's colour.
+    /// A gauge: its name and percentage over a short bar, filled to that share in its level's colour. No tooltip: the
+    /// colour, the words beside the snowflake and the cards below say whether it matters (Phil, 16 November 2026).
     func gauge(_ g: HardwarePage.Gauge) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(g.name).font(.caption2).foregroundStyle(Ink.muted)
+            HStack(spacing: 4) {
+                Text(g.name).foregroundStyle(Ink.muted).fixedSize()
+                Spacer(minLength: 0)
+                Text("\(g.percent)%").monospacedDigit().foregroundStyle(Ink.text)
+            }
+            .font(.caption2)
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.primary.opacity(0.12))
-                Capsule().fill(NetworkView.color(g.level)).frame(width: max(5, 44 * g.fill))
+                Capsule().fill(NetworkView.color(g.level)).frame(width: max(5, 76 * CGFloat(g.percent) / 100))
             }
-            .frame(width: 44, height: 5)
+            .frame(width: 76, height: 5)
         }
-        .help(g.words)
+        .frame(width: 76)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(g.words)
+        .accessibilityLabel("\(g.name) \(g.percent) percent")
     }
 }
 
-/// The share of the chip's cores in use, from macOS's own counters, read every 3 seconds while the panel is open and
-/// not at all while it's closed.
+/// The share of the chip's cores in use, from macOS's own counters, and the memory macOS counts as free when it judges
+/// pressure (kern.memorystatus_level), read every 3 seconds while the panel is open and not at all while it's closed.
 @MainActor
 final class ChipLoad: ObservableObject {
     @Published var busy = 0.0
+    @Published var memoryFree = 100
     private var last: (busy: UInt64, total: UInt64)?
     private var timer: Timer?
 
@@ -164,6 +177,9 @@ final class ChipLoad: ObservableObject {
     func stop() { timer?.invalidate(); timer = nil; last = nil }
 
     private func sample() {
+        var level: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        if sysctlbyname("kern.memorystatus_level", &level, &size, nil, 0) == 0 { memoryFree = Int(level) }
         var info = host_cpu_load_info()
         var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info>.stride / MemoryLayout<integer_t>.stride)
         let ok = withUnsafeMutablePointer(to: &info) {

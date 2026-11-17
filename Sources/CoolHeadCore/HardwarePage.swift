@@ -50,6 +50,13 @@ public enum HardwarePage {
                 + (d.temperatureC.map { ", now at \($0)°C" } ?? "") + "."]
             if !d.warnings.isEmpty { lines.append("It reports: " + d.warnings.joined(separator: ", ") + ". Back up now.") }
             if d.mediaErrors > 0 { lines.append("It couldn't correct \(Hardware.count(d.mediaErrors)) reads. Keep your backups current.") }
+            // whether anything backs it up, since every drive warning ends in "back up" (Phil, 16 November 2026: "we can
+            // possibly mention time machine/icloud/google drive/dropbox/box backup state?"); sync apps aren't backups
+            switch r.timeMachine {
+            case .notSetUp?: lines.append("Time Machine isn't set up, so nothing backs this drive up.")
+            case .setUp?: lines.append("Time Machine is set up to back it up.")
+            case nil: break
+            }
             out.append(Part(kind: .drive, symbol: "internaldrive", name: "Drive", value: "\(d.percentUsed)% of its life used",
                             level: d.fault ? 2 : (d.percentUsed >= 80 || d.mediaErrors > 0) ? 1 : 0, lines: lines))
         }
@@ -117,21 +124,19 @@ public enum HardwarePage {
         }
     }
 
-    /// How busy the chip and memory are, for the gauges beside it: a share from 0 to 1 and a level. The chip is the share
-    /// of all its cores in use; memory is macOS's memory pressure (normal, warning, critical), never "memory used",
-    /// which is high on any healthy Mac (rule 10 in the research).
-    public struct Gauge: Equatable { public let name: String; public let fill: Double; public let level: Int; public let words: String }
+    /// How busy the chip and memory are, for the gauges beside it: a percentage, and a level for its colour (Phil, 16
+    /// November 2026: "If we just display the percentage as well, we don't need mouse-over text"). The chip is the share
+    /// of all its cores in use. Memory is the share macOS itself counts as in use when it judges memory pressure (100
+    /// minus kern.memorystatus_level, the "free percentage" memory_pressure reports), coloured by that pressure; never
+    /// Activity Monitor's "Memory Used", which is high on any healthy Mac (rule 10 in the research).
+    public struct Gauge: Equatable { public let name: String; public let percent: Int; public let level: Int }
     public static func chip(busy: Double) -> Gauge {
         let b = min(max(busy, 0), 1)
-        return Gauge(name: "Chip", fill: b, level: b >= 0.8 ? 2 : b >= 0.5 ? 1 : 0,
-                     words: "The chip is \(Int((b * 100).rounded()))% busy" + (b >= 0.8 ? ": working hard." : b >= 0.5 ? "." : ", with room to spare."))
+        return Gauge(name: "Chip", percent: Int((b * 100).rounded()), level: b >= 0.8 ? 2 : b >= 0.5 ? 1 : 0)
     }
-    public static func memory(pressure: String, swappingNow: Bool) -> Gauge {
-        switch pressure {
-        case "critical": return Gauge(name: "Memory", fill: 1, level: 2, words: "Memory is tight: macOS is short of memory and moving some to disk, which is slow.")
-        case "warning": return Gauge(name: "Memory", fill: 0.66, level: 1, words: "Memory is getting full" + (swappingNow ? ", and macOS is moving some to disk." : "."))
-        default: return Gauge(name: "Memory", fill: 0.33, level: 0, words: "Memory is fine: there's room for what's open.")
-        }
+    public static func memory(freePercent: Int, pressure: String) -> Gauge {
+        Gauge(name: "Memory", percent: min(max(100 - freePercent, 0), 100),
+              level: pressure == "critical" ? 2 : pressure == "warning" ? 1 : 0)
     }
 
     /// For screenshots: made-up hardware, never this Mac's. "issue" shows a worn drive and one crash restart.
@@ -139,7 +144,9 @@ public enum HardwarePage {
         var d = DriveHealth()
         d.spare = 100; d.spareThreshold = 10; d.percentUsed = 3; d.powerOnHours = 2_140; d.dataUnitsWritten = 35_000_000; d.temperatureC = 34
         var r = HardwareReport(drive: d, battery: nil, crashes: CrashRestarts(recent: []), ports: [], appleSilicon: true)
+        r.timeMachine = .setUp
         if kind == "issue" {
+            r.timeMachine = .notSetUp
             r.drive?.percentUsed = 84
             r.crashes = CrashRestarts(lastText: "panic(cpu 2 caller 0xfffffe0012345678): userspace watchdog timeout: no successful checkins from WindowServer (2 induced crashes) in 120 seconds",
                                       lastDate: now.addingTimeInterval(-26 * 3600), recent: [now.addingTimeInterval(-26 * 3600)])
