@@ -3,6 +3,7 @@ import Foundation
 /// One of macOS's own services that isn't in the catalogue (see BackgroundWork.unknownCard, research rule 6): names
 /// change every release, so an unknown one is part of macOS, working in the background.
 enum UnknownServiceCard: ProcessCard {
+    static let name = "an unfamiliar part of macOS"
     static let id = "unknown-service"
     static let kind = CardKind.catchAll
     static let rule = "Research rule 6: a macOS service nobody catalogued is part of macOS; never silence, never alarm"

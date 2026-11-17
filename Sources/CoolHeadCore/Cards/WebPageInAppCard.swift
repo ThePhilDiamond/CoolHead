@@ -3,11 +3,12 @@ import Foundation
 /// Web pages shown by another app (Mail, or an app with a web view): WebKit's processes do the work for it, and
 /// quitting that app is the advice (see Served.swift).
 enum WebPageInAppCard: ProcessCard {
+    static let name = "a web page in an app"
     static let id = "web-page-in-app"
     static let kind = CardKind.explanation
     static let rule = "Research rule 4: WebKit's work is credited to the app whose pages it shows"
     static let match = Match.category
-    static let refines = ["web-page": "it knows which app the page is in, and quitting that app is the advice"]
+    static let refines = ["web-page": "it knows which app the page is in, so quitting that app is the advice"]
     static let samples = ["web-page-in-app"]
 
     static func card(_ s: Situation) -> Card? {

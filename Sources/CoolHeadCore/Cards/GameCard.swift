@@ -5,13 +5,14 @@ import Foundation
 /// first to improve game performance"): busy is what a game does, so it's calm and never slowed down; when the Mac is
 /// warm, lower settings is the fix that keeps play smooth.
 enum GameCard: ProcessCard {
+    static let name = "a game"
     static let id = "game"
     static let kind = CardKind.explanation
     static let rule = "Phil, 15 November 2026: games are protected, never slowed"
     static let match = Match.category
     // Phil, 17 November 2026, for a game built on Chromium: the two cards share only quitting, and the Chromium card's
     // other options (its Task Manager, Chrome's settings, closing a tab) don't exist in a game, so they aren't merged
-    static let refines = ["chromium-browser": "games are protected, and a game has no browser tabs or settings to offer (Phil, 17 November 2026)"]
+    static let refines = ["chromium-browser": "games are never slowed down, and a game has no browser tabs or settings to offer"]
     static let samples = ["game"]
 
     static func card(_ s: Situation) -> Card? {

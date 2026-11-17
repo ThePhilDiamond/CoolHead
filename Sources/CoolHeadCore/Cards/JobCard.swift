@@ -3,6 +3,7 @@ import Foundation
 /// Any busy job no other card explains: a script, a command-line tool or an app, by how it's doing (see Health in
 /// Card.swift): making progress, waiting, stuck, or not saying.
 enum JobCard: ProcessCard {
+    static let name = "a busy program"
     static let id = "job"
     static let kind = CardKind.catchAll
     static let rule = "Stopping is recommended only when a job has stalled (Phil); on battery, only the really hungry or long-running are paused (Phil, 15 November 2026)"

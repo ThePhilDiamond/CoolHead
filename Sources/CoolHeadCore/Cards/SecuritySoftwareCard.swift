@@ -3,6 +3,7 @@ import Foundation
 /// Security, device management and VPN software (Protected.swift): never stopped, slowed or quit, since stopping one
 /// can leave the Mac unprotected or break an employer's rules.
 enum SecuritySoftwareCard: ProcessCard {
+    static let name = "security software"
     static let id = "security-software"
     static let kind = CardKind.explanation
     static let rule = "System Sentinel's review, 15 November 2026: security software is never stopped, slowed or quit"

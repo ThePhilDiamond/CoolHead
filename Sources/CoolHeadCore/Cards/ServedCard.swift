@@ -3,6 +3,7 @@ import Foundation
 /// A macOS service working for an app (see Served.swift, research rule 4): the work is the app's, so the card names it
 /// and quitting it is the advice.
 enum ServedCard: ProcessCard {
+    static let name = "macOS working for an app"
     static let id = "served"
     static let kind = CardKind.explanation
     static let rule = "Research rule 4: a macOS service's work is credited to the app it's working for"

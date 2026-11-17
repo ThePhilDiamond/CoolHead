@@ -110,13 +110,13 @@ public enum CardKind: Int, Comparable, CaseIterable {
 
     public static func < (a: CardKind, b: CardKind) -> Bool { a.rawValue < b.rawValue }
 
-    /// "what it's doing", for the reason a card was chosen.
-    public var words: String {
+    /// Why a card of this kind comes before one of a later kind, in plain words.
+    public var first: String {
         switch self {
-        case .identity: return "who it is"
-        case .stalled: return "stuck work"
-        case .explanation: return "what it's doing"
-        case .catchAll: return "anything busy"
+        case .identity: return "who a program really is matters more than what it's doing"
+        case .stalled: return "stuck work comes first"
+        case .explanation: return "it says what the process is doing, rather than only that it's busy"
+        case .catchAll: return "it fits better"
         }
     }
 }
@@ -141,6 +141,8 @@ public enum Match: Int, Comparable {
 public protocol ProcessCard {
     /// Stable, never reused: what the golden ranking records.
     static var id: String { get }
+    /// What it's about, in a few plain words, for the reason a card was chosen: "a web page in an app".
+    static var name: String { get }
     static var kind: CardKind { get }
     /// Where the card comes from: a research rule, or Phil's decision and its date.
     static var rule: String { get }
@@ -182,19 +184,21 @@ public enum Ranker {
         /// be merged"), otherwise by a rule with its reason.
         public var ties: [String]
 
-        /// For the card's Nerdy stuff: "Why this card: web-page-in-app. Chosen over job and unknown-service: …; over
-        /// web-page: …". Cards that lost for the same reason are named together.
-        public var line: String {
-            var order: [String] = [], who: [String: [String]] = [:]
-            for r in reasons {
-                guard let colon = r.range(of: ": ") else { continue }
-                let card = String(r[r.index(r.startIndex, offsetBy: "Chosen over ".count)..<colon.lowerBound]), why = String(r[colon.upperBound...])
-                if who[why] == nil { order.append(why) }
-                who[why, default: []].append(card)
+        /// The other cards that fitted, by name ("a busy program"), and why this one was chosen instead, each reason once.
+        public var others: [String] = []
+        public var because: [String] = []
+
+        /// For the card's Nerdy stuff, in plain words: "This process also fits other cards: a busy program and a web
+        /// page. This card was chosen because it says what the process is doing, rather than only that it's busy. Also,
+        /// it knows which app the page is in, so quitting that app is the advice." Nil when no other card fitted.
+        public var line: String? {
+            guard !others.isEmpty else { return nil }
+            func list(_ x: [String], _ and: String = "and") -> String {
+                x.count < 3 ? x.joined(separator: " \(and) ") : x.dropLast().joined(separator: ", ") + ", \(and) " + x.last!
             }
-            func names(_ c: [String]) -> String { c.count < 2 ? c.joined() : c.dropLast().joined(separator: ", ") + " and " + c.last! }
-            let parts = order.enumerated().map { i, why in (i == 0 ? "Chosen over " : "over ") + names(who[why]!) + ": " + why }
-            return "Why this card: \(winner)." + (parts.isEmpty ? " No other card matched." : " " + parts.joined(separator: "; ") + ".")
+            let fits = others.count == 1 ? "This process also fits another card: \(others[0])." : "This process also fits other cards: \(list(others))."
+            guard let first = because.first else { return fits }
+            return fits + " This card was chosen because \(first)." + because.dropFirst().map { " Also, \($0)." }.joined()
         }
     }
 
@@ -214,7 +218,7 @@ public enum Ranker {
         for next in card.refines.keys.sorted() where !seen.contains(next) {
             guard let t = ProcessCards.all.first(where: { $0.id == next }),
                   refinement(t, over: other, seen: seen.union([card.id, next])) != nil else { continue }
-            return card.refines[next]! + ", and \(next) says more than \(other)"
+            return card.refines[next]!
         }
         return nil
     }
@@ -222,15 +226,12 @@ public enum Ranker {
     /// Whether `a` wins over `b`, and why; nil when nothing tells them apart.
     static func decide(_ a: Candidate, _ b: Candidate, _ s: Situation) -> (aWins: Bool, why: String)? {
         // rules, never traded against anything
-        if a.type.kind != b.type.kind {
-            let (first, second) = a.type.kind < b.type.kind ? (a.type.kind, b.type.kind) : (b.type.kind, a.type.kind)
-            return (a.type.kind < b.type.kind, "a card about \(first.words) comes before one about \(second.words)")
-        }
+        if a.type.kind != b.type.kind { return (a.type.kind < b.type.kind, min(a.type.kind, b.type.kind).first) }
         if let why = refinement(a.type, over: b.type.id) { return (true, why) }
         if let why = refinement(b.type, over: a.type.id) { return (false, why) }
-        if a.risk != b.risk { return (a.risk < b.risk, "it's more cautious: its riskiest option is less risky") }
+        if a.risk != b.risk { return (a.risk < b.risk, "its options are less risky") }
         // then weights
-        if a.type.match != b.type.match { return (a.type.match > b.type.match, "it matches more specifically") }
+        if a.type.match != b.type.match { return (a.type.match > b.type.match, "it fits this process more exactly") }
         let sa = a.type.strength(s), sb = b.type.strength(s)
         if sa != sb { return (sa > sb, "the evidence for it is stronger") }
         return nil
@@ -243,15 +244,19 @@ public enum Ranker {
         // the job card matches any process, so there is always one
         var best = candidates[0]
         for c in candidates.dropFirst() where decide(c, best, s)?.aWins == true { best = c }
-        var reasons: [String] = [], ties: [String] = []
+        var reasons: [String] = [], ties: [String] = [], others: [String] = [], because: [String] = []
         for c in candidates where c.type.id != best.type.id {
             // a card the winner doesn't beat (nothing tells them apart, or the rules disagree with each other) is a tie
-            if let d = decide(best, c, s), d.aWins { reasons.append("Chosen over \(c.type.id): \(d.why)") } else { ties.append(c.type.id) }
+            if let d = decide(best, c, s), d.aWins {
+                reasons.append("Chosen over \(c.type.id): \(d.why)")
+                others.append(c.type.name)
+                if !because.contains(d.why) { because.append(d.why) }
+            } else { ties.append(c.type.id) }
         }
         var card = best.card
         for x in extras { if let added = x.add(to: card, s) { card = added } }
         card.cardID = best.type.id
-        return (card, Choice(winner: best.type.id, matched: candidates.map { $0.type.id }, reasons: reasons, ties: ties))
+        return (card, Choice(winner: best.type.id, matched: candidates.map { $0.type.id }, reasons: reasons, ties: ties, others: others, because: because))
     }
 }
 
@@ -265,7 +270,7 @@ extension Ranker {
              "samples": t.samples.map { id -> [String: Any] in
                  guard let c = samples[id] else { return ["id": id] }
                  return ["id": id, "headline": c.headline, "options": c.fixes.map(\.id), "recommended": c.recommended?.id ?? NSNull(),
-                         "why": c.choice?.line ?? NSNull()]
+                         "why": c.choice?.line ?? NSNull(), "chosenOver": c.choice?.reasons ?? []]
              }]
         }
         let extras: [[String: Any]] = ProcessCards.extras.map { ["id": $0.id, "type": "extra", "rule": $0.rule] }

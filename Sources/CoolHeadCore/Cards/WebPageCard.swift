@@ -4,6 +4,7 @@ import Foundation
 /// draws web pages for Safari, and for any other app that shows them: when macOS doesn't say which app it's for, it's
 /// most often Safari.
 enum WebPageCard: ProcessCard {
+    static let name = "a web page"
     static let id = "web-page"
     static let kind = CardKind.explanation
     static let rule = "A browser's busy tab: only the browser's own task manager knows which"

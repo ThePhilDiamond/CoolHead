@@ -2,6 +2,7 @@ import Foundation
 
 /// Sync apps (Protected.swift): catching up is normal, and pausing loses nothing; slowing or quitting come after.
 enum SyncAppCard: ProcessCard {
+    static let name = "a sync app"
     static let id = "sync-app"
     static let kind = CardKind.explanation
     static let rule = "Sync apps catch up and stop; a build writing into a synced folder is the cause (Phil's Google Drive errors, 15 November 2026)"
