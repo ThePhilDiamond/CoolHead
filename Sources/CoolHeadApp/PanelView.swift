@@ -1086,7 +1086,7 @@ struct Frost: View {
                     p = next
                 }
             }
-            func fern(from: CGPoint, angle: CGFloat, length: CGFloat, curl: CGFloat) {
+            func fern(from: CGPoint, angle: CGFloat, length: CGFloat, curl: CGFloat, opacity o: Double = 1) {
                 var stem = Path(), branches = Path()
                 let n = Int(length / 1.6)
                 var p = from, a = angle
@@ -1106,10 +1106,10 @@ struct Frost: View {
                 }
                 ctx.drawLayer { glow in
                     glow.addFilter(.blur(radius: 1.4))
-                    glow.stroke(branches, with: .color(.white.opacity(0.55)), style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                    glow.stroke(branches, with: .color(.white.opacity(0.55 * o)), style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
                 }
-                ctx.stroke(branches, with: .color(.white.opacity(0.8)), style: StrokeStyle(lineWidth: 0.5, lineCap: .round))
-                ctx.stroke(stem, with: .color(.white.opacity(0.95)), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
+                ctx.stroke(branches, with: .color(.white.opacity(0.8 * o)), style: StrokeStyle(lineWidth: 0.5, lineCap: .round))
+                ctx.stroke(stem, with: .color(.white.opacity(0.95 * o)), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
             }
             // ferns grow all along the edges, more and longer in the corners, and one or two reach further in (Phil,
             // 16 November 2026: "Ice typically builds more in the corners, but the ferns can grow along the edge, with
@@ -1161,6 +1161,36 @@ struct Frost: View {
                 let along = (rnd() < 0.5 ? -1 : 1) * (0.35 + rnd() * 0.4)
                 fern(from: pt, angle: inward + along, length: st.reachLength * (0.8 + rnd() * 0.4) * max(scale, 0.7), curl: (rnd() - 0.5) * st.curl * 1.5)
             }
+            // wild ferns, placed by hand along an edge away from the corners (Phil, 16 November 2026: "1-2 wild ferns
+            // somewhere other than a corner"), fading a little so text over them stays readable
+            for f in st.wild {
+                let (pt, inward): (CGPoint, CGFloat) = switch f.edge {
+                case .top: (CGPoint(x: w * f.at, y: 2), .pi / 2)
+                case .left: (CGPoint(x: 2, y: h * f.at), 0)
+                case .right: (CGPoint(x: w - 2, y: h * f.at), .pi)
+                }
+                fern(from: pt, angle: inward + f.lean, length: f.length * max(scale, 0.75), curl: f.curl, opacity: 0.75)
+            }
+            // texture: fine needles and specks of frost scattered through the frosted rim, densest in the corners
+            for _ in 0..<st.grain {
+                let e = rnd()
+                var pt: CGPoint
+                let depth = pow(rnd(), 1.6) * 18
+                if e < 0.3 { pt = CGPoint(x: rnd() * w, y: 2 + depth) }
+                else if e < 0.55 { pt = CGPoint(x: rnd() * w, y: h - 2 - depth * 1.2) }
+                else if e < 0.78 { pt = CGPoint(x: 2 + depth, y: rnd() * h) }
+                else { pt = CGPoint(x: w - 2 - depth, y: rnd() * h) }
+                if rnd() < 0.55 {
+                    let a = rnd() * .pi, l = 1.5 + rnd() * 3.5
+                    var needle = Path()
+                    needle.move(to: CGPoint(x: pt.x - cos(a) * l / 2, y: pt.y - sin(a) * l / 2))
+                    needle.addLine(to: CGPoint(x: pt.x + cos(a) * l / 2, y: pt.y + sin(a) * l / 2))
+                    ctx.stroke(needle, with: .color(.white.opacity(0.45 + rnd() * 0.35)), style: StrokeStyle(lineWidth: 0.6, lineCap: .round))
+                } else {
+                    let r = 0.35 + rnd() * 0.5
+                    ctx.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)), with: .color(.white.opacity(0.5 + rnd() * 0.4)))
+                }
+            }
 
             // sparkles near the frost: dots, and a few four-pointed glints
             for i in 0..<14 {
@@ -1196,18 +1226,38 @@ struct FrostStyle {
     var edgeLength: ClosedRange<CGFloat>
     var cornerFerns: Int
     var cornerLength: ClosedRange<CGFloat>
-    var reachers: Int
-    var reachLength: CGFloat
+    var reachers: Int = 0
+    var reachLength: CGFloat = 0
     var curl: CGFloat
+    /// Fine needles and specks of frost in the rim: how many.
+    var grain = 0
+    /// Ferns placed by hand: which edge, how far along it (0 to 1), how far they lean off straight in, how long, and
+    /// how much they curl.
+    var wild: [Wild] = []
+    struct Wild { enum Edge { case top, left, right }; var edge: Edge; var at: CGFloat; var lean: CGFloat; var length: CGFloat; var curl: CGFloat }
 
-    /// Versions to compare (COOLHEAD_SNAPSHOT_FROST=sparse, even, corners or wild); "even" until one is chosen.
+    /// Versions to compare (COOLHEAD_SNAPSHOT_FROST); the first batch was sparse, even, corners and wild (Phil, 16
+    /// November 2026: "Corners is close, but it needs a bit more texture and 1-2 wild ferns somewhere other than a
+    /// corner"), so this batch builds on corners.
+    static let corners = FrostStyle(seed: 0x5EED5, edgeSpacing: 38, edgeLength: 5...12, cornerFerns: 4, cornerLength: 26...50, curl: 0.5)
     static let versions: [String: FrostStyle] = [
-        "sparse": FrostStyle(seed: 0xF2057, edgeSpacing: 46, edgeLength: 6...14, cornerFerns: 2, cornerLength: 18...34, reachers: 1, reachLength: 58, curl: 0.5),
-        "even": FrostStyle(seed: 0xA11CE, edgeSpacing: 30, edgeLength: 7...16, cornerFerns: 3, cornerLength: 20...38, reachers: 2, reachLength: 52, curl: 0.6),
-        "corners": FrostStyle(seed: 0x5EED5, edgeSpacing: 38, edgeLength: 5...12, cornerFerns: 4, cornerLength: 26...50, reachers: 1, reachLength: 70, curl: 0.5),
-        "wild": FrostStyle(seed: 0xC0FFEE, edgeSpacing: 22, edgeLength: 8...20, cornerFerns: 3, cornerLength: 22...42, reachers: 2, reachLength: 64, curl: 1.0),
+        "corners": { var s = corners; s.reachers = 1; s.reachLength = 70; return s }(),
+        // 1: corners, some grain, one wild fern from the top, leaning right
+        "one": { var s = corners; s.grain = 140
+            s.wild = [Wild(edge: .top, at: 0.62, lean: 0.55, length: 62, curl: 0.7)]; return s }(),
+        // 2: more grain, two wild ferns: one from the top, one from the right side
+        "two": { var s = corners; s.grain = 240; s.edgeSpacing = 30
+            s.wild = [Wild(edge: .top, at: 0.38, lean: -0.6, length: 58, curl: -0.8),
+                      Wild(edge: .right, at: 0.45, lean: 0.5, length: 54, curl: 0.6)]; return s }(),
+        // 3: needles mostly, edge ferns a touch longer, one long sweeping fern from the left side
+        "three": { var s = corners; s.grain = 200; s.edgeLength = 7...15; s.seed = 0xB10C
+            s.wild = [Wild(edge: .left, at: 0.4, lean: -0.75, length: 80, curl: 0.9)]; return s }(),
+        // 4: heaviest texture, denser edges, two short wild ferns from the top at different places
+        "four": { var s = corners; s.grain = 320; s.edgeSpacing = 26; s.edgeLength = 6...14; s.seed = 0x1CE
+            s.wild = [Wild(edge: .top, at: 0.3, lean: 0.6, length: 46, curl: 0.9),
+                      Wild(edge: .top, at: 0.78, lean: -0.5, length: 40, curl: -0.7)]; return s }(),
     ]
-    static let current: FrostStyle = versions[ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FROST"] ?? "even"] ?? versions["even"]!
+    static let current: FrostStyle = versions[ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FROST"] ?? "corners"] ?? versions["corners"]!
 }
 
 /// One option: a button with what it would cause underneath. The recommended one stands out.
