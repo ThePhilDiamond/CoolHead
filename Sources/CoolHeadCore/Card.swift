@@ -65,6 +65,8 @@ public struct Fix: Identifiable {
         case keepOutOfBackup(String)     // keep this folder out of Time Machine backups (a sticky exclusion, as tmutil addexclusion); undo any time
         case stopAndTrash([String], String?)  // a program pretending to be macOS's (see Disguise): turn off its launch item (this plist), stop it, and move these files to the Trash
         case restartApp(String)          // a normal quit of the app at this bundle path, then open it again (a leak: see Leaks)
+        case unloadModels([String])      // ask Ollama to unload these models now (see Leftovers); the next question loads one again
+        case deleteBuildData(String)     // delete the contents of Xcode's DerivedData folder, after asking; Xcode rebuilds what it needs
     }
     public let id: String
     public let title: String
@@ -112,6 +114,8 @@ public struct Fix: Identifiable {
         case .keepOutOfBackup: return .coolHead
         case .stopAndTrash: return .coolHead
         case .restartApp: return .coolHead
+        case .unloadModels: return .coolHead
+        case .deleteBuildData: return .coolHead
         case .lookUp: return .you          // opens a web search for you to read
         case .openApp: return .you         // opens the app; you do the steps there
         case .reveal: return .you          // shows the folder in Finder; you do the steps there
@@ -152,6 +156,8 @@ public struct Fix: Identifiable {
         case .keepOutOfBackup: return .fixesCause  // later backups skip what the job keeps rewriting
         case .stopAndTrash: return .fixesCause     // it can't run or start again unless put back from the Trash
         case .restartApp: return .fixesCause       // the memory it had built up is given back
+        case .unloadModels: return .fixesCause     // the model's memory is free at once
+        case .deleteBuildData: return .fixesCause  // the space is free at once
         }
     }
     /// The same option, marked as one that ends the cause.
@@ -171,6 +177,8 @@ public struct Fix: Identifiable {
         case .keepOutOfBackup: return false
         case .stopAndTrash: return true
         case .restartApp: return true
+        case .unloadModels: return false
+        case .deleteBuildData: return false
         case .wait: return false
         case .cooler: return false
         case .lookUp: return false
@@ -200,6 +208,8 @@ public struct Fix: Identifiable {
         case .stopAgent: return true       // what the helper does for its app (updates, sync, a licence check) isn't known, so stopping it may break something
         case .stopAndTrash: return true       // what the program was doing isn't known; it can be put back from the Trash
         case .restartApp: return false        // the app asks to save; one that loses more is marked losingWork() where it's made
+        case .unloadModels: return false      // nothing is lost: the next question loads it again
+        case .deleteBuildData: return false   // nothing is lost: Xcode rebuilds it, at the cost of a slower next build
         case .keepOutOfBackup: return false   // known and undoable: only rebuildable build output is offered, and the option says it won't be backed up
         case .wait: return false
         case .cooler: return false
@@ -231,6 +241,8 @@ extension Fix {
         case .stopAgent: return "What it does for its app, such as updates or syncing, stops too, so the app may not work as it should."
         case .stopAndTrash: return "It ends at once, and anything that relies on it stops working until you put it back from the Trash."
         case .restartApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
+        case .unloadModels: return nil
+        case .deleteBuildData: return nil
         // a quit marked losingWork() where it's made: its description says what is lost
         case .quitApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
         case .keepOutOfBackup: return "It won't be in your backups."
@@ -318,6 +330,8 @@ public struct Card {
         case .stopAgent: return 4
         case .stopAndTrash: return 4
         case .restartApp: return 3     // closes the app, but it opens again: less loss than quitting
+        case .unloadModels: return 1
+        case .deleteBuildData: return 1
         case .stop: return f.id == "stop" ? 5 : 4      // closing one tab or extension loses less than quitting its browser
         case .share: return 6
         case .wait: return 8
@@ -346,6 +360,8 @@ public struct Card {
             case .keepOutOfBackup: return true
             case .stopAndTrash: return true
             case .restartApp: return true
+            case .unloadModels: return true
+            case .deleteBuildData: return true
             // opening an app, showing a folder or showing how help, but don't act on the cause
             case .openApp: return false
             case .reveal: return false

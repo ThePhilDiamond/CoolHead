@@ -370,6 +370,22 @@ public final class Watcher {
             : .failed("macOS didn't let Cool Head move \(failed.joined(separator: " and ")) to the Trash; drag it there in Finder, which asks for your password")
     }
 
+    /// Asks Ollama to unload these models now (see Leftovers). Checked by asking Ollama what is still loaded.
+    public func unloadModels(_ names: [String]) -> Outcome {
+        let ok = Leftovers.unload(names)
+        log("Unload pressed for a local AI model: " + (ok ? "unloaded" : "still loaded or Ollama didn't answer"))
+        return ok ? .done("Unloaded. Its memory is free; Ollama loads it again the next time it's asked something.")
+            : .failed("Ollama didn't unload it, or didn't answer")
+    }
+
+    /// Deletes the contents of Xcode's build data folder (see Leftovers). Only after the person confirms.
+    public func deleteBuildData(_ folder: String) -> Outcome {
+        let ok = Leftovers.deleteBuildData(folder)
+        log("Delete Xcode's build data pressed: " + (ok ? "deleted" : "not all deleted"))
+        Leftovers.sizeCache.with { $0.read = nil }
+        return ok ? .done("Deleted. Xcode rebuilds what it needs on the next build.") : .failed("some of it couldn't be deleted")
+    }
+
     /// Lets a process carry on that something other than Cool Head paused. Checked by reading back its state.
     public func resumeStopped(_ c: LiveCard) -> Outcome {
         guard let p = c.pid, sameProcess(c) else { log("Resume pressed for \(c.reportSubject): it had already gone"); return .gone }
@@ -690,7 +706,9 @@ public final class Watcher {
             for i in groups.indices.prefix(3) where groups[i].kind == .job {
                 if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, measured: (tracks[p]?.cores ?? 0, 0), gpu: tracks[p].flatMap { $0.gpuTime != nil ? $0.gpu : nil }) }
             }
-            let card = MemoryAdvice.card(groups, mac: s, now: now, leak: groups.first?.bundle.flatMap { leaks.leak($0) })
+            let models = groups.prefix(3).contains(where: MemoryAdvice.isOllama) ? Leftovers.loadedRecently(now: now) : nil
+            let card = MemoryAdvice.card(groups, mac: s, now: now, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
+                                         buildData: MemoryAdvice.lowDisk(s) ? Leftovers.buildDataSize(now: now) : nil)
             let top = groups.first
             let subject = top.map { g -> String in
                 if let e = g.evidence { return "memory running short (\(level)); most used by \(CaseReport.subject(e))" }
