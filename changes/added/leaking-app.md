@@ -1,0 +1,1 @@
+- When memory is tight and the app using the most has kept growing for hours with the same windows open, the memory card says it's probably a leak and recommends Quit and reopen, which gives the memory back; the app asks to save first.

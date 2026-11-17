@@ -107,7 +107,9 @@ public enum MemoryAdvice {
 
     /// The card. `groups` sorted largest first, with `evidence` filled in for jobs.
     /// `chrome`: whether Chrome's memory limit can be set; read from Chrome's settings when not given.
-    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil) -> Card {
+    /// `leak`: the biggest app's memory has kept growing with the same windows open (see Leaks).
+    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil,
+                            leak: Leaks.Leak? = nil) -> Card {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
@@ -124,6 +126,13 @@ public enum MemoryAdvice {
         let expl = pressure(s) + (next.isEmpty ? "" : " Also using a lot: \(ListFormatter.localizedString(byJoining: next)).")
         var fixes: [Fix] = []
         var limitNote: String? = nil
+        // the biggest app has been leaking: quitting and reopening it gives the memory back, so that's the advice
+        var leakNote = ""
+        if let l = leak, top.kind == .app, let b = top.bundle {
+            let add = Leaks.addition(l, app: top.name, bundle: b, now: now, losesWork: quitRisks[top.name]?.losesWork == true)
+            leakNote = add.sentence
+            fixes.append(add.fix)
+        }
 
         switch top.kind {
         case .browser:
@@ -194,7 +203,7 @@ public enum MemoryAdvice {
         if lowDisk(s) { fixes.append(freeDisk) }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
                          kind: .wait(now.addingTimeInterval(1800)), recommended: !fixes.contains { $0.recommended }))
-        var card = Card(state: .unknown, headline: head, explanation: expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
+        var card = Card(state: .unknown, headline: head, explanation: expl + leakNote + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
         card.names = names
         return card
     }
