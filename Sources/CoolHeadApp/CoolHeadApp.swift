@@ -439,9 +439,13 @@ enum Snapshot {
             // the Battery tool's page, with a made-up battery when the screenshot uses example cards
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_BATTERY"] != nil { Tools.shared.battery = true }
             // Test my network's result, with made-up figures (never this Mac's network)
-            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_NETWORK"] != nil {
-                NetworkTester.shared.show(.done(.done(.init(download: 240_000_000, upload: 38_000_000, rpm: 1_100))),
-                                          setup: .init(link: .wifi(.init(rssi: -58, noise: -92, rate: 864, channel: 44, band: "5 GHz"))))
+            // (COOLHEAD_SNAPSHOT_NETWORK=reading, ready, testing or done: the page in that state)
+            if let state = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_NETWORK"] {
+                let setup = NetworkCheck.Setup(link: .wifi(.init(rssi: -58, noise: -92, rate: 864, channel: 44, band: "5 GHz")))
+                let phase: NetworkTester.Phase = state == "reading" ? .reading : state == "ready" ? .ready
+                    : state == "testing" ? .testing(started: Date().addingTimeInterval(-9))
+                    : .done(.done(.init(download: 240_000_000, upload: 38_000_000, rpm: 1_100)))
+                NetworkTester.shared.show(phase, setup: setup)
             }
             // screenshots: run the card whose headline contains this phrase cooler first, to show the pinned row
             if let phrase = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_COOL"],
