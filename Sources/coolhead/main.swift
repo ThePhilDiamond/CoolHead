@@ -19,6 +19,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead history             what used the most energy and why the Mac woke, from macOS's power log (about a week)
   coolhead selftest            checks every recorded example gives the card it should
   coolhead wording             every card's text, from the recorded examples, to read the wording in one place
+  coolhead ranking [--write]   which card and option every sample gets; --write records it for the selftest
 
 <name or PID>: the process's name as Activity Monitor shows it, or its PID (the number in Activity Monitor's PID
 column), without the angle brackets: coolhead why mds_stores. Part of a name is enough; when several processes match,
@@ -198,6 +199,16 @@ case "history":
     print(h.text)
 case "wording":
     for (id, c) in Wording.samples() { print("[\(id)]"); print(Wording.text(c)) }
+case "ranking":
+    // every sample card's winner and options (see Ranking.swift); --write records them in GoldenRanking.swift
+    let lines = Ranking.lines()
+    if argv.dropFirst().first == "--write" {
+        do { try Ranking.source(lines).write(to: Ranking.file, atomically: true, encoding: .utf8) }
+        catch { print("coolhead: couldn't write \(Ranking.file.path): \(error.localizedDescription)"); exit(1) }
+        print("Wrote \(lines.count) lines to \(Ranking.file.path)")
+    } else {
+        for l in lines { print(l) }
+    }
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }
