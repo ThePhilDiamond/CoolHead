@@ -63,8 +63,8 @@ extension Fixture {
         let chromeCard = MemoryAdvice.card([chrome], mac: leakTightMac(), now: now, leak: steady)
         let none = MemoryAdvice.card([pages], mac: leakTightMac(), now: now)
         let r = card.recommended
-        let r3 = card.headline == "Memory is tight: Pages is using 8.5 GB, far more than it needs."
-            && card.explanation == "With the same windows open, it used 1.1 GB three hours ago: probably a leak. Save your work, then quit and reopen it."
+        let r3 = card.headline == "Memory is tight: Pages is using more than it usually does."
+            && card.explanation == "It's at 8.5 GB, up from 1.1 GB three hours ago with the same windows open: probably a leak. Save your work, then quit and reopen it."
             && r?.consequence.hasPrefix("Save your work first.") == true && !card.fixes.contains { $0.id == "quit" }
             && (card.headline + " " + card.explanation).split(separator: " ").count <= 40
             && r?.id == "reopen" && r?.kind == .restartApp(pagesBundle) && r?.caution == false && r?.title == "Quit and reopen Pages"
