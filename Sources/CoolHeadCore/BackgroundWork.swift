@@ -177,6 +177,30 @@ public enum BackgroundWork {
     /// The card for macOS's own work that is stuck, in place of the usual one; nil when it isn't, or when it's work macOS
     /// expects after an update and the update was recent. What Cool Head thinks, a brief disclaimer, then its advice: a
     /// restart first; once a restart hasn't cleared it, a macOS update or telling Apple, since only Apple can fix it.
+    /// One of macOS's own background services: a program in macOS's folders that launchd started (or whose parents
+    /// can't be read, as for root's services), not a command someone ran from a shell (/usr/bin/zip from Terminal).
+    public static func isService(_ e: Evidence) -> Bool {
+        guard e.script == nil, let p = e.path, CaseReport.isMacOS(p) else { return false }
+        return e.ancestors.first.map { $0.pid == 1 } ?? true
+    }
+
+    /// A macOS service nobody catalogued (research rule 6): names change every release, so an unknown one is "part of
+    /// macOS, working in the background", normal when it runs at background priority; never silence, never alarm.
+    /// Nothing to press but Look it up (waiting is the card's clock); a day or more busy is the stuck card's (rule 16).
+    static func unknownCard(_ e: Evidence, _ r: Reading?, busyFor: TimeInterval, active: Bool, used: String, extra: String, now: Date) -> Card {
+        if !active { return Card(state: .quiet, headline: "\(e.name), part of macOS, is quiet now.", explanation: "", fixes: []) }
+        let low = r?.cool == true
+        let how = low ? "It runs at low priority, on the chip's efficiency cores, so it uses little power even though it looks busy."
+            : "It " + used + (r?.cool == false ? " at normal priority." : ".")
+        // an hour or more above background priority: worth watching, and the stuck card takes over after a day
+        let watch = !low && busyFor >= 3600
+        return Card(state: watch ? .unknown : .working,
+                    headline: "\(e.name) is part of macOS, working in the background.",
+                    explanation: "We don't know this one by name. " + how + extra
+                        + (watch ? " If it runs for a day, we'll say what to try." : e.mine ? "" : " macOS needs it, so stopping it would only start it again."),
+                    fixes: [Card.lookUp(e.name, recommended: false)])
+    }
+
     public static func stuckCard(_ e: Evidence, _ r: Reading?, now: Date) -> Card? {
         guard let s = r?.stuck, let path = e.path, CaseReport.isMacOS(path), e.script == nil else { return nil }
         if r?.update != nil, Pattern.match(name: e.name, path: e.path, pid: e.pid)?.afterUpdate == true { return nil }
