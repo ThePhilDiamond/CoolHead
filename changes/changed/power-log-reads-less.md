@@ -1,0 +1,1 @@
+- Cool Head reads less of macOS's power log: only each app's energy and why the Mac woke, no longer how often each app woke the chip.

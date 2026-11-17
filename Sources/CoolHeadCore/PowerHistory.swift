@@ -22,7 +22,6 @@ public struct PowerHistory: Equatable {
         public let id: String                  // the bundle identifier, or launchd's name for it
         public let name: Naming.Named
         public let energy: Double              // nanojoules (inferred; Apple doesn't document the unit), chip + graphics + Neural Engine
-        public let wakeups: Double             // times it woke the chip from its deepest rest
     }
 
     /// Why the Mac woke from sleep, in plain words.
@@ -103,7 +102,9 @@ public struct PowerHistory: Equatable {
 
     // MARK: the tables it may read, and the only queries it runs
 
-    /// One row per app or program per interval (about 2 minutes): energy, graphics energy, wakeups.
+    /// One row per app or program per interval (about 2 minutes): energy, graphics energy and more. Only the energy is read:
+    /// its wakeup counts were dropped with the list that showed them, since nothing diagnosed with them (Phil, 17 November
+    /// 2026: "Do we use the wake up data for any of our diagnosing efforts? Otherwise stop reading it.").
     static let coalition = "PLCoalitionAgent_EventInterval_CoalitionInterval"
     /// One row per sleep or wake event.
     static let powerState = "PLSleepWakeAgent_EventForward_PowerState"
@@ -115,21 +116,21 @@ public struct PowerHistory: Equatable {
 
     /// The columns each query needs; if any is missing, that part is left out.
     static let columns: [String: Set<String>] = [
-        coalition: ["timestamp", "BundleId", "LaunchdName", "energy", "gpu_energy_nj", "ane_energy_nj", "platform_idle_wakeups"],
+        coalition: ["timestamp", "BundleId", "LaunchdName", "energy", "gpu_energy_nj", "ane_energy_nj"],
         powerState: ["ID", "timestamp"],
         wakeReason: ["FK_ID", "value"],
     ]
 
     static func columnsQuery(_ table: String) -> String { "SELECT name FROM pragma_table_info('\(table)')" }
-    /// Per app or program: energy (chip, graphics, Neural Engine) and wakeups, and the period its rows cover. The second
+    /// Per app or program: energy (chip, graphics, Neural Engine), and the period its rows cover. The second
     /// query is the same for the first moment only, which a daily archive repeats from the end of the one before.
     static let energyQuery = """
-        SELECT BundleId, LaunchdName, total(energy) + total(gpu_energy_nj) + total(ane_energy_nj), total(platform_idle_wakeups),
+        SELECT BundleId, LaunchdName, total(energy) + total(gpu_energy_nj) + total(ane_energy_nj),
                min(timestamp), max(timestamp)
         FROM \(coalition) GROUP BY BundleId, LaunchdName
         """
     static let firstMomentQuery = """
-        SELECT BundleId, LaunchdName, total(energy) + total(gpu_energy_nj) + total(ane_energy_nj), total(platform_idle_wakeups),
+        SELECT BundleId, LaunchdName, total(energy) + total(gpu_energy_nj) + total(ane_energy_nj),
                min(timestamp), max(timestamp)
         FROM \(coalition) WHERE timestamp <= (SELECT min(timestamp) FROM \(coalition)) + 1 GROUP BY BundleId, LaunchdName
         """
@@ -177,7 +178,7 @@ public struct PowerHistory: Equatable {
 
     /// What one database (the current one, or one archive) holds.
     struct Slice {
-        struct Use { var energy = 0.0, wakeups = 0.0 }
+        struct Use { var energy = 0.0 }
         var uses: [Key: Use] = [:]
         var first: Double?, last: Double?
         var firstMoment: [Key: Use] = [:]          // the rows at its first moment, which may repeat the previous archive's last
@@ -195,9 +196,8 @@ public struct PowerHistory: Equatable {
                     db.rows(sql) { r in
                         let key = Key(bundle: r.text(0) ?? "", launchd: r.text(1) ?? "")
                         out[key, default: Use()].energy += max(0, r.double(2))
-                        out[key, default: Use()].wakeups += max(0, r.double(3))
                         guard span else { return }
-                        let a = r.double(4), b = r.double(5)
+                        let a = r.double(3), b = r.double(4)
                         if a > 0 { first = min(first ?? a, a) }
                         if b > 0 { last = max(last ?? b, b) }
                     }
@@ -215,7 +215,7 @@ public struct PowerHistory: Equatable {
     /// groups each app's helpers and each program's instances under one name.
     static func make(_ slices: [Slice], appName: (String) -> String?) -> PowerHistory? {
         let ordered = slices.filter { $0.first != nil || !$0.wakes.isEmpty }.sorted { ($0.first ?? .infinity) < ($1.first ?? .infinity) }
-        var uses: [String: (bundle: Bool, id: String, energy: Double, wakeups: Double)] = [:]
+        var uses: [String: (bundle: Bool, id: String, energy: Double)] = [:]
         var previousLast: Double?
         var first: Double?, last: Double?
         for s in ordered {
@@ -223,9 +223,8 @@ public struct PowerHistory: Equatable {
             for (key, use) in s.uses {
                 let id = identity(key)
                 let again = repeats ? s.firstMoment[key] : nil
-                let e = max(0, use.energy - (again?.energy ?? 0)), w = max(0, use.wakeups - (again?.wakeups ?? 0))
-                uses[id.lowercased(), default: (!key.bundle.isEmpty, id, 0, 0)].energy += e
-                uses[id.lowercased(), default: (!key.bundle.isEmpty, id, 0, 0)].wakeups += w
+                let e = max(0, use.energy - (again?.energy ?? 0))
+                uses[id.lowercased(), default: (!key.bundle.isEmpty, id, 0)].energy += e
             }
             if let a = s.first { first = min(first ?? a, a) }
             if let b = s.last { last = max(last ?? b, b); previousLast = max(previousLast ?? b, b) }
@@ -240,7 +239,7 @@ public struct PowerHistory: Equatable {
         let start = first ?? wakes.first.map { $0.at.timeIntervalSince1970 }
         let end = last ?? wakes.last.map { $0.at.timeIntervalSince1970 }
         guard let start, let end, end > start else { return nil }
-        let users = uses.values.map { u in User(id: u.id, name: named(u.id, isBundle: u.bundle, appName: appName), energy: u.energy, wakeups: u.wakeups) }
+        let users = uses.values.map { u in User(id: u.id, name: named(u.id, isBundle: u.bundle, appName: appName), energy: u.energy) }
         guard !users.isEmpty || !wakes.isEmpty else { return nil }
         return PowerHistory(from: Date(timeIntervalSince1970: start), to: Date(timeIntervalSince1970: end), users: users, wakes: wakes)
     }
@@ -498,19 +497,19 @@ extension PowerHistory {
 extension PowerHistory {
     public static func sample(now: Date = Date()) -> PowerHistory {
         let hours = 8.0 * 24
-        func user(_ id: String, _ name: String, _ what: Naming.What, share: Double, perHour: Double) -> User {
-            User(id: id, name: .init(name, what), energy: share * 1_000_000_000_000, wakeups: perHour * hours)
+        func user(_ id: String, _ name: String, _ what: Naming.What, share: Double) -> User {
+            User(id: id, name: .init(name, what), energy: share * 1_000_000_000_000)
         }
         let users = [
-            user("com.google.Chrome", "Google Chrome", .app, share: 0.34, perHour: 41_000),
-            user("com.apple.WindowServer", "WindowServer", .macOS, share: 0.18, perHour: 900),
-            user("com.docker.docker", "Docker", .app, share: 0.12, perHour: 12_000),
-            user("com.apple.Spotlight", "Spotlight", .macOS, share: 0.07, perHour: 600),
-            user("com.google.drivefs", "Google Drive", .app, share: 0.05, perHour: 2_100),
-            user("com.apple.audio.coreaudiod", "coreaudiod", .macOS, share: 0.02, perHour: 4_700),
-            user("com.example.updaterd", "updaterd", .background, share: 0.01, perHour: 1_500),
-            user("com.apple.kernel_task", "kernel_task", .macOS, share: 0.06, perHour: 90_000),
-        ] + (1...10).map { user("com.example.app\($0)", "App \($0)", .app, share: 0.015, perHour: 200) }      // the long tail
+            user("com.google.Chrome", "Google Chrome", .app, share: 0.34),
+            user("com.apple.WindowServer", "WindowServer", .macOS, share: 0.18),
+            user("com.docker.docker", "Docker", .app, share: 0.12),
+            user("com.apple.Spotlight", "Spotlight", .macOS, share: 0.07),
+            user("com.google.drivefs", "Google Drive", .app, share: 0.05),
+            user("com.apple.audio.coreaudiod", "coreaudiod", .macOS, share: 0.02),
+            user("com.example.updaterd", "updaterd", .background, share: 0.01),
+            user("com.apple.kernel_task", "kernel_task", .macOS, share: 0.06),
+        ] + (1...10).map { user("com.example.app\($0)", "App \($0)", .app, share: 0.015) }      // the long tail
         var wakes: [Wake] = []
         let reasons: [(String, Int)] = [("NUB.SPMI0.SW3 nub-spmi0.0x02 rtc", 140), ("smc.sysState.Wake(0x70070000) lid SMC.OutboxNotEmpty RTP.multi-touch", 18),
                                         ("smc.sysState.Wake(0x70070000) wifibt SMC.OutboxNotEmpty", 12),

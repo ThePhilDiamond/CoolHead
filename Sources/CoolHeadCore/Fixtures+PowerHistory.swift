@@ -30,14 +30,15 @@ extension Fixture {
         }
         let onlyAllowed = Set(reads).isSubset(of: PowerHistory.tables.union(["pragma_table_info"])) && refused.isEmpty && !reads.isEmpty
         out.append(("power-history-reads-only-its-tables",
-                    strays.isEmpty && forbidden.isEmpty && named.allSatisfy { !$0.isEmpty } && onlyAllowed && !decoyRead && !masterRead && !decoyPragma,
+                    strays.isEmpty && forbidden.isEmpty && named.allSatisfy { !$0.isEmpty } && onlyAllowed && !decoyRead && !masterRead && !decoyPragma
+                        && !PowerHistory.statements.contains { $0.contains("wakeups") },          // not read since 17 November 2026: nothing used it
                     "\(PowerHistory.statements.count) statements name only \(PowerHistory.tables.count) tables\(strays.isEmpty ? "" : ", strays \(strays)"); "
                     + "reading them asked for \(Set(reads).sorted()) and nothing else (\(refused.isEmpty ? "none refused" : "refused \(refused)")); "
                     + "the app-usage table \(decoyRead ? "WAS READ" : "was refused"), the table list \(masterRead ? "WAS READ" : "was refused"), its columns \(decoyPragma ? "WERE READ" : "were refused")"))
 
         // 2. Adding up: an archive (gzipped, saved in WAL mode, as macOS keeps them) and the current file, the second
         // repeating the archive's last moment; an app's helpers count as the app; numbered instances as one program;
-        // the kernel isn't counted for wakeups; a wake recorded twice counts once.
+        // a wake recorded twice counts once.
         let archive = gzip(powerLog(start: t0, wal: true))
         let current = powerLog(start: t0 + 86400, repeatFrom: t0)
         let unzipped = archive.flatMap(Data.gunzip)
@@ -47,7 +48,7 @@ extension Fixture {
         let browser = h?.users.first { $0.id == "com.example.Browser" }
         let causes = h?.wakesByCause.map { "\($0.0.rawValue) \($0.1.count)" }.joined(separator: " ") ?? ""
         let shownNames = rows.map { r in r.what.map { "\(r.name) (\($0))" } ?? r.name }
-        let addsUp = browser?.energy == 2 * 3_000_000_000 && browser?.wakeups == 2 * 600       // two days, helpers included, boundary once
+        let addsUp = browser?.energy == 2 * 3_000_000_000       // two days, helpers included, boundary once
             // macOS's own parts together; each row says what its share means
             && energy == "Browser 56%, macOS itself 36%, Chat 4%, syncd 4%"
             && rows.first?.detail.hasPrefix("A large share. If you don't use Browser most of the day") == true
@@ -61,7 +62,7 @@ extension Fixture {
                     "energy: \(energy); wakes: \(causes); names: \(shownNames); \(h?.title ?? "no history")"))
 
         // 3. When the format changes (a column renamed, a table gone), that part shows nothing, quietly
-        let renamed = PowerHistory.read(bytes: [powerLog(start: t0, renameWakeups: true)], appName: name)
+        let renamed = PowerHistory.read(bytes: [powerLog(start: t0, renameEnergy: true)], appName: name)
         let noWakes = PowerHistory.read(bytes: [powerLog(start: t0, dropWakes: true)], appName: name)
         let notADatabase = PowerHistory.read(bytes: [Data("not a database".utf8)], appName: name)
         let quiet = renamed?.users.isEmpty == true && renamed?.wakes.count == 4
@@ -106,14 +107,16 @@ extension Fixture {
     /// A small power log: two days of energy rows from `start` (one row per program per hour), four timer wakes (each
     /// recorded twice, a second apart), and a decoy app-usage table. Optionally saved in WAL mode, or with the wakeup
     /// column renamed, or without the wake tables.
-    static func powerLog(start: Double, wal: Bool = false, repeatFrom: Double? = nil, renameWakeups: Bool = false, dropWakes: Bool = false) -> Data {
+    static func powerLog(start: Double, wal: Bool = false, repeatFrom: Double? = nil, renameEnergy: Bool = false, dropWakes: Bool = false) -> Data {
         var db: OpaquePointer?
         guard sqlite3_open(":memory:", &db) == SQLITE_OK else { return Data() }
         defer { sqlite3_close(db) }
-        let wakeupColumn = renameWakeups ? "platform_idle_wakeups_v2" : "platform_idle_wakeups"
+        // the real table has a wakeups column, which Cool Head no longer reads; renaming a column it does read is a format change
+        let wakeupColumn = "platform_idle_wakeups"
+        let aneColumn = renameEnergy ? "ane_energy_nj_v2" : "ane_energy_nj"
         var sql = """
             CREATE TABLE PLCoalitionAgent_EventInterval_CoalitionInterval (ID INTEGER PRIMARY KEY, timestamp REAL, BundleId TEXT,
-              LaunchdCoalitionId INTEGER, LaunchdName TEXT, energy INTEGER, gpu_energy_nj INTEGER, ane_energy_nj INTEGER,
+              LaunchdCoalitionId INTEGER, LaunchdName TEXT, energy INTEGER, gpu_energy_nj INTEGER, \(aneColumn) INTEGER,
               cpu_time REAL, interrupt_wakeups REAL, \(wakeupColumn) REAL, timestampEnd REAL);
             CREATE TABLE PLApplicationAgent_EventForward_FrontmostApp (ID INTEGER PRIMARY KEY, timestamp REAL, app TEXT);
             INSERT INTO PLApplicationAgent_EventForward_FrontmostApp (timestamp, app) VALUES (\(start), 'Secret Diary');
@@ -151,7 +154,7 @@ extension Fixture {
         if let r = repeatFrom { hours.insert(r + 3600 * 23, at: 0) }        // the previous file's last moment, repeated
         for (i, t) in hours.enumerated() {
             for (n, p) in programs.enumerated() {
-                sql += "INSERT INTO PLCoalitionAgent_EventInterval_CoalitionInterval (timestamp, BundleId, LaunchdCoalitionId, LaunchdName, energy, gpu_energy_nj, ane_energy_nj, cpu_time, interrupt_wakeups, \(wakeupColumn), timestampEnd) VALUES (\(t), '\(p.0)', \(n), '\(p.1)', \(p.2), \(p.3), 0, 1, 1, \(p.4), \(t + 3600));"
+                sql += "INSERT INTO PLCoalitionAgent_EventInterval_CoalitionInterval (timestamp, BundleId, LaunchdCoalitionId, LaunchdName, energy, gpu_energy_nj, \(aneColumn), cpu_time, interrupt_wakeups, \(wakeupColumn), timestampEnd) VALUES (\(t), '\(p.0)', \(n), '\(p.1)', \(p.2), \(p.3), 0, 1, 1, \(p.4), \(t + 3600));"
             }
             _ = i
         }
