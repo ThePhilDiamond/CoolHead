@@ -99,11 +99,12 @@ extension Fixture {
         let w1 = all.allSatisfy { c in c.card.fixes.allSatisfy { !(c.card.headline + " " + c.card.explanation).contains($0.title) } }
         review.append(("power-wording", w1, "\(all.count) cards: no option title in the text"))
 
-        // this Mac, as any user: Low Power Mode and the assertions, quickly
+        // this Mac, as any user, quickly. Low Power Mode isn't listed on every Mac (none on GitHub's virtual build Mac,
+        // which has no battery), so only the time is checked; the parsing is checked above
         let t = Date()
         let (live, liveHolds, _) = PowerState.read(log: false)
         let took = Date().timeIntervalSince(t)
-        review.append(("power-live-read", live != nil && took < 2, String(format: "%.2f s; Low Power Mode read: %@; %d programs holding the Mac awake", took, live == nil ? "no" : "yes", liveHolds.count)))
+        review.append(("power-live-read", took < 2, String(format: "%.2f s; Low Power Mode read: %@; %d programs holding the Mac awake", took, live == nil ? "no" : "yes", liveHolds.count)))
         return review
     }
 
