@@ -1,0 +1,12 @@
+import Foundation
+
+/// A program borrowing macOS's name or an Apple label (see Disguise.swift): who it is comes first, whatever it's doing.
+enum DisguiseCard: ProcessCard {
+    static let id = "disguise"
+    static let kind = CardKind.identity
+    static let rule = "Disguise.swift: a program outside macOS's folders using one of macOS's names, or an Apple label it can't have"
+    static let match = Match.signed
+    static let samples = ["disguise-macos-name", "disguise-apple-label", "disguise-protection-off"]
+
+    static func card(_ s: Situation) -> Card? { s.disguise.map { Disguise.card($0, s.e) } }
+}

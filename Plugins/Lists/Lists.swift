@@ -5,7 +5,9 @@ import PackagePlugin
 /// target is built (see notes in CONTRIBUTING.md, "Write where no one else is writing"):
 ///
 /// - CoolHeadCore: every `Fixtures+<Feature>.swift` file's checks (`<feature>Checks`) and sample cards
-///   (`<feature>Samples`), as `Fixture.suites` and `Fixture.sampleSuites`.
+///   (`<feature>Samples`), as `Fixture.suites` and `Fixture.sampleSuites`; and every file in its Cards folder, a card
+///   (`<Name>Card.swift`, declaring `<Name>Card`) or an extra (`<Name>Extra.swift`, declaring `<Name>Extra`), as
+///   `ProcessCards.all` and `ProcessCards.extras` (see ProcessCard.swift).
 /// - CoolHeadApp: every `<Name>Cards.swift` file's card source (`<Name>Watch.shared`), as `CardSources.all`.
 ///
 /// It reads file names only, never their contents, and writes one Swift file into its own work folder. A file whose
@@ -15,10 +17,12 @@ import PackagePlugin
 struct Lists: BuildToolPlugin {
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
         guard let module = target as? SourceModuleTarget else { return [] }
-        let names = module.sourceFiles(withSuffix: "swift").map { $0.path.stem }
+        let files = module.sourceFiles(withSuffix: "swift").map(\.path)
+        let names = files.map(\.stem)
+        let cards = files.filter { $0.removingLastComponent().lastComponent == "Cards" }.map(\.stem)
         let text: String
         switch target.name {
-        case "CoolHeadCore": text = Lists.fixtures(names)
+        case "CoolHeadCore": text = Lists.fixtures(names) + Lists.processCards(cards)
         case "CoolHeadApp": text = Lists.cardSources(names)
         default: return []
         }
@@ -64,6 +68,23 @@ struct Lists: BuildToolPlugin {
             }
 
             """
+    }
+
+    static func processCards(_ names: [String]) -> String {
+        """
+
+        /// Every card about a busy process, and every extra, from the files in Sources/CoolHeadCore/Cards, alphabetical
+        /// by file name (see ProcessCard.swift).
+        public enum ProcessCards {
+            public static let all: [any ProcessCard.Type] = [
+        \(features(names, suffix: "Card").map { "        \($0)Card.self," }.joined(separator: "\n"))
+            ]
+            public static let extras: [any CardExtra.Type] = [
+        \(features(names, suffix: "Extra").map { "        \($0)Extra.self," }.joined(separator: "\n"))
+            ]
+        }
+
+        """
     }
 
     static func cardSources(_ names: [String]) -> String {

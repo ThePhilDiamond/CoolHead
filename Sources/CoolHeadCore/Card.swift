@@ -404,7 +404,33 @@ public struct Card {
         Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(name)\u{201D}.", kind: .lookUp(name), recommended: recommended)
     }
 
+    /// The card for one busy process: every card in Sources/CoolHeadCore/Cards that matches is made, and the ranker
+    /// chooses one (see ProcessCard.swift).
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
+                            frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil,
+                            agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil,
+                            background: BackgroundWork.Reading? = nil, apps: AppBuild.Facts? = nil) -> Card {
+        make(Situation(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery,
+                       syncFeed: syncFeed, agent: agent, backupFeed: backupFeed, disguise: disguise, background: background, apps: apps))
+    }
+
+    // TEMPORARY (removed before merge): every situation Card.make sees, for `coolhead compare-legacy`
+    nonisolated(unsafe) public static var recorder: ((Situation) -> Void)?
+
+    public static func make(_ s: Situation) -> Card {
+        recorder?(s)
+        var c = Ranker.choose(s).0
+        // the processes it names, as shown (see Naming): the process, when the card names it (macOS's own processes and
+        // security software are named by what they are instead: "Spotlight", "CrowdStrike Falcon"), and a game it is
+        // competing with
+        let text = c.headline + " " + c.explanation
+        c.names = [subject(s.e)].filter { text.contains($0) }
+            + (s.gameRunning.map { g in text.contains("competing with \(g)") ? [g] : [] } ?? [])
+        return c
+    }
+
+    // TEMPORARY (removed before merge): the order before the ranker, to compare
+    public static func legacyMake(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
                             frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil,
                             agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil,
                             background: BackgroundWork.Reading? = nil, apps: AppBuild.Facts? = nil) -> Card {
