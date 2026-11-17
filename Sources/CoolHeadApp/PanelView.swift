@@ -1250,7 +1250,8 @@ struct FixRow: View {
                 } label: {
                     if guarded && armed {
                         HStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22).foregroundStyle(Color.red)
+                            Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
+                                .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : Color.red)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Did you save your work?").font(.callout.weight(.semibold))
                                 Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
