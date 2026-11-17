@@ -72,7 +72,7 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 <p align="center"><img src="docs/images/menu-icons.png" width="270" alt="The menu bar icons: Melting Snowflake whole, drooping, and in flames; and the snowflake with a green circle, yellow triangle, or red octagon, on dark and light menu bars"></p>
 
-Click the snowflake for the panel; its tools are along the bottom: Test my network, Battery (its health, and Battery Saver's switch), Trends (the past week from macOS's power log), Trusted, and, at the right, Report a problem. Right-click it for updates, then Settings (notifications, Open at Login, Hide Tool Names, the Melting Snowflake icon), About and Quit.
+Click the snowflake for the panel. At its top is how your Mac is running: the snowflake whole, melting or in flames as macOS reports it heating up, and how busy the chip and memory are. Its tools are along the bottom: Test my network, Battery (its health, and Battery Saver's switch), Hardware (the drive's wear and whether Time Machine backs it up, crash restarts in plain words, and port errors), Trends (the past week from macOS's power log), Trusted, and, at the right, Report a problem. Right-click it for updates, then Settings (notifications, Open at Login, Hide Tool Names, the Melting Snowflake icon), About and Quit.
 
 After that, Cool Head keeps itself up to date: when a new version is out, the panel offers to install it, and checks the download is genuine first.
 
