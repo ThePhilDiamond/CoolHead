@@ -74,17 +74,24 @@ extension Fixture {
         _ = until(10) { visibleOffMain() }
         let plain = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 10, activate: false, arguments: []) }
         let plainBack = until(10) { lines().count == 3 } && lines().last == ""
-        // tidy up: let it quit, and check there is then nothing to restart
-        running().forEach { $0.terminate() }
-        let quit = until(10) { running().allSatisfy { Proc.bsd($0.processIdentifier) == nil } }
+        // tidy up: let it quit, and check there is then nothing to restart. The reopened copy can become visible a moment
+        // after it starts, so wait for it first, and ask whatever is running to quit until nothing is (GitHub's build
+        // machine and this Mac, 17 November 2026: a copy that appeared after Quit was sent stayed open, or was found
+        // running by the last step)
+        _ = until(10) { visibleOffMain() && !running().isEmpty }
+        let quit = until(10) {
+            let r = running()
+            r.forEach { $0.terminate() }
+            return r.allSatisfy { Proc.bsd($0.processIdentifier) == nil }
+        }
         if !quit { running().forEach { $0.forceTerminate() } }
+        _ = until(5) { !visibleOffMain() }
         let none = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 3, activate: false) } == .notRunning
         let ok = opened && { if case .restarted = restarted { return true }; return false }() && back && args && oldGone && leftAlone && quit && none
             && { if case .restarted = plain { return plainBack }; return false }()
         return ("restart-browser-really-works", ok,
                 "opened \(opened); \(restarted) (\(steps.joined(separator: ", "))); reopened \(back) with \(l.last ?? "nothing"); old copy gone \(oldGone); declining to quit: \(declined), not reopened \(leftAlone); quit and reopened plain \(plain), with no arguments \(plainBack); tidied \(quit) \(none)")
     }
-
 
     /// No sample cards of its own for `coolhead wording`.
     static func browserRestartSamples(_ now: Date) -> [(String, Card)] { [] }
