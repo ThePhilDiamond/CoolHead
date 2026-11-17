@@ -463,8 +463,10 @@ public struct Card {
         let macOSProgram = e.script == nil && (e.path.map(CaseReport.isMacOS) ?? true)
         let stoppable = e.mine && !macOSProgram && !appMain
         let stop: Fix? = stoppable ? Fix(id: "stop", title: "Stop it", consequence: stopConsequence(), kind: .stop, recommended: state == .stalled) : nil
-        let cooler: Fix? = e.mine && e.coresNow >= 0.5
-            ? Fix(id: "cooler", title: "Run it cooler", consequence: "Slower, but less heat. Undo any time.", kind: .cooler, recommended: false)
+        // only where it helps (see RunCooler): your own work above background priority, never macOS's own
+        let cooler: Fix? = RunCooler.offered(e)
+            ? Fix(id: "cooler", title: "Run it cooler", consequence: RunCooler.consequence(e), kind: .cooler, recommended: false,
+                  holdBack: RunCooler.isVirtualMachine(e))     // never put in place of a task's recommendation for a VM
             : nil
 
         // macOS's own processes: what it is doing, and whether this has gone on longer than usual
@@ -538,7 +540,7 @@ public struct Card {
                                 Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
                                     kind: .pauseSync(bundle, sync), recommended: warm || gameRunning != nil
                                         || (onBattery && (e.coresNow >= 2 || ((battery ?? 100) < 50 && e.coresNow >= 1)))),
-                                e.mine && e.coresNow >= 0.5 ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
+                                RunCooler.offered(e) ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
                                 Fix(id: "quit", title: "Quit \(sync)", consequence: "Stops syncing until you open it again.", kind: .quitApp(bundle))].compactMap { $0 })
         }
 
@@ -553,7 +555,7 @@ public struct Card {
                                : "\(what) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor)).")
                 + (part == .graphics ? "" : " Only \(app) knows which.")
                 + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil])
-            let canCool = e.mine && e.coresNow >= 0.5 && part != .graphics     // slowing graphics would slow all of it
+            let canCool = RunCooler.offered(e) && part != .graphics     // slowing graphics would slow all of it
             let page = { (url: String, title: String, why: String, rec: Bool) in
                 Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
             let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.").fixingTheCause()
@@ -582,17 +584,42 @@ public struct Card {
                         headline: head, explanation: explanation, fixes: fixes.compactMap { $0 })
         }
 
-        // web pages: the busy process is a tab or extension, and only the browser knows which
-        // WebKit's graphics process draws web pages for Safari, and for any other app that shows them
+        let used = gpuLed ? "has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
+            : "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
         let webkitGPU = e.name == "com.apple.WebKit.GPU" || (e.path?.contains("com.apple.WebKit.GPU") ?? false)
         let webkit = webkitGPU || e.name == "com.apple.WebKit.WebContent" || (e.path?.contains("com.apple.WebKit.WebContent") ?? false)
+
+        // a macOS service working for an app (see Served, research rule 4): the work is the app's, so the card names it
+        // and quitting it is the advice
+        if let b = e.servedBy, !webkit, active {
+            let app = Served.name(b)
+            return Card(state: busyFor > 20 * 60 ? .unknown : .working,
+                        headline: Served.doing(e).map { "macOS is \($0) for \(app)." } ?? "A part of macOS is busy working for \(app).",
+                        explanation: "The macOS process doing it, \(e.name), \(used)" + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil]),
+                        fixes: [Served.quit(b), lookUp(e.name, recommended: false), wait(until: nil, now: now, recommended: false)])
+        }
+
+        // web pages shown by another app (Mail, or an app with a web view): WebKit's processes do the work for it, and
+        // quitting that app is the advice
+        if webkit, let b = e.servedBy, !Served.isSafari(b), active {
+            let app = Served.name(b)
+            return Card(state: busyFor > 20 * 60 ? .unknown : .working,
+                        headline: webkitGPU ? "A web page in \(app) is drawing a lot: video or animation." : "A web page in \(app) is working hard.",
+                        explanation: "macOS \(webkitGPU ? "draws" : "runs") \(app)'s web pages in a separate process, which \(used)"
+                            + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil]),
+                        fixes: [Served.quit(b), lookUp(e.name, recommended: false), wait(until: nil, now: now, recommended: false)])
+        }
+
+        // web pages: the busy process is a tab or extension, and only the browser knows which
+        // WebKit's graphics process draws web pages for Safari, and for any other app that shows them: when macOS
+        // doesn't say which app it's for, it's most often Safari
         if let app = webkit ? "Safari" : e.app, webkit || e.name.contains("Renderer") || e.name.contains("Web Content") || e.name.contains("(Plugin)") {
             let tm = app.contains("Safari") ? "Window ▸ Activity" : "Window ▸ Task Manager"
-            let used = gpuLed ? "has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
-                : "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
+            let forSafari = e.servedBy.map(Served.isSafari) == true
             return Card(state: !active ? .quiet : busyFor > 20 * 60 ? .unknown : .starting,
                         headline: webkitGPU ? "A web page is drawing a lot: video or animation." : "A \(app) tab is working hard.",
-                        explanation: (webkitGPU ? "The process that draws web pages \(used) It's usually a Safari tab, though other apps that show web pages have one too."
+                        explanation: (webkitGPU ? (forSafari ? "The process that draws Safari's pages \(used)"
+                                                   : "The process that draws web pages \(used) It's usually a Safari tab, though other apps that show web pages have one too.")
                             : "One tab or extension \(used) Only \(app) knows which.") + Fmt.its([gpuLed ? nil : gpuClause]),
                         fixes: [((e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Choose \(tm), then click CPU to put the busiest first.", recommended: true) }
                                     ?? Fix.guide("find", "Find the busy tab", "In \(app), choose \(tm) and click CPU.", steps: ["In \(app), choose \(tm).", "Click CPU to put the busiest tab first.", "Close it, or reload it if you need it."], recommended: true)).fixingTheCause(),
@@ -609,7 +636,8 @@ public struct Card {
             let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
             if !active { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }
             return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
-                        explanation: "That's normal while you play." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
+                        // rule 7: in full screen, Game Mode gives the game priority over background work (Apple, macOS 14)
+                        explanation: "That's normal while you play. In full screen, macOS's Game Mode gives it priority over background work." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
                         fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower quality or frame rate. Less heat, still smooth.", recommended: warm),
                                 Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game)).losingWork()])
         }
@@ -629,7 +657,7 @@ public struct Card {
                                           consequence: "Frozen, nothing lost; it carries on when you plug in. A download may time out.",
                                           kind: .pauseJob, recommended: true) : nil
         let cool = cooler.map { c -> Fix in
-            var c = c; c.recommended = warm || forGame
+            var c = c; c.recommended = (warm || forGame) && !RunCooler.isVirtualMachine(e)   // slowing a VM slows all of it: offered, not advised
             if let g = gameRunning { c = Fix(id: c.id, title: c.title, consequence: "Leaves more power for \(g). Undo any time.", kind: c.kind, recommended: c.recommended) }
             return c
         }
@@ -637,7 +665,7 @@ public struct Card {
         // priority slows its CPU work, not its drawing)
         let gpuApp = gpuLed ? e.quittableApp : nil
         let gpuQuit = gpuApp.flatMap { app in e.quittableBundle.map {
-            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. Save your work in it first.", kind: .quitApp($0)) } }
+            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. It asks about anything unsaved.", kind: .quitApp($0)) } }
         // while the Mac is warm, a busy job says it is part of why
         let heat = Fmt.its([gpuClause, warm && heating ? "adding to the heat" : nil,
                             forGame || (gameRunning != nil && gpuLed) ? "competing with \(gameRunning!)" : nil, drains ? "draining your battery" : nil])

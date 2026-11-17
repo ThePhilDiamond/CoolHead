@@ -115,7 +115,7 @@ struct PanelView: View {
             let samples = Wording.samples()
             return wanted.compactMap { w in samples.first { $0.0 == w }.map { LiveCard.sample($0.0, $0.1) } }
         }
-        guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards + HardwareWatch.shared.visible(watcher) }
+        guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards + CardSources.all.flatMap { $0.cards(for: watcher) } }
         let phrases = only.split(separator: "|").map(String.init)      // several phrases, separated by |
         return watcher.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }   // see onlyPIDs
     }
@@ -356,7 +356,12 @@ struct CardView: View {
             note = "Opened \(name). Pause it from its menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false; acted = true
         case .wait(let until):
             watcher.snooze(live, until: until)
-        case .stop, .forceQuit, .stopAgent, .stopAndTrash, .deleteBuildData:
+        // Stop and Force Quit warn about unsaved work on the option itself before this runs (see FixRow)
+        case .stop:
+            show(watcher.stop(live))
+        case .forceQuit:
+            show(watcher.forceQuit(live))
+        case .stopAgent, .stopAndTrash, .deleteBuildData:
             confirmStop = fix
         case .unloadModels(let names):
             show(watcher.unloadModels(names))
@@ -1317,6 +1322,12 @@ struct FixRow: View {
     /// For Pause syncing: how long, before anything happens.
     var runUntil: (Fix, Date) -> Void = { _, _ in }
     @State private var choosing = false
+    /// Stop and Force Quit end a program at once, with no chance to save: the first click warns on the
+    /// option itself, and a second click within 5 seconds goes ahead (Phil, 16 November 2026: *"a first click to overlay
+    /// the button with a message to the effect of "Did you save? Click again to proceed/quit once saved."*; then *"if force
+    /// quitting warn of lost data unless they save with the guard"*). A normal quit needs no guard: the app asks.
+    @State private var armed = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ARMED"] != nil
+    var guarded: Bool { fix.kind == .stop || fix.kind == .forceQuit }
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
     /// For an option that shows how: the steps, shown under it once pressed.
     var guideSteps: [String]? { if case .guide(let steps) = fix.kind { return steps }; return nil }
@@ -1352,8 +1363,23 @@ struct FixRow: View {
                 Button {
                     if isSyncPause { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } }
                     else if guideSteps != nil { withAnimation(.easeOut(duration: 0.15)) { showingSteps.toggle() } }
-                    else { run(fix) }
+                    else if guarded && !armed {
+                        withAnimation(.easeOut(duration: 0.15)) { armed = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { withAnimation(.easeOut(duration: 0.15)) { armed = false } }
+                    }
+                    else { armed = false; run(fix) }
                 } label: {
+                    if guarded && armed {
+                        HStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
+                                .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : Color.red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Anything unsaved will be lost.").font(.callout.weight(.semibold))
+                                Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
+                            }
+                            Spacer(minLength: 6)
+                        }
+                    } else {
                     HStack(alignment: tag == nil ? .center : .top, spacing: 10) {
                         Image(systemName: icon).font(.body).frame(width: 22)
                             .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : ends ? Color.red : Color.accentColor)
@@ -1376,6 +1402,7 @@ struct FixRow: View {
                             .help(opensElsewhere ? "Opens another app or your browser" : "")
                     }
                     .multilineTextAlignment(.leading)
+                    }
                 }
                 .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: tag))
                 .accessibilityHint(line)

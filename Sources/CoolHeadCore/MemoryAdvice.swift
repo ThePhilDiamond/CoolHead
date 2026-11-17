@@ -171,7 +171,7 @@ public enum MemoryAdvice {
             } else if let b = top.bundle, SecuritySoftware.product(path: b + "/", name: top.name) == nil {   // never security software
                 // recommended when quitting loses nothing reopening can't bring back (Slack, or an app that asks to save)
                 let cost = quitRisks[top.name]
-                var quit = Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). " + (cost?.words ?? "Save your work first; it asks about anything unsaved."),
+                var quit = Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). " + (cost?.words ?? "It asks about anything unsaved."),
                                kind: .quitApp(b), recommended: cost?.losesWork != true)
                 if cost?.losesWork == true { quit = quit.losingWork() }
                 fixes.append(quit)
@@ -202,7 +202,7 @@ public enum MemoryAdvice {
         if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
                                                         && SecuritySoftware.product(path: $0.bundle! + "/", name: $0.name) == nil }), let b = alt.bundle {
             let cost = alt.kind == .browser ? QuitCost.loses("Closes all tabs.") : SyncApps.app(bundle: b) != nil ? QuitCost.keeps(syncQuit)
-                : (quitRisks[alt.name] ?? QuitCost.keeps("Save your work first; it asks about anything unsaved."))
+                : (quitRisks[alt.name] ?? QuitCost.keeps("It asks about anything unsaved."))
             let quit2 = Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees \(Fmt.bytes(alt.bytes)). " + cost.words, kind: .quitApp(b))
             fixes.append(cost.losesWork ? quit2.losingWork() : quit2)
         }

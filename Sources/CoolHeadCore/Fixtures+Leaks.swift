@@ -65,7 +65,7 @@ extension Fixture {
         let r = card.recommended
         let r3 = card.headline == "Memory is tight: Pages is using more than it usually does."
             && card.explanation == "It's at 8.5 GB, up from 1.1 GB three hours ago with the same windows open, so it's probably a leak."
-            && r?.consequence.hasPrefix("Save your work first.") == true && !card.fixes.contains { $0.id == "quit" }
+            && r?.consequence.hasPrefix("It asks about anything unsaved.") == true && !card.fixes.contains { $0.id == "quit" }
             && (card.headline + " " + card.explanation).split(separator: " ").count <= 40
             && r?.id == "reopen" && r?.kind == .restartApp(pagesBundle) && r?.caution == false && r?.title == "Quit and reopen Pages"
             && claudeCard.recommended?.caution == true && !chromeCard.fixes.contains { $0.id == "reopen" } && !none.fixes.contains { $0.id == "reopen" }

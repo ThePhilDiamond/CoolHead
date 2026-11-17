@@ -22,6 +22,7 @@ public struct Fixture {
         backgroundWorkChecks,
         batteryPageChecks,
         browserRestartChecks,
+        browserTamperingChecks,
         catalogueChecks,
         disguiseChecks,
         graphicsChipChecks,
@@ -35,6 +36,9 @@ public struct Fixture {
         networkChecks,
         optionChecks,
         powerHistoryChecks,
+        powerStateChecks,
+        runCoolerChecks,
+        servedChecks,
         syncAndSecurityChecks,
         updateCheckChecks,
     ]
