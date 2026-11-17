@@ -1,6 +1,6 @@
 # Building Cool Head
 
-You need macOS 14 or later on Apple Silicon or Intel, and the Xcode Command Line Tools. Xcode itself is not needed.
+You need macOS 15 or later on Apple Silicon or Intel (it still builds on macOS 14, which isn't tested), and the Xcode Command Line Tools. Xcode itself is not needed.
 
 ```bash
 xcode-select --install
