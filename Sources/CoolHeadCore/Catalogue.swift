@@ -29,6 +29,9 @@ public struct Pattern {
     public let source: String
     /// True once someone has checked the source says what the entry says (link it in the pull request).
     public var checked = false
+    /// True for work macOS starts again after each update (indexing, analysis, model downloads): expected for hours to
+    /// days after one, so not "longer than usual" then (research rule 17; Apple 102321; Howard Oakley).
+    public var afterUpdate = false
 
     /// A name counts only from the kernel (`name` is the kernel's, never the name a program gives itself) and only for
     /// macOS's own copy, in macOS's own folders. A missing path counts as macOS only for pid 0 (kernel_task, which has
@@ -60,11 +63,11 @@ extension Pattern {
                 symptoms: [.heat, .battery], doing: "Spotlight is indexing your files",
                 usually: "Spotlight indexes after a macOS update, or when many files change.", usualHours: 3,
                 risk: "Stopping it only makes macOS start again later.",
-                source: "Apple: If Spotlight is slow or indexing; man mds"),
+                source: "Apple: If Spotlight is slow or indexing; man mds", afterUpdate: true),
         Pattern(id: "photos-analysis", names: ["photoanalysisd", "mediaanalysisd", "photolibraryd", "mediaanalysisd-access"],
                 symptoms: [.heat, .battery], doing: "Photos is analysing your library (faces, objects, text)",
                 usually: "Photos does this after you import photos, mostly while your Mac is plugged in.", usualHours: 6,
-                source: "Apple: People and pets in Photos on Mac"),
+                source: "Apple: People and pets in Photos on Mac", afterUpdate: true),
         Pattern(id: "kernel-task", names: ["kernel_task"], symptoms: [.heat],
                 doing: "macOS is keeping the chip cool by holding it idle",
                 usually: "macOS does this when your Mac is hot. It's a sign of the heat, not the cause.", usualHours: 1,
@@ -107,7 +110,7 @@ extension Pattern {
         Pattern(id: "apple-intelligence", names: ["mlhostd", "modelmanagerd", "intelligenceplatformd", "generativeexperiencesd"],
                 symptoms: [.heat, .battery], doing: "Apple Intelligence is running or preparing its on-device models",
                 usually: "This happens after an update, or while you use it.", usualHours: 2,
-                source: "Test: CPU rises after a macOS update while models download and prepare"),
+                source: "Test: CPU rises after a macOS update while models download and prepare", afterUpdate: true),
         Pattern(id: "permissions", names: ["tccd"], symptoms: [.heat],
                 doing: "macOS is checking app permissions", usually: "It takes a moment, when an app asks for access.", usualHours: 0.25,
                 source: "man tccd"),
