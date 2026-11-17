@@ -58,7 +58,7 @@ The cards, by what they're about:
 
 When more than one card fits the same process, each is scored on four things, from its own data, and the highest total wins (Phil, 17 November 2026: "prioritized in order of some aggregate of highest impact, lowest risk, highest confidence, lowest effort"):
 
-- **Confidence**, how surely it fits, from 0 to 3: 3 when it knows this exact app, product or part of macOS (or the app says it's a game, or one of its own tabs); 2 when it knows what kind of program this is; 1 when it goes only by a process's name, which other programs can share; 0 for the busy-job card, which fits anything. **It counts twice**, because advice for the wrong cause can't help however good it is.
+- **Confidence**, how surely it fits, from 0 to 3: 3 when it knows this exact app, product or part of macOS (or the app says it's a game, or one of its own tabs); 2 when it knows what kind of program this is; 1 when it goes only by a process's name, which other programs can share; 0 for the busy-job card, which fits anything. **It counts twice.** That's a choice made against the samples, not a measured truth: with all four counted the same, a Chromium-style helper inside security software, a sync app or a game would get the browser-tab card and its "Run this tab cooler", and six cases would tie.
 - **Impact** of its advice, the recommended option: 3 if it fixes the cause, 2 if it eases it, 1 if it only informs. A card that recommends nothing still tells you what's happening, so it counts as informing.
 - **Risk** of its advice: 3 for Caution, 1 if it interrupts something, 0 otherwise. It's taken away.
 - **Effort** of its advice: 1 for a task for you, 0 for one click or nothing to do. It's taken away.
@@ -81,7 +81,7 @@ flowchart TD
     extras --> why["Its Nerdy stuff names the closest other card<br/>and why this one was chosen over it"]
 ```
 
-If two cards tie, the selftest fails and names both. Each card's Nerdy stuff names the closest other card and says, point by point, why this one was chosen over it. `coolhead cards --json` shows every card's score on every sample. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
+If two cards tie, the selftest fails and names both. Each card's Nerdy stuff names the other cards that fit and says what is better and worse about this one than the closest, without claiming which factor matters more. `coolhead cards --json` shows every card's score on every sample. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
 
 Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
 

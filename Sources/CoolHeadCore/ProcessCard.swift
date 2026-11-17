@@ -160,8 +160,9 @@ public protocol CardExtra {
 /// impact, lowest risk, highest confidence, lowest effort"). Every card that fits is scored on four factors, from its
 /// own data, and the highest total wins:
 ///
-/// - Confidence (0 to 3), how surely it fits, counted twice, because advice for the wrong cause can't help however
-///   good it is.
+/// - Confidence (0 to 3), how surely it fits, counted twice: a choice made against the samples, not a measured truth.
+///   Counted once, a Chromium-style helper inside security software, a sync app or a game gets the browser-tab card,
+///   and six cases tie.
 /// - Impact (1 to 3) of its advice, the recommended option: fixes the cause 3, eases it 2, only informs 1. A card that
 ///   recommends nothing tells you what's happening, which informs.
 /// - Risk (0 to 3) of its advice: Caution 3, interrupts something 1, neither 0.
@@ -198,17 +199,16 @@ public enum Ranker {
         /// Why this card won over the closest one, in plain words.
         public var because: String?
 
-        /// For the card's Nerdy stuff, in plain words: "This process also fits another card: a web page. This card was
-        /// chosen over it because Cool Head is surer this card fits (…) than a web page (…), which counts most, since
-        /// advice for the wrong cause can't help." Nil when no other card fitted.
+        /// For the card's Nerdy stuff, in plain words: "Also fits: a web page and a busy program. Chosen over a web page.
+        /// Cool Head is surer of it (…) and its advice is one click, though the advice does less." Nil when no other
+        /// card fitted.
         public var line: String? {
             guard let closest = others.first else { return nil }
             func list(_ x: [String]) -> String {
                 x.count < 3 ? x.joined(separator: " and ") : x.dropLast().joined(separator: ", ") + ", and " + x.last!
             }
-            let fits = others.count == 1 ? "This process also fits another card: \(closest)."
-                : "This process also fits other cards: \(list(others)). The closest is \(closest)."
-            return fits + (because.map { " This card was chosen over it. " + $0 } ?? "")
+            let fits = others.count == 1 ? "Also fits: \(closest)." : "Also fits: \(list(others))."
+            return fits + (because.map { " Chosen over \(closest). " + $0 } ?? "")
         }
     }
 
@@ -223,41 +223,24 @@ public enum Ranker {
         }
     }
 
-    /// Why `a` beats `b`, in plain words, ending in a full stop; nil when it doesn't.
+    /// Why `a` beats `b`, in plain words, as facts about the two cards, ending in a full stop; nil when it doesn't. It
+    /// says what's better and what's worse about this card, never which factor matters more (that's in DIAGNOSIS.md).
     static func why(_ a: Candidate, over b: Candidate) -> String? {
-        if a.type.kind == .identity, b.type.kind != .identity {
-            return "A program that isn't what it claims to be may be harmful, so that always comes first: no explanation of what it's doing outweighs it."
-        }
+        if a.type.kind == .identity, b.type.kind != .identity { return "It comes first because the program may be harmful." }
         if b.type.kind == .identity, a.type.kind != .identity { return nil }
         let x = a.score, y = b.score
         guard x.total > y.total else { return nil }
-        var out: [String] = []
-        if x.confidence > y.confidence {
-            out.append("Cool Head is surer this card fits, because \(a.confidence.reason); \(b.type.name) is a weaker fit, because \(b.confidence.reason).")
-            out.append("How sure Cool Head is counts most, since advice for the wrong cause can't help.")
-        }
-        let also = out.isEmpty ? "" : " also"
-        var gains: [String] = []
-        if x.impact > y.impact { gains.append(x.impact == 3 ? "fixes the cause, rather than only easing it" : "does more about the problem") }
-        if x.risk < y.risk { gains.append("is safer") }
-        if x.effort < y.effort, a.card.recommended != nil { gains.append("is one click, rather than a task for you") }
+        var pros: [String] = [], cons: [String] = []
+        if x.confidence > y.confidence { pros.append("Cool Head is surer of it (\(a.confidence.reason))") }
+        if x.impact > y.impact { pros.append(x.impact == 3 ? "its advice fixes the cause" : "its advice does more") }
+        if x.risk < y.risk { pros.append("its advice is safer") }
+        if x.effort < y.effort { pros.append(a.card.recommended == nil ? "there's nothing you need to do" : "its advice is one click") }
+        if x.impact < y.impact { cons.append("the advice does less") }
+        if x.risk > y.risk { cons.append(x.risk == 3 ? "the advice is marked Caution" : "the advice closes something") }
+        if x.effort > y.effort { cons.append("the advice is a task for you") }
         func list(_ p: [String]) -> String { p.count < 3 ? p.joined(separator: " and ") : p.dropLast().joined(separator: ", ") + ", and " + p.last! }
-        if !gains.isEmpty {
-            // "Its advice also fixes …", "Its advice is also one click …"
-            var g = gains
-            if !also.isEmpty { g[0] = g[0].hasPrefix("is ") ? "is also " + g[0].dropFirst(3) : "also " + g[0] }
-            out.append("Its advice \(list(g)).")
-        }
-        if x.effort < y.effort, a.card.recommended == nil { out.append("There's\(also) nothing you need to do.") }
-        var costs: [String] = []
-        if x.impact < y.impact { costs.append("does less") }
-        if x.risk > y.risk { costs.append("is riskier") }
-        if x.effort > y.effort { costs.append("is more work for you") }
-        // what outweighs the drawback: the first thing in this card's favour
-        let weightier = x.confidence > y.confidence ? "being surer of the cause" : x.impact > y.impact ? "doing more about the problem"
-            : x.risk < y.risk ? "safer advice" : "advice that's less work for you"
-        if !costs.isEmpty { out.append("Its advice \(list(costs)) than the other card's, but that matters less than \(weightier).") }
-        return out.joined(separator: " ")
+        let first = list(pros)
+        return first.prefix(1).uppercased() + first.dropFirst() + (cons.isEmpty ? "." : ", though \(list(cons)).")
     }
 
     /// The winning card, with the extras that apply, and why it won.
