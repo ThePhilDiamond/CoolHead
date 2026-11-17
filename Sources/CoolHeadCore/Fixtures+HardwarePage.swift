@@ -33,19 +33,21 @@ extension Fixture {
 
         // each part with everything about it together: the drive's wear, writes, hours and temperature; a crash's time,
         // cause and what to do; which port and what happened
-        let calm = HardwarePage.parts(report { _ in }, now: now)
-        let issue = HardwarePage.parts(HardwarePage.sample("issue", now: now), now: now)
-        let ported = HardwarePage.parts(report { $0.ports = [PortErrors(name: "the MagSafe port", overCurrent: 2)] }, now: now)
+        let calmAll = HardwarePage.parts(report { _ in }, now: now)
+        // Temperatures comes first; the checks below by position are of the other parts
+        let calm = calmAll.filter { $0.kind != .temps }
+        let issue = HardwarePage.parts(HardwarePage.sample("issue", now: now), now: now).filter { $0.kind != .temps }
+        let ported = HardwarePage.parts(report { $0.ports = [PortErrors(name: "the MagSafe port", overCurrent: 2)] }, now: now).filter { $0.kind != .temps }
         // in parts, so the compiler checks each quickly (one long chain timed out on GitHub's build machine)
         let tiles: [String] = calm[0].tiles.map { $0.value + " " + $0.unit }
         let noDrive: [String] = HardwarePage.parts(report { $0.drive = nil }, now: now).map(\.value)
-        var p1 = calm.map(\.kind) == [.drive, .crashes, .ports, .temps] && calm.map(\.level) == [0, 0, 0, 0]
+        var p1 = calmAll.map(\.kind) == [.temps, .drive, .crashes, .ports] && calmAll.map(\.level) == [0, 0, 0, 0]
         p1 = p1 && calm[0].value == "Healthy" && calm[0].lines.isEmpty && calm[0].backup == "Time Machine is set up to back it up."
         p1 = p1 && tiles == ["3% life used", "18 TB written", "2,140 hours on"]
-        let temps: [String] = calm[3].tiles.map { $0.value + " " + $0.unit }
-        p1 = p1 && temps == ["55°C chip", "31°C battery", "34°C drive"] && calm[3].value == "Normal"
+        let temps: [String] = calmAll[0].tiles.map { $0.value + " " + $0.unit }
+        p1 = p1 && temps == ["\(Fmt.temperature(55)) chip", "\(Fmt.temperature(31)) battery", "\(Fmt.temperature(34)) drive"] && calmAll[0].value == "Normal"
         var hot = HardwarePage.sample(now: now); hot.battery?.temperatureC = 46; hot.chipC = nil
-        let hotTemps = HardwarePage.parts(hot, now: now).last
+        let hotTemps = HardwarePage.parts(hot, now: now).first
         p1 = p1 && hotTemps?.value == "Hot" && hotTemps?.tiles.map(\.unit) == ["battery", "drive"]
         p1 = p1 && issue[0].value == "Well worn" && issue[0].tiles.first?.level == 1
         p1 = p1 && issue[0].backup == "Time Machine isn't set up, so nothing backs this drive up."
@@ -55,7 +57,10 @@ extension Fixture {
         p1 = p1 && issue[1].lines[1] == "WindowServer, the part of macOS that draws the screen, stopped responding, so macOS restarted. That's usually software, not hardware."
         p1 = p1 && issue[1].lines[2] == "A one-off crash like this isn't a concern. If it happens again in the next week, Cool Head will show you what to try."
         p1 = p1 && ported[2].value == "2 errors" && ported[2].lines == ["The MagSafe port: a device asked for too much power twice."] && ported[2].level == 1
-        p1 = p1 && noDrive == ["Not read", "None this week", "No errors", "Normal"]
+        p1 = p1 && noDrive == ["Normal", "Not read", "None this week", "No errors"]
+        // in the unit this Mac is set to, either way
+        p1 = p1 && Fmt.temperature(55, fahrenheit: false) == "55°C" && Fmt.temperature(55, fahrenheit: true) == "131°F"
+            && Fmt.temperature(-1.4, fahrenheit: false) == "-1°C" && Fmt.temperature(100, fahrenheit: true) == "212°F"
         func describe(_ p: HardwarePage.Part) -> String {
             var t = "\(p.name): \(p.value)"
             if !p.tiles.isEmpty { t += " [" + p.tiles.map { $0.value + " " + $0.unit }.joined(separator: ", ") + "]" }
@@ -63,7 +68,7 @@ extension Fixture {
             if let b = p.backup { t += " / " + b }
             return t
         }
-        review.append(("hardware-page-parts", p1, (calm + issue + ported).map(describe).joined(separator: " | ")))
+        review.append(("hardware-page-parts", p1, (calmAll + issue + ported).map(describe).joined(separator: " | ")))
 
         // how it's running: the same level as the menu bar icon. Whole while nothing slows it and nothing needs acting
         // on, even when warm; melting when macOS slows it a little, memory is tight, or something needs a look; in flames

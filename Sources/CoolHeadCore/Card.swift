@@ -718,6 +718,17 @@ public struct Card {
 
 /// Formats in Phil's style: 4:50pm, 3 hours 20 minutes.
 public enum Fmt {
+    /// A temperature, given in °C, in the unit this Mac is set to (Phil, 17 November 2026: "we should inherit the unit
+    /// from the macOS region settings"): System Settings ▸ General ▸ Language & Region ▸ Temperature where it's been
+    /// chosen, otherwise the region's usual unit. Cool Head's own limits stay in °C.
+    public static func temperature(_ celsius: Double, fahrenheit: Bool = Fmt.fahrenheit) -> String {
+        fahrenheit ? "\(Int((celsius * 9 / 5 + 32).rounded()))°F" : "\(Int(celsius.rounded()))°C"
+    }
+    public static var fahrenheit: Bool {
+        if let unit = UserDefaults.standard.string(forKey: "AppleTemperatureUnit") { return unit == "Fahrenheit" }
+        if #available(macOS 13, *) { return Locale.current.measurementSystem == .us }
+        return !Locale.current.usesMetricSystem
+    }
     public static func time(_ d: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")

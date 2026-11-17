@@ -3,8 +3,7 @@ import CoolHeadCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The past week, from macOS's own power log: what used the most energy, what woke the chip most often, and why the Mac
-/// woke from sleep. Read when shown (off the main thread), never on the refresh loop; nothing is kept but the totals.
+/// The past week, from macOS's own power log: what used the most energy, and why the Mac woke from sleep. Read when shown (off the main thread), never on the refresh loop; nothing is kept but the totals.
 /// Every sentence comes from PowerHistory, so `coolhead history` prints the same words.
 struct HistoryView: View {
     /// Made-up history for screenshots; nil reads this Mac's power log.
@@ -25,21 +24,11 @@ struct HistoryView: View {
                     }
                     Text(PowerHistory.source).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 }
-                let energy = h.topEnergy()
+                let energy = h.energyRows()
                 if !energy.isEmpty {
                     Section(heading: PowerHistory.energyHeading, note: PowerHistory.energyNote) {
-                        ForEach(Array(zip(energy, PowerHistory.names(energy.map(\.0))).enumerated()), id: \.offset) { _, row in
-                            Row(user: row.0.0, name: row.1.name, what: row.1.what, figure: PowerHistory.share(row.0.1),
-                                fraction: row.0.1, sample: sample != nil)          // a share, so the bar is out of 100%
-                        }
-                    }
-                }
-                let wakeups = h.topWakeups()
-                if !wakeups.isEmpty {
-                    Section(heading: PowerHistory.wakeupsHeading, note: PowerHistory.wakeupsNote) {
-                        ForEach(Array(zip(wakeups, PowerHistory.names(wakeups.map(\.0))).enumerated()), id: \.offset) { _, row in
-                            Row(user: row.0.0, name: row.1.name, what: row.1.what, figure: PowerHistory.perHour(row.0.1),
-                                fraction: row.0.1 / (wakeups.first?.1 ?? 1), sample: sample != nil)
+                        ForEach(Array(energy.enumerated()), id: \.offset) { _, row in
+                            Row(row: row, sample: sample != nil)          // a share, so the bar is out of 100%
                         }
                     }
                 }
@@ -85,45 +74,54 @@ struct HistoryView: View {
         }
     }
 
-    /// An app or program: its icon, its name (and what it is, if not an app), the figure, and a bar: out of the whole
-    /// for a share, against the first row for a rate.
+    /// An app or program, or macOS itself: its icon, its name (and what it is, if not an app), its share and a bar out
+    /// of the whole. A click opens what the share means and whether to do anything (Phil, 17 November 2026: "clicking an
+    /// item in the trends tool tells the user more about it").
     struct Row: View {
-        let user: PowerHistory.User
-        let name: String
-        let what: String?
-        let figure: String
-        let fraction: Double
+        let row: PowerHistory.EnergyRow
         let sample: Bool
+        @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil
 
         var body: some View {
-            HStack(alignment: .center, spacing: 10) {
-                icon.frame(width: 22, height: 22)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(name).font(.callout).foregroundStyle(Ink.text).lineLimit(1)
-                        if let what { Text(what).font(.caption).foregroundStyle(Ink.muted).lineLimit(1) }
-                        Spacer(minLength: 8)
-                        Text(figure).font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center, spacing: 10) {
+                    icon.frame(width: 22, height: 22)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(row.name).font(.callout).foregroundStyle(Ink.text).lineLimit(1)
+                            if let what = row.what { Text(what).font(.caption).foregroundStyle(Ink.muted).lineLimit(1) }
+                            Spacer(minLength: 8)
+                            Text(PowerHistory.share(row.share)).font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
+                            Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Ink.muted)
+                        }
+                        GeometryReader { g in
+                            Capsule().fill(Color.accentColor.opacity(0.55))
+                                .frame(width: max(3, g.size.width * min(1, row.share)), height: 4)
+                        }
+                        .frame(height: 4)
                     }
-                    GeometryReader { g in
-                        Capsule().fill(Color.accentColor.opacity(0.55))
-                            .frame(width: max(3, g.size.width * min(1, fraction)), height: 4)
-                    }
-                    .frame(height: 4)
+                }
+                if open {
+                    Text(row.detail).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                        .padding(.leading, 32)
                 }
             }
+            .contentShape(Rectangle())
+            .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
+            .hoverHighlight(true)
             .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
         }
 
         /// The app's own icon if it is installed (not in screenshots, which show no one's own apps), else macOS's plain
-        /// app icon; the Apple logo for parts of macOS, a gear for background programs.
+        /// app icon; the Apple logo for macOS itself, a gear for background programs.
         @ViewBuilder var icon: some View {
-            if user.name.what == .app {
+            if let user = row.user, user.name.what == .app {
                 let url = sample ? nil : NSWorkspace.shared.urlForApplication(withBundleIdentifier: user.id)
                 Image(nsImage: url.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSWorkspace.shared.icon(for: .applicationBundle))
                     .resizable().aspectRatio(contentMode: .fit)
             } else {
-                Image(systemName: user.name.what == .macOS ? "apple.logo" : "gearshape").font(.system(size: 14)).foregroundStyle(Ink.muted)
+                Image(systemName: row.user == nil ? "apple.logo" : "gearshape").font(.system(size: 14)).foregroundStyle(Ink.muted)
             }
         }
     }

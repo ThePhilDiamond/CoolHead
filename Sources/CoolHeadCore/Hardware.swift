@@ -106,7 +106,7 @@ public struct DriveHealth: Equatable {
                  "Written so far: about \(Hardware.size(bytesWritten))",
                  "Powered on for \(Hardware.count(powerOnHours)) hours",
                  "Times it lost power without shutting down: \(Hardware.count(unsafeShutdowns))"]
-        if let t = temperatureC { l.append("Temperature: \(t)°C") }
+        if let t = temperatureC { l.append("Temperature: \(Fmt.temperature(Double(t)))") }
         return l
     }
 
@@ -211,7 +211,7 @@ public struct BatteryHealth: Equatable {
         if let m = maxCapacity { l.append("Maximum Capacity: \(m)%") }
         if let c = cycles { l.append("Charge cycles: \(Hardware.count(UInt64(c)))" + (designCycles.map { " (rated for \(Hardware.count(UInt64($0))))" } ?? "")) }
         if permanentFailure != 0 { l.append("Permanent fault recorded: yes") }
-        if let t = temperatureC { l.append(String(format: "Temperature: %.0f°C", t)) }
+        if let t = temperatureC { l.append("Temperature: \(Fmt.temperature(t))") }
         if let p = percent { l.append("Charge: \(p)%" + (charging ? ", charging" : onPower ? ", on power, not charging" : "")) }
         if let w = adapterWatts { l.append("Charger: \(w) W") }
         if let w = batteryWatts, onPower, w < -1 { l.append(String(format: "Battery draining at %.0f W while plugged in", -w)) }
@@ -489,7 +489,7 @@ extension HardwareReport {
                          b.lines, subject: "charging")
                 case .tooWarm(let t):
                     card("charging", .quiet, "The battery is too warm to charge.",
-                         String(format: "It's at %.0f°C, and a Mac pauses charging while its battery is warm. It starts again as it cools: use it on a hard surface, out of the sun, and give it a break from heavy work.", t),
+                         "It's at \(Fmt.temperature(t)), and a Mac pauses charging while its battery is warm. It starts again as it cools: use it on a hard surface, out of the sun, and give it a break from heavy work.",
                          [], b.lines, subject: "charging")
                 case .chargerTooWeak(let w):
                     card("charging", .quiet, "The charger isn't keeping up.",

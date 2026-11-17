@@ -49,7 +49,7 @@ public enum BatteryPage {
             t.append(Tile(symbol: "arrow.triangle.2.circlepath", value: Hardware.count(UInt64(c)), unit: unit, level: c >= (b.designCycles ?? .max) ? 1 : 0))
         }
         if let c = b.temperatureC {
-            t.append(Tile(symbol: "thermometer.medium", value: String(format: "%.0f°C", c), unit: "temperature", level: c >= 45 ? 2 : c >= 40 ? 1 : 0))
+            t.append(Tile(symbol: "thermometer.medium", value: Fmt.temperature(c), unit: "temperature", level: c >= 45 ? 2 : c >= 40 ? 1 : 0))
         }
         return t
     }
@@ -74,7 +74,7 @@ public enum BatteryPage {
         if let why = b.notCharging {
             switch why {
             case .onHold(let p): return Status(symbol: gauge, text: "Holding at \(p)%", detail: "on purpose, to slow wear", level: 0)
-            case .tooWarm(let t): return Status(symbol: gauge, text: "Not charging · \(pct)%", detail: String(format: "too warm (%.0f°C); it starts as it cools", t), level: 1)
+            case .tooWarm(let t): return Status(symbol: gauge, text: "Not charging · \(pct)%", detail: "too warm (\(Fmt.temperature(t))); it starts as it cools", level: 1)
             case .chargerTooWeak(let w): return Status(symbol: gauge, text: "Draining while plugged in", detail: (w.map { "the \($0) W charger" } ?? "the charger") + " can't keep up", level: 2)
             case .unknown: return Status(symbol: gauge, text: "Not charging · \(pct)%", detail: "macOS doesn't say why", level: 1)
             }

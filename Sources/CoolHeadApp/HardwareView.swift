@@ -196,6 +196,7 @@ struct RunningStrip: View {
                 Text(g.name)
             } currentValueLabel: {
                 Text(g.text ?? "\(g.percent)%").font(.system(.body, design: .rounded).weight(.semibold)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.6)
             }
             .gaugeStyle(.accessoryCircularCapacity)
             .tint(NetworkView.color(g.level))

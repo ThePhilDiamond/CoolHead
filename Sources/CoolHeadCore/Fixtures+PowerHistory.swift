@@ -42,19 +42,23 @@ extension Fixture {
         let current = powerLog(start: t0 + 86400, repeatFrom: t0)
         let unzipped = archive.flatMap(Data.gunzip)
         let h = unzipped.flatMap { PowerHistory.read(bytes: [current, $0], appName: name) }
-        let energy = h?.topEnergy().map { "\($0.0.name.name) \(PowerHistory.share($0.1))" }.joined(separator: ", ") ?? "none"
-        let wakeups = h?.topWakeups().map { "\($0.0.name.name) \(PowerHistory.perHour($0.1))" }.joined(separator: ", ") ?? "none"
+        let rows = h?.energyRows() ?? []
+        let energy = rows.map { "\($0.name) \(PowerHistory.share($0.share))" }.joined(separator: ", ")
         let browser = h?.users.first { $0.id == "com.example.Browser" }
         let causes = h?.wakesByCause.map { "\($0.0.rawValue) \($0.1.count)" }.joined(separator: " ") ?? ""
-        let shownNames = h.map { PowerHistory.names($0.topEnergy().map(\.0)).map { n in n.what.map { "\(n.name) (\($0))" } ?? n.name } } ?? []
+        let shownNames = rows.map { r in r.what.map { "\(r.name) (\($0))" } ?? r.name }
         let addsUp = browser?.energy == 2 * 3_000_000_000 && browser?.wakeups == 2 * 600       // two days, helpers included, boundary once
-            && energy == "Browser 56%, WindowServer 27%, kernel_task 9%, Chat 4%, syncd 4%"
-            && wakeups == "Browser about 26 an hour, Chat about 4 an hour, syncd about 2 an hour"
+            // macOS's own parts together; each row says what its share means
+            && energy == "Browser 56%, macOS itself 36%, Chat 4%, syncd 4%"
+            && rows.first?.detail.hasPrefix("A large share. If you don't use Browser most of the day") == true
+            && rows.first { $0.name == "macOS itself" }?.detail == PowerHistory.macOSDetail && rows.first { $0.name == "macOS itself" }?.user == nil
+            && rows.last?.detail == "A program that runs in the background, started by you or by an app. A small share: nothing to do."
+            && PowerHistory.detail("X", app: true, share: 0.12).hasPrefix("A fair share")
             && causes == "schedule 4 lid 2 wireless 2"
-            && shownNames.contains("WindowServer (Part of macOS)") && shownNames.contains("syncd (A background program)")
+            && !shownNames.contains("WindowServer (Part of macOS)") && shownNames.contains("syncd (A background program)")
             && h?.days == 2 && h?.title == "The past 2 days"
         out.append(("power-history-adds-up", addsUp,
-                    "energy: \(energy); wakeups: \(wakeups); wakes: \(causes); names: \(shownNames); \(h?.title ?? "no history")"))
+                    "energy: \(energy); wakes: \(causes); names: \(shownNames); \(h?.title ?? "no history")"))
 
         // 3. When the format changes (a column renamed, a table gone), that part shows nothing, quietly
         let renamed = PowerHistory.read(bytes: [powerLog(start: t0, renameWakeups: true)], appName: name)

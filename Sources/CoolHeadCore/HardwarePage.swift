@@ -113,16 +113,16 @@ public enum HardwarePage {
         // battery pauses charging (see BatteryHealth.notCharging); a drive only matters when very hot. Battery levels as
         // on the Battery page; the drive's 70°C is Cool Head's own, not from a source.
         var temps: [Tile] = []
-        if let c = r.chipC { temps.append(Tile(symbol: "cpu", value: "\(Int(c.rounded()))°C", unit: "chip", level: 0)) }
+        if let c = r.chipC { temps.append(Tile(symbol: "cpu", value: Fmt.temperature(c), unit: "chip", level: 0)) }
         if let b = r.battery?.temperatureC {
-            temps.append(Tile(symbol: "battery.75percent", value: "\(Int(b.rounded()))°C", unit: "battery", level: b >= 45 ? 2 : b >= 40 ? 1 : 0))
+            temps.append(Tile(symbol: "battery.75percent", value: Fmt.temperature(b), unit: "battery", level: b >= 45 ? 2 : b >= 40 ? 1 : 0))
         }
-        if let t = r.drive?.temperatureC { temps.append(Tile(symbol: "internaldrive", value: "\(t)°C", unit: "drive", level: t >= 70 ? 1 : 0)) }
+        if let t = r.drive?.temperatureC { temps.append(Tile(symbol: "internaldrive", value: Fmt.temperature(Double(t)), unit: "drive", level: t >= 70 ? 1 : 0)) }
         if !temps.isEmpty {
             let worst = temps.map(\.level).max() ?? 0
-            out.append(Part(kind: .temps, symbol: "thermometer.medium", name: "Temperatures", value: ["Normal", "Warm", "Hot"][worst],
+            out.insert(Part(kind: .temps, symbol: "thermometer.medium", name: "Temperatures", value: ["Normal", "Warm", "Hot"][worst],
                             level: worst, lines: ["macOS slows the chip when it gets too hot, and pauses charging while the battery is warm."],
-                            tiles: temps))
+                            tiles: temps), at: 0)            // first: heat is what slows a Mac (Phil, 17 November 2026)
         }
         return out
     }
@@ -204,7 +204,7 @@ public enum HardwarePage {
     public static func heat(chipC: Double?, thermal: String) -> Gauge? {
         guard let c = chipC else { return nil }
         let step = ["nominal": 0, "fair": 1, "serious": 2, "critical": 3][thermal] ?? 0
-        return Gauge(name: "Heat", percent: (step + 1) * 25, level: [0, 0, 1, 2][step], text: "\(Int(c.rounded()))°")
+        return Gauge(name: "Heat", percent: (step + 1) * 25, level: [0, 0, 1, 2][step], text: Fmt.temperature(c))
     }
     public static func chip(busy: Double) -> Gauge {
         let b = min(max(busy, 0), 1)
