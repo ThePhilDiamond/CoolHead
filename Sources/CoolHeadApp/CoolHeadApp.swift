@@ -208,6 +208,9 @@ enum About {
                                           attributes: [.font: body]))
         credits.append(NSAttributedString(string: "github.com/ThePhilDiamond/CoolHead",
                                           attributes: [.font: body, .link: URL(string: "https://github.com/ThePhilDiamond/CoolHead")!]))
+        credits.append(NSAttributedString(string: "\n", attributes: [.font: body]))
+        credits.append(NSAttributedString(string: "Terms of use",
+                                          attributes: [.font: body, .link: URL(string: "https://github.com/ThePhilDiamond/CoolHead/blob/main/TERMS.md")!]))
         credits.addAttribute(.paragraphStyle, value: center, range: NSRange(location: 0, length: credits.length))
         // macOS shows the version and then the build number in brackets; they're the same here, so the build is left out
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Cool Head",
@@ -435,6 +438,24 @@ enum Snapshot {
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CHECK"] != nil { Task { await Updater.shared.check(quiet: false) } }
         let after = Double(ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_AFTER"] ?? "") ?? 25
         DispatchQueue.main.asyncAfter(deadline: .now() + after) {
+            // the About panel, title bar included, light and dark, to <prefix>-about-light.png and -dark.png
+            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ABOUT"] != nil {
+                let before = Set(NSApp.windows.map(ObjectIdentifier.init))
+                About.show()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+                if let panel = NSApp.windows.first(where: { !before.contains(ObjectIdentifier($0)) && $0.isVisible }),
+                   let frame = panel.contentView?.superview {
+                    for (name, look) in [("light", NSAppearance.Name.aqua), ("dark", NSAppearance.Name.darkAqua)] {
+                        panel.appearance = NSAppearance(named: look)
+                        frame.layoutSubtreeIfNeeded()
+                        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+                        guard let rep = frame.bitmapImageRepForCachingDisplay(in: frame.bounds) else { continue }
+                        frame.cacheDisplay(in: frame.bounds, to: rep)
+                        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(prefix)-about-\(name).png"))
+                    }
+                    panel.close()
+                }
+            }
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] != nil { Watcher.shared.showReport = true }
             // the Battery tool's page, with a made-up battery when the screenshot uses example cards
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_BATTERY"] != nil { Tools.shared.battery = true }
