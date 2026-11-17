@@ -60,8 +60,8 @@ extension Fixture {
 
         // Low Power Mode on the adapter: only plugged in, busy, and set for the adapter
         func cards(onPower: Bool = true, busy: Bool = true, lowPower: PowerState.LowPower? = lp, holds h: [PowerState.Hold] = [],
-                   night n: PowerState.Night? = nil) -> [LiveCard] {
-            PowerState.cards(lowPower: lowPower, lowPowerNow: true, onPower: onPower, busy: busy, holds: h, who: who, night: n, now: morning)
+                   night n: PowerState.Night? = nil, idle: TimeInterval? = 2.75 * 3600) -> [LiveCard] {
+            PowerState.cards(lowPower: lowPower, lowPowerNow: true, onPower: onPower, busy: busy, holds: h, who: who, idleFor: { _ in idle }, night: n, now: morning)
         }
         let low = cards()
         let l1 = low.map(\.id) == ["low-power-adapter"] && cards(busy: false).isEmpty && cards(onPower: false).isEmpty
@@ -81,6 +81,9 @@ extension Fixture {
             && sound.first?.card.explanation.hasPrefix("It has sound open") == true
             && guarded.first?.card.fixes.isEmpty == true && short.isEmpty
             && onBattery.first?.card.state == .working && (held + sound + onBattery).allSatisfy { $0.card.fixes.allSatisfy { !$0.recommended } }
+            && held.first?.card.explanation.contains("done almost nothing for 2 hours 45 minutes, so it has likely forgotten") == true
+            // working, idle only a while, or not yet known: no card
+            && cards(busy: false, lowPower: nil, holds: holds, idle: 600).isEmpty && cards(busy: false, lowPower: nil, holds: holds, idle: nil).isEmpty
         review.append(("power-held-awake", h1, (held + sound).map(\.card.headline).joined(separator: " | ")))
 
         // overnight: shown the morning after a 10%+ drop on battery with 10+ wakes, naming what woke it most
@@ -115,8 +118,8 @@ extension Fixture {
         func one(_ c: [LiveCard]) -> Card? { c.first?.card }
         return [
             ("power-low-adapter", one(PowerState.cards(lowPower: PowerState.parseCustom(customText), lowPowerNow: true, onPower: true, busy: true, holds: [], who: who, night: nil, now: morning))),
-            ("power-held-awake", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: true, busy: false, holds: [holds[0]], who: who, night: nil, now: morning))),
-            ("power-held-awake-sound", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: false, busy: false, holds: [holds[1]], who: who, night: nil, now: morning))),
+            ("power-held-awake", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: true, busy: false, holds: [holds[0]], who: who, idleFor: { _ in 2.75 * 3600 }, night: nil, now: morning))),
+            ("power-held-awake-sound", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: false, busy: false, holds: [holds[1]], who: who, idleFor: { _ in 2.75 * 3600 }, night: nil, now: morning))),
             ("power-night-wakes", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: false, busy: false, holds: [], who: who, night: PowerState.parseLog(logText()), now: morning))),
         ].compactMap { k, c in c.map { (k, $0) } }
     }

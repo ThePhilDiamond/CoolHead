@@ -40,11 +40,13 @@ public enum HardwarePage {
     /// One part of the Mac, with everything about it together: its name, a few words for how it is, and a line or two
     /// of detail.
     public struct Part: Equatable {
-        public enum Kind: String { case drive, crashes, ports }
+        public enum Kind: String { case drive, crashes, ports, temps }
         public let kind: Kind; public let symbol: String; public let name: String; public let value: String; public let level: Int
         public let lines: [String]
         /// Figures shown as tiles, above the lines.
         public var tiles: [Tile] = []
+        /// Whether anything backs the drive up: its own row, with Set up Time Machine at the right when it isn't.
+        public var backup: String? = nil
     }
     public typealias Tile = BatteryPage.Tile
     public static func parts(_ r: HardwareReport, now: Date = Date()) -> [Part] {
@@ -56,21 +58,22 @@ public enum HardwarePage {
             if d.mediaErrors > 0 { lines.append("It couldn't correct \(Hardware.count(d.mediaErrors)) reads. Keep your backups current.") }
             // whether anything backs it up, since every drive warning ends in "back up" (Phil, 16 November 2026: "we can
             // possibly mention time machine/icloud/google drive/dropbox/box backup state?"); sync apps aren't backups
-            switch r.timeMachine {
-            case .notSetUp?: lines.append("Time Machine isn't set up, so nothing backs this drive up.")
-            case .setUp?: lines.append("Time Machine is set up to back it up.")
-            case nil: break
+            let backup: String? = switch r.timeMachine {
+            case .notSetUp?: "Time Machine isn't set up, so nothing backs this drive up."
+            case .setUp?: "Time Machine is set up to back it up."
+            case nil: nil
             }
             let level = d.fault ? 2 : (d.percentUsed >= 80 || d.mediaErrors > 0) ? 1 : 0
             // the figures as tiles, as Test my network shows its own (Phil, 17 November 2026: "maybe we want boxes like
             // we have for the network test with life used, amount written, hours of writing, and temperature?")
-            var tiles = [Tile(symbol: "gauge.with.dots.needle.33percent", value: "\(d.percentUsed)%", unit: "life used", level: d.percentUsed >= 80 ? 1 : 0),
+            // three, in one row: its temperature is with the others under Temperatures (Phil, 17 November 2026: "By
+            // having temps separated out, we could do only three boxes for drive")
+            let tiles = [Tile(symbol: "gauge.with.dots.needle.33percent", value: "\(d.percentUsed)%", unit: "life used", level: d.percentUsed >= 80 ? 1 : 0),
                          Tile(symbol: "square.and.pencil", value: Hardware.size(d.bytesWritten), unit: "written", level: 0),
                          Tile(symbol: "clock", value: Hardware.count(d.powerOnHours), unit: "hours on", level: 0)]
-            if let t = d.temperatureC { tiles.append(Tile(symbol: "thermometer.medium", value: "\(t)°C", unit: "now", level: t >= 70 ? 1 : 0)) }
             out.append(Part(kind: .drive, symbol: "internaldrive", name: "Drive",
                             value: ["Healthy", d.fault ? "Needs a look" : d.mediaErrors > 0 ? "Errors" : "Well worn", "Needs a look"][level],
-                            level: level, lines: lines, tiles: tiles))
+                            level: level, lines: lines, tiles: tiles, backup: backup))
         } else {
             // never left out without a word: an Intel Mac's drive, or a read that failed
             out.append(Part(kind: .drive, symbol: "internaldrive", name: "Drive", value: "Not read",
@@ -105,6 +108,22 @@ public enum HardwarePage {
         out.append(Part(kind: .ports, symbol: "cable.connector", name: "Ports",
                         value: errors == 0 ? "No errors" : errors == 1 ? "1 error" : "\(Hardware.count(UInt64(errors))) errors",
                         level: r.ports.contains(where: { $0.overCurrent > 0 }) ? 1 : 0, lines: portLines))
+        // every temperature Cool Head reads, together, and what each affects (Phil, 17 November 2026: "Might be worth
+        // including on the hardware page as a "Temps" section"). The chip's heat is what macOS slows it for; a warm
+        // battery pauses charging (see BatteryHealth.notCharging); a drive only matters when very hot. Battery levels as
+        // on the Battery page; the drive's 70°C is Cool Head's own, not from a source.
+        var temps: [Tile] = []
+        if let c = r.chipC { temps.append(Tile(symbol: "cpu", value: "\(Int(c.rounded()))°C", unit: "chip", level: 0)) }
+        if let b = r.battery?.temperatureC {
+            temps.append(Tile(symbol: "battery.75percent", value: "\(Int(b.rounded()))°C", unit: "battery", level: b >= 45 ? 2 : b >= 40 ? 1 : 0))
+        }
+        if let t = r.drive?.temperatureC { temps.append(Tile(symbol: "internaldrive", value: "\(t)°C", unit: "drive", level: t >= 70 ? 1 : 0)) }
+        if !temps.isEmpty {
+            let worst = temps.map(\.level).max() ?? 0
+            out.append(Part(kind: .temps, symbol: "thermometer.medium", name: "Temperatures", value: ["Normal", "Warm", "Hot"][worst],
+                            level: worst, lines: ["macOS slows the chip when it gets too hot, and pauses charging while the battery is warm."],
+                            tiles: temps))
+        }
         return out
     }
 
@@ -174,7 +193,19 @@ public enum HardwarePage {
     /// of all its cores in use. Memory is the share macOS itself counts as in use when it judges memory pressure (100
     /// minus kern.memorystatus_level, the "free percentage" memory_pressure reports), coloured by that pressure; never
     /// Activity Monitor's "Memory Used", which is high on any healthy Mac (rule 10 in the research).
-    public struct Gauge: Equatable { public let name: String; public let percent: Int; public let level: Int }
+    public struct Gauge: Equatable {
+        public let name: String; public let percent: Int; public let level: Int
+        /// What's written inside, when it isn't the percentage.
+        public var text: String? = nil
+    }
+    /// The chip's heat, beside the chip and memory (Phil, 17 November 2026: "include temperature in the top bar for temps
+    /// that impact speed/performance"): its temperature written inside, the ring filled by macOS's own four steps, since
+    /// those, not the number, decide when it's slowed. Nil when the chip's temperature isn't known.
+    public static func heat(chipC: Double?, thermal: String) -> Gauge? {
+        guard let c = chipC else { return nil }
+        let step = ["nominal": 0, "fair": 1, "serious": 2, "critical": 3][thermal] ?? 0
+        return Gauge(name: "Heat", percent: (step + 1) * 25, level: [0, 0, 1, 2][step], text: "\(Int(c.rounded()))°")
+    }
     public static func chip(busy: Double) -> Gauge {
         let b = min(max(busy, 0), 1)
         return Gauge(name: "Chip", percent: Int((b * 100).rounded()), level: b >= 0.8 ? 2 : b >= 0.5 ? 1 : 0)
@@ -188,8 +219,10 @@ public enum HardwarePage {
     public static func sample(_ kind: String = "healthy", now: Date = Date()) -> HardwareReport {
         var d = DriveHealth()
         d.spare = 100; d.spareThreshold = 10; d.percentUsed = 3; d.powerOnHours = 2_140; d.dataUnitsWritten = 35_000_000; d.temperatureC = 34
-        var r = HardwareReport(drive: d, battery: nil, crashes: CrashRestarts(recent: []), ports: [], appleSilicon: true)
+        var b = BatteryHealth(); b.temperatureC = 31
+        var r = HardwareReport(drive: d, battery: b, crashes: CrashRestarts(recent: []), ports: [], appleSilicon: true)
         r.timeMachine = .setUp
+        r.chipC = 55
         if kind == "issue" {
             r.timeMachine = .notSetUp
             r.drive?.percentUsed = 84

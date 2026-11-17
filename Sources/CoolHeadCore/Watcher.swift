@@ -748,7 +748,7 @@ public final class Watcher {
             } ?? "memory running short (\(level))"
             var mc = LiveCard(id: "memory-\(level)", pid: top?.kind == .job ? top?.pid : nil,
                               start: top?.kind == .job ? top?.evidence?.start : nil,
-                              card: card, details: s.lines(), reportSubject: subject)
+                              card: card, details: card.facts + s.lines(), reportSubject: subject)
             mc.causeKey = "memory"
             if let e = top?.evidence { mc.displaySubject = Card.subject(e) }
             // trusting the biggest user calms tight memory, but never critical memory

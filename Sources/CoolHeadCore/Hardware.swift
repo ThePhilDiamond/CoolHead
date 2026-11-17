@@ -19,6 +19,8 @@ public struct HardwareReport {
     public var appleSilicon = true
     /// Whether Time Machine has somewhere to back up to; nil: not read.
     public var timeMachine: TimeMachine? = nil
+    /// The hottest of the chip's own temperature sensors, in °C (see `ChipTemperature`); nil where they can't be read.
+    public var chipC: Double? = nil
 
     public init(drive: DriveHealth? = nil, battery: BatteryHealth? = nil, crashes: CrashRestarts = CrashRestarts(),
                 ports: [PortErrors] = [], appleSilicon: Bool = true) {
@@ -31,6 +33,7 @@ public struct HardwareReport {
         var r = HardwareReport(drive: DriveHealth.read(), battery: BatteryHealth.read(profile: profile), crashes: CrashRestarts.read(now: now),
                                ports: PortErrors.read(), appleSilicon: (sysctlInt("hw.optional.arm64") ?? 0) == 1)
         r.timeMachine = TimeMachine.read()
+        r.chipC = ChipTemperature.read()
         return r
     }
 }
@@ -633,4 +636,57 @@ func sysctlString(_ name: String) -> String? {
     var buf = [CChar](repeating: 0, count: size)
     guard sysctlbyname(name, &buf, &size, nil, 0) == 0 else { return nil }
     return String(cString: buf)
+}
+
+// MARK: - The chip's temperature
+
+/// The hottest of the chip's own temperature sensors, the "PMU tdie" sensors on Apple silicon, read through macOS's
+/// sensor service (`IOHIDEventSystemClient`), which Apple doesn't document: its functions are looked up by name when
+/// first used, as for `SLSEventIsAppUnresponsive` (see SECURITY.md). Read-only, and no permission is needed. If a
+/// future macOS renames or removes them, this returns nil and the chip's temperature simply isn't shown (Phil, 17
+/// November 2026: "Yes, read it", on those conditions). It never decides a card: macOS's own four thermal steps do.
+public enum ChipTemperature {
+    private typealias Create = @convention(c) (CFAllocator?) -> Unmanaged<AnyObject>?
+    private typealias SetMatching = @convention(c) (AnyObject, CFDictionary) -> Int32
+    private typealias CopyServices = @convention(c) (AnyObject) -> Unmanaged<CFArray>?
+    private typealias CopyEvent = @convention(c) (AnyObject, Int64, Int32, Int64) -> Unmanaged<AnyObject>?
+    private typealias GetFloat = @convention(c) (AnyObject, Int32) -> Double
+    private typealias CopyProperty = @convention(c) (AnyObject, CFString) -> Unmanaged<AnyObject>?
+
+    private struct Functions {
+        let create: Create, setMatching: SetMatching, copyServices: CopyServices
+        let copyEvent: CopyEvent, getFloat: GetFloat, copyProperty: CopyProperty
+    }
+    private static let functions: Functions? = {
+        guard let h = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW) else { return nil }
+        func f<T>(_ name: String, _ type: T.Type) -> T? { dlsym(h, name).map { unsafeBitCast($0, to: type) } }
+        guard let a = f("IOHIDEventSystemClientCreate", Create.self), let b = f("IOHIDEventSystemClientSetMatching", SetMatching.self),
+              let c = f("IOHIDEventSystemClientCopyServices", CopyServices.self), let d = f("IOHIDServiceClientCopyEvent", CopyEvent.self),
+              let e = f("IOHIDEventGetFloatValue", GetFloat.self), let g = f("IOHIDServiceClientCopyProperty", CopyProperty.self)
+        else { return nil }
+        return Functions(create: a, setMatching: b, copyServices: c, copyEvent: d, getFloat: e, copyProperty: g)
+    }()
+
+    /// Temperature sensors (Apple's vendor usage page 0xff00, usage 5) and their temperature events (type 15).
+    static let temperatureEvent: Int64 = 15
+
+    /// Every temperature sensor's name and reading, in °C.
+    public static func sensors() -> [(name: String, celsius: Double)] {
+        guard let fn = functions, let client = fn.create(kCFAllocatorDefault)?.takeRetainedValue() else { return [] }
+        _ = fn.setMatching(client, ["PrimaryUsagePage": 0xff00, "PrimaryUsage": 5] as CFDictionary)
+        guard let services = fn.copyServices(client)?.takeRetainedValue() as? [AnyObject] else { return [] }
+        return services.compactMap { s in
+            guard let name = fn.copyProperty(s, "Product" as CFString)?.takeRetainedValue() as? String,
+                  let event = fn.copyEvent(s, temperatureEvent, 0, 0)?.takeRetainedValue() else { return nil }
+            return (name, fn.getFloat(event, Int32(temperatureEvent << 16)))
+        }
+    }
+
+    /// The hottest chip sensor: names containing "tdie", within what a chip can read (a sensor that isn't fitted reads
+    /// below zero). Nil on a Mac without them, such as an Intel Mac, or if macOS stops providing them.
+    public static func hottest(_ sensors: [(name: String, celsius: Double)]) -> Double? {
+        sensors.filter { $0.name.contains("tdie") && (1...150).contains($0.celsius) }.map(\.celsius).max()
+    }
+
+    public static func read() -> Double? { hottest(sensors()) }
 }

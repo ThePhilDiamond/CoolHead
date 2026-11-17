@@ -1300,7 +1300,7 @@ struct FixRow: View {
     /// corner"): Caution for what has consequences that can't be undone or known, or Fixes the cause for a task that does more than the
     /// recommendation. Never both: the options that need Caution are all ones Cool Head does.
     var tag: OptionTag? {
-        if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red, help: fix.cautionReason) }
+        if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red) }
         if betterThanRecommended { return OptionTag(words: "FIXES THE CAUSE", symbol: "checkmark.seal.fill", color: .green,
                                                     help: "This does more about the problem than the recommended option, but you do it yourself.") }
         return nil
@@ -1337,12 +1337,18 @@ struct FixRow: View {
     /// For Pause syncing: how long, before anything happens.
     var runUntil: (Fix, Date) -> Void = { _, _ in }
     @State private var choosing = false
-    /// Stop and Force Quit end a program at once, with no chance to save: the first click warns on the
-    /// option itself, and a second click within 5 seconds goes ahead (Phil, 16 November 2026: *"a first click to overlay
+    /// Every Caution option asks twice: the first click shows why it's risky on the option itself, and a second click
+    /// within 5 seconds goes ahead (Phil, 17 November 2026: "use the same guard concept we already devised: clicking once
+    /// shows the caution text and asks for another click to confirm"; a tooltip on the label was easy to miss). It began
+    /// with Stop and Force Quit, which end a program at once with no chance to save (Phil, 16 November 2026: *"a first click to overlay
     /// the button with a message to the effect of "Did you save? Click again to proceed/quit once saved."*; then *"if force
     /// quitting warn of lost data unless they save with the guard"*). A normal quit needs no guard: the app asks.
     @State private var armed = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ARMED"] != nil
-    var guarded: Bool { fix.kind == .stop || fix.kind == .forceQuit }
+    var guarded: Bool { fix.caution }
+    /// What the first click says: for Stop and Force Quit, that anything unsaved goes; otherwise why it's Caution.
+    var warning: String {
+        fix.kind == .stop || fix.kind == .forceQuit ? "Anything unsaved will be lost." : (fix.cautionReason ?? "This can't be undone.")
+    }
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
     /// For an option that shows how: the steps, shown under it once pressed.
     var guideSteps: [String]? { if case .guide(let steps) = fix.kind { return steps }; return nil }
@@ -1389,7 +1395,7 @@ struct FixRow: View {
                             Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
                                 .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : Color.red)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Anything unsaved will be lost.").font(.callout.weight(.semibold))
+                                Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                                 Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
                             }
                             Spacer(minLength: 6)
@@ -1419,7 +1425,7 @@ struct FixRow: View {
                     .multilineTextAlignment(.leading)
                     }
                 }
-                .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: tag))
+                .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: armed ? nil : tag))
                 .accessibilityHint(line)
                 if choosing {
                     HStack(spacing: 6) {
@@ -1487,7 +1493,7 @@ struct OptionStyle: ButtonStyle {
                 }
                 .overlay(alignment: .bottomTrailing) {
                     if let tag {
-                        OptionTag(words: tag.words, symbol: tag.symbol, color: tag.color, help: tag.help, onAccent: filled).padding(.trailing, 7).padding(.bottom, 6)
+                        OptionTag(words: tag.words, symbol: tag.symbol, color: tag.color, onAccent: filled).padding(.trailing, 7).padding(.bottom, 6)
                     }
                 }
                 .contentShape(shape)

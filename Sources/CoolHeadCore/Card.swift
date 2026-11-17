@@ -228,7 +228,8 @@ public struct Fix: Identifiable {
 }
 
 extension Fix {
-    /// Why an option is marked Caution, in one sentence, shown when the pointer rests on the label; nil when it isn't
+    /// Why an option is marked Caution, in one sentence, shown on the option at the first click, which asks for a
+    /// second to go ahead (Phil, 17 November 2026); nil when it isn't
     /// (Phil, 16 November 2026: "perhaps the description should explain why there's the caution warning? If not, mousing
     /// over the caution label should explain why it's got the warning"). One kind per line, with no default, so a new
     /// kind says its reason.
@@ -271,6 +272,8 @@ public struct Card {
     public let fixes: [Fix]
     /// The processes this card names, as shown (see `Naming`): checked to be told apart on every example card.
     public var names: [String] = []
+    /// Facts behind the card that its text leaves out, to keep it short: shown first in its Nerdy stuff.
+    public var facts: [String] = []
 
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation

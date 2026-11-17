@@ -17,6 +17,9 @@ final class PowerWatch {
     @ObservationIgnored private var reading = false
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private weak var watcher: Watcher?
+    /// For each program holding the Mac awake for hours: the chip time it and the programs it started had used at the
+    /// last reading, when that was, when it last did real work, and when Cool Head started watching it.
+    @ObservationIgnored private var activity: [Int32: (at: Date, cpu: Double, busyAt: Date?, since: Date)] = [:]
 
     private var snapshot: Bool { ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] != nil }
 
@@ -37,8 +40,10 @@ final class PowerWatch {
         reading = true
         DispatchQueue.global(qos: .utility).async {
             let (lp, holds, night) = PowerState.read(log: log)
+            let cpu = PowerWatch.treeCPU(Set(holds.filter { $0.seconds >= 3600 }.map { $0.forPID ?? $0.pid }))
             DispatchQueue.main.async {
                 let w = PowerWatch.shared
+                w.track(cpu, now: now)
                 w.lowPower = lp; w.holds = holds
                 if log { w.night = night }
                 w.lastRead = now
@@ -55,7 +60,46 @@ final class PowerWatch {
         // busy: something is working hard, or the Mac is warm; that's when Low Power Mode explains slowness
         let busy = mac.thermal != "nominal" || watcher.cards.contains { $0.pid != nil && $0.card.state != .quiet }
         cards = PowerState.cards(lowPower: lowPower, lowPowerNow: ProcessInfo.processInfo.isLowPowerModeEnabled, onPower: mac.onPower,
-                                 busy: busy, holds: holds, who: PowerWatch.who, night: night, now: now)
+                                 busy: busy, holds: holds, who: PowerWatch.who, idleFor: { self.idleFor($0, now: now) }, night: night, now: now)
+    }
+
+    /// The chip time, in seconds, each program and every program it started (and they started) have used so far.
+    nonisolated static func treeCPU(_ owners: Set<Int32>) -> [Int32: Double] {
+        guard !owners.isEmpty else { return [:] }
+        var kids: [pid_t: [pid_t]] = [:]
+        for p in Proc.allPIDs() { if let b = Proc.bsd(p) { kids[b.ppid, default: []].append(p) } }
+        var out: [Int32: Double] = [:]
+        for owner in owners {
+            var total = 0.0, queue = [owner], seen: Set<pid_t> = []
+            while let p = queue.popLast() {
+                guard seen.insert(p).inserted else { continue }
+                total += Proc.usage(p)?.cpuSeconds ?? 0
+                queue += kids[p] ?? []
+            }
+            out[owner] = total
+        }
+        return out
+    }
+
+    /// Notes which programs did real work since the last reading: more than `PowerState.idleShare` of one core.
+    func track(_ cpu: [Int32: Double], now: Date) {
+        for (pid, c) in cpu {
+            if var a = activity[pid] {
+                let share = max(0, c - a.cpu) / max(1, now.timeIntervalSince(a.at))
+                if share >= PowerState.idleShare { a.busyAt = now }
+                a.at = now; a.cpu = c
+                activity[pid] = a
+            } else {
+                activity[pid] = (now, c, nil, now)
+            }
+        }
+        activity = activity.filter { cpu[$0.key] != nil }
+    }
+
+    /// How long a program has done almost nothing, as far as Cool Head has seen: nil until it has two readings.
+    func idleFor(_ pid: Int32, now: Date) -> TimeInterval? {
+        guard let a = activity[pid], a.at > a.since else { return nil }
+        return now.timeIntervalSince(a.busyAt ?? a.since)
     }
 
     /// A process's app name and bundle, as the cards name it: the app's own name where it's an installed app.
