@@ -29,9 +29,9 @@ extension Fixture {
         let unknown = MemoryAdvice.card(slack, mac: mac("warning"), now: now)
         let noOne = MemoryAdvice.card([], mac: mac("critical", freeGB: 3), now: now)
         let offersDisk = { (c: Card) in c.fixes.contains { $0.id == "disk" && $0.doer == .you && !$0.recommended } }
-        review.append(("memory-low-disk", full.explanation.contains("only 12 GB free") && offersDisk(full)
+        review.append(("memory-low-disk", full.explanation.contains("nearly full too (12 GB free)") && offersDisk(full)
                        && !roomy.explanation.contains("startup disk") && !offersDisk(roomy) && !offersDisk(unknown)
-                       && noOne.explanation.contains("only 3.0 GB free") && offersDisk(noOne),
+                       && noOne.explanation.contains("nearly full too (3.0 GB free)") && offersDisk(noOne),
                        full.explanation))
         // both are readable here without an administrator password
         let live = MacState.read()

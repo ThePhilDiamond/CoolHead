@@ -26,19 +26,10 @@ struct PanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // fixed at the top
-            HStack(alignment: .firstTextBaseline) {
-                Image(systemName: Badge.symbol(level))
-                    .foregroundStyle(Color(nsColor: Badge.color(level)))
-                    .accessibilityLabel(level == .good ? "All good" : level == .warning ? "Worth watching" : "Problem")
-                Text(status).font(.headline)
-                Spacer()
-                VersionButton()
-            }
-            .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
-            Divider()
-            // how it's running, whenever the panel opens: heat, and how busy the chip and memory are
-            RunningStrip(watcher: watcher)
+            // fixed at the top: the snowflake, what's happening and how busy the chip and memory are, in one row; the
+            // status is its title (Phil, 17 November 2026: "remove the top bar so the top is just the large icon, what's
+            // happening, and the chip and memory data"). The version is in the toolbar along the bottom.
+            RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level)
             Divider()
             // scrolls once it is taller than the limit
             ScrollView {
@@ -100,12 +91,8 @@ struct PanelView: View {
 
     /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase (or any of several, separated by |),
     /// so a screenshot never shows the person's own processes.
-    /// The header's level: the watcher's, except in a screenshot limited to some cards, where it follows only those.
-    var level: Watcher.Level {
-        guard PanelView.limitedSnapshot else { return watcher.level }
-        if shownCards.contains(where: { $0.severity >= 2 }) { return .issue }
-        return shownCards.contains(where: { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }) ? .warning : .good
-    }
+    /// The header's level: the same rule, and the same cards, as the snowflake below it and the menu bar icon.
+    var level: Watcher.Level { watcher.level(shownCards, thermal: RunningStrip.snapshotThermal) }
 
     var shownCards: [LiveCard] {
         // COOLHEAD_SNAPSHOT_SAMPLES shows example cards (as `coolhead wording` names them, separated by |) in place of
@@ -129,7 +116,7 @@ struct PanelView: View {
         var watch: String?
         if stuck > 0 { watch = "\(stuck) looks stuck" + (n > stuck ? ", \(n - stuck) to watch" : "") }
         else if n > 0 { watch = "\(n) to watch" }
-        let heat: String? = ["serious": "Running hot", "critical": "Running hot", "fair": "Running warm"][watcher.mac.thermal]
+        let heat: String? = ["serious": "Running hot", "critical": "Running hot", "fair": "Running warm"][RunningStrip.snapshotThermal ?? watcher.mac.thermal]
         switch (heat, watch) {
         case let (h?, w?): return "\(h) · \(w)"
         case let (nil, w?): return w.prefix(1).uppercased() + w.dropFirst()
@@ -574,6 +561,9 @@ struct ProblemView: View {
 /// there is a newer version it downloads, verifies and installs it. It says what it is doing in place, briefly.
 struct VersionButton: View {
     let updater = Updater.shared
+    /// In the toolbar, drawn like the tools beside it: an icon with a word under it, or the word alone when the tools'
+    /// names are hidden.
+    var labels = true
     @State private var hovering = false
     @State private var spin = false
 
@@ -584,37 +574,51 @@ struct VersionButton: View {
                 if case .available = updater.phase { await updater.install() }
             }
         } label: {
-            HStack(spacing: 4) {
-                switch updater.phase {
-                case .checking:
-                    spinner
-                    Text("Checking for updates…")
-                case .installing:
-                    spinner
-                    Text("Downloading the update…")
-                case .upToDate:
-                    Image(systemName: "checkmark.circle")
-                    Text("Up to date")
-                case .failed:
-                    Image(systemName: "exclamationmark.circle")
-                    Text("Couldn't update")
-                case .available(let v):
-                    Image(systemName: "arrow.down.circle")
-                    Text("v\(v) available")
-                case .idle:
-                    if hovering { Image(systemName: "arrow.triangle.2.circlepath") }
-                    Text("Cool Head v\(CoolHead.version)")
+            Group {
+                if labels {
+                    VStack(spacing: 3) {
+                        icon.font(.system(size: 15)).frame(height: 18)
+                        Text(word).font(.caption2)
+                    }
+                    .frame(minWidth: 52).padding(.vertical, 5)
+                } else {
+                    HStack(spacing: 4) {
+                        if case .idle = updater.phase {} else { icon }
+                        Text(word)
+                    }
+                    .font(.caption2).padding(.vertical, 6)
                 }
             }
-            .font(.caption2)
+            .fixedSize()
             .foregroundStyle(hovering ? Ink.text : Ink.muted)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help("Check for updates")
-        .accessibilityLabel("Cool Head \(CoolHead.version). Check for updates")
-        .disabled(updater.phase == .checking || updater.phase == .installing)
+        .help("Cool Head \(CoolHead.version): check for updates")
+        .accessibilityLabel("Cool Head \(CoolHead.version): check for updates")
+    }
+
+    /// A few words, so it fits among the tools.
+    var word: String {
+        switch updater.phase {
+        case .checking: return "Checking"
+        case .installing: return "Updating"
+        case .upToDate: return "Up to date"
+        case .failed: return "Couldn't update"
+        case .available(let v): return "v\(v) ready"
+        case .idle: return "v\(CoolHead.version)"
+        }
+    }
+
+    @ViewBuilder var icon: some View {
+        switch updater.phase {
+        case .checking, .installing: spinner
+        case .upToDate: Image(systemName: "checkmark.circle")
+        case .failed: Image(systemName: "exclamationmark.circle")
+        case .available: Image(systemName: "arrow.down.circle")
+        case .idle: Image(systemName: "arrow.triangle.2.circlepath")
+        }
     }
 
     var spinner: some View {
@@ -942,13 +946,14 @@ struct FrozenList: View {
         let items = FrozenItem.all(watcher)
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                if i > 0 { Divider().opacity(0.6) }
-                FrozenLine(item: item, watcher: watcher)
+                if i > 0 { Divider().opacity(0.6).padding(.horizontal, 30) }
+                // text in the clear middle, off the frost; more room at the bottom, where frost settles thickest, so
+                // the last line (often Report a problem) never sits on it. The room is inside each line, so a click
+                // anywhere in the frame opens the line it's beside (Phil, 17 November 2026: "The click box should
+                // fill the whole area.")
+                FrozenLine(item: item, watcher: watcher, top: i == 0 ? 10 : 0, bottom: i == items.count - 1 ? 18 : 0)
             }
         }
-        // text in the clear middle, off the frost; more room at the bottom, where frost settles thickest, so the last
-        // line (often Report a problem) never sits on it
-        .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 18)
         .frozen()
     }
 }
@@ -958,6 +963,9 @@ struct FrozenList: View {
 struct FrozenLine: View {
     let item: FrozenItem
     let watcher: Watcher
+    /// Extra room above and below, inside the line's click area: the frame's own margin for the first and last line.
+    var top: CGFloat = 0
+    var bottom: CGFloat = 0
     /// Screenshots can show the lines open (COOLHEAD_SNAPSHOT_HELD_OPEN).
     @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HELD_OPEN"] != nil
     @State private var failed: String?
@@ -988,7 +996,7 @@ struct FrozenLine: View {
             }
             if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 30).padding(.top, 8 + top).padding(.bottom, 8 + bottom)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture { toggle() }
@@ -1292,7 +1300,7 @@ struct FixRow: View {
     /// corner"): Caution for what has consequences that can't be undone or known, or Fixes the cause for a task that does more than the
     /// recommendation. Never both: the options that need Caution are all ones Cool Head does.
     var tag: OptionTag? {
-        if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red, help: fix.cautionReason) }
+        if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red) }
         if betterThanRecommended { return OptionTag(words: "FIXES THE CAUSE", symbol: "checkmark.seal.fill", color: .green,
                                                     help: "This does more about the problem than the recommended option, but you do it yourself.") }
         return nil
@@ -1329,12 +1337,18 @@ struct FixRow: View {
     /// For Pause syncing: how long, before anything happens.
     var runUntil: (Fix, Date) -> Void = { _, _ in }
     @State private var choosing = false
-    /// Stop and Force Quit end a program at once, with no chance to save: the first click warns on the
-    /// option itself, and a second click within 5 seconds goes ahead (Phil, 16 November 2026: *"a first click to overlay
+    /// Every Caution option asks twice: the first click shows why it's risky on the option itself, and a second click
+    /// within 5 seconds goes ahead (Phil, 17 November 2026: "use the same guard concept we already devised: clicking once
+    /// shows the caution text and asks for another click to confirm"; a tooltip on the label was easy to miss). It began
+    /// with Stop and Force Quit, which end a program at once with no chance to save (Phil, 16 November 2026: *"a first click to overlay
     /// the button with a message to the effect of "Did you save? Click again to proceed/quit once saved."*; then *"if force
     /// quitting warn of lost data unless they save with the guard"*). A normal quit needs no guard: the app asks.
     @State private var armed = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ARMED"] != nil
-    var guarded: Bool { fix.kind == .stop || fix.kind == .forceQuit }
+    var guarded: Bool { fix.caution }
+    /// What the first click says: for Stop and Force Quit, that anything unsaved goes; otherwise why it's Caution.
+    var warning: String {
+        fix.kind == .stop || fix.kind == .forceQuit ? "Anything unsaved will be lost." : (fix.cautionReason ?? "This can't be undone.")
+    }
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
     /// For an option that shows how: the steps, shown under it once pressed.
     var guideSteps: [String]? { if case .guide(let steps) = fix.kind { return steps }; return nil }
@@ -1381,7 +1395,7 @@ struct FixRow: View {
                             Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
                                 .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : Color.red)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Anything unsaved will be lost.").font(.callout.weight(.semibold))
+                                Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                                 Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
                             }
                             Spacer(minLength: 6)
@@ -1411,7 +1425,7 @@ struct FixRow: View {
                     .multilineTextAlignment(.leading)
                     }
                 }
-                .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: tag))
+                .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: armed ? nil : tag))
                 .accessibilityHint(line)
                 if choosing {
                     HStack(spacing: 6) {
@@ -1479,7 +1493,7 @@ struct OptionStyle: ButtonStyle {
                 }
                 .overlay(alignment: .bottomTrailing) {
                     if let tag {
-                        OptionTag(words: tag.words, symbol: tag.symbol, color: tag.color, help: tag.help, onAccent: filled).padding(.trailing, 7).padding(.bottom, 6)
+                        OptionTag(words: tag.words, symbol: tag.symbol, color: tag.color, onAccent: filled).padding(.trailing, 7).padding(.bottom, 6)
                     }
                 }
                 .contentShape(shape)

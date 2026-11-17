@@ -7,7 +7,7 @@ extension Fixture {
         let samples = Wording.samples(now: now)
         var bad: [String] = []
         for (id, c) in samples {
-            let text = ([c.headline, c.explanation] + c.fixes.flatMap { [$0.title, $0.consequence] }).joined(separator: " ")
+            let text = ([c.headline, c.explanation] + c.facts + c.fixes.flatMap { [$0.title, $0.consequence] }).joined(separator: " ")
             if !Naming.tellApart(c.names) { bad.append("\(id): \(c.names) can't be told apart") }
             for n in c.names where !text.contains(n) && !text.contains(Fmt.sentenceStart(n)) { bad.append("\(id): names \"\(n)\" but doesn't show it") }
         }
@@ -19,7 +19,7 @@ extension Fixture {
         let first = card("memory-program-first")
         let child = card("hang-started-a-program-of-its-own-name")
         let cases = alike?.headline == "Memory is tight. The Claude app is using the most (2.7 GB)."
-            && alike?.explanation.contains("Also using a lot: the claude command-line program (1.5 GB).") == true
+            && alike?.facts == ["Also using a lot: the claude command-line program (1.5 GB)"]
             && first?.headline.hasPrefix("Memory is tight. node is using the most") == true
             && child?.explanation.contains("another ffmpeg and ffprobe") == true
             && Naming.distinct([.init("a script", .script), .init("a script", .script)]) == ["a script", "another script"]

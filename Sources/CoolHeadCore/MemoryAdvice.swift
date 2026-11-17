@@ -125,7 +125,11 @@ public enum MemoryAdvice {
         let head = "\(tight) \(Fmt.sentenceStart(names[0])) is using the most (\(size))."
         // the next biggest, by name, so the card shows where the rest of the memory is (the biggest is in the headline)
         let next = zip(shown.dropFirst(), names.dropFirst()).map { "\($1) (\(Fmt.bytes($0.bytes)))" }
-        let expl = pressure(s) + (next.isEmpty ? "" : " Also using a lot: \(ListFormatter.localizedString(byJoining: next)).")
+        // the next biggest go in Nerdy stuff, not the text: the options already name the second, and a shorter card is
+        // easier to read (Phil, 17 November 2026: "can we trim it to be more user-friendly and less intimidating to a lay
+        // person?")
+        let expl = pressure(s)
+        let also = next.isEmpty ? [] : ["Also using a lot: \(ListFormatter.localizedString(byJoining: next))"]
         var fixes: [Fix] = []
         var limitNote: String? = nil
         // the biggest app has been leaking: quitting and reopening it gives the memory back, so that's the advice
@@ -219,6 +223,7 @@ public enum MemoryAdvice {
         var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
                         explanation: leaking?.sentence ?? expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
+        card.facts = also
         return card
     }
 
@@ -232,7 +237,7 @@ public enum MemoryAdvice {
             t = s.swapUsedMB > 50 ? "Your Mac is using its disk as extra memory, which is slow." : "When memory runs low, your Mac slows down."
         }
         if lowDisk(s), let d = s.diskFreeBytes {
-            t += " Your startup disk has only \(diskGB(d)) free, which limits how much of it your Mac can use as memory. If it runs out, apps can't save, and macOS asks you to quit some."
+            t += " Your disk is nearly full too (\(diskGB(d)) free), which leaves less room for that."
         }
         return t
     }

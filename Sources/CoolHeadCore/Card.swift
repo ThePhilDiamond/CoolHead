@@ -228,7 +228,8 @@ public struct Fix: Identifiable {
 }
 
 extension Fix {
-    /// Why an option is marked Caution, in one sentence, shown when the pointer rests on the label; nil when it isn't
+    /// Why an option is marked Caution, in one sentence, shown on the option at the first click, which asks for a
+    /// second to go ahead (Phil, 17 November 2026); nil when it isn't
     /// (Phil, 16 November 2026: "perhaps the description should explain why there's the caution warning? If not, mousing
     /// over the caution label should explain why it's got the warning"). One kind per line, with no default, so a new
     /// kind says its reason.
@@ -271,6 +272,8 @@ public struct Card {
     public let fixes: [Fix]
     /// The processes this card names, as shown (see `Naming`): checked to be told apart on every example card.
     public var names: [String] = []
+    /// Facts behind the card that its text leaves out, to keep it short: shown first in its Nerdy stuff.
+    public var facts: [String] = []
 
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation
@@ -715,6 +718,17 @@ public struct Card {
 
 /// Formats in Phil's style: 4:50pm, 3 hours 20 minutes.
 public enum Fmt {
+    /// A temperature, given in °C, in the unit this Mac is set to (Phil, 17 November 2026: "we should inherit the unit
+    /// from the macOS region settings"): System Settings ▸ General ▸ Language & Region ▸ Temperature where it's been
+    /// chosen, otherwise the region's usual unit. Cool Head's own limits stay in °C.
+    public static func temperature(_ celsius: Double, fahrenheit: Bool = Fmt.fahrenheit) -> String {
+        fahrenheit ? "\(Int((celsius * 9 / 5 + 32).rounded()))°F" : "\(Int(celsius.rounded()))°C"
+    }
+    public static var fahrenheit: Bool {
+        if let unit = UserDefaults.standard.string(forKey: "AppleTemperatureUnit") { return unit == "Fahrenheit" }
+        if #available(macOS 13, *) { return Locale.current.measurementSystem == .us }
+        return !Locale.current.usesMetricSystem
+    }
     public static func time(_ d: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")

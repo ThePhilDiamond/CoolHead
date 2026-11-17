@@ -117,10 +117,15 @@ extension Fixture {
         var live = "taskpolicy couldn't start"
         var r6 = false
         if (try? p.run()) != nil {
-            Thread.sleep(forTimeInterval: 3)
-            let threads = BackgroundWork.threads(p.processIdentifier)
+            // read every second, for up to 10 seconds, until it has used enough of a busy Mac to judge (see RunCooler's check)
+            var threads: [BackgroundWork.Thread] = [], c: Bool?
+            for _ in 0..<10 {
+                Thread.sleep(forTimeInterval: 1)
+                threads = BackgroundWork.threads(p.processIdentifier)
+                c = BackgroundWork.cool(threads, efficiencyCores: 4)
+                if c != nil { break }
+            }
             p.terminate(); p.waitUntilExit()
-            let c = BackgroundWork.cool(threads, efficiencyCores: 4)
             r6 = c == true
             live = "threads \(threads.map { "\($0.priority) at \($0.cpu)%" }): cool \(String(describing: c))"
         }

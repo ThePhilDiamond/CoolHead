@@ -46,8 +46,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         // redraw the icon when the status level changes
         watcher.onPublish = { [weak self] in
-            // a hardware finding that needs a look turns a green badge yellow (see HardwareCards.swift)
-            let level = watcher.level == .good && CardSources.all.contains(where: { $0.needsLook(watcher) }) ? .warning : watcher.level
+            // every card on screen, the whole-Mac ones too (see CardSources.swift), by the same rule as the panel's snowflake
+            let level = watcher.screenLevel
             guard let self, self.lastLevel != level else { return }
             self.lastLevel = level
             self.item.button?.image = MenuIcon.image(level: level)
@@ -99,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             settings.addItem(labels)
             let melting = NSMenuItem(title: "Melting Snowflake Icon", action: #selector(toggleMeltingIcon), keyEquivalent: "")
             melting.target = self; melting.state = MenuIcon.style == "melting" ? .on : .off
-            melting.toolTip = "On: the snowflake melts as things heat up, and bursts into flames for a problem. Off: the snowflake with a colored status badge."
+            melting.toolTip = "On: the snowflake melts when something is slowing your Mac or needs a look, and bursts into flames for a serious problem. Off: the snowflake with a colored status badge."
             settings.addItem(melting)
             let settingsItem = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
             settingsItem.submenu = settings
@@ -147,7 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// The icon is a toggle like every other setting: on, the Melting Snowflake; off, the Status Badge (the default).
     @objc func toggleMeltingIcon() {
         MenuIcon.style = MenuIcon.style == "melting" ? "badge" : "melting"
-        item.button?.image = MenuIcon.image(level: Watcher.shared.level)
+        item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel)
     }
 
     func showPanel() {
@@ -281,8 +281,8 @@ enum MenuIcon {
         Badge.path(level, in: box).fill(with: level)
     }
 
-    /// Calm: a whole snowflake. Worth watching: its lower half has melted, dripping into a small puddle.
-    /// Problem: it bursts into flames.
+    /// Calm: a whole snowflake. Worth watching (something slowing the Mac or needing a look): its lower half has melted,
+    /// dripping into a small puddle. A serious problem: it bursts into flames. The level is `Watcher.level(_:)`.
     /// Each drawing fills the whole icon. A yellow or red bar underneath was tried and dropped, because making room for
     /// it shrank the drawings (Phil, 16 November 2026: "The colored bars on the melting snowflake icon set make it too
     /// small, so let's drop the yellow and red bars so they can be bigger.").

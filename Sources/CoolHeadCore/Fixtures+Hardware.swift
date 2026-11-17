@@ -123,6 +123,25 @@ extension Fixture {
                               live.drive.map { "\($0.percentUsed)% used, \($0.mediaErrors) errors" } ?? "not readable",
                               live.battery.map { "\($0.condition ?? "condition unknown"), \($0.maxCapacity.map { "\($0)%" } ?? "?")" } ?? "none",
                               live.crashes.countThisWeek(now: now), live.ports.count)))
+
+        // the drive's record is closed after each read: the drive lets one program open it at a time, so a record left
+        // open makes every later read fail (as in 0.8.0, until Cool Head quit). Read it twice more; if it could be read
+        // once, it must be read both times. Not readable at all (another program has it open, or no NVMe drive) passes.
+        let again = (DriveHealth.read(), DriveHealth.read())
+        let closes = live.drive == nil || (again.0 != nil && again.1 != nil)
+        review.append(("hardware-drive-closes", closes, live.drive == nil
+            ? "not readable on this Mac now (another program may have it open), so not tested"
+            : "read 3 times in a row: " + [live.drive, again.0, again.1].map { $0 == nil ? "failed" : "ok" }.joined(separator: ", ")))
+
+        // the chip's temperature: the hottest "tdie" sensor, ignoring sensors that aren't fitted (they read below zero),
+        // and on this Mac quickly, within what a chip can read, or nil where macOS doesn't offer the sensors
+        let fitted = ChipTemperature.hottest([("PMU tdie1", 54.9), ("PMU2 tdie3", 50.4), ("PMU tdev1", 70), ("PMU tdie9", -1.4), ("NAND CH0 temp", 42)]) == 54.9
+            && ChipTemperature.hottest([("gas gauge battery", 34)]) == nil
+        let t0 = Date()
+        let chip = ChipTemperature.read()
+        let tookChip = Date().timeIntervalSince(t0)
+        review.append(("chip-temperature", fitted && tookChip < 0.5 && (chip.map { (20...130).contains($0) } ?? true),
+                       String(format: "%.3f s; %@", tookChip, chip.map { String(format: "hottest chip sensor %.0f°C", $0) } ?? "not readable on this Mac")))
         return review
     }
 

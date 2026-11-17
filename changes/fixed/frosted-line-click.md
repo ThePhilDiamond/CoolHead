@@ -1,0 +1,1 @@
+- A click anywhere in the frosted frame at the top of the panel opens the line beside it, including its edges.

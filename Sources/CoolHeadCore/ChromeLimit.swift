@@ -87,7 +87,7 @@ public enum ChromeLimit {
     public static func note(_ s: Status, using bytes: UInt64) -> String? {
         guard case .set(let mb) = s else { return nil }
         if bytes / 1_048_576 > UInt64(mb) {
-            return "Chrome is over its \(gb(mb)) limit. Chrome applies a new limit within 15 minutes, or when you reopen it, and then unloads tabs you aren't using, never the one you're on."
+            return "Chrome is over its \(gb(mb)) limit; it starts unloading tabs you aren't using within 15 minutes, or when it's reopened."
         }
         return "Chrome is within its \(gb(mb)) limit."
     }

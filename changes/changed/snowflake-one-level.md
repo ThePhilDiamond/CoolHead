@@ -1,0 +1,1 @@
+- The snowflake in the menu bar and at the top of the panel always agree now: it melts when something is slowing your Mac or needs a look, and bursts into flames for a serious problem, such as a stuck job, very tight memory, or macOS slowing it hard to cool it down. A Mac that macOS is slowing a little melts now, instead of bursting into flames.

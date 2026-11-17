@@ -19,7 +19,7 @@ extension Fixture {
         // the figures: how much it holds (orange below 80%), cycles against Apple's rating, and temperature (warm from 40°C)
         let tiles = BatteryPage.tiles(battery { $0.temperatureC = 42 })
         let worn = BatteryPage.tiles(battery { $0.maxCapacity = 76; $0.cycles = 1100 })
-        let t1 = tiles.map(\.value) == ["81%", "579", "42°C"] && tiles.map(\.unit) == ["of its first charge", "of 1,000 rated cycles", "temperature"]
+        let t1 = tiles.map(\.value) == ["81%", "579", Fmt.temperature(42)] && tiles.map(\.unit) == ["of its first charge", "of 1,000 rated cycles", "temperature"]
             && tiles.map(\.level) == [0, 0, 1] && worn.map(\.level) == [2, 1]
             && BatteryPage.tiles(BatteryHealth()).isEmpty
         review.append(("battery-page-tiles", t1, tiles.map { "\($0.value) \($0.unit)" }.joined(separator: ", ")))
@@ -35,7 +35,7 @@ extension Fixture {
             "On battery · 64% / using 8 W",
             "Charging · 64% / 45 W from a 96 W charger",
             "Holding at 80% / on purpose, to slow wear",
-            "Not charging · 50% / too warm (42°C); it starts as it cools",
+            "Not charging · 50% / too warm (\(Fmt.temperature(42))); it starts as it cools",
             "Draining while plugged in / the 30 W charger can't keep up",
             "Plugged in · full / 96 W charger",
         ] && states.map(\.level) == [0, 0, 0, 1, 2, 0] && states[0].symbol == "battery.75percent"

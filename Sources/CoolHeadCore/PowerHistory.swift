@@ -22,7 +22,6 @@ public struct PowerHistory: Equatable {
         public let id: String                  // the bundle identifier, or launchd's name for it
         public let name: Naming.Named
         public let energy: Double              // nanojoules (inferred; Apple doesn't document the unit), chip + graphics + Neural Engine
-        public let wakeups: Double             // times it woke the chip from its deepest rest
     }
 
     /// Why the Mac woke from sleep, in plain words.
@@ -49,20 +48,47 @@ public struct PowerHistory: Equatable {
 
     public var totalEnergy: Double { users.reduce(0) { $0 + $1.energy } }
 
-    /// The biggest energy users, with each one's share of all of it.
-    public func topEnergy(_ n: Int = 5) -> [(User, Double)] {
+
+    /// What used the most energy, as Trends shows it (Phil, 17 November 2026: "The goal is useful data that a lay
+    /// person can act on. If it's just data for data's sake because we can access it, we should drop it."): apps and
+    /// programs one by one, since something can be done about them, and macOS's own parts together as one line, since
+    /// there's nothing to change there. Each says, when clicked, what its share means and whether to do anything. "What woke the
+    /// chip most often" was dropped for the same reason: a wakeup's cost is already in the energy, and the count gave
+    /// nothing to act on.
+    public struct EnergyRow: Equatable {
+        public let name: String
+        public let what: String?
+        public let share: Double
+        public let detail: String
+        /// The app or program, for its icon; nil for macOS itself.
+        public let user: User?
+    }
+    public static let macOSItself = "macOS itself"
+    public func energyRows(_ n: Int = 5) -> [EnergyRow] {
         let total = totalEnergy
         guard total > 0 else { return [] }
-        return users.filter { $0.energy > 0 }.sorted { $0.energy > $1.energy }.prefix(n).map { ($0, $0.energy / total) }
+        let used = users.filter { $0.energy > 0 }
+        let mac = used.filter { $0.name.what == .macOS }.reduce(0) { $0 + $1.energy } / total
+        let others = Array(used.filter { $0.name.what != .macOS }.sorted { $0.energy > $1.energy }.prefix(n))
+        var rows = zip(others, PowerHistory.names(others)).map { u, named in
+            EnergyRow(name: named.name, what: named.what, share: u.energy / total,
+                      detail: PowerHistory.detail(named.name, app: u.name.what == .app, share: u.energy / total), user: u)
+        }
+        if mac > 0 { rows.append(EnergyRow(name: PowerHistory.macOSItself, what: nil, share: mac, detail: PowerHistory.macOSDetail, user: nil)) }
+        return Array(rows.sorted { $0.share > $1.share }.prefix(n))
     }
 
-    /// What woke the chip most often, with how many times an hour on average over the whole period. The kernel is left
-    /// out: its wakeups are the hardware's own interrupts, handled for everything else, and nothing can be done about them.
-    public func topWakeups(_ n: Int = 5) -> [(User, Double)] {
-        let hours = max(to.timeIntervalSince(from) / 3600, 1)
-        return users.filter { $0.wakeups > 0 && $0.id != "com.apple.kernel_task" }.sorted { $0.wakeups > $1.wakeups }
-            .prefix(n).map { ($0, $0.wakeups / hours) }
+    /// What a share means and whether to do anything. The 25% and 10% marks are Cool Head's own, not from a source.
+    public static func detail(_ name: String, app: Bool, share: Double) -> String {
+        let what = app ? "" : "A program that runs in the background, started by you or by an app. "
+        let stop = app ? "quit it" : "stop it, or quit the app that started it,"
+        if share >= 0.25 {
+            return what + "A large share. If you don't use \(name) most of the day, it may be working in the background: \(stop) when you're done with it, or look in its settings for background activity."
+        }
+        if share >= 0.10 { return what + "A fair share, as for anything you use a lot. If you rarely use it, \(stop) when you're done with it." }
+        return what + "A small share: nothing to do."
     }
+    public static let macOSDetail = "Drawing the screen, Spotlight, backups, updates and the rest of macOS's own work, together. There's nothing to change here; when one part stays busy, Cool Head shows a card saying which and why."
 
     /// Wakes from sleep by cause, most first.
     public var wakesByCause: [(Cause, [Wake])] {
@@ -76,7 +102,9 @@ public struct PowerHistory: Equatable {
 
     // MARK: the tables it may read, and the only queries it runs
 
-    /// One row per app or program per interval (about 2 minutes): energy, graphics energy, wakeups.
+    /// One row per app or program per interval (about 2 minutes): energy, graphics energy and more. Only the energy is read:
+    /// its wakeup counts were dropped with the list that showed them, since nothing diagnosed with them (Phil, 17 November
+    /// 2026: "Do we use the wake up data for any of our diagnosing efforts? Otherwise stop reading it.").
     static let coalition = "PLCoalitionAgent_EventInterval_CoalitionInterval"
     /// One row per sleep or wake event.
     static let powerState = "PLSleepWakeAgent_EventForward_PowerState"
@@ -88,21 +116,21 @@ public struct PowerHistory: Equatable {
 
     /// The columns each query needs; if any is missing, that part is left out.
     static let columns: [String: Set<String>] = [
-        coalition: ["timestamp", "BundleId", "LaunchdName", "energy", "gpu_energy_nj", "ane_energy_nj", "platform_idle_wakeups"],
+        coalition: ["timestamp", "BundleId", "LaunchdName", "energy", "gpu_energy_nj", "ane_energy_nj"],
         powerState: ["ID", "timestamp"],
         wakeReason: ["FK_ID", "value"],
     ]
 
     static func columnsQuery(_ table: String) -> String { "SELECT name FROM pragma_table_info('\(table)')" }
-    /// Per app or program: energy (chip, graphics, Neural Engine) and wakeups, and the period its rows cover. The second
+    /// Per app or program: energy (chip, graphics, Neural Engine), and the period its rows cover. The second
     /// query is the same for the first moment only, which a daily archive repeats from the end of the one before.
     static let energyQuery = """
-        SELECT BundleId, LaunchdName, total(energy) + total(gpu_energy_nj) + total(ane_energy_nj), total(platform_idle_wakeups),
+        SELECT BundleId, LaunchdName, total(energy) + total(gpu_energy_nj) + total(ane_energy_nj),
                min(timestamp), max(timestamp)
         FROM \(coalition) GROUP BY BundleId, LaunchdName
         """
     static let firstMomentQuery = """
-        SELECT BundleId, LaunchdName, total(energy) + total(gpu_energy_nj) + total(ane_energy_nj), total(platform_idle_wakeups),
+        SELECT BundleId, LaunchdName, total(energy) + total(gpu_energy_nj) + total(ane_energy_nj),
                min(timestamp), max(timestamp)
         FROM \(coalition) WHERE timestamp <= (SELECT min(timestamp) FROM \(coalition)) + 1 GROUP BY BundleId, LaunchdName
         """
@@ -150,7 +178,7 @@ public struct PowerHistory: Equatable {
 
     /// What one database (the current one, or one archive) holds.
     struct Slice {
-        struct Use { var energy = 0.0, wakeups = 0.0 }
+        struct Use { var energy = 0.0 }
         var uses: [Key: Use] = [:]
         var first: Double?, last: Double?
         var firstMoment: [Key: Use] = [:]          // the rows at its first moment, which may repeat the previous archive's last
@@ -168,9 +196,8 @@ public struct PowerHistory: Equatable {
                     db.rows(sql) { r in
                         let key = Key(bundle: r.text(0) ?? "", launchd: r.text(1) ?? "")
                         out[key, default: Use()].energy += max(0, r.double(2))
-                        out[key, default: Use()].wakeups += max(0, r.double(3))
                         guard span else { return }
-                        let a = r.double(4), b = r.double(5)
+                        let a = r.double(3), b = r.double(4)
                         if a > 0 { first = min(first ?? a, a) }
                         if b > 0 { last = max(last ?? b, b) }
                     }
@@ -188,7 +215,7 @@ public struct PowerHistory: Equatable {
     /// groups each app's helpers and each program's instances under one name.
     static func make(_ slices: [Slice], appName: (String) -> String?) -> PowerHistory? {
         let ordered = slices.filter { $0.first != nil || !$0.wakes.isEmpty }.sorted { ($0.first ?? .infinity) < ($1.first ?? .infinity) }
-        var uses: [String: (bundle: Bool, id: String, energy: Double, wakeups: Double)] = [:]
+        var uses: [String: (bundle: Bool, id: String, energy: Double)] = [:]
         var previousLast: Double?
         var first: Double?, last: Double?
         for s in ordered {
@@ -196,9 +223,8 @@ public struct PowerHistory: Equatable {
             for (key, use) in s.uses {
                 let id = identity(key)
                 let again = repeats ? s.firstMoment[key] : nil
-                let e = max(0, use.energy - (again?.energy ?? 0)), w = max(0, use.wakeups - (again?.wakeups ?? 0))
-                uses[id.lowercased(), default: (!key.bundle.isEmpty, id, 0, 0)].energy += e
-                uses[id.lowercased(), default: (!key.bundle.isEmpty, id, 0, 0)].wakeups += w
+                let e = max(0, use.energy - (again?.energy ?? 0))
+                uses[id.lowercased(), default: (!key.bundle.isEmpty, id, 0)].energy += e
             }
             if let a = s.first { first = min(first ?? a, a) }
             if let b = s.last { last = max(last ?? b, b); previousLast = max(previousLast ?? b, b) }
@@ -213,7 +239,7 @@ public struct PowerHistory: Equatable {
         let start = first ?? wakes.first.map { $0.at.timeIntervalSince1970 }
         let end = last ?? wakes.last.map { $0.at.timeIntervalSince1970 }
         guard let start, let end, end > start else { return nil }
-        let users = uses.values.map { u in User(id: u.id, name: named(u.id, isBundle: u.bundle, appName: appName), energy: u.energy, wakeups: u.wakeups) }
+        let users = uses.values.map { u in User(id: u.id, name: named(u.id, isBundle: u.bundle, appName: appName), energy: u.energy) }
         guard !users.isEmpty || !wakes.isEmpty else { return nil }
         return PowerHistory(from: Date(timeIntervalSince1970: start), to: Date(timeIntervalSince1970: end), users: users, wakes: wakes)
     }
@@ -404,9 +430,7 @@ extension PowerHistory {
     public static let source = "From macOS's own power log, which keeps about a week. Cool Head keeps no copy."
 
     public static let energyHeading = "Used the most energy"
-    public static let energyNote = "Each one's share of the energy the chip, graphics and Neural Engine used for apps and macOS while the Mac was awake."
-    public static let wakeupsHeading = "Woke the chip most often"
-    public static let wakeupsNote = "Each wakeup takes the chip out of its deepest rest for a moment; many of them use battery even when little else is happening."
+    public static let energyNote = "Each one's share of the energy the chip, graphics and Neural Engine used while the Mac was awake. Click one for what it means."
     public static let wakesHeading = "Why it woke from sleep"
 
     /// Names for a list of users, told apart where two are alike, and what each is when it isn't an app.
@@ -423,14 +447,6 @@ extension PowerHistory {
 
     /// A share: "31%", or "under 1%".
     public static func share(_ f: Double) -> String { f < 0.01 ? "under 1%" : "\(Int((f * 100).rounded()))%" }
-
-    /// A rate per hour, to two significant figures: "about 9,100 an hour".
-    public static func perHour(_ x: Double) -> String {
-        guard x >= 1 else { return "under 1 an hour" }
-        let digits = Int(log10(x)), unit = pow(10, Double(max(0, digits - 1)))
-        let n = NumberFormatter(); n.numberStyle = .decimal; n.locale = Locale(identifier: "en_US")
-        return "about \(n.string(from: NSNumber(value: Int((x / unit).rounded() * unit))) ?? "\(Int(x))") an hour"
-    }
 
     /// "It woke from sleep 58 times."
     public var wakesSummary: String {
@@ -460,18 +476,12 @@ extension PowerHistory {
     /// The whole history as text, for `coolhead history`.
     public var text: String {
         var out = [title, PowerHistory.source, ""]
-        let energy = topEnergy(), wakeups = topWakeups()
+        let energy = energyRows()
         if !energy.isEmpty {
             out.append(PowerHistory.energyHeading)
-            for ((u, f), n) in zip(energy, PowerHistory.names(energy.map(\.0))) where u.energy > 0 {
-                out.append("  \(PowerHistory.share(f).padding(toLength: 9, withPad: " ", startingAt: 0)) \(n.name)" + (n.what.map { " (\($0.lowercased()))" } ?? ""))
-            }
-            out.append("")
-        }
-        if !wakeups.isEmpty {
-            out.append(PowerHistory.wakeupsHeading)
-            for ((_, rate), n) in zip(wakeups, PowerHistory.names(wakeups.map(\.0))) {
-                out.append("  \(n.name)" + (n.what.map { " (\($0.lowercased()))" } ?? "") + ": \(PowerHistory.perHour(rate))")
+            for r in energy {
+                out.append("  \(PowerHistory.share(r.share).padding(toLength: 9, withPad: " ", startingAt: 0)) \(r.name)" + (r.what.map { " (\($0.lowercased()))" } ?? ""))
+                out.append("            \(r.detail)")
             }
             out.append("")
         }
@@ -487,19 +497,19 @@ extension PowerHistory {
 extension PowerHistory {
     public static func sample(now: Date = Date()) -> PowerHistory {
         let hours = 8.0 * 24
-        func user(_ id: String, _ name: String, _ what: Naming.What, share: Double, perHour: Double) -> User {
-            User(id: id, name: .init(name, what), energy: share * 1_000_000_000_000, wakeups: perHour * hours)
+        func user(_ id: String, _ name: String, _ what: Naming.What, share: Double) -> User {
+            User(id: id, name: .init(name, what), energy: share * 1_000_000_000_000)
         }
         let users = [
-            user("com.google.Chrome", "Google Chrome", .app, share: 0.34, perHour: 41_000),
-            user("com.apple.WindowServer", "WindowServer", .macOS, share: 0.18, perHour: 900),
-            user("com.docker.docker", "Docker", .app, share: 0.12, perHour: 12_000),
-            user("com.apple.Spotlight", "Spotlight", .macOS, share: 0.07, perHour: 600),
-            user("com.google.drivefs", "Google Drive", .app, share: 0.05, perHour: 2_100),
-            user("com.apple.audio.coreaudiod", "coreaudiod", .macOS, share: 0.02, perHour: 4_700),
-            user("com.example.updaterd", "updaterd", .background, share: 0.01, perHour: 1_500),
-            user("com.apple.kernel_task", "kernel_task", .macOS, share: 0.06, perHour: 90_000),
-        ] + (1...10).map { user("com.example.app\($0)", "App \($0)", .app, share: 0.015, perHour: 200) }      // the long tail
+            user("com.google.Chrome", "Google Chrome", .app, share: 0.34),
+            user("com.apple.WindowServer", "WindowServer", .macOS, share: 0.18),
+            user("com.docker.docker", "Docker", .app, share: 0.12),
+            user("com.apple.Spotlight", "Spotlight", .macOS, share: 0.07),
+            user("com.google.drivefs", "Google Drive", .app, share: 0.05),
+            user("com.apple.audio.coreaudiod", "coreaudiod", .macOS, share: 0.02),
+            user("com.example.updaterd", "updaterd", .background, share: 0.01),
+            user("com.apple.kernel_task", "kernel_task", .macOS, share: 0.06),
+        ] + (1...10).map { user("com.example.app\($0)", "App \($0)", .app, share: 0.015) }      // the long tail
         var wakes: [Wake] = []
         let reasons: [(String, Int)] = [("NUB.SPMI0.SW3 nub-spmi0.0x02 rtc", 140), ("smc.sysState.Wake(0x70070000) lid SMC.OutboxNotEmpty RTP.multi-touch", 18),
                                         ("smc.sysState.Wake(0x70070000) wifibt SMC.OutboxNotEmpty", 12),

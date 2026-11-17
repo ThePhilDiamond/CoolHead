@@ -35,6 +35,11 @@ public enum PowerState {
             self.pid = pid; self.name = name; self.seconds = seconds; self.display = display; self.forPID = forPID
         }
     }
+    /// How long a program holding the Mac awake must have done almost nothing before Cool Head says it forgot to let
+    /// go, and what "almost nothing" is: under this share of one core, it and the programs it started together. Not
+    /// from a source: an open app waiting for you uses a few percent at most; one at work uses far more.
+    public static let idleMinimum: TimeInterval = 30 * 60
+    public static let idleShare = 0.05
     static let keepsAwake = ["PreventUserIdleSystemSleep", "PreventSystemSleep", "NoIdleSleepAssertion"]
     static let keepsScreenOn = ["PreventUserIdleDisplaySleep", "NoDisplaySleepAssertion"]
 
@@ -126,8 +131,11 @@ public enum PowerState {
 
     /// The cards: Low Power Mode left on with the power adapter while the Mac is busy; one program holding the Mac awake
     /// for 2 hours or more; a battery that drained 10% or more overnight while it kept waking.
+    /// `idleFor`: how long the program a hold is for, and the programs it started, have done almost nothing (see
+    /// `PowerState.idleShare`); nil while that isn't known yet.
     public static func cards(lowPower: LowPower?, lowPowerNow: Bool, onPower: Bool, busy: Bool,
-                             holds: [Hold], who: (Int32) -> Who?, night: Night?, now: Date) -> [LiveCard] {
+                             holds: [Hold], who: (Int32) -> Who?, idleFor: (Int32) -> TimeInterval? = { _ in nil },
+                             night: Night?, now: Date) -> [LiveCard] {
         var out: [LiveCard] = []
         let settings = "/System/Applications/System Settings.app"
         let batterySettings = "x-apple.systempreferences:com.apple.Battery-Settings.extension"
@@ -150,8 +158,15 @@ public enum PowerState {
         // one program keeping the Mac awake for hours: named, with the app it does it for (rule 12; rule 4 for the
         // sound service). Normal for a call, a download or a backup, so it says so and stays calm unless on battery
         let me = getpid()
-        let long = holds.filter { $0.seconds >= 2 * 3600 && $0.pid != me && $0.name != "powerd" && $0.name != "WindowServer" }
+        // an app keeping the Mac awake while it works is doing what it should: only one that has done almost nothing for
+        // half an hour is shown, with how long, since that's the evidence it forgot to let go (Phil, 17 November 2026:
+        // "the card for Claude is obviously wrong as it's been open working on projects, which is why it prevented sleep")
+        let long = holds.filter { h in
+            h.seconds >= 2 * 3600 && h.pid != me && h.name != "powerd" && h.name != "WindowServer"
+                && (idleFor(h.forPID ?? h.pid) ?? 0) >= idleMinimum
+        }
         if let h = long.max(by: { $0.seconds < $1.seconds }) {
+            let idle = idleFor(h.forPID ?? h.pid) ?? 0
             let owner = h.forPID.flatMap(who) ?? who(h.pid)
             let name = owner?.name ?? h.name
             let sound = h.forPID != nil && h.name == "coreaudiod"
@@ -164,12 +179,13 @@ public enum PowerState {
             var lc = LiveCard(id: "held-awake-\(h.forPID ?? h.pid)", pid: h.forPID ?? h.pid, card: Card(
                 state: onPower ? .quiet : .working,
                 headline: "\(name) has \(what) for \(hours) hours.",
-                explanation: (sound ? "It has sound open, so macOS's sound service is holding the Mac awake for it. " : "macOS lists it as asking the Mac to stay awake. ")
-                    + "That's normal during a call, a download or a backup; for this long, it may have forgotten to let go."
+                explanation: (sound ? "It has sound open, so macOS's sound service is holding the Mac awake for it" : "macOS lists it as asking the Mac to stay awake")
+                    + ", but it has done almost nothing for \(Fmt.duration(idle)), so it has likely forgotten to let go."
                     + (onPower ? "" : " On battery, a Mac that can't sleep keeps draining."),
                 fixes: fixes),
                 details: ["Held awake by: \(h.name), process \(h.pid)" + (h.forPID.map { ", for process \($0)" } ?? ""),
-                          "For: \(Fmt.duration(TimeInterval(h.seconds)))", h.display ? "Keeps the screen on" : "Keeps the Mac awake"],
+                          "For: \(Fmt.duration(TimeInterval(h.seconds)))", h.display ? "Keeps the screen on" : "Keeps the Mac awake",
+                          "Almost idle (it and what it started under \(Int(idleShare * 100))% of one core) for: \(Fmt.duration(idle))"],
                 reportSubject: "a program holding the Mac awake for \(hours) hours")
             lc.causeKey = "held-awake"
             lc.displaySubject = name

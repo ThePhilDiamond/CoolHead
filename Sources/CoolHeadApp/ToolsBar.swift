@@ -60,6 +60,12 @@ struct ToolsBar: View {
             // 16 November 2026: "It's not our tool so we should drop it."); no Quit either: it's in the right-click menu
             // (Phil, 16 November 2026: "Since we added quit to the right-click menu, can drop the quit button.")
             Spacer(minLength: 4)
+            // updates and Report are about Cool Head itself, not the Mac: a line sets them apart when the names show
+            // (Phil, 17 November 2026: "they are a separate category of button and should be visually distinguished")
+            if labels { Divider().frame(height: 34).padding(.horizontal, 4) }
+            // the version, which checks for updates when clicked, moved here from the top of the panel (Phil, 17 November
+            // 2026: "What if we move the version number to the bottom tool bar")
+            VersionButton(labels: labels)
             // Report on its own at the right: it's about Cool Head, not the Mac
             ToolButton(symbol: "exclamationmark.bubble", name: "Report", tip: "Report a problem", labels: labels, on: watcher.showReport) {
                 let open = !watcher.showReport
