@@ -20,14 +20,21 @@ When a card says "Can't tell" or "looks stuck", **Share this case** shows you an
 
 ## Teach it a pattern
 
-The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns what processes are and when they are normal. Adding to it is the most useful contribution, and it needs no app-building knowledge. [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md) explains how, step by step.
+The [catalogue](Sources/CoolHeadCore/Catalogue.swift) is where Cool Head learns what processes are and when they are normal. Adding to it is the most useful contribution, and it needs no app-building knowledge. [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md) explains how, step by step. Write each entry in your own words and link its source rather than copying from it: Apple's support articles and other people's documentation are under their own copyright.
 
 ## Send code
 
 1. Read [BUILDING.md](BUILDING.md) and get a build running.
 2. Make your change on a branch and open a pull request. Say what it fixes and how you tested it.
 3. `coolhead selftest` must pass; the CI runs it on every pull request.
-4. The first time, the CLA bot asks you to sign the [Contributor License Agreement](CLA.md) by leaving a comment. You only do this once. It lets the project offer Cool Head under both licenses (see [COMMERCIAL.md](COMMERCIAL.md)); you keep your copyright.
+4. The first time, the CLA bot asks you to sign the [Contributor License Agreement](CLA.md) by leaving a comment with the sentence it gives. You do this once for each version of the agreement, not on every pull request. It lets the project offer Cool Head under both licenses (see [COMMERCIAL.md](COMMERCIAL.md)); you keep your copyright, and what's published under the AGPL stays under the AGPL.
+   - Everyone whose work is in the pull request signs for themselves, including every person named in a `Co-authored-by` line. Nobody signs for someone else.
+   - Opening a pull request, or ticking a box in its description, isn't signing; only the bot's sentence is.
+   - If you'd rather not sign, open an issue that describes the change instead.
+
+### Using AI tools
+
+You can use AI tools to help with a contribution. You're responsible for it as if you'd typed it: read and test every line, and make sure you have the right to submit it, as the [CLA](CLA.md) asks. An AI tool can't sign the CLA, so name it in an `Assisted-by:` line at the end of the commit message, not as a co-author, for example `Assisted-by: Claude Code:claude-opus-5-5`. Cool Head's own commits follow the same rule; commits made before this rule name the tool in a `Co-Authored-By:` line instead, and it records the same thing.
 
 ### How changes reach main
 
@@ -54,7 +61,7 @@ Write for someone who has never opened Terminal. Every step names where it happe
 - **Everything stays on the Mac.** No network calls, no analytics. The exceptions are ones the user presses: Look it up, which sends the process name only, and Test my network's Start test, which runs Apple's network test against Apple's servers.
 - **Light on the Mac.** Keep Cool Head's own CPU use under 0.5% of the Mac on average; check it in Activity Monitor.
 - **No administrator password.** Everything Cool Head reads is readable by the signed-in user.
-- **License-clean dependencies.** MIT, BSD, Apache-2.0 and similar only. No GPL, AGPL or LGPL code linked into what ships, because it would stop Cool Head from being offered under a commercial license. The project has no dependencies today.
+- **License-clean dependencies.** MIT, BSD, Apache-2.0 and similar only. No GPL, AGPL or LGPL code linked into what ships, because it would stop Cool Head from being offered under a commercial license. The project has no dependencies today. Anything taken from another project, even a list or an approach, is credited in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) with its license.
 - **Comments explain why**, especially for kernel calls (`proc_pidinfo`, `proc_pid_rusage`) and IOKit keys.
 
 ## Security problems
