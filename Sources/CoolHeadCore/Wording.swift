@@ -12,6 +12,7 @@ public enum Wording {
         out += Fixture.appBuildSamples(now)
         out += Fixture.backgroundWorkSamples(now)
         out += Fixture.catalogueSamples(now)
+        out += Fixture.crashLoopSamples(now)
         out += Fixture.disguiseSamples(now)
         out += Fixture.leakSamplesForWording(now)
         out += Fixture.leftoversSamples(now)

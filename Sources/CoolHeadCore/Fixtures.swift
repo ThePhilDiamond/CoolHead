@@ -23,6 +23,7 @@ public struct Fixture {
         batteryPageChecks,
         browserRestartChecks,
         catalogueChecks,
+        crashLoopChecks,
         disguiseChecks,
         graphicsChipChecks,
         hangChecks,
