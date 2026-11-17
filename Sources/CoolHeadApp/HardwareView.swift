@@ -2,31 +2,20 @@ import AppKit
 import CoolHeadCore
 import SwiftUI
 
-/// The Hardware tool's page: the drive, memory, fans, crash restarts and the ports, in the same shape as Test my network
-/// and Battery (a verdict, a figure for each part, a status line), with how it's running now drawn as the menu bar
-/// icon's snowflake, then what Cool Head can't check and how Apple's own test does. The battery has its own page. A
-/// problem still gets its own card in the list.
+/// The Hardware tool's page: a verdict, then the drive, crash restarts and the ports, each with everything about it
+/// together, then what Cool Head can't check (the memory among it) and how Apple's own test does. The battery has its
+/// own page, and how the Mac is running is at the top of the panel. A problem still gets its own card in the list.
 struct HardwareView: View {
-    let watcher: Watcher
     let close: () -> Void
     @State private var showDiagnostics = false
 
-    var snapshotKind: String? { ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"] }
-
     /// This Mac's hardware report, or in a screenshot made-up hardware (never this Mac's own).
     var report: HardwareReport? {
-        if let kind = snapshotKind, PanelView.sampleSnapshot || kind == "issue" { return HardwarePage.sample(kind) }
+        if let kind = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"], PanelView.sampleSnapshot || kind == "issue" {
+            return HardwarePage.sample(kind)
+        }
         return PanelView.sampleSnapshot ? HardwarePage.sample() : HardwareWatch.shared.report
     }
-    /// How it's running: this Mac's thermal state, or in a screenshot a made-up one ("issue" is a fanless Mac running
-    /// hot, "hot" a Mac with fans that's too hot).
-    var running: HardwarePage.Running {
-        if snapshotKind == "issue" { return HardwarePage.running(thermal: "serious", fans: HardwarePage.Fans.none) }
-        if snapshotKind == "hot" { return HardwarePage.running(thermal: "critical", fans: .rpm([5_200, 5_350])) }
-        if snapshotKind != nil || PanelView.sampleSnapshot { return HardwarePage.running(thermal: "nominal", fans: .rpm([1_200, 1_250])) }
-        return HardwarePage.running(thermal: watcher.mac.thermal, fans: nil)
-    }
-    var memoryGB: Double { snapshotKind != nil || PanelView.sampleSnapshot ? 16 : watcher.mac.memoryGB }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -46,23 +35,18 @@ struct HardwareView: View {
                         Text(v.meaning).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                runningBox
-                HStack(alignment: .top, spacing: 8) { ForEach(HardwarePage.tiles(r, memoryGB: memoryGB), id: \.part) { tile($0) } }
-                let s = HardwarePage.status(r)
-                HStack(spacing: 8) {
-                    Image(systemName: s.symbol).foregroundStyle(s.level > 0 ? NetworkView.color(s.level) : Ink.text)
-                    Text(s.text)
-                    Spacer()
-                    if let d = s.detail { Text(d).font(.caption).foregroundStyle(Ink.muted).multilineTextAlignment(.trailing) }
-                }
+                VStack(spacing: 6) { ForEach(HardwarePage.parts(r), id: \.kind) { part($0) } }
             } else {
                 Text("Checking the hardware…").foregroundStyle(Ink.muted)
             }
             Divider()
-            // what can't be read from inside macOS, and Apple's own test for it
+            // what can't be read from inside macOS, the memory among it, and Apple's own test for it
             HStack(spacing: 8) {
                 Image(systemName: "memorychip")
-                Text("Memory and other parts")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Memory and other parts")
+                    Text("macOS doesn't let apps test these.").font(.caption).foregroundStyle(Ink.muted)
+                }
                 Spacer()
                 Button(showDiagnostics ? "Hide" : "How to test them") { showDiagnostics.toggle() }
                     .buttonStyle(.bordered).controlSize(.small)
@@ -83,39 +67,114 @@ struct HardwareView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 
-    /// How it's running, with the menu bar icon's snowflake drawn large: whole when cool, melting when hot, in flames
-    /// when too hot.
-    var runningBox: some View {
-        let r = running
-        return HStack(alignment: .center, spacing: 12) {
-            Image(nsImage: Snowflake.image(icon: r.icon, scale: 2.6))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(r.title).font(.callout.weight(.semibold))
-                Text(r.meaning).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-                if let f = r.fans {
-                    Label(f, systemImage: "fan").font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-                }
+    /// One part: its icon in its level's colour, its name, how it is, and its details underneath.
+    func part(_ p: HardwarePage.Part) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Image(systemName: p.symbol).foregroundStyle(NetworkView.color(p.level)).frame(width: 18)
+                Text(p.name).font(.callout.weight(.semibold))
+                Spacer()
+                Text(p.value).foregroundStyle(p.level > 0 ? NetworkView.color(p.level) : Ink.text)
             }
-            Spacer(minLength: 0)
+            ForEach(p.lines, id: \.self) {
+                Text($0).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 26)
+            }
         }
-        .padding(10)
+        .padding(.horizontal, 9).padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7))
     }
+}
 
-    /// One figure, drawn as Battery draws its own.
-    func tile(_ t: HardwarePage.Tile) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 4) {
-                Image(systemName: t.symbol).font(.caption.weight(.semibold)).foregroundStyle(NetworkView.color(t.level))
-                Text(t.value).font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
-                    .lineLimit(1).minimumScaleFactor(0.7)
-            }
-            Text(t.unit).font(.caption2).foregroundStyle(Ink.muted).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+/// How the Mac is running, at the top of the panel whenever it opens (Phil, 16 November 2026: "Maybe the temperature
+/// panes from the hardware screen renders should be persistent in the main pane instead?"; "Is there also a useful way to
+/// clearly and concisely portray heavy resource use? ... simple intuitive visual cues without being busy or
+/// confusing"): the menu bar icon's snowflake (whole, melting, in flames) with a few words, and two small gauges, the
+/// chip and memory, coloured by level. Numbers and meanings are in the tooltips.
+struct RunningStrip: View {
+    let watcher: Watcher
+    @StateObject private var load = ChipLoad()
+
+    var snapshot: String? { ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_RUNNING"] }
+    var running: HardwarePage.Running {
+        switch snapshot {
+        case "hot": return HardwarePage.running(thermal: "serious", fans: HardwarePage.Fans.none)
+        case "fire": return HardwarePage.running(thermal: "critical", fans: .rpm([5_200, 5_350]))
+        case .some: return HardwarePage.running(thermal: "nominal", fans: .rpm([1_200, 1_250]))
+        case nil: return HardwarePage.running(thermal: PanelView.limitedSnapshot ? "nominal" : watcher.mac.thermal, fans: nil)
         }
-        .padding(.horizontal, 9).padding(.vertical, 7)
-        .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7))
+    }
+    var gauges: [HardwarePage.Gauge] {
+        switch snapshot {
+        case "hot": return [HardwarePage.chip(busy: 0.62), HardwarePage.memory(pressure: "warning", swappingNow: true)]
+        case "fire": return [HardwarePage.chip(busy: 0.93), HardwarePage.memory(pressure: "critical", swappingNow: true)]
+        case .some: return [HardwarePage.chip(busy: 0.18), HardwarePage.memory(pressure: "normal", swappingNow: false)]
+        case nil:
+            if PanelView.limitedSnapshot { return [HardwarePage.chip(busy: 0.18), HardwarePage.memory(pressure: "normal", swappingNow: false)] }
+            return [HardwarePage.chip(busy: load.busy), HardwarePage.memory(pressure: watcher.mac.memoryPressure, swappingNow: (watcher.mac.swapOutPages ?? 0) > 0)]
+        }
+    }
+
+    var body: some View {
+        let r = running
+        HStack(spacing: 10) {
+            Image(nsImage: Snowflake.image(icon: r.icon, scale: 1.4))
+                .help([r.meaning, r.fans].compactMap { $0 }.joined(separator: " "))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(r.title).font(.callout.weight(.semibold))
+                Text(r.meaning).font(.caption).foregroundStyle(Ink.muted).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 6)
+            ForEach(gauges, id: \.name) { gauge($0) }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .onAppear { load.start() }
+        .onDisappear { load.stop() }
+    }
+
+    /// A gauge: its name over a short bar, filled to its share in its level's colour.
+    func gauge(_ g: HardwarePage.Gauge) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(g.name).font(.caption2).foregroundStyle(Ink.muted)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.12))
+                Capsule().fill(NetworkView.color(g.level)).frame(width: max(5, 44 * g.fill))
+            }
+            .frame(width: 44, height: 5)
+        }
+        .help(g.words)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(g.words)
+    }
+}
+
+/// The share of the chip's cores in use, from macOS's own counters, read every 3 seconds while the panel is open and
+/// not at all while it's closed.
+@MainActor
+final class ChipLoad: ObservableObject {
+    @Published var busy = 0.0
+    private var last: (busy: UInt64, total: UInt64)?
+    private var timer: Timer?
+
+    func start() {
+        sample()
+        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in Task { @MainActor in self.sample() } }
+    }
+    func stop() { timer?.invalidate(); timer = nil; last = nil }
+
+    private func sample() {
+        var info = host_cpu_load_info()
+        var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info>.stride / MemoryLayout<integer_t>.stride)
+        let ok = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &count) }
+        }
+        guard ok == KERN_SUCCESS else { return }
+        let t = info.cpu_ticks
+        let busyTicks = UInt64(t.0) + UInt64(t.1) + UInt64(t.3)          // user, system, nice
+        let total = busyTicks + UInt64(t.2)                               // plus idle
+        if let l = last, total > l.total { busy = Double(busyTicks - l.busy) / Double(total - l.total) }
+        last = (busyTicks, total)
     }
 }
 

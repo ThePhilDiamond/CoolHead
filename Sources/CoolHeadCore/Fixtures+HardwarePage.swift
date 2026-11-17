@@ -24,13 +24,27 @@ extension Fixture {
             ("Drive needs a look", report { $0.drive?.criticalWarning = 1; $0.crashes = CrashRestarts(recent: [dayAgo, dayAgo]) }),
         ]
         let verdicts = cases.map { HardwarePage.verdict($0.1, now: now) }
-        let issue = HardwarePage.verdict(HardwarePage.sample("issue", now: now), now: now).meaning
         let v1 = zip(cases, verdicts).allSatisfy { $0.0.0 == $0.1.title }
             && verdicts.map(\.level) == [0, 1, 1, 1, 1, 2, 2]
-            && issue == "WindowServer, the part of macOS that draws the screen, stopped responding, so macOS restarted. That's usually software, not hardware. A one-off crash like this isn't a concern. If it happens again in the next week, Cool Head will show you what to try."
             && !verdicts.contains { $0.meaning.lowercased().contains("battery") }
             && HardwarePage.verdict(report { $0.drive = nil }, now: now).meaning == "No warnings from the ports, and no crash restarts this week."
         review.append(("hardware-page-verdict", v1, verdicts.map { "\($0.title): \($0.meaning)" }.joined(separator: " | ")))
+
+        // each part with everything about it together: the drive's wear, writes, hours and temperature; a crash's time,
+        // cause and what to do; which port and what happened
+        let calm = HardwarePage.parts(report { _ in }, now: now)
+        let issue = HardwarePage.parts(HardwarePage.sample("issue", now: now), now: now)
+        let ported = HardwarePage.parts(report { $0.ports = [PortErrors(name: "the MagSafe port", overCurrent: 2)] }, now: now)
+        let p1 = calm.map(\.kind) == [.drive, .crashes, .ports] && calm.map(\.level) == [0, 0, 0]
+            && calm[0].value == "3% of its life used" && calm[0].lines == ["About 18 TB written over 2,140 hours, now at 34°C."]
+            && calm[1].value == "None this week" && calm[1].lines.isEmpty && calm[2].value == "No errors"
+            && issue[0].level == 1 && issue[1].value == "1 this week" && issue[1].level == 1
+            && issue[1].lines.count == 3 && issue[1].lines[0].hasPrefix("Last one ")
+            && issue[1].lines[1] == "WindowServer, the part of macOS that draws the screen, stopped responding, so macOS restarted. That's usually software, not hardware."
+            && issue[1].lines[2] == "A one-off crash like this isn't a concern. If it happens again in the next week, Cool Head will show you what to try."
+            && ported[2].value == "2 errors" && ported[2].lines == ["The MagSafe port: a device asked for too much power twice."] && ported[2].level == 1
+            && HardwarePage.parts(report { $0.drive = nil }, now: now).count == 2
+        review.append(("hardware-page-parts", p1, (calm + issue + ported).map { "\($0.name): \($0.value)" + ($0.lines.isEmpty ? "" : " / " + $0.lines.joined(separator: " ")) }.joined(separator: " | ")))
 
         // how it's running: macOS's four thermal states, the snowflake melting then burning; fans said in plain words
         let states = ["nominal", "fair", "serious", "critical"].map { HardwarePage.running(thermal: $0, fans: .rpm([1_200, 1_250])) }
@@ -42,23 +56,13 @@ extension Fixture {
             && HardwarePage.running(thermal: "nominal", fans: nil).fans == nil
         review.append(("hardware-page-running", r1, states.map { "\($0.title): \($0.meaning)" }.joined(separator: " | ")))
 
-        // the figures: drive, memory, crashes, ports; no battery; each part's level follows its own finding
-        let tiles = HardwarePage.tiles(report { _ in }, memoryGB: 16, now: now)
-        let worn = HardwarePage.tiles(report { $0.drive?.percentUsed = 85; $0.crashes = CrashRestarts(recent: [dayAgo]); $0.ports = [PortErrors(name: "the MagSafe port", overCurrent: 1)] }, memoryGB: 16, now: now)
-        let t1 = tiles.map(\.part) == [.drive, .memory, .crashes, .ports]
-            && tiles.map(\.value) == ["3%", "16 GB", "0", "0"] && tiles.allSatisfy { $0.level == 0 }
-            && worn.map(\.level) == [1, 0, 1, 1]
-            && HardwarePage.tiles(report { $0.drive = nil }, memoryGB: 8, now: now).count == 3
-        review.append(("hardware-page-tiles", t1, worn.map { "\($0.value) \($0.unit)" }.joined(separator: ", ")))
-
-        // the status line: when the last crash restart this week was (its cause is in the verdict), else the drive's wear
-        let crashed = HardwarePage.status(HardwarePage.sample("issue", now: now), now: now)
-        let calm = HardwarePage.status(report { _ in }, now: now)
-        let noDrive = HardwarePage.status(report { $0.drive = nil }, now: now)
-        let s1 = crashed.text.hasPrefix("Last crash restart") && crashed.detail == nil && crashed.level == 1
-            && calm.text.hasPrefix("About ") && calm.text.hasSuffix(" written") && calm.detail == "on for 2,140 hours"
-            && noDrive.text == "Cool Head can't read the drive's health"
-        review.append(("hardware-page-status", s1, [crashed, calm, noDrive].map { $0.text + ($0.detail.map { " / " + $0 } ?? "") }.joined(separator: " | ")))
+        // the gauges: the chip's share in use, and memory pressure (never "memory used")
+        let g = [HardwarePage.chip(busy: 0.2), HardwarePage.chip(busy: 0.6), HardwarePage.chip(busy: 0.9),
+                 HardwarePage.memory(pressure: "normal", swappingNow: false), HardwarePage.memory(pressure: "warning", swappingNow: true),
+                 HardwarePage.memory(pressure: "critical", swappingNow: true)]
+        let g1 = g.map(\.level) == [0, 1, 2, 0, 1, 2] && g[0].words == "The chip is 20% busy, with room to spare."
+            && g[4].words == "Memory is getting full, and macOS is moving some to disk."
+        review.append(("hardware-page-gauges", g1, g.map(\.words).joined(separator: " | ")))
         return review
     }
 }
