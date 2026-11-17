@@ -64,7 +64,7 @@ Reports never hold file names, paths or project names. You see every word first;
 
 ## System requirements
 
-macOS 14 Sonoma or later, on Apple Silicon or Intel.
+macOS 15 Sequoia or later, on Apple Silicon or Intel. Cool Head still opens on macOS 14 Sonoma, but it isn't tested there, and a later version will need macOS 15. The updater won't install a version your Mac can't run.
 
 ## Quick start
 
