@@ -39,5 +39,5 @@ jobs:
             if (earlier.length > 0) return core.info(`${author} has ${earlier.length} earlier ${isPR ? 'pull requests' : 'issues'}: no welcome`)
             const body = isPR
               ? "Thanks for your first pull request. `coolhead selftest` runs on it automatically; if you added a catalogue pattern, please link its source in the description (see docs/DIAGNOSIS.md)."
-              : "Thanks for your first report. If it's about a process Cool Head got wrong, the output of `coolhead why <name>` helps most; please check it for anything private first."
+              : "Thanks for your first report. If it's about a process Cool Head got wrong, the output of `coolhead why` followed by the process's name or PID (for example `coolhead why mds_stores`) helps most; the README's Command line section shows how to run it. Please check it for anything private first."
             await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: item.number, body })
