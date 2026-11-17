@@ -17,6 +17,7 @@ public struct Fixture {
     /// alphabetical order, so pull requests made at the same time add their checks in different places and don't
     /// conflict. A new feature adds its file and one line here.
     static let suites: [(Date) -> [(String, Bool, String)]] = [
+        appBuildChecks,
         backgroundAndBackupChecks,
         backgroundWorkChecks,
         batteryPageChecks,
