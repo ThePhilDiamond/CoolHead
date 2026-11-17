@@ -465,7 +465,8 @@ public struct Card {
         let stop: Fix? = stoppable ? Fix(id: "stop", title: "Stop it", consequence: stopConsequence(), kind: .stop, recommended: state == .stalled) : nil
         // only where it helps (see RunCooler): your own work above background priority, never macOS's own
         let cooler: Fix? = RunCooler.offered(e)
-            ? Fix(id: "cooler", title: "Run it cooler", consequence: RunCooler.consequence(e), kind: .cooler, recommended: false)
+            ? Fix(id: "cooler", title: "Run it cooler", consequence: RunCooler.consequence(e), kind: .cooler, recommended: false,
+                  holdBack: RunCooler.isVirtualMachine(e))     // never put in place of a task's recommendation for a VM
             : nil
 
         // macOS's own processes: what it is doing, and whether this has gone on longer than usual
