@@ -1,0 +1,1 @@
+- A card for an app that keeps crashing: 5 or more crashes in 24 hours, read from the first line of macOS's crash reports, with Look it up and See the crash reports (in Console).

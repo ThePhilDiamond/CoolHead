@@ -24,6 +24,7 @@ public struct Fixture {
         browserRestartChecks,
         browserTamperingChecks,
         catalogueChecks,
+        crashLoopChecks,
         disguiseChecks,
         graphicsChipChecks,
         hangChecks,

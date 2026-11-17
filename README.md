@@ -41,6 +41,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 - **Battery Saver.** On battery, a really hungry job can be paused until you plug in. Nothing is lost, and it carries on by itself. Switch it on the Battery tool's page, beside the battery's health and what it's doing now.
 - **Sleep and power.** It notices an app that has kept your Mac awake for hours, Low Power Mode left on with the charger while your Mac is busy, and a battery that drained while asleep because the Mac kept waking, and says what woke it.
 - **Browser changes you didn't make.** It notices Chrome, Edge or Brave managed by settings that adware uses (forcing an extension, or setting the search engine, home page or a proxy) on a Mac no organization manages, and a browser a script started with an extension loaded from a folder.
+- **Apps that keep crashing.** An app that crashed 5 or more times in a day, from macOS's own crash reports, with a way to look it up and see the reports.
 - **Quiet hangs count too.** A process can be stuck while using almost nothing: paused by something else, waiting on a network drive that dropped, or an app macOS marks Not Responding. Each gets a card saying what started it and what may be waiting on it, with **Resume**, checking the drive, or **Force quit** (it asks first).
 - **Always trust** an app or job you know is fine: it stays listed but calm, and is still flagged if it looks stuck, your Mac gets hot, or it runs nonstop for 8 hours.
 

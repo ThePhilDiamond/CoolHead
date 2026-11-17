@@ -28,6 +28,7 @@ extension CardSource {
 enum CardSources {
     static let all: [any CardSource] = [
         BrowserWatch.shared,
+        CrashWatch.shared,
         HardwareWatch.shared,
         PowerWatch.shared,
     ]
