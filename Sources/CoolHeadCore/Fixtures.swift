@@ -38,6 +38,7 @@ public struct Fixture {
         powerHistoryChecks,
         powerStateChecks,
         runCoolerChecks,
+        servedChecks,
         syncAndSecurityChecks,
     ]
 
