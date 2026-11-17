@@ -37,6 +37,9 @@ struct PanelView: View {
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
             Divider()
+            // how it's running, whenever the panel opens: heat, and how busy the chip and memory are
+            RunningStrip(watcher: watcher)
+            Divider()
             // scrolls once it is taller than the limit
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -61,6 +64,8 @@ struct PanelView: View {
                                     openTrends: PowerHistory.available || HistoryView.snapshotSample != nil
                                         ? { tools.battery = false; watcher.showHistory = true } : nil,
                                     close: { tools.battery = false })
+                    } else if tools.hardware {
+                        HardwareView(close: { tools.hardware = false })
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if watcher.showHistory {
@@ -392,6 +397,22 @@ struct CardView: View {
                 let n = BrowserRestart.note(o, name: name)
                 note = n.text; noteFailed = n.failed; acted = !n.failed
                 // the panel may have closed while the browser came to the front: a failure is also a notification
+                if n.failed { Alerts.remind(n.text) }
+            }
+        case .restartApp(let bundle):
+            // the same quit, wait and reopen as a browser, without the browser's switch: the app reopens what it keeps
+            let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
+            note = "Asked \(name) to quit. It opens again once it has closed."; noteFailed = false; acted = true
+            Task {
+                let w = watcher
+                let o = await BrowserRestart.restart(bundle: bundle, arguments: []) { step in w.log("Quit and reopen \(name) pressed: \(step)") }
+                let n: (text: String, failed: Bool) = {
+                    if case .restarted = o { return ("Reopened \(name). The memory it had built up is free.", false) }
+                    if case .stillOpen = o { return ("\(name) is still open after \(Int(BrowserRestart.wait)) seconds, so it wasn't reopened. It may be asking you something.", true) }
+                    if case .reopenFailed(let why) = o { return ("\(name) closed but didn't reopen: \(why). Open it again from Applications.", true) }
+                    return BrowserRestart.note(o, name: name)
+                }()
+                note = n.text; noteFailed = n.failed; acted = !n.failed
                 if n.failed { Alerts.remind(n.text) }
             }
         case .share:
@@ -814,7 +835,7 @@ enum FrozenItem: Identifiable {
     static func all(_ w: Watcher) -> [FrozenItem] {
         // a screenshot shows nothing of this Mac's own: with example cards, only made-up lines; limited to some of this
         // Mac's cards, only what Cool Head is doing to those (see COOLHEAD_SNAPSHOT_COOL and _PAUSE)
-        if PanelView.sampleSnapshot { return heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
+        if PanelView.sampleSnapshot { return heldBackSamples ? [.chrome(4096), .agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
         if let pids = PanelView.onlyPIDs(w) {
             return w.cooledList.filter { pids.contains($0.pid) }.map { .cooled($0) } + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) }
         }
@@ -871,7 +892,7 @@ enum FrozenItem: Identifiable {
                                       : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
         case .chrome(let mb): return "Past \(ChromeLimit.gb(mb)), Chrome unloads tabs you aren't using. While it's on, Chrome says it's \u{201C}managed by your organization\u{201D}."
         case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
-        case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \(p)"
+        case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
         }
     }
     var undo: (title: String, icon: String) {
@@ -884,14 +905,18 @@ enum FrozenItem: Identifiable {
         case .backup: return ("Back it up again", "arrow.uturn.backward")
         }
     }
-    /// The line's own label names what you can do, not a general "Restore" (Phil, 15 November 2026).
-    var verb: String {
+    /// The undo, as a button on the line itself, so it's one click (Phil, 16 November 2026: "It needs to be clear to the
+    /// user they they need to expand and then act, or we need to add a big old button right there to release it"). It
+    /// names what it does, not a general "Restore" (Phil, 15 November 2026), in a few words so the line keeps its room.
+    /// A sync app can't be resumed from here, so its button says it was.
+    var button: String {
         switch self {
         case .cooled: return "Speed up"
-        case .paused, .sync: return "Resume"
-        case .chrome: return "Remove"
+        case .paused: return "Resume"
+        case .sync: return "I resumed it"
+        case .chrome: return "Remove limit"
         case .agent: return "Turn on"
-        case .backup: return "Include"
+        case .backup: return "Back it up"
         }
     }
 }
@@ -909,16 +934,20 @@ struct FrozenList: View {
                 FrozenLine(item: item, watcher: watcher)
             }
         }
-        .padding(.horizontal, 30).padding(.vertical, 10)       // text in the clear middle, off the frost
+        // text in the clear middle, off the frost; more room at the bottom, where frost settles thickest, so the last
+        // line (often Report a problem) never sits on it
+        .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 18)
         .frozen()
     }
 }
 
-/// One line; a click opens it (what it is, since when, and its undo) and another closes it.
+/// One line: its undo as a button on the line, one click, and a chevron that opens what it is and since when (another
+/// click closes it). Every undo puts things back as they were and can be redone from the card, so it asks nothing first.
 struct FrozenLine: View {
     let item: FrozenItem
     let watcher: Watcher
-    @State private var open = false
+    /// Screenshots can show the lines open (COOLHEAD_SNAPSHOT_HELD_OPEN).
+    @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HELD_OPEN"] != nil
     @State private var failed: String?
 
     var body: some View {
@@ -928,18 +957,24 @@ struct FrozenLine: View {
                 Text(item.line).font(.callout.weight(.semibold)).lineLimit(2).truncationMode(.middle)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
-                Disclosure(title: open ? "Less" : item.verb, open: open, tint: item.due ? .orange : Ink.text) { toggle() }
+                Button(item.button) { undo() }
+                    .buttonStyle(.bordered).controlSize(.small)
+                    .fixedSize()
+                    .help(item.undo.title)
+                Button { toggle() } label: {
+                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
+                        .frame(width: 18, height: 18).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(open ? "Show less" : "What this is")
+                .accessibilityLabel(open ? "Show less" : "What this is")
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
             if open {
                 Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 10) {
-                    Button { undo() } label: { Label(item.undo.title, systemImage: item.undo.icon) }
-                        .buttonStyle(.bordered).controlSize(.small)
-                    Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
-                }
-                if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
+                Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
             }
+            if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -995,10 +1030,11 @@ enum IceTint {
 /// and fading through a soft, uneven inner edge into clear glass, with a few feather-like crystals reaching in and
 /// some sparkles. Vector shapes from a fixed pattern, so it never shimmers and costs almost nothing.
 struct Frost: View {
+    var style = FrostStyle.current
     var body: some View {
         Canvas { ctx, size in
             let w = size.width, h = size.height
-            var seed: UInt64 = 0xF2057
+            var seed: UInt64 = style.seed
             func rnd() -> CGFloat {
                 seed = seed &* 6364136223846793005 &+ 1442695040888963407
                 return CGFloat((seed >> 33) % 10_000) / 10_000
@@ -1075,7 +1111,7 @@ struct Frost: View {
                     p = next
                 }
             }
-            func fern(from: CGPoint, angle: CGFloat, length: CGFloat, curl: CGFloat) {
+            func fern(from: CGPoint, angle: CGFloat, length: CGFloat, curl: CGFloat, opacity o: Double = 1) {
                 var stem = Path(), branches = Path()
                 let n = Int(length / 1.6)
                 var p = from, a = angle
@@ -1095,18 +1131,91 @@ struct Frost: View {
                 }
                 ctx.drawLayer { glow in
                     glow.addFilter(.blur(radius: 1.4))
-                    glow.stroke(branches, with: .color(.white.opacity(0.55)), style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                    glow.stroke(branches, with: .color(.white.opacity(0.55 * o)), style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
                 }
-                ctx.stroke(branches, with: .color(.white.opacity(0.8)), style: StrokeStyle(lineWidth: 0.5, lineCap: .round))
-                ctx.stroke(stem, with: .color(.white.opacity(0.95)), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
+                ctx.stroke(branches, with: .color(.white.opacity(0.8 * o)), style: StrokeStyle(lineWidth: 0.5, lineCap: .round))
+                ctx.stroke(stem, with: .color(.white.opacity(0.95 * o)), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
             }
-            // in the corners only, where frost gathers; the middle stays clear (Phil, 15 November 2026)
-            fern(from: CGPoint(x: 4, y: h - 4), angle: -.pi / 3.2, length: min(50, h * 0.72), curl: 0.45)
-            fern(from: CGPoint(x: 6, y: h - 3), angle: -0.35, length: min(30, h * 0.42), curl: -0.3)
-            fern(from: CGPoint(x: w - 5, y: h - 4), angle: -.pi + .pi / 4, length: min(42, h * 0.62), curl: -0.4)
-            fern(from: CGPoint(x: w - 6, y: h - 3), angle: -.pi + 0.3, length: min(24, h * 0.36), curl: 0.3)
-            fern(from: CGPoint(x: 4, y: 4), angle: .pi / 4.5, length: min(26, h * 0.4), curl: 0.3)
-            fern(from: CGPoint(x: w - 4, y: 4), angle: .pi - .pi / 4, length: min(22, h * 0.36), curl: -0.3)
+            // ferns grow all along the edges, more and longer in the corners, and one or two reach further in (Phil,
+            // 16 November 2026: "Ice typically builds more in the corners, but the ferns can grow along the edge, with
+            // only one or two growing more out into the middle"). Placed from the style's own seed, so the pattern looks
+            // random but is the same every time it's drawn. The bottom edge keeps its ferns short, where text sits.
+            let st = style
+            let scale = min(1, h / 90)
+            func range(_ r: ClosedRange<CGFloat>) -> CGFloat { r.lowerBound + rnd() * (r.upperBound - r.lowerBound) }
+            // along each edge: (start, end, inward angle, whether it's the bottom)
+            let edges: [(CGPoint, CGPoint, CGFloat, Bool)] = [
+                (CGPoint(x: 0, y: 2), CGPoint(x: w, y: 2), .pi / 2, false),          // top, growing down
+                (CGPoint(x: w - 2, y: 0), CGPoint(x: w - 2, y: h), .pi, false),      // right, growing left
+                (CGPoint(x: w, y: h - 2), CGPoint(x: 0, y: h - 2), -.pi / 2, true),  // bottom, growing up
+                (CGPoint(x: 2, y: h), CGPoint(x: 2, y: 0), 0, false),                // left, growing right
+            ]
+            for (a, b, inward, bottom) in edges {
+                let len = hypot(b.x - a.x, b.y - a.y)
+                var d = st.edgeSpacing * rnd()
+                while d < len {
+                    let t = d / len
+                    let corner = min(t, 1 - t) * len < 26
+                    if !corner {
+                        let pt = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+                        // hug the edge: lean well over to one side or the other
+                        let lean = (rnd() < 0.5 ? -1 : 1) * (0.5 + rnd() * 0.6)
+                        let l = range(st.edgeLength) * (bottom ? 0.6 : 1) * max(scale, 0.6)
+                        fern(from: pt, angle: inward + lean, length: l, curl: (rnd() - 0.5) * st.curl)
+                    }
+                    d += st.edgeSpacing * (0.5 + rnd())
+                }
+            }
+            // the corners, where frost gathers: several ferns fanning out from each
+            let q: CGFloat = .pi / 4
+            let corners: [(CGFloat, CGFloat, CGFloat)] = [(3, 3, q), (w - 3, 3, 3 * q), (w - 3, h - 3, -3 * q), (3, h - 3, -q)]
+            for (cx, cy, diag) in corners {
+                for k in 0..<st.cornerFerns {
+                    let fan: CGFloat = CGFloat(k) / CGFloat(max(st.cornerFerns - 1, 1)) - 0.5
+                    let spread: CGFloat = fan * 1.3 + (rnd() - 0.5) * 0.3
+                    fern(from: CGPoint(x: cx + (rnd() - 0.5) * 6, y: cy + (rnd() - 0.5) * 6), angle: diag + spread,
+                         length: range(st.cornerLength) * scale, curl: (rnd() - 0.5) * st.curl)
+                }
+            }
+            // one or two that reach further in, from the sides or the top (never the bottom, where text sits)
+            for _ in 0..<st.reachers {
+                let side = rnd()
+                let (pt, inward): (CGPoint, CGFloat) = side < 0.35 ? (CGPoint(x: 2, y: h * (0.2 + rnd() * 0.5)), 0)
+                    : side < 0.7 ? (CGPoint(x: w - 2, y: h * (0.2 + rnd() * 0.5)), .pi)
+                    : (CGPoint(x: w * (0.15 + rnd() * 0.7), y: 2), .pi / 2)
+                let along = (rnd() < 0.5 ? -1 : 1) * (0.35 + rnd() * 0.4)
+                fern(from: pt, angle: inward + along, length: st.reachLength * (0.8 + rnd() * 0.4) * max(scale, 0.7), curl: (rnd() - 0.5) * st.curl * 1.5)
+            }
+            // wild ferns, placed by hand along an edge away from the corners (Phil, 16 November 2026: "1-2 wild ferns
+            // somewhere other than a corner"), fading a little so text over them stays readable
+            for f in st.wild {
+                let (pt, inward): (CGPoint, CGFloat) = switch f.edge {
+                case .top: (CGPoint(x: w * f.at, y: 2), .pi / 2)
+                case .left: (CGPoint(x: 2, y: h * f.at), 0)
+                case .right: (CGPoint(x: w - 2, y: h * f.at), .pi)
+                }
+                fern(from: pt, angle: inward + f.lean, length: f.length * max(scale, 0.75), curl: f.curl, opacity: 0.75)
+            }
+            // texture: fine needles and specks of frost scattered through the frosted rim, densest in the corners
+            for _ in 0..<st.grain {
+                let e = rnd()
+                var pt: CGPoint
+                let depth = pow(rnd(), 1.6) * 18
+                if e < 0.3 { pt = CGPoint(x: rnd() * w, y: 2 + depth) }
+                else if e < 0.55 { pt = CGPoint(x: rnd() * w, y: h - 2 - depth * 1.2) }
+                else if e < 0.78 { pt = CGPoint(x: 2 + depth, y: rnd() * h) }
+                else { pt = CGPoint(x: w - 2 - depth, y: rnd() * h) }
+                if rnd() < 0.55 {
+                    let a = rnd() * .pi, l = 1.5 + rnd() * 3.5
+                    var needle = Path()
+                    needle.move(to: CGPoint(x: pt.x - cos(a) * l / 2, y: pt.y - sin(a) * l / 2))
+                    needle.addLine(to: CGPoint(x: pt.x + cos(a) * l / 2, y: pt.y + sin(a) * l / 2))
+                    ctx.stroke(needle, with: .color(.white.opacity(0.45 + rnd() * 0.35)), style: StrokeStyle(lineWidth: 0.6, lineCap: .round))
+                } else {
+                    let r = 0.35 + rnd() * 0.5
+                    ctx.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)), with: .color(.white.opacity(0.5 + rnd() * 0.4)))
+                }
+            }
 
             // sparkles near the frost: dots, and a few four-pointed glints
             for i in 0..<14 {
@@ -1131,6 +1240,34 @@ struct Frost: View {
         }
         .allowsHitTesting(false)
     }
+}
+
+/// The frost's ferns, as a few numbers, so the pattern can be tuned without redrawing it by hand: how far apart the
+/// ferns along the edges are, how long they grow, how many fan out of each corner and how long, how many reach further
+/// in, and how much they curl. `seed` picks the random pattern; the same seed draws the same frost every time.
+struct FrostStyle {
+    var seed: UInt64
+    var edgeSpacing: CGFloat
+    var edgeLength: ClosedRange<CGFloat>
+    var cornerFerns: Int
+    var cornerLength: ClosedRange<CGFloat>
+    var reachers: Int = 0
+    var reachLength: CGFloat = 0
+    var curl: CGFloat
+    /// Fine needles and specks of frost in the rim: how many.
+    var grain = 0
+    /// Ferns placed by hand: which edge, how far along it (0 to 1), how far they lean off straight in, how long, and
+    /// how much they curl.
+    var wild: [Wild] = []
+    struct Wild { enum Edge { case top, left, right }; var edge: Edge; var at: CGFloat; var lean: CGFloat; var length: CGFloat; var curl: CGFloat }
+
+    /// The frost in use: Phil chose it from two batches of renders (16 November 2026: "I think version 4 of the frost is
+    /// the best"): ferns fanning from the corners, short ones along the edges, the most texture, and two short wild
+    /// ferns from the top. Change a number here and render to tune it.
+    static let current = FrostStyle(seed: 0x1CE, edgeSpacing: 26, edgeLength: 6...14, cornerFerns: 4, cornerLength: 26...50,
+                                    curl: 0.5, grain: 320,
+                                    wild: [Wild(edge: .top, at: 0.3, lean: 0.6, length: 46, curl: 0.9),
+                                           Wild(edge: .top, at: 0.78, lean: -0.5, length: 40, curl: -0.7)])
 }
 
 /// One option: a button with what it would cause underneath. The recommended one stands out.
@@ -1169,6 +1306,7 @@ struct FixRow: View {
         case .resume: return "play.circle"
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"
+        case .restartApp: return "arrow.clockwise.circle"
         case .stopAgent: return "power.circle"
         case .unloadModels: return "memorychip"
         case .deleteBuildData: return "trash"

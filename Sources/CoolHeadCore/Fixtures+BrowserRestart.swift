@@ -69,15 +69,20 @@ extension Fixture {
         FileManager.default.createFile(atPath: refuse.path, contents: nil)
         let declined = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 3, activate: false) }
         let leftAlone = declined == .stillOpen && lines().count == 2 && !running().isEmpty
-        // tidy up: let it quit, and check there is then nothing to restart
+        // quit and reopen with no arguments, as for a leaking app that isn't a browser (see Leaks)
         try? FileManager.default.removeItem(at: refuse)
+        _ = until(10) { visibleOffMain() }
+        let plain = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 10, activate: false, arguments: []) }
+        let plainBack = until(10) { lines().count == 3 } && lines().last == ""
+        // tidy up: let it quit, and check there is then nothing to restart
         running().forEach { $0.terminate() }
         let quit = until(10) { running().allSatisfy { Proc.bsd($0.processIdentifier) == nil } }
         if !quit { running().forEach { $0.forceTerminate() } }
         let none = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 3, activate: false) } == .notRunning
         let ok = opened && { if case .restarted = restarted { return true }; return false }() && back && args && oldGone && leftAlone && quit && none
+            && { if case .restarted = plain { return plainBack }; return false }()
         return ("restart-browser-really-works", ok,
-                "opened \(opened); \(restarted) (\(steps.joined(separator: ", "))); reopened \(back) with \(l.last ?? "nothing"); old copy gone \(oldGone); declining to quit: \(declined), not reopened \(leftAlone); tidied \(quit) \(none)")
+                "opened \(opened); \(restarted) (\(steps.joined(separator: ", "))); reopened \(back) with \(l.last ?? "nothing"); old copy gone \(oldGone); declining to quit: \(declined), not reopened \(leftAlone); quit and reopened plain \(plain), with no arguments \(plainBack); tidied \(quit) \(none)")
     }
 
 }

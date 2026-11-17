@@ -459,6 +459,8 @@ enum Snapshot {
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] != nil { Watcher.shared.showReport = true }
             // the Battery tool's page, with a made-up battery when the screenshot uses example cards
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_BATTERY"] != nil { Tools.shared.battery = true }
+            // the Hardware tool's page, with made-up hardware (COOLHEAD_SNAPSHOT_HARDWARE=healthy or issue)
+            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"] != nil { Tools.shared.hardware = true }
             // Test my network's result, with made-up figures (never this Mac's network)
             // (COOLHEAD_SNAPSHOT_NETWORK=reading, ready, testing or done: the page in that state)
             if let state = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_NETWORK"] {
