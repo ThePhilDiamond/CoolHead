@@ -1,0 +1,2 @@
+- A busy Intel app says it runs through Rosetta and won't open in macOS 28, with a search for its Apple silicon version; on macOS 27, where to see Apple's own list. An app set to open using Rosetta, though it has an Apple silicon version, shows how to run it natively.
+  - On macOS 26.0 and 26.1, a busy WindowServer names the open apps built on an older Electron that slows the Mac, and recommends updating them.

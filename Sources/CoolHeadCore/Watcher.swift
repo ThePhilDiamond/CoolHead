@@ -559,7 +559,8 @@ public final class Watcher {
                 .prefix { NSRunningApplication(processIdentifier: $0.0)?.activationPolicy != .regular }.compactMap(\.1)
             let agent = e.mine ? BackgroundAgents.owner(of: Array(programs)) : nil
             let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
-                              syncFeed: feed, agent: agent, backupFeed: backup, disguise: Disguise.find(e), background: background(e, tr.busySince, state, now))
+                              syncFeed: feed, agent: agent, backupFeed: backup, disguise: Disguise.find(e), background: background(e, tr.busySince, state, now),
+                              apps: AppBuild.facts(e, isWindowServer: Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver"))
             guard c.state != .quiet else { continue }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
             lc.reportSubject = CaseReport.subject(e)
