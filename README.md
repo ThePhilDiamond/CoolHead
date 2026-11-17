@@ -38,7 +38,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 - **Games come first.** A game is never slowed down; other busy work is offered to run cooler instead, to leave the game more power.
 - **Sync apps can wait.** Google Drive, Dropbox, OneDrive, and Box: **Pause syncing** for a set time, with a reminder to resume. If a build is writing lots of files into a folder one syncs, its card says so: build output in a synced folder makes it upload every file.
 - **Security software is left alone.** Your employer's security, device management, and VPN software is never offered Stop, Run it cooler, or Quit.
-- **Save Battery When Unplugged.** On battery, a really hungry job can be paused until you plug in. Nothing is lost, and it carries on by itself.
+- **Battery Saver.** On battery, a really hungry job can be paused until you plug in. Nothing is lost, and it carries on by itself. Switch it on the Battery tool's page, beside the battery's health and what it's doing now.
 - **Quiet hangs count too.** A process can be stuck while using almost nothing: paused by something else, waiting on a network drive that dropped, or an app macOS marks Not Responding. Each gets a card saying what started it and what may be waiting on it, with **Resume**, checking the drive, or **Force quit** (it asks first).
 - **Always trust** an app or job you know is fine: it stays listed but calm, and is still flagged if it looks stuck, your Mac gets hot, or it runs nonstop for 8 hours.
 
@@ -68,11 +68,11 @@ macOS 14 Sonoma or later, on Apple Silicon or Intel.
 
 1. Download the latest `Cool-Head-….zip` from [Releases](../../releases), and unzip it.
 2. Move **Cool Head** to Applications and open it. The first time, macOS may say it can't check the app (it isn't notarized yet): open **System Settings ▸ Privacy & Security** and choose **Open Anyway**.
-3. Look for the snowflake in the menu bar. Its badge shows the state by shape and color: a green circle when all is good, a yellow triangle when something is worth watching, a red octagon for a problem. Prefer something sillier? Right-click it and choose **Menu Bar Icon ▸ Melting Snowflake**: it melts as things heat up, and bursts into flames when there's a problem.
+3. Look for the snowflake in the menu bar. Its badge shows the state by shape and color: a green circle when all is good, a yellow triangle when something is worth watching, a red octagon for a problem. Prefer something sillier? Right-click it and turn on **Settings ▸ Melting Snowflake Icon**: it melts as things heat up, and bursts into flames when there's a problem.
 
 <p align="center"><img src="docs/images/menu-icons.png" width="270" alt="The menu bar icons: Melting Snowflake whole, drooping, and in flames; and the snowflake with a green circle, yellow triangle, or red octagon, on dark and light menu bars"></p>
 
-Click the snowflake for the panel; its tools are along the bottom: Test my network, Trends (the past week from macOS's power log), Trusted, Report a problem and Quit. Right-click it for the settings: updates, Save Battery When Unplugged, notifications, Open at Login, tool names, the menu bar icon, About and Quit.
+Click the snowflake for the panel; its tools are along the bottom: Test my network, Battery (its health, and Battery Saver's switch), Trends (the past week from macOS's power log), Trusted, and, at the right, Report a problem. Right-click it for updates, then Settings (notifications, Open at Login, Hide Tool Names, the Melting Snowflake icon), About and Quit.
 
 After that, Cool Head keeps itself up to date: when a new version is out, the panel offers to install it, and checks the download is genuine first.
 
