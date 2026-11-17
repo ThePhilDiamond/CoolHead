@@ -47,6 +47,8 @@ Screenshots for the project must never show your own processes. These settings s
 - `COOLHEAD_HANG_SECONDS=<seconds>`, such as `COOLHEAD_HANG_SECONDS=10`: show a card for a paused, drive-waiting or Not Responding process after this long, instead of minutes.
 - `COOLHEAD_SNAPSHOT_COOL=<phrase>` or `COOLHEAD_SNAPSHOT_PAUSE=<phrase>`, with a phrase from a card's headline as for `COOLHEAD_SNAPSHOT_ONLY`: run that card's process cooler, or pause it, first.
 - `COOLHEAD_SNAPSHOT_ABOUT=1`: also draw the About panel to `<prefix>-about-light.png` and `-dark.png`.
+- `COOLHEAD_SNAPSHOT_NETWORK=reading`, `ready`, `testing` or `done`: show Test my network in that state, with made-up figures, never this Mac's network.
+- `COOLHEAD_SNAPSHOT_NETWORK_VPN=all`, `some` or `off`, with `COOLHEAD_SNAPSHOT_NETWORK`: a made-up VPN that carries everything (the default), only a few addresses, or none; in `done`, a made-up country websites see you in.
 
 The README's screenshots use a made-up job (a script in a folder named Photo Export that prints progress lines), started with `launchctl submit` so it runs at full priority, and the app run in the background with `ONLY`, `WARM` and `AFTER=100`.
 
