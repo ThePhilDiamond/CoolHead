@@ -99,6 +99,12 @@ func find(_ target: String) -> pid_t? {
     return matches.max { (busy[$0] ?? 0) < (busy[$1] ?? 0) }
 }
 
+/// For one of macOS's own processes, a one-off look (no record kept): its priority and a recent update.
+func oneOff(_ e: Evidence, _ mac: MacState) -> BackgroundWork.Reading? {
+    guard e.script == nil, let p = e.path, CaseReport.isMacOS(p) else { return nil }
+    return BackgroundWork.read(e, busySince: nil, efficiencyCores: mac.efficiencyCores, track: false)
+}
+
 let argv = CommandLine.arguments.dropFirst()
 switch argv.first {
 case "now":
@@ -112,13 +118,14 @@ case "now":
     let drawing = g2.filter { GPU.share(from: g1[$0.key] ?? $0.value, to: $0.value, seconds: seconds) >= GPU.quietShare }.map(\.key)
     for pid in cpu + drawing.filter({ !cpu.contains($0) }) {
         guard let e = Evidence.gather(pid: pid, interval: 0.5) else { continue }
-        printCard(Card.make(e, now: testNow, warm: state.thermal != "nominal", disguise: Disguise.find(e)))
+        printCard(Card.make(e, now: testNow, warm: state.thermal != "nominal", disguise: Disguise.find(e), background: oneOff(e, state)))
         print("")
     }
 case "why":
     guard let target = argv.dropFirst().first else { print(usage); exit(64) }
     guard let p = find(target), let e = Evidence.gather(pid: p) else { print("coolhead: no process matches \(target)"); exit(1) }
-    printCard(Card.make(e, now: testNow, warm: MacState.read().thermal != "nominal", disguise: Disguise.find(e)))
+    let mac = MacState.read()
+    printCard(Card.make(e, now: testNow, warm: mac.thermal != "nominal", disguise: Disguise.find(e), background: oneOff(e, mac)))
     print("\nEvidence")
     printEvidence(e)
     print("\nThe Mac")
