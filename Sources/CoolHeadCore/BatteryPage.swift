@@ -20,53 +20,66 @@ public enum BatteryPage {
         return b
     }
 
-    /// Its health, in a sentence or two: how much it holds, its cycles against what Apple rates it for, and macOS's
-    /// own word for its condition.
-    public static func health(_ b: BatteryHealth) -> String {
-        var s = ""
-        if let m = b.maxCapacity {
-            s = "It holds \(m)% of its original charge"
-            if let c = b.cycles {
-                s += b.designCycles.map { ", after \(Hardware.count(UInt64(c))) of the \(Hardware.count(UInt64($0))) charge cycles Apple rates it for" }
-                    ?? ", after \(Hardware.count(UInt64(c))) charge cycles"
-            }
-            s += "."
-        } else if let c = b.cycles {
-            s = "It has done \(Hardware.count(UInt64(c))) charge cycles."
-        }
+    // Shown the way Test my network shows its result (Phil, 16 November 2026: "The battery tool isn't as visual as the
+    // network tool, it's a bit too much of a wall of text"): a verdict in a few words, three figures, and a status line.
+    // Levels: 0 fine (green), 1 worth knowing (yellow), 2 needs a look (orange).
+
+    /// The answer in a few words, and what it means in one short sentence.
+    public struct Verdict: Equatable { public let level: Int; public let title: String; public let meaning: String }
+    public static func verdict(_ b: BatteryHealth) -> Verdict {
         if b.permanentFailure != 0 {
-            s += (s.isEmpty ? "" : " ") + "Its controller has recorded a fault: have Apple check it."
-        } else if let c = b.condition {
-            s += (s.isEmpty ? "" : " ") + (b.conditionNormal ? "macOS rates its condition Normal." : "macOS rates its condition \(c): it needs service.")
+            return Verdict(level: 2, title: "Battery fault", meaning: "Its controller has recorded a fault. Have Apple check it.")
         }
-        return s.isEmpty ? "macOS doesn't say how worn it is." : s
+        if !b.conditionNormal {
+            return Verdict(level: 2, title: "Battery needs service", meaning: "macOS rates its condition \(b.condition ?? "Service Recommended"). The Mac is safe to keep using.")
+        }
+        if let m = b.maxCapacity, m < 80 {
+            return Verdict(level: 1, title: "Battery worn", meaning: "You get less time unplugged. Below 80%, AppleCare replaces it.")
+        }
+        return Verdict(level: 0, title: "Battery healthy", meaning: b.condition == nil ? "macOS doesn't rate its condition." : "macOS rates its condition Normal.")
     }
 
-    /// What it's doing now: on battery and how fast it's draining, charging and how fast, full, or plugged in but not
+    /// Three figures, each with its level: how much it holds, its cycles against Apple's rating, and its temperature.
+    public struct Tile: Equatable { public let symbol: String; public let value: String; public let unit: String; public let level: Int }
+    public static func tiles(_ b: BatteryHealth) -> [Tile] {
+        var t: [Tile] = []
+        if let m = b.maxCapacity { t.append(Tile(symbol: "heart", value: "\(m)%", unit: "of its first charge", level: m < 80 ? 2 : 0)) }
+        if let c = b.cycles {
+            let unit = b.designCycles.map { "of \(Hardware.count(UInt64($0))) rated cycles" } ?? "charge cycles"
+            t.append(Tile(symbol: "arrow.triangle.2.circlepath", value: Hardware.count(UInt64(c)), unit: unit, level: c >= (b.designCycles ?? .max) ? 1 : 0))
+        }
+        if let c = b.temperatureC {
+            t.append(Tile(symbol: "thermometer.medium", value: String(format: "%.0f°C", c), unit: "temperature", level: c >= 45 ? 2 : c >= 40 ? 1 : 0))
+        }
+        return t
+    }
+
+    /// What it's doing now, as an icon, a few words and a detail: on battery, charging, full, or plugged in but not
     /// charging and why (the same reasons the charging card gives).
-    public static func now(_ b: BatteryHealth) -> String {
-        let pct = b.percent.map { "\($0)%" } ?? "an unknown charge"
-        let charger = b.adapterWatts.map { " from a \($0) W charger" } ?? ""
+    public struct Status: Equatable { public let symbol: String; public let text: String; public let detail: String?; public let level: Int }
+    public static func status(_ b: BatteryHealth) -> Status {
+        let pct = b.percent ?? 0
+        let level = pct >= 88 ? 100 : pct >= 63 ? 75 : pct >= 38 ? 50 : pct >= 13 ? 25 : 0
+        let gauge = "battery.\(level)percent"
+        let charger = b.adapterWatts.map { "\($0) W charger" }
         if !b.onPower {
-            return "On battery at \(pct)" + (b.batteryWatts.flatMap { $0 < -0.5 ? String(format: ", using about %.0f W.", -$0) : nil } ?? ".")
+            return Status(symbol: gauge, text: "On battery · \(pct)%",
+                          detail: b.batteryWatts.flatMap { $0 < -0.5 ? String(format: "using %.0f W", -$0) : nil }, level: 0)
         }
         if b.charging {
-            return "Charging at \(pct)" + (b.batteryWatts.flatMap { $0 > 0.5 ? String(format: ", taking about %.0f W", $0) : nil } ?? "") + charger + "."
+            let rate = b.batteryWatts.flatMap { $0 > 0.5 ? String(format: "%.0f W", $0) : nil }
+            let detail = [rate, charger.map { "from a \($0)" }].compactMap { $0 }.joined(separator: " ")
+            return Status(symbol: "battery.100percent.bolt", text: "Charging · \(pct)%", detail: detail.isEmpty ? nil : detail, level: 0)
         }
         if let why = b.notCharging {
             switch why {
-            case .onHold(let p): return "Plugged in, holding at \(p)%. That's most likely on purpose: Optimized Battery Charging or a Charge Limit slows battery wear."
-            case .tooWarm(let t): return String(format: "Plugged in, but not charging while the battery is warm (%.0f°C). It starts again as it cools.", t)
-            case .chargerTooWeak(let w): return "Plugged in, but draining: the Mac is using more than " + (w.map { "the \($0) W charger" } ?? "the charger") + " gives."
-            case .unknown: return "Plugged in at \(pct), but not charging, and macOS doesn't say why."
+            case .onHold(let p): return Status(symbol: gauge, text: "Holding at \(p)%", detail: "on purpose, to slow wear", level: 0)
+            case .tooWarm(let t): return Status(symbol: gauge, text: "Not charging · \(pct)%", detail: String(format: "too warm (%.0f°C); it starts as it cools", t), level: 1)
+            case .chargerTooWeak(let w): return Status(symbol: gauge, text: "Draining while plugged in", detail: (w.map { "the \($0) W charger" } ?? "the charger") + " can't keep up", level: 2)
+            case .unknown: return Status(symbol: gauge, text: "Not charging · \(pct)%", detail: "macOS doesn't say why", level: 1)
             }
         }
-        return "Plugged in and full" + charger + "."
-    }
-
-    /// The temperature, when it's known, as a short line.
-    public static func temperature(_ b: BatteryHealth) -> String? {
-        b.temperatureC.map { String(format: "The battery is at %.0f°C", $0) + ($0 >= 40 ? ", which is warm." : ".") }
+        return Status(symbol: "battery.100percent.bolt", text: "Plugged in · full", detail: charger, level: 0)
     }
 
     /// For screenshots: a made-up battery, never this Mac's.

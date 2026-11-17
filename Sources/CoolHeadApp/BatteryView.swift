@@ -26,25 +26,48 @@ struct BatteryView: View {
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
             }
             if let b = battery {
-                section("Health") { Text(BatteryPage.health(b)) }
-                section("Now") {
-                    Text(BatteryPage.now(b))
-                    if let t = BatteryPage.temperature(b) { Text(t).foregroundStyle(Ink.muted) }
+                // the answer, three figures and what it's doing now, as Test my network shows its result
+                let v = BatteryPage.verdict(b)
+                HStack(alignment: .top, spacing: 9) {
+                    Image(systemName: ["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(v.level, 2)])
+                        .font(.title3).foregroundStyle(NetworkView.color(v.level))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(v.title).font(.callout.weight(.semibold))
+                        Text(v.meaning).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                let tiles = BatteryPage.tiles(b)
+                if !tiles.isEmpty {
+                    HStack(spacing: 8) { ForEach(tiles, id: \.symbol) { tile($0) } }
+                }
+                let s = BatteryPage.status(b)
+                HStack(spacing: 8) {
+                    Image(systemName: s.symbol).foregroundStyle(s.level > 0 ? NetworkView.color(s.level) : Ink.text)
+                    Text(s.text)
+                    Spacer()
+                    if let d = s.detail { Text(d).font(.caption).foregroundStyle(Ink.muted).multilineTextAlignment(.trailing) }
                 }
             } else {
                 Text("Cool Head can't read the battery right now.").foregroundStyle(Ink.muted)
             }
             Divider()
-            section("More battery life") {
-                let low = !PanelView.sampleSnapshot && ProcessInfo.processInfo.isLowPowerModeEnabled   // a screenshot shows "off"
-                Text("Low Power Mode is \(low ? "on" : "off"). It slows the Mac a little and dims the screen to make the battery last longer. Cool Head can't switch it without your password, so it opens Battery settings.")
-                Button("Open Battery settings") {
+            // more battery life: Low Power Mode needs a password to switch, so it opens Battery settings
+            let low = !PanelView.sampleSnapshot && ProcessInfo.processInfo.isLowPowerModeEnabled   // a screenshot shows "off"
+            HStack(spacing: 8) {
+                Image(systemName: "leaf")
+                Text("Low Power Mode")
+                Text(low ? "On" : "Off").foregroundStyle(Ink.muted)
+                Spacer()
+                Button("Battery settings") {
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Battery-Settings.extension")!)
                 }
                 .buttonStyle(.bordered).controlSize(.small)
-                if let openTrends {
-                    Button("See what used the most energy this week", action: openTrends)
-                        .buttonStyle(.link).font(.callout)
+                .help("Low Power Mode slows the Mac a little and dims the screen so the battery lasts longer. Switching it needs your password, so Cool Head opens Battery settings.")
+            }
+            if let openTrends {
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.xyaxis.line")
+                    Button("What used the most energy this week", action: openTrends).buttonStyle(.link)
                 }
             }
             // no Nerdy stuff: every figure the hardware check reads is already in the sentences above (Phil, 16 November
@@ -67,11 +90,18 @@ struct BatteryView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 
-    func section<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title.uppercased()).font(.caption.weight(.bold)).tracking(0.5).foregroundStyle(Ink.muted)
-            content().fixedSize(horizontal: false, vertical: true)
+    /// One figure, drawn as Test my network draws its own.
+    func tile(_ t: BatteryPage.Tile) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: t.symbol).font(.caption.weight(.semibold)).foregroundStyle(NetworkView.color(t.level))
+                Text(t.value).font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
+            }
+            Text(t.unit).font(.caption2).foregroundStyle(Ink.muted).lineLimit(1).minimumScaleFactor(0.8)
         }
+        .padding(.horizontal, 9).padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7))
     }
 }
 

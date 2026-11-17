@@ -25,6 +25,15 @@ struct ToolsBar: View {
                 closeAll()
                 if open { network.open() }
             }
+            // the battery's own page, beside Network, the other check (Phil, 16 November 2026: "the battery tool should be
+            // next to the network tool"); a Mac with no battery has no Battery tool
+            if hasBattery {
+                ToolButton(symbol: "battery.75percent", name: "Battery", tip: "Battery health and Battery Saver", labels: labels, on: tools.battery) {
+                    let open = !tools.battery
+                    closeAll()
+                    tools.battery = open
+                }
+            }
             if let trends {
                 // a chart, not a clock: it's for spotting patterns, not looking back (Phil, 16 November 2026)
                 ToolButton(symbol: "chart.xyaxis.line", name: "Trends", tip: "Trends this week", labels: labels, on: trends.shown) {
@@ -38,24 +47,16 @@ struct ToolsBar: View {
                 closeAll()
                 tools.trusted = open
             }
+            // no Activity Monitor button: it's not Cool Head's tool, and anyone who wants it knows where it is (Phil,
+            // 16 November 2026: "It's not our tool so we should drop it."); no Quit either: it's in the right-click menu
+            // (Phil, 16 November 2026: "Since we added quit to the right-click menu, can drop the quit button.")
+            Spacer(minLength: 4)
+            // Report on its own at the right: it's about Cool Head, not the Mac
             ToolButton(symbol: "exclamationmark.bubble", name: "Report", tip: "Report a problem", labels: labels, on: watcher.showReport) {
                 let open = !watcher.showReport
                 closeAll()
                 watcher.showReport = open
             }
-            // no Activity Monitor button: it's not Cool Head's tool, and anyone who wants it knows where it is (Phil,
-            // 16 November 2026: "It's not our tool so we should drop it.")
-            // the battery's own page: its health, what it's doing now, Battery Saver's switch and what else helps (Phil,
-            // 16 November 2026); a Mac with no battery has no Battery tool
-            if hasBattery {
-                ToolButton(symbol: "battery.75percent", name: "Battery", tip: "Battery health and Battery Saver", labels: labels, on: tools.battery) {
-                    let open = !tools.battery
-                    closeAll()
-                    tools.battery = open
-                }
-            }
-            Spacer(minLength: 4)
-            ToolButton(symbol: "power", name: "Quit", tip: "Quit Cool Head", labels: labels, on: false) { NSApp.terminate(nil) }
         }
     }
 
