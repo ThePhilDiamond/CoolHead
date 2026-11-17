@@ -64,6 +64,25 @@ When more than one card matches the same process, rules decide first, and are ne
 4. **How specifically it matches** (a weight): a list of named apps or products before a category, a category before anything busy.
 5. **How strong the evidence is** (a weight; no card uses it yet).
 
+The same, as a flow chart. Every card that applies to the process is compared with the others, two at a time:
+
+```mermaid
+flowchart TD
+    start["Every card that applies to a busy process<br/>(the busy-job card always does)"] --> kind
+    kind{"Are their kinds different?<br/>Who it is, stuck, what it's doing, catch-all"} -- Yes --> kindWins["The earlier kind wins"]
+    kind -- No --> refines{"Does one say it refines the other,<br/>directly or through a chain?"}
+    refines -- Yes --> refinesWins["The card that says more wins"]
+    refines -- No --> caution{"Is one card's riskiest option less risky?"}
+    caution -- Yes --> cautionWins["The more cautious card wins"]
+    caution -- No --> match{"Does one match more specifically?<br/>Named apps, then a category, then anything busy"}
+    match -- Yes --> matchWins["The more specific card wins"]
+    match -- No --> evidence{"Is the evidence for one stronger?<br/>(no card uses this yet)"}
+    evidence -- Yes --> evidenceWins["That card wins"]
+    evidence -- No --> tie["A tie: the selftest fails and names both.<br/>Merge them if they share the fix;<br/>otherwise write a rule with its reason."]
+    kindWins & refinesWins & cautionWins & matchWins & evidenceWins --> extras["Extras join the winner:<br/>a helper's Stop it starting by itself, an Intel app's note,<br/>older Electron apps on a busy WindowServer"]
+    extras --> why["Its Nerdy stuff says why it was chosen"]
+```
+
 If no rule or weight tells two matching cards apart, the selftest fails and names both, and the tie is settled with a rule and its reason. Each card's Nerdy stuff says which cards it was chosen over, and why. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
 
 Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
