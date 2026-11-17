@@ -661,6 +661,13 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.8.0": [
+            "Cards for sleep and power: an app keeping your Mac awake, Low Power Mode left on while it's busy, and a battery that drained while asleep.",
+            "A program pretending to be part of macOS says so, and one click moves it to the Trash.",
+            "New cards for browser settings you didn't make, an app that keeps crashing, and an app using far more memory than it usually does.",
+            "A Hardware tool along the bottom, and how your Mac is running at the top of the panel.",
+            "Stop and Force Quit warn that anything unsaved will be lost. Rest the pointer on Caution to see why an option is risky.",
+        ],
         "0.7.0": [
             "Options come in two groups: One click, which Cool Head does for you, then Do it yourself. Risky ones say Caution.",
             "Tools along the bottom: Test my network and Battery, each with its own page, and Trends for the past week's energy use.",

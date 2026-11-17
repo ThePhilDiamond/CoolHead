@@ -1,2 +1,0 @@
-- When memory is tight and the app using the most has kept growing for hours with the same windows open, the memory card says so plainly ("Pages is using more than it usually does"; it's at 8.5 GB, up from 1.1 GB three hours ago) and recommends saving your work, then Quit and reopen, which gives the memory back.
-  - Options that quit an app now say to save your work first.

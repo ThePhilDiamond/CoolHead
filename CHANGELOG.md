@@ -6,6 +6,41 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.8.0] - 2026-11-17
+
+### Added
+
+- Terms of use, in TERMS.md and linked from About: Cool Head is provided as is, a card is its best judgement and not a guarantee, and what you choose to do with it is your responsibility.
+- A program pretending to be part of macOS now says so: "mdworker_local is pretending to be part of macOS", because it uses a macOS name from outside macOS's folders without Apple's signature. One click stops it and moves it to the Trash, where you can put it back.
+  - Also a background item labelled like Apple's (`com.apple.…`) whose program Apple didn't sign: one click turns it off, stops it and moves both to the Trash. And a copy in macOS's folders that isn't Apple's, said only where those folders could really have been changed: Cool Head advises turning macOS's protection back on, and offers a reinstall without recommending it.
+  - A process named like part of macOS whose program couldn't be found is no longer taken for macOS's own; its card says it's probably part of macOS, but Cool Head couldn't confirm it.
+- Cards about macOS's own background work read it by priority and time, not % CPU: Spotlight indexing at low priority says it runs on the efficiency cores and uses little power; after a macOS update it says "You updated to macOS 27.2 2 days ago", and that's normal for hours or days.
+  - macOS's own work busy for over a day says it seems stuck, and advises a restart. Still busy after a restart, it says only Apple can fix it, and offers to check for a macOS update or tell Apple.
+- A busy Intel app says it runs through Rosetta and won't open in macOS 28, with a search for its Apple silicon version; on macOS 27, where to see Apple's own list. An app set to open using Rosetta, though it has an Apple silicon version, shows how to run it natively.
+  - On macOS 26.0 and 26.1, a busy WindowServer names the open apps built on an older Electron that slows the Mac, and recommends updating them.
+- When memory is tight and Ollama is keeping an AI model loaded, one click unloads it and frees its memory; Ollama loads it again the next time it's asked something.
+  - When the startup disk is nearly full, one click deletes Xcode's build data (it asks first); Xcode rebuilds what it needs.
+- A Hardware tool along the bottom: the drive's wear and temperature and whether Time Machine backs it up, crash restarts explained in plain words with what to do, and port errors. At the top of the panel, how your Mac is running: the snowflake whole, melting or in flames as it heats up, with how busy the chip and memory are.
+- When memory is tight and the app using the most has kept growing for hours with the same windows open, the memory card says so plainly ("Pages is using more than it usually does"; it's at 8.5 GB, up from 1.1 GB three hours ago) and recommends saving your work, then Quit and reopen, which gives the memory back.
+  - Options that quit an app now say to save your work first.
+- Stop and Force Quit, which end a program at once with no chance to save, now warn on the option itself: "Anything unsaved will be lost. Click again to stop it." The second click within 5 seconds goes ahead. Quit stays a normal quit, where the app asks about anything unsaved.
+- Cards for sleep and power: an app that has kept your Mac awake for hours (with Quit), Low Power Mode left on with the charger while your Mac is busy, and a battery that drained while asleep because the Mac kept waking, naming what woke it. The warm-but-nothing-busy card gives Apple's 10 to 35°C range, and a game's card says Game Mode gives it priority in full screen.
+- Cards for browser changes you didn't make: Chrome, Edge or Brave managed by settings Cool Head didn't make, on a Mac no organization manages (with a link to the browser's own policy page), and a browser a script started with an extension loaded from a folder (with the folder shown, and Quit).
+- A card for an app that keeps crashing: 5 or more crashes in 24 hours, read from the first line of macOS's crash reports, with Look it up and See the crash reports (in Console).
+
+### Changed
+
+- Rest the pointer on a Caution label to see why the option is risky: "It ends at once, without a chance to save or finish what it was doing." Fixes the cause says why too.
+- What Cool Head is holding back, at the top of the panel, has its undo as a button right on each line (Speed up, Remove limit, Turn on and so on), and a chevron opens what each one is. The frost around them now grows along every edge. A folder left out of Time Machine shows its path starting with ~ rather than your account's name.
+- Run it cooler is offered only where it helps: not for work already running at background priority (slowing it further does nothing), and never for macOS's own programs. For a virtual machine it warns that everything running inside it slows down sharply.
+- When macOS shows web pages for another app (Mail, or an app with a web view such as Google Drive's), the card names that app and offers to quit it, instead of calling it a Safari tab. When macOS's own services work for an app, such as decoding video, the card says which app they're working for.
+- A macOS service Cool Head doesn't know by name now says so: it's part of macOS, working in the background, and, when its work runs at low priority, that it uses little power even though it looks busy. Before, it got the card for an unknown program ("We can't tell why").
+- Cool Head supports macOS 15 Sequoia or later. It still opens on macOS 14 Sonoma, but it isn't tested there, and a later version will need macOS 15.
+
+### Fixed
+
+- An update that needs a newer macOS than your Mac has is no longer installed over the copy that works: Cool Head says which macOS it needs, keeps your copy, and stops offering that version.
+
 ## [0.7.0] - 2026-11-16
 
 ### Added
@@ -224,7 +259,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.5.0...v0.6.0

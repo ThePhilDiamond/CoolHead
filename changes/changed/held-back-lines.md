@@ -1,1 +1,0 @@
-- What Cool Head is holding back, at the top of the panel, has its undo as a button right on each line (Speed up, Remove limit, Turn on and so on), and a chevron opens what each one is. The frost around them now grows along every edge. A folder left out of Time Machine shows its path starting with ~ rather than your account's name.
