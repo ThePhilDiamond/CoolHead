@@ -34,6 +34,15 @@ struct ToolsBar: View {
                     tools.battery = open
                 }
             }
+            // the hardware checks on one page, after Battery, the other part of the Mac itself (Phil, 16 November 2026:
+            // "Yes build the hardware tool page")
+            // a drive: most of the page is about it (Phil, 16 November 2026: "maybe we should use a drive icon instead of a
+            // stethoscope?")
+            ToolButton(symbol: "internaldrive", name: "Hardware", tip: "Hardware checks", labels: labels, on: tools.hardware) {
+                let open = !tools.hardware
+                closeAll()
+                tools.hardware = open
+            }
             if let trends {
                 // a chart, not a clock: it's for spotting patterns, not looking back (Phil, 16 November 2026)
                 ToolButton(symbol: "chart.xyaxis.line", name: "Trends", tip: "Trends this week", labels: labels, on: trends.shown) {
@@ -70,6 +79,7 @@ final class Tools: ObservableObject {
     static let shared = Tools()
     @Published var trusted = false
     @Published var battery = false
+    @Published var hardware = false
 
     /// Closes every tool, in one place, so they all behave alike: opening one closes the others, and the panel always
     /// opens with none open (Phil, 16 November 2026: "We need consistency across the tools, and I think the panel should
@@ -78,6 +88,7 @@ final class Tools: ObservableObject {
         NetworkTester.shared.close()
         shared.trusted = false
         shared.battery = false
+        shared.hardware = false
         watcher.showReport = false
         watcher.showHistory = false
     }

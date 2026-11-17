@@ -37,6 +37,9 @@ struct PanelView: View {
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
             Divider()
+            // how it's running, whenever the panel opens: heat, and how busy the chip and memory are
+            RunningStrip(watcher: watcher)
+            Divider()
             // scrolls once it is taller than the limit
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -61,6 +64,8 @@ struct PanelView: View {
                                     openTrends: PowerHistory.available || HistoryView.snapshotSample != nil
                                         ? { tools.battery = false; watcher.showHistory = true } : nil,
                                     close: { tools.battery = false })
+                    } else if tools.hardware {
+                        HardwareView(close: { tools.hardware = false })
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if watcher.showHistory {
