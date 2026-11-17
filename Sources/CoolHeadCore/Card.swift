@@ -274,6 +274,15 @@ public struct Card {
     public var names: [String] = []
     /// Facts behind the card that its text leaves out, to keep it short: shown first in its Nerdy stuff.
     public var facts: [String] = []
+    /// Which kind of card this is, for a card about one busy process (`Card.make`): the card that won for it, as the
+    /// golden ranking records it (see Ranking.swift). Nil for cards about the Mac as a whole.
+    public var cardID: String? = nil
+    /// For a card about one busy process: every card that matched it, and why this one was chosen (see Ranker).
+    public var choice: Ranker.Choice? = nil
+    /// What the card saw and what it thinks it means, and facts about its options in its own words, for the decision
+    /// record (see Decision.swift).
+    public var diagnosis: Diagnosis? = nil
+    public var optionFacts: [String: OptionFacts] = [:]
 
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation
@@ -401,318 +410,31 @@ public struct Card {
         Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(name)\u{201D}.", kind: .lookUp(name), recommended: recommended)
     }
 
+    /// The card for one busy process: every card in Sources/CoolHeadCore/Cards that matches is made, and the ranker
+    /// chooses one (see ProcessCard.swift).
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
                             frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil,
                             agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil,
                             background: BackgroundWork.Reading? = nil, apps: AppBuild.Facts? = nil) -> Card {
-        // who it is comes first: a program borrowing macOS's name or an Apple label gets that card, whatever it's doing
-        // (see Disguise); then macOS's own work that is stuck (see BackgroundWork)
-        var c = disguise.map { Disguise.card($0, e) }
-            ?? BackgroundWork.stuckCard(e, background, now: now)
-            ?? body(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery,
-                    syncFeed: syncFeed, backupFeed: backupFeed, background: background)
-        // another app's background helper: stopping it doesn't last, since launchd starts it again, so turning it off is
-        // offered too (see BackgroundAgents); never on macOS's own or security software, which never get here as agents
-        if let a = agent, e.mine, c.state != .quiet, !c.fixes.contains(where: { $0.id == "agent" }) {
-            c = Card(state: c.state, headline: c.headline, explanation: c.explanation, fixes: c.fixes + [BackgroundAgents.fix(a)])
-        }
-        // what the app is built on, where that matters on this macOS (see AppBuild): an Intel app, one set to open using
-        // Rosetta, and, on a busy WindowServer, apps with an Electron that lags macOS 26.0 and 26.1
-        if let f = apps, disguise == nil, c.state != .quiet {
-            if let name = e.quittableApp ?? e.app, e.path.map({ !CaseReport.isMacOS($0) }) == true, let add = AppBuild.addition(f, app: name) {
-                c = Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: c.fixes + [add.fix])
-            }
-            if Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver", let add = AppBuild.electronAddition(f) {
-                let others = c.fixes.map { f -> Fix in var f = f; f.recommended = false; return f }
-                c = Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: [add.fix] + others)
-            }
-        }
+        make(Situation(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery,
+                       syncFeed: syncFeed, agent: agent, backupFeed: backupFeed, disguise: disguise, background: background, apps: apps))
+    }
+
+    /// Sees every situation `make` is given, for `coolhead cards --why`, which reviews the reasons on every sample and
+    /// check varied many ways. Nil in the app.
+    nonisolated(unsafe) public static var observer: ((Situation) -> Void)?
+
+    public static func make(_ s: Situation) -> Card {
+        observer?(s)
+        var (c, choice) = Ranker.choose(s)
+        c.choice = choice
         // the processes it names, as shown (see Naming): the process, when the card names it (macOS's own processes and
         // security software are named by what they are instead: "Spotlight", "CrowdStrike Falcon"), and a game it is
         // competing with
         let text = c.headline + " " + c.explanation
-        c.names = [subject(e)].filter { text.contains($0) }
-            + (gameRunning.map { g in text.contains("competing with \(g)") ? [g] : [] } ?? [])
+        c.names = [subject(s.e)].filter { text.contains($0) }
+            + (s.gameRunning.map { g in text.contains("competing with \(g)") ? [g] : [] } ?? [])
         return c
-    }
-
-    static func body(_ e: Evidence, now: Date, busySince: Date?, warm: Bool, gameRunning: String?,
-                     frontApp: String?, battery: Int?, syncFeed: SyncFeed?, backupFeed: BackupFeed? = nil,
-                     background: BackgroundWork.Reading? = nil) -> Card {
-        let onBattery = battery != nil
-        let who = subject(e)
-        let since = busySince ?? e.start ?? now
-        let busyFor = now.timeIntervalSince(since)
-        let state = Health.assess(e, now: now, busySince: busySince)
-        let atStake = now.timeIntervalSince(e.workStart ?? e.start ?? now)
-        let output = e.writing.first { !Evidence.isLog($0) }.map { ($0 as NSString).lastPathComponent }
-        // the graphics chip (see GPU): busy on it counts as busy, and the card says how much of it
-        let gpu = e.gpuShare ?? 0
-        let active = e.coresNow >= 0.25 || e.gpuBusy
-        let gpuClause: String? = e.gpuBusy ? "keeping \(Fmt.share(gpu)) of the graphics chip busy" : nil
-        let gpuLed = e.gpuBusy && e.coresNow < 0.5            // here for the graphics chip, not the CPU
-        let heating = e.coresNow >= 0.5 || gpu >= GPU.busyShare
-
-        // what stopping would cost, in a few words
-        func stopConsequence() -> String {
-            if state == .stalled, let p = e.progress { return "Nothing since \(Fmt.time(p.lineTime)) is lost." }
-            let lose = atStake >= 10 * 60 ? "You may lose up to \(Fmt.duration(atStake)) of work." : "Little work is lost."
-            return lose + (output.map { " \($0) may be left unfinished." } ?? "")
-        }
-        // never macOS's own programs (stopping loginwindow logs you out), and never an app's main program: an app
-        // should be quit, which lets it ask to save, not stopped
-        let appMain = e.script == nil && (e.path.map { $0.components(separatedBy: ".app/").count == 2 && $0.contains(".app/Contents/MacOS/") } ?? false)
-        // a script run by macOS's own interpreter (/usr/bin/python3) is still the person's job
-        let macOSProgram = e.script == nil && (e.path.map(CaseReport.isMacOS) ?? true)
-        let stoppable = e.mine && !macOSProgram && !appMain
-        let stop: Fix? = stoppable ? Fix(id: "stop", title: "Stop it", consequence: stopConsequence(), kind: .stop, recommended: state == .stalled) : nil
-        // only where it helps (see RunCooler): your own work above background priority, never macOS's own
-        let cooler: Fix? = RunCooler.offered(e)
-            ? Fix(id: "cooler", title: "Run it cooler", consequence: RunCooler.consequence(e), kind: .cooler, recommended: false,
-                  holdBack: RunCooler.isVirtualMachine(e))     // never put in place of a task's recommendation for a VM
-            : nil
-
-        // macOS's own processes: what it is doing, and whether this has gone on longer than usual
-        if let k = Pattern.match(name: e.name, path: e.path, pid: e.pid), e.progress == nil {
-            // after a macOS update, indexing and analysis are expected for hours to days (see BackgroundWork)
-            let updated = k.afterUpdate ? background?.update : nil
-            let long = updated == nil && busyFor > k.usualHours * 3600 && busyFor >= 20 * 60
-            // its busy threads at background priority: on the efficiency cores, little power whatever % CPU says
-            let cool = active && background?.cool == true
-                ? " It's running at low priority, on the chip's efficiency cores, so it uses little power even though it looks busy." : ""
-            // Time Machine copying a build's output: the build folder is the cause to fix (see BackupExclusions)
-            let feed = k.id == "time-machine" && active ? backupFeed : nil
-            let explanation = (long
-                ? "It usually takes under \(Fmt.duration(k.usualHours * 3600))."
-                : updated.map { "You updated to macOS \($0.version) \(BackgroundWork.ago($0.date, now: now)); this usually goes on for hours or days after an update." }
-                    ?? k.usually + (k.endsOnItsOwn ? " It stops on its own." : "")) + cool + Fmt.its([gpuClause])
-                + (feed.map { " " + $0.sentence() } ?? "")
-            var fixes: [Fix] = feed.map { [$0.fix(recommended: true)] } ?? []
-            if long {
-                if k.whenLong == "Look it up" { fixes.append(lookUp(e.name, recommended: true)) }
-                else {
-                    // what the catalogue advises, as a button: open the app it's about, or Activity Monitor to find the heat
-                    if k.whenLong.hasPrefix("Find what is heating") {
-                        fixes.append(Fix.openApp("advice", k.whenLong, bundle: Fix.activityMonitor, steps: "Click % CPU to put the busiest first.", recommended: true))
-                    } else if let b = e.appBundle {
-                        fixes.append(Fix.openApp("advice", k.whenLong, bundle: b, steps: k.risk ?? "", recommended: true))
-                    } else {
-                        fixes.append(Fix.guide("advice", k.whenLong, k.risk ?? "", steps: [k.whenLong + ".", k.risk].compactMap { $0 }, recommended: true))
-                    }
-                    fixes.append(lookUp(e.name, recommended: false))
-                }
-                fixes.append(wait(until: nil, now: now, recommended: false))
-                fixes.append(share)
-            } else {
-                fixes.append(wait(until: nil, now: now, recommended: true))
-            }
-            if let bundle = e.quittableBundle, let app = e.quittableApp, k.risk != nil, k.whenLong.hasPrefix("Quit") {
-                fixes.append(Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(bundle)).losingWork())
-            }
-            let head = !active ? "\(k.doing). It's quiet now."
-                : long ? "\(k.doing). It's been \(Fmt.duration(busyFor)), longer than usual."
-                : updated != nil ? "\(k.doing). That's normal after an update."
-                : "\(k.doing). That's normal."
-            // a statement, not an option: macOS restarts its own programs
-            return Card(state: !active ? .quiet : long ? .unknown : .working, headline: head,
-                        explanation: explanation + (e.mine ? "" : " macOS needs it, so stopping it would only start it again."), fixes: fixes)
-        }
-
-        // security, device management and VPN software: never stopped, slowed or quit (from System Sentinel's review,
-        // 15 November 2026): stopping one can leave the Mac unprotected or break an employer's rules
-        if let product = SecuritySoftware.product(path: e.path, name: e.name) {
-            if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(product.name) is quiet now.", explanation: "", fixes: []) }
-            let vpn = product.kind == .vpn
-            return Card(state: .working,
-                        headline: vpn ? "\(product.name) is your VPN, handling your network traffic." : "\(product.name) is security software, checking files as they're used.",
-                        explanation: "Cool Head won't stop or slow it: that could leave your Mac unprotected or break your organization's rules."
-                            + (vpn ? "" : " If it's busy for hours, tell whoever manages this Mac: it may be stuck scanning a big folder."),
-                        fixes: [vpn ? e.appBundle.map { Fix.openApp("disconnect", "Disconnect when you don't need it", bundle: $0, steps: "Disconnect there, or from its menu bar icon.") } : nil,
-                                lookUp(product.name, recommended: false)].compactMap { $0 })
-        }
-
-        // sync apps: catching up is normal, and pausing loses nothing; slowing or quitting come after
-        if let sync = SyncApps.app(bundle: e.appBundle), let bundle = e.appBundle {
-            if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(sync) is quiet now.", explanation: "", fixes: []) }
-            // a build or job writing lots of files into a folder it syncs is the cause to fix, ahead of pausing
-            // (Phil's Google Drive errors, 15 November 2026)
-            return Card(state: .working, headline: "\(sync) is syncing your files.",
-                        explanation: "It uploads and checks every change, and stops when it's caught up."
-                            + (syncFeed.map { " " + $0.sentence(sync) } ?? "") + Fmt.its([warm && e.coresNow >= 0.5 ? "adding to the heat" : nil]),
-                        fixes: [syncFeed?.fix(sync, recommended: true),
-                                Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
-                                    kind: .pauseSync(bundle, sync), recommended: warm || gameRunning != nil
-                                        || (onBattery && (e.coresNow >= 2 || ((battery ?? 100) < 50 && e.coresNow >= 1)))),
-                                RunCooler.offered(e) ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
-                                Fix(id: "quit", title: "Quit \(sync)", consequence: "Stops syncing until you open it again.", kind: .quitApp(bundle))].compactMap { $0 })
-        }
-
-        // Chrome and other Chromium browsers, without quitting them (Phil, 15 November 2026: "Chrome is one of the
-        // biggest causes, so we should look into if there are ways we can improve performance without killing it when a
-        // user is using it"). A process can be told apart as a tab, an extension or the graphics process, but not which
-        // tab: only the browser's Task Manager knows that.
-        if let part = e.browserPart, let app = e.app, let bundle = e.appBundle {
-            let inFront = frontApp == bundle                 // you're using the browser: the busy tab may be the one you're on
-            let what = part == .tab ? "One tab" : part == .extensionPart ? "One extension" : "Its graphics process"
-            let explanation = (gpuLed ? "\(what) has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
-                               : "\(what) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor)).")
-                + (part == .graphics ? "" : " Only \(app) knows which.")
-                + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil])
-            let canCool = RunCooler.offered(e) && part != .graphics     // slowing graphics would slow all of it
-            let page = { (url: String, title: String, why: String, rec: Bool) in
-                Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
-            let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.").fixingTheCause()
-            let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle)).losingWork()
-            var fixes: [Fix?]
-            switch part {
-            case .tab:
-                fixes = [canCool ? Fix(id: "cooler", title: "Run this tab cooler", consequence: "Only this tab slows. Undo any time.", kind: .cooler, recommended: !inFront, holdBack: inFront) : nil,
-                         page("chrome://settings/performance", "Turn on Energy Saver", "Takes you to \(app)'s Performance settings. Less background work, lower frame rates.", inFront || !canCool),
-                         find,
-                         e.mine ? Fix(id: "closetab", title: "Close just that tab", consequence: "It shows a crash page; Reload brings it back. Anything typed in it is lost.", kind: .stop) : nil,
-                         quit]
-            case .extensionPart:
-                fixes = [page("chrome://extensions", "Turn off the extension", "Takes you to \(app)'s extensions page. Switch off the one you don't need.", true).fixingTheCause(),
-                         canCool ? Fix(id: "cooler", title: "Run it cooler", consequence: "Only this extension slows. Undo any time.", kind: .cooler) : nil,
-                         find,
-                         e.mine ? Fix(id: "stopext", title: "Stop the extension", consequence: "\(app) says it crashed. Reload it from the extensions page.", kind: .stop) : nil,
-                         quit]
-            case .graphics:
-                fixes = [page("chrome://settings/performance", "Turn on Energy Saver", "Takes you to \(app)'s Performance settings. Lower frame rates, less heat.", true),
-                         find, quit]
-            }
-            let head = part == .tab ? "A \(app) tab is working hard." : part == .extensionPart ? "A \(app) extension is working hard."
-                : "\(app) is drawing a lot: video or animation in a tab."
-            return Card(state: !active ? .quiet : busyFor > 20 * 60 ? .unknown : .starting,
-                        headline: head, explanation: explanation, fixes: fixes.compactMap { $0 })
-        }
-
-        let used = gpuLed ? "has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
-            : "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
-        let webkitGPU = e.name == "com.apple.WebKit.GPU" || (e.path?.contains("com.apple.WebKit.GPU") ?? false)
-        let webkit = webkitGPU || e.name == "com.apple.WebKit.WebContent" || (e.path?.contains("com.apple.WebKit.WebContent") ?? false)
-
-        // a macOS service working for an app (see Served, research rule 4): the work is the app's, so the card names it
-        // and quitting it is the advice
-        if let b = e.servedBy, !webkit, active {
-            let app = Served.name(b)
-            return Card(state: busyFor > 20 * 60 ? .unknown : .working,
-                        headline: Served.doing(e).map { "macOS is \($0) for \(app)." } ?? "A part of macOS is busy working for \(app).",
-                        explanation: "The macOS process doing it, \(e.name), \(used)" + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil]),
-                        fixes: [Served.quit(b), lookUp(e.name, recommended: false), wait(until: nil, now: now, recommended: false)])
-        }
-
-        // web pages shown by another app (Mail, or an app with a web view): WebKit's processes do the work for it, and
-        // quitting that app is the advice
-        if webkit, let b = e.servedBy, !Served.isSafari(b), active {
-            let app = Served.name(b)
-            return Card(state: busyFor > 20 * 60 ? .unknown : .working,
-                        headline: webkitGPU ? "A web page in \(app) is drawing a lot: video or animation." : "A web page in \(app) is working hard.",
-                        explanation: "macOS \(webkitGPU ? "draws" : "runs") \(app)'s web pages in a separate process, which \(used)"
-                            + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil]),
-                        fixes: [Served.quit(b), lookUp(e.name, recommended: false), wait(until: nil, now: now, recommended: false)])
-        }
-
-        // web pages: the busy process is a tab or extension, and only the browser knows which
-        // WebKit's graphics process draws web pages for Safari, and for any other app that shows them: when macOS
-        // doesn't say which app it's for, it's most often Safari
-        if let app = webkit ? "Safari" : e.app, webkit || e.name.contains("Renderer") || e.name.contains("Web Content") || e.name.contains("(Plugin)") {
-            let tm = app.contains("Safari") ? "Window ▸ Activity" : "Window ▸ Task Manager"
-            let forSafari = e.servedBy.map(Served.isSafari) == true
-            return Card(state: !active ? .quiet : busyFor > 20 * 60 ? .unknown : .starting,
-                        headline: webkitGPU ? "A web page is drawing a lot: video or animation." : "A \(app) tab is working hard.",
-                        explanation: (webkitGPU ? (forSafari ? "The process that draws Safari's pages \(used)"
-                                                   : "The process that draws web pages \(used) It's usually a Safari tab, though other apps that show web pages have one too.")
-                            : "One tab or extension \(used) Only \(app) knows which.") + Fmt.its([gpuLed ? nil : gpuClause]),
-                        fixes: [((e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Choose \(tm), then click CPU to put the busiest first.", recommended: true) }
-                                    ?? Fix.guide("find", "Find the busy tab", "In \(app), choose \(tm) and click CPU.", steps: ["In \(app), choose \(tm).", "Click CPU to put the busiest tab first.", "Close it, or reload it if you need it."], recommended: true)).fixingTheCause(),
-                                (e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp($0)).losingWork() },
-                                lookUp(e.name, recommended: false),
-                                wait(until: nil, now: now, recommended: false)].compactMap { $0 })
-        }
-
-        // one of macOS's own services that isn't in the catalogue (see BackgroundWork.unknownCard, research rule 6)
-        if BackgroundWork.isService(e) {
-            return BackgroundWork.unknownCard(e, background, busyFor: busyFor, active: active,
-                                              used: "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))",
-                                              extra: Fmt.its([gpuClause, warm && heating ? "adding to the heat" : nil]), now: now)
-        }
-
-        // games are protected (Phil, 15 November 2026: "if we "run it cooler" with a game, couldn't it adversely impact
-        // performance? We may wish to protect games as a class we know will usually be busy and suggest killing other
-        // tasks first to improve game performance"): busy is what a game does, so it's calm and never slowed down;
-        // when the Mac is warm, lower settings is the fix that keeps play smooth
-        if let game = e.gameBundle {
-            let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
-            if !active { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }
-            return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
-                        // rule 7: in full screen, Game Mode gives the game priority over background work (Apple, macOS 14)
-                        explanation: "That's normal while you play. In full screen, macOS's Game Mode gives it priority over background work." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
-                        fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower quality or frame rate. Less heat, still smooth.", recommended: warm),
-                                Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game)).losingWork()])
-        }
-
-        // while a game is being played, other busy work is the thing to slow, so the game runs smoothly
-        let forGame = gameRunning != nil && cooler != nil
-        // on battery, with Save Battery When Unplugged on: a heavy job (a script or command-line tool, never an app)
-        // can be frozen until the Mac is plugged in. Nothing is lost, unlike stopping it (Phil's rule: stopping is
-        // recommended only when a job has stalled).
-        let pausable = e.mine && (e.script != nil || (e.appBundle == nil && !(e.path.map(CaseReport.isMacOS) ?? true)))
-        // only the really hungry or long-running while the battery is healthy; any steady load once it's under half
-        // (Phil, 15 November 2026: "only be aggressive to really hungry /extended processes or when battery is below 50%")
-        let hungry = (e.coresNow >= 2 && busyFor >= 600) || (e.coresNow >= 1 && busyFor >= 1800)
-        let drains = onBattery && pausable && state != .stalled && e.coresNow >= 1 && busyFor >= 600
-            && (hungry || (battery ?? 100) < 50)
-        let pauseFix: Fix? = drains ? Fix(id: "pausejob", title: "Pause until you plug in",
-                                          consequence: "Frozen, nothing lost; it carries on when you plug in. A download may time out.",
-                                          kind: .pauseJob, recommended: true) : nil
-        let cool = cooler.map { c -> Fix in
-            var c = c; c.recommended = (warm || forGame) && !RunCooler.isVirtualMachine(e)   // slowing a VM slows all of it: offered, not advised
-            if let g = gameRunning { c = Fix(id: c.id, title: c.title, consequence: "Leaves more power for \(g). Undo any time.", kind: c.kind, recommended: c.recommended) }
-            return c
-        }
-        // an app here for the graphics chip: what lets the chip rest, and quitting it (slowing it wouldn't help: background
-        // priority slows its CPU work, not its drawing)
-        let gpuApp = gpuLed ? e.quittableApp : nil
-        let gpuQuit = gpuApp.flatMap { app in e.quittableBundle.map {
-            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. It asks about anything unsaved.", kind: .quitApp($0)) } }
-        // while the Mac is warm, a busy job says it is part of why
-        let heat = Fmt.its([gpuClause, warm && heating ? "adding to the heat" : nil,
-                            forGame || (gameRunning != nil && gpuLed) ? "competing with \(gameRunning!)" : nil, drains ? "draining your battery" : nil])
-            + (gpuApp != nil ? " Pausing or closing a video, animation or 3D view in it lets the chip rest." : "")
-        switch state {
-        case .working:
-            if let p = e.progress {
-                var head = "\(who) is " + (p.fraction.map { "\(Fmt.percent($0)) done." } ?? "making progress.")
-                if let fin = p.finish { head += fin > now ? " Ready around \(Fmt.time(fin))." : " Almost done." }
-                return Card(state: state, headline: head, explanation: "Its log says \u{201C}\(p.line)\u{201D}." + heat,
-                            fixes: [pauseFix, wait(until: p.finish, now: now, recommended: !warm || cooler == nil), cool, gpuQuit, stop].compactMap { $0 })
-            }
-            return Card(state: state, headline: "\(who) is busy and still saving its work.",
-                        explanation: "It doesn't say how far along it is." + heat,
-                        fixes: [pauseFix, wait(until: nil, now: now, recommended: !warm || cooler == nil), cool, gpuQuit, stop].compactMap { $0 })
-        case .waiting:
-            return Card(state: state, headline: "\(who) is waiting for another job.",
-                        explanation: "It isn't using your Mac's power while it waits.",
-                        fixes: [wait(until: nil, now: now, recommended: true), stop].compactMap { $0 })
-        case .stalled:
-            let at = e.progress.map { Fmt.time($0.lineTime) } ?? "a while"
-            return Card(state: state, headline: "\(who) hasn't moved since \(at). It looks stuck.",
-                        explanation: "No new progress for \(Fmt.duration(now.timeIntervalSince(e.progress?.lineTime ?? now))).",
-                        fixes: [stop ?? lookUp(e.name, recommended: true), wait(until: nil, now: now, recommended: false), share])
-        case .unknown:
-            return Card(state: state, headline: "\(who) has been busy for \(Fmt.duration(busyFor)). We can't tell why.",
-                        explanation: "It isn't saying what it's doing." + heat,
-                        fixes: [pauseFix, lookUp(e.name, recommended: !forGame), wait(until: nil, now: now, recommended: false),
-                                forGame ? cool : cooler, gpuQuit,
-                                stop.map { var f = $0; f = Fix(id: f.id, title: f.title, consequence: "Only if you know what it is. " + f.consequence, kind: f.kind); return f },
-                                share].compactMap { $0 })
-        case .starting:
-            return Card(state: state, headline: "\(who) just started. Give it a minute.", explanation: "Started at \(Fmt.time(e.start ?? now))." + heat,
-                        fixes: [pauseFix, wait(until: nil, now: now, recommended: true), forGame ? cool : cooler, gpuQuit, stop].compactMap { $0 })
-        case .quiet:
-            return Card(state: state, headline: "\(who) is quiet now.", explanation: "", fixes: [])
-        }
     }
 }
 

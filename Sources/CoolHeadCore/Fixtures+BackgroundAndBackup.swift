@@ -133,4 +133,7 @@ extension Fixture {
                        "backed up to start with \(before); left out \(out) (it \(outState.0), inside \(outState.1), tmutil \(outState.2)), listed \(listedB); back \(back) (left out \(backState.0), tmutil included \(backState.1)), unlisted \(unlistedB)"))
         return review
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func backgroundAndBackupSamples(_ now: Date) -> [(String, Card)] { [] }
 }

@@ -19,13 +19,13 @@ extension Fixture {
     }
 
     /// The example card (see Wording).
-    static func leakSamplesForWording(_ now: Date) -> [(String, Card)] {
+    static func leaksSamples(_ now: Date) -> [(String, Card)] {
         let pages = MemGroup(key: pagesBundle, name: "Pages", kind: .app, bundle: pagesBundle, bytes: 9_100_000_000, count: 1)
         let slack = MemGroup(key: "/Applications/Slack.app", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 1_200_000_000, count: 5)
         return [("memory-leaking-app", MemoryAdvice.card([pages, slack], mac: leakTightMac(), now: now, leak: Leaks.judge(leakSamples(now))))]
     }
 
-    static func leakChecks(_ now: Date) -> [(String, Bool, String)] {
+    static func leaksChecks(_ now: Date) -> [(String, Bool, String)] {
         var review: [(String, Bool, String)] = []
         let j = Leaks.judge
 

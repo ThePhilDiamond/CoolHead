@@ -52,6 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             self.lastLevel = level
             self.item.button?.image = MenuIcon.image(level: level)
         }
+        // the icon picked on the Settings page or the welcome, drawn at once
+        NotificationCenter.default.addObserver(forName: MenuIcon.changed, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel) }
+        }
         watcher.start()
         HardwareWatch.shared.onAlert = { Alerts.remind($0) }
         for source in CardSources.all { source.start(watcher) }    // see CardSources.swift
@@ -73,37 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let event = NSApp.currentEvent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
             panel.close()
+            // a shortcut menu, short: every setting, the version and updates are on the Settings page in the panel,
+            // behind the gear at the right of the toolbar (Phil, 17 November 2026: "or we put back the settings icon in
+            // the tool bar and limit right click to quit")
             let menu = NSMenu()
-            menu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "").target = self
-            let auto = NSMenuItem(title: "Check for Updates Automatically", action: #selector(toggleAutoUpdates), keyEquivalent: "")
-            auto.target = self
-            auto.state = Updater.shared.automatic ? .on : .off
-            menu.addItem(auto)
-            menu.addItem(.separator())
-            // settings live in one submenu, every one a toggle, so the everyday menu stays short; what it does first, then
-            // how it looks (Phil, 16 November 2026: "icon style and labels are aesthetic choices, so should be grouped
-            // separately from the other settings"); tools live along the bottom of the panel
-            // Battery Saver isn't here: it's switched on and off as your situation changes, so it's a tool along the
-            // bottom of the panel (Phil, 16 November 2026)
-            let settings = NSMenu()
-            let notify = NSMenuItem(title: "Notifications", action: #selector(toggleNotifications), keyEquivalent: "")
-            notify.target = self; notify.state = Alerts.enabled ? .on : .off
-            settings.addItem(notify)
-            let login = NSMenuItem(title: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
-            login.target = self; login.state = LoginItem.on ? .on : .off
-            settings.addItem(login)
-            settings.addItem(.separator())
-            let labels = NSMenuItem(title: "Hide Tool Names", action: #selector(toggleToolLabels), keyEquivalent: "")
-            labels.target = self; labels.state = Tools.labels ? .off : .on          // names show by default, so it's unchecked
-            labels.toolTip = "Hide the name under each tool along the bottom of the panel; its name shows when you point at it."
-            settings.addItem(labels)
-            let melting = NSMenuItem(title: "Melting Snowflake Icon", action: #selector(toggleMeltingIcon), keyEquivalent: "")
-            melting.target = self; melting.state = MenuIcon.style == "melting" ? .on : .off
-            melting.toolTip = "On: the snowflake melts when something is slowing your Mac or needs a look, and bursts into flames for a serious problem. Off: the snowflake with a colored status badge."
-            settings.addItem(melting)
-            let settingsItem = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
-            settingsItem.submenu = settings
-            menu.addItem(settingsItem)
+            menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
             menu.addItem(.separator())
             menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
             // Cool Head's own action, not NSApplication's terminate:, for which macOS 26 adds an icon that sets this one
@@ -119,20 +97,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
-    @objc func toggleNotifications() { Alerts.enabled.toggle() }
-
-    @objc func toggleLogin() { LoginItem.set(!LoginItem.on) }
-
-    @objc func toggleToolLabels() { Tools.labels.toggle() }
-
-    @objc func about() { About.show() }
-
-    @objc func checkUpdates() {
+    /// The panel, open on its Settings page.
+    @objc func openSettings() {
         showPanel()
-        Task { await Updater.shared.check(quiet: false) }
+        Tools.closeAll(Watcher.shared)
+        Tools.shared.settings = true
     }
 
-    @objc func toggleAutoUpdates() { Updater.shared.automatic.toggle() }
+    @objc func about() { About.show() }
 
     @objc func quit() { NSApp.terminate(nil) }
 
@@ -144,11 +116,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         MainActor.assumeIsolated { NetworkTester.shared.close() }
     }
 
-    /// The icon is a toggle like every other setting: on, the Melting Snowflake; off, the Status Badge (the default).
-    @objc func toggleMeltingIcon() {
-        MenuIcon.style = MenuIcon.style == "melting" ? "badge" : "melting"
-        item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel)
-    }
 
     func showPanel() {
         guard let button = item.button, !panel.isVisible else { return }
@@ -230,6 +197,8 @@ enum LoginItem {
 /// look; red octagon, a problem. The flake is drawn in the menu bar's text colour at draw time, so it follows light
 /// and dark menu bars even though the image isn't a template (templates can't hold colour).
 enum MenuIcon {
+    /// Posted when the icon's style changes, so the menu bar redraws it.
+    static let changed = Notification.Name("CoolHeadMenuIconChanged")
     /// "badge": the snowflake with a status badge. "melting": the snowflake itself melts as things get worse.
     static var style: String {
         get { UserDefaults.standard.string(forKey: "iconStyle") ?? "badge" }
@@ -464,6 +433,8 @@ enum Snapshot {
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_BATTERY"] != nil { Tools.shared.battery = true }
             // the Hardware tool's page, with made-up hardware (COOLHEAD_SNAPSHOT_HARDWARE=healthy or issue)
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"] != nil { Tools.shared.hardware = true }
+            // the Settings page
+            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SETTINGS"] != nil { Tools.shared.settings = true }
             // Test my network's result, with made-up figures (never this Mac's network)
             // (COOLHEAD_SNAPSHOT_NETWORK=reading, ready, testing or done: the page in that state)
             // (COOLHEAD_SNAPSHOT_NETWORK_VPN=all, some or off: a made-up VPN carrying everything, only a few addresses, or

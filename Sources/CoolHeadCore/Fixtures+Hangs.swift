@@ -14,7 +14,7 @@ extension Fixture {
 
     /// Hangs that use almost nothing (Phil, 15 November 2026: "Yes, build hangs"): paused by something else, stuck
     /// waiting on a drive, and Not Responding apps.
-    static func hangChecks(_ now: Date) -> [(String, Bool, String)] {
+    static func hangsChecks(_ now: Date) -> [(String, Bool, String)] {
         var out: [(String, Bool, String)] = []
         func ids(_ c: Card) -> [String] { c.fixes.map(\.id) }
         func with(_ e: Evidence, parent: String) -> Evidence {
@@ -92,4 +92,7 @@ extension Fixture {
         return out
     }
 
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func hangsSamples(_ now: Date) -> [(String, Card)] { [] }
 }

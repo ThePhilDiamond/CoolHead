@@ -3,9 +3,9 @@ import CoolHeadCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Along the bottom of the panel: the tools, each an icon with its name (the names can be hidden from the right-click
-/// menu), and each opening in the panel's middle (Phil, 16 November 2026: "Tools go here, settings go in the right-click
-/// menu."). Opening one closes any other.
+/// Along the bottom of the panel: the tools, each an icon with its name (the names can be hidden on the Settings page),
+/// and each opening in the panel's middle. Opening one closes any other. Settings is the last, at the right end (Phil,
+/// 17 November 2026: "The settings icon should be the right-most.").
 struct ToolsBar: View {
     let watcher: Watcher
     @ObservedObject var network = NetworkTester.shared
@@ -57,20 +57,25 @@ struct ToolsBar: View {
                 tools.trusted = open
             }
             // no Activity Monitor button: it's not Cool Head's tool, and anyone who wants it knows where it is (Phil,
-            // 16 November 2026: "It's not our tool so we should drop it."); no Quit either: it's in the right-click menu
-            // (Phil, 16 November 2026: "Since we added quit to the right-click menu, can drop the quit button.")
+            // 16 November 2026: "It's not our tool so we should drop it."); no Quit either: it's on the Settings page and
+            // in the right-click menu, so the bar has room for the tools' names (Phil, 17 November 2026: "if we're making
+            // sure everything is in the pane, what about "quit"? That'd be even more crowded again...")
             Spacer(minLength: 4)
-            // updates and Report are about Cool Head itself, not the Mac: a line sets them apart when the names show
-            // (Phil, 17 November 2026: "they are a separate category of button and should be visually distinguished")
+            // Report and Settings are about Cool Head itself, not the Mac: a line sets them apart when the names show
+            // (Phil, 17 November 2026: "they are a separate category of button and should be visually distinguished").
+            // No Update button: the version and Check Now are on the Settings page, and an update that's ready shows at
+            // the top of the panel with Install (Phil, 17 November 2026, choosing between renders: "Update in Settings")
             if labels { Divider().frame(height: 34).padding(.horizontal, 4) }
-            // the version, which checks for updates when clicked, moved here from the top of the panel (Phil, 17 November
-            // 2026: "What if we move the version number to the bottom tool bar")
-            VersionButton(labels: labels)
-            // Report on its own at the right: it's about Cool Head, not the Mac
             ToolButton(symbol: "exclamationmark.bubble", name: "Report", tip: "Report a problem", labels: labels, on: watcher.showReport) {
                 let open = !watcher.showReport
                 closeAll()
                 watcher.showReport = open
+            }
+            // Settings at the right end (Phil, 17 November 2026: "The settings icon should be the right-most.")
+            ToolButton(symbol: "gearshape", name: "Settings", tip: "Settings", labels: labels, on: tools.settings) {
+                let open = !tools.settings
+                closeAll()
+                tools.settings = open
             }
         }
     }
@@ -86,7 +91,8 @@ final class Tools: ObservableObject {
     @Published var trusted = false
     @Published var battery = false
     @Published var hardware = false
-    /// Report a problem was opened from the line under what Cool Head is holding back, so the form starts on the first.
+    @Published var settings = false
+    /// Report a problem is open in the On hold section, under what Cool Head is holding back.
     @Published var reportAboutHeld = false
 
     /// Closes every tool, in one place, so they all behave alike: opening one closes the others, and the panel always
@@ -97,16 +103,13 @@ final class Tools: ObservableObject {
         shared.trusted = false
         shared.battery = false
         shared.hardware = false
+        shared.settings = false
         shared.reportAboutHeld = false
         watcher.showReport = false
         watcher.showHistory = false
     }
-    /// Show each tool's name under its icon (on by default; Hide Tool Names in the right-click menu turns it off).
+    /// Show each tool's name under its icon (on by default; Show tool names on the Settings page).
     nonisolated static let labelsKey = "toolLabels"
-    static var labels: Bool {
-        get { UserDefaults.standard.object(forKey: labelsKey) as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: labelsKey) }
-    }
 }
 
 /// A tool: its icon, with its name under it (or, with names hidden, as a tooltip), tinted while it's open.

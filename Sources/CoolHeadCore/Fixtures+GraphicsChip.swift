@@ -58,4 +58,7 @@ extension Fixture {
                                   : "\(t2.count) processes use the graphics chip; WindowServer among them \(windowServer); busiest \(Fmt.share(shares.max() ?? 0)) of it"))
         return review
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func graphicsChipSamples(_ now: Date) -> [(String, Card)] { [] }
 }

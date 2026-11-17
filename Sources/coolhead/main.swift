@@ -20,6 +20,8 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead history             what used the most energy and why the Mac woke, from macOS's power log (about a week)
   coolhead selftest            checks every recorded example gives the card it should
   coolhead wording             every card's text, from the recorded examples, to read the wording in one place
+  coolhead ranking [--write]   which card and option every sample gets; --write records it for the selftest
+  coolhead cards [--json|--why] every kind of card about a busy process: its rule and samples; --why reviews why lines
 
 <name or PID>: the process's name as Activity Monitor shows it, or its PID (the number in Activity Monitor's PID
 column), without the angle brackets: coolhead why mds_stores. Part of a name is enough; when several processes match,
@@ -204,6 +206,58 @@ case "history":
     print(h.text)
 case "wording":
     for (id, c) in Wording.samples() { print("[\(id)]"); print(Wording.text(c)) }
+case "ranking":
+    // every sample card's winner and options (see Ranking.swift); --write records them in GoldenRanking.swift
+    let lines = Ranking.lines()
+    if argv.dropFirst().first == "--write" {
+        let explained = Ranking.explanationLines()
+        do {
+            try Ranking.source(lines).write(to: Ranking.file, atomically: true, encoding: .utf8)
+            try Ranking.explanationsSource(explained).write(to: Ranking.explanationsFile, atomically: true, encoding: .utf8)
+        } catch { print("coolhead: couldn't write the golden files: \(error.localizedDescription)"); exit(1) }
+        print("Wrote \(lines.count) lines to \(Ranking.file.path) and \(explained.count) to \(Ranking.explanationsFile.path)")
+    } else {
+        for l in lines { print(l) }
+    }
+case "cards":
+    if argv.dropFirst().first == "--why" {
+        // every situation the samples and checks give Card.make, and the made-up overlaps, each varied in warmth,
+        // battery, a game and the front app: each pattern of sentences in the "why" line, with examples
+        var seen: [Situation] = []
+        Card.observer = { seen.append($0) }
+        _ = Wording.samples()
+        _ = Fixture.runAll()
+        Card.observer = nil
+        seen += Fixture.overlaps().map(\.1)
+        var patterns: [String: [String]] = [:]
+        var missing: [String] = []
+        var count = 0
+        for s in seen {
+            for warm in [false, true] { for battery in [nil, 30] as [Int?] { for game in [nil, "Lumen"] as [String?] {
+                for front in [nil, s.e.appBundle] as [String?] {
+                    let v = Situation(s.e, now: s.now, busySince: s.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
+                                      syncFeed: s.syncFeed, agent: s.agent, backupFeed: s.backupFeed, disguise: s.disguise, background: s.background, apps: s.apps)
+                    let (card, choice) = Ranker.choose(v)
+                    count += 1
+                    let line = "[\(choice.winner)] \(card.headline) | " + (choice.line ?? "(nothing to explain)")
+                    for m in Decision.missing(card, id: choice.winner) where !missing.contains(m) { missing.append(m) }
+                    if !(patterns[choice.pattern] ?? []).contains(line) { patterns[choice.pattern, default: []].append(line) }
+                }
+            } } }
+        }
+        print("\(seen.count) situations, \(count) variations, \(patterns.count) patterns\n")
+        if !missing.isEmpty { print("## Missing facts (\(missing.count))"); for m in missing.sorted() { print("- " + m) }; print("") }
+        for (p, lines) in patterns.sorted(by: { $0.key < $1.key }) {
+            print("## \(p) (\(lines.count) distinct)")
+            for l in lines { print("- " + l) }
+            print("")
+        }
+    } else if argv.dropFirst().first == "--json" {
+        let data = try JSONSerialization.data(withJSONObject: Ranker.list(), options: [.prettyPrinted, .sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    } else {
+        for line in Ranker.listText() { print(line) }
+    }
 case "selftest":
     let results = Fixture.runAll()
     for (id, ok, note) in results { print("\(ok ? "pass" : "FAIL")  \(id)  \(note)") }

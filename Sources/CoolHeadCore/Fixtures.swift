@@ -3,7 +3,7 @@ import Foundation
 
 /// Recorded examples and the card each should produce. `coolhead selftest` runs them; CI runs it on every pull request.
 /// Add one with every catalogue entry or rule you change (see docs/DIAGNOSIS.md). A feature's own checks go in their
-/// own file, Fixtures+<Feature>.swift, listed in `suites` (see CONTRIBUTING.md).
+/// own file, Fixtures+<Feature>.swift, which the build lists in `suites` (see CONTRIBUTING.md).
 public struct Fixture {
     public let id: String
     let evidence: Evidence
@@ -13,37 +13,9 @@ public struct Fixture {
     let expectAction: String?   // the start of the recommended fix's title
 
     /// Runs every example; returns (id, passed, what happened).
-    /// Each feature's checks live in their own file, Fixtures+<Feature>.swift, and are listed here one per line in
-    /// alphabetical order, so pull requests made at the same time add their checks in different places and don't
-    /// conflict. A new feature adds its file and one line here.
-    static let suites: [(Date) -> [(String, Bool, String)]] = [
-        appBuildChecks,
-        backgroundAndBackupChecks,
-        backgroundWorkChecks,
-        batteryPageChecks,
-        browserRestartChecks,
-        browserTamperingChecks,
-        catalogueChecks,
-        crashLoopChecks,
-        disguiseChecks,
-        graphicsChipChecks,
-        hangChecks,
-        hardwareChecks,
-        hardwarePageChecks,
-        leakChecks,
-        leftoversChecks,
-        memorySignalChecks,
-        namingChecks,
-        networkChecks,
-        optionChecks,
-        powerHistoryChecks,
-        powerStateChecks,
-        runCoolerChecks,
-        servedChecks,
-        syncAndSecurityChecks,
-        unknownServiceChecks,
-        updateCheckChecks,
-    ]
+    /// Each feature's checks live in their own file, Fixtures+<Feature>.swift, as `<feature>Checks` and
+    /// `<feature>Samples`. The build writes `suites` and `sampleSuites` from those file names (Plugins/Lists), so a new
+    /// feature adds its file and nothing else.
 
     public static func runAll() -> [(String, Bool, String)] {
         let now = Date()

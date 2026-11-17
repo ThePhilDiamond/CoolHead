@@ -174,4 +174,7 @@ extension Fixture {
         return Data([0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 3]) + body + Data([0, 0, 0, 0])
             + Data([UInt8(n & 0xff), UInt8(n >> 8 & 0xff), UInt8(n >> 16 & 0xff), UInt8(n >> 24 & 0xff)])
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func powerHistorySamples(_ now: Date) -> [(String, Card)] { [] }
 }

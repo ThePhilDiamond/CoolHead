@@ -50,4 +50,7 @@ extension Fixture {
         review.append(("battery-page-merge", m1, merged.map { BatteryPage.status($0).text } ?? "no battery"))
         return review
     }
+
+    /// No sample cards of its own for `coolhead wording`.
+    static func batteryPageSamples(_ now: Date) -> [(String, Card)] { [] }
 }
