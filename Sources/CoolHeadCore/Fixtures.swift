@@ -40,6 +40,7 @@ public struct Fixture {
         runCoolerChecks,
         servedChecks,
         syncAndSecurityChecks,
+        unknownServiceChecks,
     ]
 
     public static func runAll() -> [(String, Bool, String)] {
