@@ -1,0 +1,2 @@
+- When memory is tight and Ollama is keeping an AI model loaded, one click unloads it and frees its memory; Ollama loads it again the next time it's asked something.
+  - When the startup disk is nearly full, one click deletes Xcode's build data (it asks first); Xcode rebuilds what it needs.

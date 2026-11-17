@@ -107,12 +107,15 @@ public enum MemoryAdvice {
 
     /// The card. `groups` sorted largest first, with `evidence` filled in for jobs.
     /// `chrome`: whether Chrome's memory limit can be set; read from Chrome's settings when not given.
-    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil) -> Card {
+    /// `models`: what Ollama has loaded, when it is among the biggest (see Leftovers); `buildData`: the size of Xcode's
+    /// build data, when the startup disk is nearly full.
+    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil,
+                            models: [Leftovers.Model]? = nil, buildData: UInt64? = nil) -> Card {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
                         fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true).fixingTheCause()]
-                            + (lowDisk(s) ? [freeDisk] : []))
+                            + (lowDisk(s) ? [Leftovers.buildDataFix(bytes: buildData).map { var f = $0; f.recommended = false; return f }, freeDisk].compactMap { $0 } : []))
         }
         let size = Fmt.bytes(top.bytes)
         // the three biggest, named so they can be told apart (see Naming)
@@ -124,6 +127,11 @@ public enum MemoryAdvice {
         let expl = pressure(s) + (next.isEmpty ? "" : " Also using a lot: \(ListFormatter.localizedString(byJoining: next)).")
         var fixes: [Fix] = []
         var limitNote: String? = nil
+        // a local AI model kept loaded after its last use: unloading it frees its memory and loses nothing, so when Ollama
+        // is the biggest it's the recommendation (see Leftovers)
+        if let m = models, shown.contains(where: { isOllama($0) }), let unload = Leftovers.unloadFix(m, recommended: isOllama(top)) {
+            fixes.append(unload)
+        }
 
         switch top.kind {
         case .browser:
@@ -191,7 +199,10 @@ public enum MemoryAdvice {
             let quit2 = Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees \(Fmt.bytes(alt.bytes)). " + cost.words, kind: .quitApp(b))
             fixes.append(cost.losesWork ? quit2.losingWork() : quit2)
         }
-        if lowDisk(s) { fixes.append(freeDisk) }
+        if lowDisk(s) {
+            if let b = Leftovers.buildDataFix(bytes: buildData) { var f = b; f.recommended = false; fixes.append(f) }
+            fixes.append(freeDisk)
+        }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
                          kind: .wait(now.addingTimeInterval(1800)), recommended: !fixes.contains { $0.recommended }))
         var card = Card(state: .unknown, headline: head, explanation: expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
@@ -222,7 +233,12 @@ public enum MemoryAdvice {
     /// Free space on the startup disk below which tight memory also mentions the disk. Not from a source: Howard
     /// Oakley advises keeping 50 GB free; macOS warns near 1 GB and purges toward about 10 to 15 GB (research node N-006).
     public static let lowDiskBytes: UInt64 = 20_000_000_000
-    static func lowDisk(_ s: MacState) -> Bool { s.diskFreeBytes.map { $0 < lowDiskBytes } ?? false }
+    public static func lowDisk(_ s: MacState) -> Bool { s.diskFreeBytes.map { $0 < lowDiskBytes } ?? false }
+
+    /// Ollama or its model runner, as the memory card groups it.
+    public static func isOllama(_ g: MemGroup) -> Bool {
+        ["ollama", "llama-server", "ollama_llama_server"].contains(g.name.lowercased())
+    }
     /// Disk space as Finder and Storage settings count it (1 GB = 1,000,000,000 bytes).
     public static func diskGB(_ b: UInt64) -> String {
         let g = Double(b) / 1_000_000_000
