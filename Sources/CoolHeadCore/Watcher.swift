@@ -611,7 +611,7 @@ public final class Watcher {
                               syncFeed: feed, agent: agent, backupFeed: backup, disguise: Disguise.find(e), background: background(e, tr.busySince, state, now),
                               apps: AppBuild.facts(e, isWindowServer: Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver"))
             guard c.state != .quiet else { continue }
-            var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines())
+            var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice.map { [$0.line] } ?? []))
             lc.reportSubject = CaseReport.subject(e)
             lc.displaySubject = Card.subject(e)
             // flagged only when there's something to press; normal macOS work is still shown, as the explanation

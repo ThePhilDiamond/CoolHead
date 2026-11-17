@@ -277,6 +277,8 @@ public struct Card {
     /// Which kind of card this is, for a card about one busy process (`Card.make`): the card that won for it, as the
     /// golden ranking records it (see Ranking.swift). Nil for cards about the Mac as a whole.
     public var cardID: String? = nil
+    /// For a card about one busy process: every card that matched it, and why this one was chosen (see Ranker).
+    public var choice: Ranker.Choice? = nil
 
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation
@@ -419,7 +421,8 @@ public struct Card {
 
     public static func make(_ s: Situation) -> Card {
         recorder?(s)
-        var c = Ranker.choose(s).0
+        var (c, choice) = Ranker.choose(s)
+        c.choice = choice
         // the processes it names, as shown (see Naming): the process, when the card names it (macOS's own processes and
         // security software are named by what they are instead: "Spotlight", "CrowdStrike Falcon"), and a game it is
         // competing with

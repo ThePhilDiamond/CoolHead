@@ -169,6 +169,12 @@ public enum Ranker {
         public var reasons: [String]
         /// Cards no rule or weight told apart from the winner: the selftest fails on any.
         public var ties: [String]
+
+        /// For the card's Nerdy stuff: "Why this card: chromium-browser. Chosen over web-page: it knows …; over job: …".
+        public var line: String {
+            "Why this card: \(winner)." + (reasons.isEmpty ? " No other card matched." : " " + reasons.enumerated().map { i, r in
+                i == 0 ? r : r.replacingOccurrences(of: "Chosen over ", with: "over ") }.joined(separator: "; ") + ".")
+        }
     }
 
     struct Candidate {
@@ -203,7 +209,8 @@ public enum Ranker {
         for c in candidates.dropFirst() where decide(c, best, s)?.aWins == true { best = c }
         var reasons: [String] = [], ties: [String] = []
         for c in candidates where c.type.id != best.type.id {
-            if let d = decide(best, c, s) { reasons.append("Chosen over \(c.type.id): \(d.why)") } else { ties.append(c.type.id) }
+            // a card the winner doesn't beat (nothing tells them apart, or the rules disagree with each other) is a tie
+            if let d = decide(best, c, s), d.aWins { reasons.append("Chosen over \(c.type.id): \(d.why)") } else { ties.append(c.type.id) }
         }
         var card = best.card
         for x in extras { if let added = x.add(to: card, s) { card = added } }
