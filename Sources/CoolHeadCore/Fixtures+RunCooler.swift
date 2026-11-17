@@ -41,8 +41,14 @@ extension Fixture {
             p.executableURL = URL(fileURLWithPath: background ? "/usr/sbin/taskpolicy" : "/bin/sh")
             p.arguments = background ? ["-b", "/bin/sh", "-c", "while :; do :; done"] : ["-c", "while :; do :; done"]
             guard (try? p.run()) != nil else { return nil }
-            Thread.sleep(forTimeInterval: 3)
-            let v = RunCooler.alreadyBackground(p.processIdentifier)
+            // a loop at background priority gets little of a busy Mac, and its priority can't be judged until it has used
+            // 5% of a core: read every second, for up to 10 seconds, until it can be (it failed now and then on a busy Mac)
+            var v: Bool?
+            for _ in 0..<10 {
+                Thread.sleep(forTimeInterval: 1)
+                v = RunCooler.alreadyBackground(p.processIdentifier)
+                if v != nil { break }
+            }
             p.terminate(); p.waitUntilExit()
             return v
         }
