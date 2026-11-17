@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         watcher.start()
         HardwareWatch.shared.onAlert = { Alerts.remind($0) }
         HardwareWatch.shared.start()
+        PowerWatch.shared.start(watcher)
         Updater.shared.schedule()
         // first launch: there's no window, so open the panel under the icon with a welcome, once; after an update
         // that brought something worth telling, open it once with what's new
@@ -573,6 +574,7 @@ final class MenuPanel: NSPanel {
     func show(under button: NSStatusBarButton) {
         anchor = button
         HardwareWatch.shared.refresh()       // at most once a minute
+        PowerWatch.shared.refresh()          // likewise
         if let size = host?.preferredContentSize, size.height > 0 { fit(size) } else { fit(NSSize(width: 412, height: 300)) }
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)

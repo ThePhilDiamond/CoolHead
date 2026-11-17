@@ -678,7 +678,8 @@ public final class Watcher {
                     + (s.memoryLevel != nil
                        ? "Memory is tight too, so your Mac is moving data to and from its disk, which adds work and some heat. "
                        : "")
-                    + "Heat can linger after heavy work, or come from a warm room or a soft surface.",
+                    // rule 8: with little load, heat is the room, the surface or the charger (Apple 102336: 10 to 35°C)
+                    + "Heat can linger after heavy work, or come from a warm room, a soft surface or charging. Apple says Macs are happiest between 10 and 35°C.",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix.guide("air", "Give it air", "A hard surface, out of the sun, helps it cool.",
                                   steps: ["Move it onto a hard, flat surface: a bed, sofa or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "If you have a stand that lifts it, use it."], recommended: true)]),

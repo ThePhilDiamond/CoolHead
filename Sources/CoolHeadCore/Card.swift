@@ -601,7 +601,8 @@ public struct Card {
             let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
             if !active { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }
             return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
-                        explanation: "That's normal while you play." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
+                        // rule 7: in full screen, Game Mode gives the game priority over background work (Apple, macOS 14)
+                        explanation: "That's normal while you play. In full screen, macOS's Game Mode gives it priority over background work." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
                         fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower quality or frame rate. Less heat, still smooth.", recommended: warm),
                                 Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game)).losingWork()])
         }
