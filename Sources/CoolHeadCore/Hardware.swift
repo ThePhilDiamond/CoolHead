@@ -17,6 +17,8 @@ public struct HardwareReport {
     public var crashes = CrashRestarts()
     public var ports: [PortErrors] = []
     public var appleSilicon = true
+    /// Whether Time Machine has somewhere to back up to; nil: not read.
+    public var timeMachine: TimeMachine? = nil
 
     public init(drive: DriveHealth? = nil, battery: BatteryHealth? = nil, crashes: CrashRestarts = CrashRestarts(),
                 ports: [PortErrors] = [], appleSilicon: Bool = true) {
@@ -26,8 +28,25 @@ public struct HardwareReport {
     /// Reads everything. `profile` also asks System Information for the battery's condition and Maximum Capacity
     /// (about 0.15 s), which is worth doing once an hour, not every few minutes.
     public static func read(profile: Bool = true, now: Date = Date()) -> HardwareReport {
-        HardwareReport(drive: DriveHealth.read(), battery: BatteryHealth.read(profile: profile), crashes: CrashRestarts.read(now: now),
-                       ports: PortErrors.read(), appleSilicon: (sysctlInt("hw.optional.arm64") ?? 0) == 1)
+        var r = HardwareReport(drive: DriveHealth.read(), battery: BatteryHealth.read(profile: profile), crashes: CrashRestarts.read(now: now),
+                               ports: PortErrors.read(), appleSilicon: (sysctlInt("hw.optional.arm64") ?? 0) == 1)
+        r.timeMachine = TimeMachine.read()
+        return r
+    }
+}
+
+// MARK: - Backups
+
+/// Whether Time Machine is set up, from `tmutil destinationinfo` (any user, about 0.01 s). When it last backed up isn't
+/// read: Time Machine's settings file can't be opened without an administrator, and `tmutil latestbackup` tries to
+/// mount the backup drive, which can stall on a network one (tested 16 November 2026, macOS 26.6.2, no destination set).
+/// Sync apps (iCloud Drive, Google Drive, Dropbox, Box) aren't counted: they keep files the same everywhere, so a file
+/// deleted or damaged here is deleted or damaged there too.
+public enum TimeMachine: Equatable {
+    case notSetUp, setUp
+    public static func read() -> TimeMachine? {
+        guard let out = Hardware.run("/usr/bin/tmutil", ["destinationinfo"]).map({ String(decoding: $0, as: UTF8.self) }) else { return nil }
+        return out.contains("No destinations configured") ? .notSetUp : out.contains("Name") || out.contains("Kind") ? .setUp : nil
     }
 }
 
@@ -309,6 +328,23 @@ public struct CrashRestarts: Equatable {
         return .unclear
     }
 
+    /// What the cause means, in plain words, for the crash card and the Hardware page alike: what stopped and whether
+    /// that's usually software or hardware (Phil, 16 November 2026: "if we tell them there was an issue such as
+    /// "WindowServer stopped responding" we need to explain what it means and what to do about it").
+    public static func plainCause(_ c: Cause) -> String {
+        switch c {
+        case .stoppedResponding(let name):
+            let what = name == "WindowServer" ? "WindowServer, the part of macOS that draws the screen," : name
+            return "\(what.prefix(1).uppercased() + what.dropFirst()) stopped responding, so macOS restarted. That's usually software, not hardware."
+        case .kernelMemory:
+            return "macOS ran out of its own working memory, which is usually a leak in software, often a driver."
+        case .driver(let id):
+            return "The report names \(id), a driver that isn't Apple's: update it from its maker, or remove it."
+        case .unclear:
+            return "macOS's report of the last crash doesn't make the cause clear. Most crashes are software, but a faulty accessory or a hardware fault can cause them."
+        }
+    }
+
     public var lines: [String] {
         var l: [String] = []
         if let d = lastDate { l.append("Last crash restart: \(Fmt.time(d))") } else { l.append("Last crash restart: none recorded") }
@@ -401,11 +437,11 @@ extension HardwareReport {
             let soldered = "The drive is built into the Mac, so if it fails, what's on it can be lost and the repair is a new main board."
             if d.fault {
                 card("drive", .unknown, "The Mac's internal drive is reporting a fault.",
-                     "The drive's own health check has raised a warning (\(d.warnings.isEmpty ? "running out of spare space" : d.warnings.joined(separator: ", "))). \(soldered) Back up now, then run Apple Diagnostics and contact Apple.",
+                     "The drive's own health check has raised a warning (\(d.warnings.isEmpty ? "running out of spare space" : d.warnings.joined(separator: ", "))). \(soldered)",
                      [Hardware.recommend(backup), diagnostics], d.lines, subject: "the internal drive")
             } else if d.mediaErrors > 0 {
                 card("drive", .unknown, "The Mac's internal drive has found errors it couldn't correct.",
-                     "The drive's own health check has counted \(Hardware.count(d.mediaErrors)) of these errors since it was new. A few can be harmless, but they're often the first sign of a failing drive. \(soldered) Back up now, then run Apple Diagnostics: a code starting VDH means a drive fault.",
+                     "The drive's own health check has counted \(Hardware.count(d.mediaErrors)) of these errors since it was new. A few can be harmless, but they're often the first sign of a failing drive. \(soldered) In Apple Diagnostics, a code starting VDH means a drive fault.",
                      [Hardware.recommend(backup), diagnostics], d.lines, subject: "the internal drive")
             } else if d.percentUsed >= 80 {
                 card("drive", .quiet, d.percentUsed >= 100 ? "The Mac's internal drive has passed its rated life." : "The Mac's internal drive has used \(d.percentUsed)% of its rated life.",
@@ -465,18 +501,7 @@ extension HardwareReport {
         // crash restarts: one after a crash is worth a look; several in a week more so
         let week = crashes.countThisWeek(now: now)
         if crashes.thisStartFollowedCrash == true || week >= 2 {
-            var why: String
-            switch crashes.lastText.map(CrashRestarts.cause) ?? .unclear {
-            case .stoppedResponding(let name):
-                let what = name == "WindowServer" ? "WindowServer, the part of macOS that draws the screen," : name
-                why = "macOS restarted itself because \(what) stopped responding for two minutes. That's usually software, not hardware."
-            case .kernelMemory:
-                why = "macOS ran out of its own working memory, which is usually a leak in software, often a driver."
-            case .driver(let id):
-                why = "The report names \(id), a driver that isn't Apple's: update it from its maker, or remove it."
-            case .unclear:
-                why = "macOS's report of the last crash doesn't make the cause clear. Most crashes are software, but a faulty accessory or a hardware fault can cause them."
-            }
+            let why = CrashRestarts.plainCause(crashes.lastText.map(CrashRestarts.cause) ?? .unclear)
             let headline = week >= 2 ? "Your Mac has crashed and restarted \(week) times this week." : "Your Mac restarted because of a crash."
             let repeatNote = week >= 2 ? " Crashes that keep happening with no common software can point to hardware: disconnect docks and hubs, then try Safe Mode." : " If it happens again, disconnect docks and hubs, then try Safe Mode."
             let safeMode = Fix.guide("safemode", "Try Safe Mode", "Starts the Mac with only Apple's own software. If the crashes stop there, the cause is software you added.", steps: appleSilicon ? [

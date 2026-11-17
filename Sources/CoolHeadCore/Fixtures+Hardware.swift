@@ -81,7 +81,7 @@ extension Fixture {
         let repeated = sample("crash-repeated").cards(now: now).first
         let old = CrashRestarts(lastText: watchdog, lastDate: now.addingTimeInterval(-20 * 86400), thisStartFollowedCrash: false, recent: [])
         let crashOK = afterCrash?.card.headline == "Your Mac restarted because of a crash." && afterCrash?.needsLook == true
-            && afterCrash?.card.explanation.hasPrefix("macOS restarted itself because WindowServer, the part of macOS that draws the screen, stopped responding") == true
+            && afterCrash?.card.explanation.hasPrefix("WindowServer, the part of macOS that draws the screen, stopped responding, so macOS restarted") == true
             && afterCrash?.card.explanation.contains("Cool Head can't test the memory") == true
             && repeated?.card.headline == "Your Mac has crashed and restarted 3 times this week."
             && headlines(HardwareReport(crashes: old)).isEmpty

@@ -1,0 +1,1 @@
+- A Hardware tool along the bottom: the drive's wear and temperature and whether Time Machine backs it up, crash restarts explained in plain words with what to do, and port errors. At the top of the panel, how your Mac is running: the snowflake whole, melting or in flames as it heats up, with how busy the chip and memory are.

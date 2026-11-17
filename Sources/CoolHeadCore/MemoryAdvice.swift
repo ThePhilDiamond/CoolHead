@@ -107,10 +107,11 @@ public enum MemoryAdvice {
 
     /// The card. `groups` sorted largest first, with `evidence` filled in for jobs.
     /// `chrome`: whether Chrome's memory limit can be set; read from Chrome's settings when not given.
-    /// `models`: what Ollama has loaded, when it is among the biggest (see Leftovers); `buildData`: the size of Xcode's
-    /// build data, when the startup disk is nearly full.
+    /// `leak`: the biggest app's memory has kept growing with the same windows open (see Leaks). `models`: what Ollama
+    /// has loaded, when it is among the biggest (see Leftovers); `buildData`: the size of Xcode's build data, when the
+    /// startup disk is nearly full.
     public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil,
-                            models: [Leftovers.Model]? = nil, buildData: UInt64? = nil) -> Card {
+                            leak: Leaks.Leak? = nil, models: [Leftovers.Model]? = nil, buildData: UInt64? = nil) -> Card {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
@@ -127,6 +128,12 @@ public enum MemoryAdvice {
         let expl = pressure(s) + (next.isEmpty ? "" : " Also using a lot: \(ListFormatter.localizedString(byJoining: next)).")
         var fixes: [Fix] = []
         var limitNote: String? = nil
+        // the biggest app has been leaking: quitting and reopening it gives the memory back, so that's the advice
+        var leaking: (headline: String, sentence: String, fix: Fix)? = nil
+        if let l = leak, top.kind == .app, let b = top.bundle {
+            leaking = Leaks.addition(l, app: top.name, bundle: b, now: now, losesWork: quitRisks[top.name]?.losesWork == true)
+            fixes.append(leaking!.fix)
+        }
         // a local AI model kept loaded after its last use: unloading it frees its memory and loses nothing, so when Ollama
         // is the biggest it's the recommendation (see Leftovers)
         if let m = models, shown.contains(where: { isOllama($0) }), let unload = Leftovers.unloadFix(m, recommended: isOllama(top)) {
@@ -206,8 +213,12 @@ public enum MemoryAdvice {
         }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
                          kind: .wait(now.addingTimeInterval(1800)), recommended: !fixes.contains { $0.recommended }))
-        var card = Card(state: .unknown, headline: head, explanation: expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
-        card.names = names
+        // a leak: the verdict leads, with its evidence and advice alone, and a plain quit of the same app isn't offered too,
+        // so the choice is easy
+        if leaking != nil { fixes.removeAll { $0.id == "quit" } }
+        var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
+                        explanation: leaking?.sentence ?? expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
+        card.names = leaking != nil ? [top.name] : names
         return card
     }
 
