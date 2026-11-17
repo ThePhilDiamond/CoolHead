@@ -100,5 +100,5 @@ public enum Wording {
 
 extension LiveCard {
     /// An example card as the panel shows it, for screenshots (COOLHEAD_SNAPSHOT_SAMPLES): no process behind it.
-    public static func sample(_ id: String, _ card: Card) -> LiveCard { LiveCard(id: id, pid: nil, card: card, details: []) }
+    public static func sample(_ id: String, _ card: Card) -> LiveCard { LiveCard(id: id, pid: nil, card: card, details: card.choice.map { [$0.line] } ?? []) }
 }

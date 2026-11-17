@@ -145,7 +145,7 @@ struct CardView: View {
     let live: LiveCard
     let watcher: Watcher
     @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil  // screenshots show it open
-    @State private var facts = false
+    @State private var facts = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FACTS"] != nil  // screenshots show it open
     @State private var confirmStop: Fix?
     @State private var note: String?          // what happened after a button, when it didn't simply work
     @State private var noteFor: String?       // the option it's about, so it shows right under that button (Phil, 15 November 2026)

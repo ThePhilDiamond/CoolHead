@@ -109,6 +109,16 @@ public enum CardKind: Int, Comparable, CaseIterable {
     case catchAll = 3
 
     public static func < (a: CardKind, b: CardKind) -> Bool { a.rawValue < b.rawValue }
+
+    /// "what it's doing", for the reason a card was chosen.
+    public var words: String {
+        switch self {
+        case .identity: return "who it is"
+        case .stalled: return "stuck work"
+        case .explanation: return "what it's doing"
+        case .catchAll: return "anything busy"
+        }
+    }
 }
 
 /// How specifically a card matches a process: the ranker's first weight, worked out from how the card matches.
@@ -172,10 +182,19 @@ public enum Ranker {
         /// be merged"), otherwise by a rule with its reason.
         public var ties: [String]
 
-        /// For the card's Nerdy stuff: "Why this card: chromium-browser. Chosen over web-page: it knows …; over job: …".
+        /// For the card's Nerdy stuff: "Why this card: web-page-in-app. Chosen over job and unknown-service: …; over
+        /// web-page: …". Cards that lost for the same reason are named together.
         public var line: String {
-            "Why this card: \(winner)." + (reasons.isEmpty ? " No other card matched." : " " + reasons.enumerated().map { i, r in
-                i == 0 ? r : r.replacingOccurrences(of: "Chosen over ", with: "over ") }.joined(separator: "; ") + ".")
+            var order: [String] = [], who: [String: [String]] = [:]
+            for r in reasons {
+                guard let colon = r.range(of: ": ") else { continue }
+                let card = String(r[r.index(r.startIndex, offsetBy: "Chosen over ".count)..<colon.lowerBound]), why = String(r[colon.upperBound...])
+                if who[why] == nil { order.append(why) }
+                who[why, default: []].append(card)
+            }
+            func names(_ c: [String]) -> String { c.count < 2 ? c.joined() : c.dropLast().joined(separator: ", ") + " and " + c.last! }
+            let parts = order.enumerated().map { i, why in (i == 0 ? "Chosen over " : "over ") + names(who[why]!) + ": " + why }
+            return "Why this card: \(winner)." + (parts.isEmpty ? " No other card matched." : " " + parts.joined(separator: "; ") + ".")
         }
     }
 
@@ -203,7 +222,10 @@ public enum Ranker {
     /// Whether `a` wins over `b`, and why; nil when nothing tells them apart.
     static func decide(_ a: Candidate, _ b: Candidate, _ s: Situation) -> (aWins: Bool, why: String)? {
         // rules, never traded against anything
-        if a.type.kind != b.type.kind { return (a.type.kind < b.type.kind, "its kind comes first") }
+        if a.type.kind != b.type.kind {
+            let (first, second) = a.type.kind < b.type.kind ? (a.type.kind, b.type.kind) : (b.type.kind, a.type.kind)
+            return (a.type.kind < b.type.kind, "a card about \(first.words) comes before one about \(second.words)")
+        }
         if let why = refinement(a.type, over: b.type.id) { return (true, why) }
         if let why = refinement(b.type, over: a.type.id) { return (false, why) }
         if a.risk != b.risk { return (a.risk < b.risk, "it's more cautious: its riskiest option is less risky") }
