@@ -810,7 +810,7 @@ enum FrozenItem: Identifiable {
     static func all(_ w: Watcher) -> [FrozenItem] {
         // a screenshot shows nothing of this Mac's own: with example cards, only made-up lines; limited to some of this
         // Mac's cards, only what Cool Head is doing to those (see COOLHEAD_SNAPSHOT_COOL and _PAUSE)
-        if PanelView.sampleSnapshot { return heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
+        if PanelView.sampleSnapshot { return heldBackSamples ? [.chrome(4096), .agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
         if let pids = PanelView.onlyPIDs(w) {
             return w.cooledList.filter { pids.contains($0.pid) }.map { .cooled($0) } + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) }
         }
@@ -867,7 +867,7 @@ enum FrozenItem: Identifiable {
                                       : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
         case .chrome(let mb): return "Past \(ChromeLimit.gb(mb)), Chrome unloads tabs you aren't using. While it's on, Chrome says it's \u{201C}managed by your organization\u{201D}."
         case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
-        case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \(p)"
+        case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
         }
     }
     var undo: (title: String, icon: String) {
@@ -880,14 +880,18 @@ enum FrozenItem: Identifiable {
         case .backup: return ("Back it up again", "arrow.uturn.backward")
         }
     }
-    /// The line's own label names what you can do, not a general "Restore" (Phil, 15 November 2026).
-    var verb: String {
+    /// The undo, as a button on the line itself, so it's one click (Phil, 16 November 2026: "It needs to be clear to the
+    /// user they they need to expand and then act, or we need to add a big old button right there to release it"). It
+    /// names what it does, not a general "Restore" (Phil, 15 November 2026), in a few words so the line keeps its room.
+    /// A sync app can't be resumed from here, so its button says it was.
+    var button: String {
         switch self {
         case .cooled: return "Speed up"
-        case .paused, .sync: return "Resume"
-        case .chrome: return "Remove"
+        case .paused: return "Resume"
+        case .sync: return "I resumed it"
+        case .chrome: return "Remove limit"
         case .agent: return "Turn on"
-        case .backup: return "Include"
+        case .backup: return "Back it up"
         }
     }
 }
@@ -910,11 +914,13 @@ struct FrozenList: View {
     }
 }
 
-/// One line; a click opens it (what it is, since when, and its undo) and another closes it.
+/// One line: its undo as a button on the line, one click, and a chevron that opens what it is and since when (another
+/// click closes it). Every undo puts things back as they were and can be redone from the card, so it asks nothing first.
 struct FrozenLine: View {
     let item: FrozenItem
     let watcher: Watcher
-    @State private var open = false
+    /// Screenshots can show the lines open (COOLHEAD_SNAPSHOT_HELD_OPEN).
+    @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HELD_OPEN"] != nil
     @State private var failed: String?
 
     var body: some View {
@@ -924,18 +930,24 @@ struct FrozenLine: View {
                 Text(item.line).font(.callout.weight(.semibold)).lineLimit(2).truncationMode(.middle)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
-                Disclosure(title: open ? "Less" : item.verb, open: open, tint: item.due ? .orange : Ink.text) { toggle() }
+                Button(item.button) { undo() }
+                    .buttonStyle(.bordered).controlSize(.small)
+                    .fixedSize()
+                    .help(item.undo.title)
+                Button { toggle() } label: {
+                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
+                        .frame(width: 18, height: 18).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(open ? "Show less" : "What this is")
+                .accessibilityLabel(open ? "Show less" : "What this is")
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
             if open {
                 Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 10) {
-                    Button { undo() } label: { Label(item.undo.title, systemImage: item.undo.icon) }
-                        .buttonStyle(.bordered).controlSize(.small)
-                    Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
-                }
-                if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
+                Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
             }
+            if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
