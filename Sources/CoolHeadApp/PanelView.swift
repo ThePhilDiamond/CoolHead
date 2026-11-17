@@ -115,7 +115,7 @@ struct PanelView: View {
             let samples = Wording.samples()
             return wanted.compactMap { w in samples.first { $0.0 == w }.map { LiveCard.sample($0.0, $0.1) } }
         }
-        guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards + HardwareWatch.shared.visible(watcher) }
+        guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards + HardwareWatch.shared.visible(watcher) + BrowserWatch.shared.visible(watcher) }
         let phrases = only.split(separator: "|").map(String.init)      // several phrases, separated by |
         return watcher.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }   // see onlyPIDs
     }
