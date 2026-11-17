@@ -9,6 +9,7 @@ public enum Wording {
             (f.id, Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)))
         }
         out += Fixture.catalogueSamples(now)
+        out += Fixture.appBuildSamples(now)
         out += Fixture.disguiseSamples(now)
         // another app's background helper, and Time Machine copying a build's output
         out.append(("background-helper", Card.make(Evidence.sample(name: "GoogleUpdater", path: Fixture.updaterPath, start: now.addingTimeInterval(-3600), cores: 1.2),

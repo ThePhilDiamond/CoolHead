@@ -224,6 +224,7 @@ extension Fix {
         case .forceQuit: return "The app ends at once, without a chance to save."
         case .restartBrowser: return "Private windows, text typed into pages and downloads in progress don't come back."
         case .stopAgent: return "What it does for its app, such as updates or syncing, stops too, so the app may not work as it should."
+        case .stopAndTrash: return "It ends at once, and anything that relies on it stops working until you put it back from the Trash."
         // a quit marked losingWork() where it's made: its description says what is lost
         case .quitApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
         case .keepOutOfBackup: return "It won't be in your backups."
@@ -375,7 +376,8 @@ public struct Card {
 
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
                             frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil,
-                            agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil) -> Card {
+                            agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil,
+                            apps: AppBuild.Facts? = nil) -> Card {
         // who it is comes first: a program borrowing macOS's name or an Apple label gets that card, whatever it's doing
         // (see Disguise)
         var c = disguise.map { Disguise.card($0, e) }
@@ -385,6 +387,17 @@ public struct Card {
         // offered too (see BackgroundAgents); never on macOS's own or security software, which never get here as agents
         if let a = agent, e.mine, c.state != .quiet, !c.fixes.contains(where: { $0.id == "agent" }) {
             c = Card(state: c.state, headline: c.headline, explanation: c.explanation, fixes: c.fixes + [BackgroundAgents.fix(a)])
+        }
+        // what the app is built on, where that matters on this macOS (see AppBuild): an Intel app, one set to open using
+        // Rosetta, and, on a busy WindowServer, apps with an Electron that lags macOS 26.0 and 26.1
+        if let f = apps, disguise == nil, c.state != .quiet {
+            if let name = e.quittableApp ?? e.app, e.path.map({ !CaseReport.isMacOS($0) }) == true, let add = AppBuild.addition(f, app: name) {
+                c = Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: c.fixes + [add.fix])
+            }
+            if Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver", let add = AppBuild.electronAddition(f) {
+                let others = c.fixes.map { f -> Fix in var f = f; f.recommended = false; return f }
+                c = Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: [add.fix] + others)
+            }
         }
         // the processes it names, as shown (see Naming): the process, when the card names it (macOS's own processes and
         // security software are named by what they are instead: "Spotlight", "CrowdStrike Falcon"), and a game it is

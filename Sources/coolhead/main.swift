@@ -112,13 +112,13 @@ case "now":
     let drawing = g2.filter { GPU.share(from: g1[$0.key] ?? $0.value, to: $0.value, seconds: seconds) >= GPU.quietShare }.map(\.key)
     for pid in cpu + drawing.filter({ !cpu.contains($0) }) {
         guard let e = Evidence.gather(pid: pid, interval: 0.5) else { continue }
-        printCard(Card.make(e, now: testNow, warm: state.thermal != "nominal", disguise: Disguise.find(e)))
+        printCard(Card.make(e, now: testNow, warm: state.thermal != "nominal", disguise: Disguise.find(e), apps: AppBuild.facts(e, isWindowServer: e.name == "WindowServer")))
         print("")
     }
 case "why":
     guard let target = argv.dropFirst().first else { print(usage); exit(64) }
     guard let p = find(target), let e = Evidence.gather(pid: p) else { print("coolhead: no process matches \(target)"); exit(1) }
-    printCard(Card.make(e, now: testNow, warm: MacState.read().thermal != "nominal", disguise: Disguise.find(e)))
+    printCard(Card.make(e, now: testNow, warm: MacState.read().thermal != "nominal", disguise: Disguise.find(e), apps: AppBuild.facts(e, isWindowServer: e.name == "WindowServer")))
     print("\nEvidence")
     printEvidence(e)
     print("\nThe Mac")
