@@ -316,7 +316,7 @@ public struct CrashRestarts: Equatable {
         switch c {
         case .stoppedResponding(let name):
             let what = name == "WindowServer" ? "WindowServer, the part of macOS that draws the screen," : name
-            return "macOS restarted itself because \(what) stopped responding for two minutes. That's usually software, not hardware."
+            return "\(what.prefix(1).uppercased() + what.dropFirst()) stopped responding, so macOS restarted. That's usually software, not hardware."
         case .kernelMemory:
             return "macOS ran out of its own working memory, which is usually a leak in software, often a driver."
         case .driver(let id):

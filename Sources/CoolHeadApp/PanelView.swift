@@ -62,9 +62,7 @@ struct PanelView: View {
                                         ? { tools.battery = false; watcher.showHistory = true } : nil,
                                     close: { tools.battery = false })
                     } else if tools.hardware {
-                        HardwareView(openBattery: watcher.mac.batteryPercent != nil || PanelView.sampleSnapshot
-                                         ? { tools.hardware = false; tools.battery = true } : nil,
-                                     close: { tools.hardware = false })
+                        HardwareView(watcher: watcher, close: { tools.hardware = false })
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if watcher.showHistory {
