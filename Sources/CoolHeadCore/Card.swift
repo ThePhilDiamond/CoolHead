@@ -224,6 +224,7 @@ extension Fix {
         case .forceQuit: return "The app ends at once, without a chance to save."
         case .restartBrowser: return "Private windows, text typed into pages and downloads in progress don't come back."
         case .stopAgent: return "What it does for its app, such as updates or syncing, stops too, so the app may not work as it should."
+        case .stopAndTrash: return "It ends at once, and anything that relies on it stops working until you put it back from the Trash."
         // a quit marked losingWork() where it's made: its description says what is lost
         case .quitApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
         case .keepOutOfBackup: return "It won't be in your backups."
