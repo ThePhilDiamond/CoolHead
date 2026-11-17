@@ -1,0 +1,3 @@
+- A program that calls itself by one of macOS's names but isn't macOS's own now says so: "This calls itself mdworker_local, a name macOS uses, but it isn't macOS's own", with where it runs and Show it in Finder. Miners hidden in pirated apps have used these names.
+  - Also a background item labelled like Apple's (`com.apple.…`) whose program Apple didn't sign, and, with System Integrity Protection off, a copy in macOS's folders that Apple didn't sign. Cards say "worth a look", never "malware": Apple's installer has left an unsigned item like this before.
+  - A process named like part of macOS whose program couldn't be found is no longer taken for macOS's own; its card says Cool Head couldn't check where it lives.

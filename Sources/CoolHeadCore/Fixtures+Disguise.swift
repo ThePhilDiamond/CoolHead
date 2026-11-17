@@ -1,0 +1,126 @@
+import Foundation
+
+/// Checks for names counted only in macOS's own folders (`Pattern.matches`, research rule 1) and for programs that
+/// borrow macOS's name or an Apple launch label (see Disguise, research rule 2), and the example cards
+/// `coolhead wording` shows for them.
+extension Fixture {
+    static let qtopProgram = NSHomeDirectory() + "/Library/Application Support/qtop/qtop"
+    static let qtopItem = Disguise.LaunchItem(label: "com.apple.qtop", plist: NSHomeDirectory() + "/Library/LaunchAgents/com.apple.qtop.plist",
+                                              program: qtopProgram, appleSigned: false)
+
+    static func disguiseEvidence(_ name: String, _ path: String?, args: [String]? = nil, pid: pid_t = 99999, mine: Bool = true, now: Date) -> Evidence {
+        Evidence(pid: pid, name: name, path: path, args: args ?? path.map { [$0] } ?? [], cwd: nil, start: now.addingTimeInterval(-3 * 3600), mine: mine,
+                 coresNow: 2, coresAverage: 2, performanceShare: nil, memoryBytes: 300_000_000, ancestors: [], writing: [], locks: [],
+                 progress: nil, bytesWrittenDuringSample: 0, lastOutput: nil, lastLine: nil, savesAsItGoes: false, workStart: nil)
+    }
+
+    /// The example cards (see Wording).
+    static func disguiseSamples(_ now: Date) -> [(String, Card)] {
+        func make(_ e: Evidence, _ f: Disguise.Finding?) -> Card { Card.make(e, now: now, busySince: now.addingTimeInterval(-40 * 60), disguise: f) }
+        let miner = disguiseEvidence("mdworker_local", "/private/tmp/mdworker_local", now: now)
+        let qtop = disguiseEvidence("qtop", qtopProgram, now: now)
+        let mds = disguiseEvidence("mds_stores", "/System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Support/mds_stores", mine: false, now: now)
+        return [("disguise-macos-name", make(miner, Disguise.judge(miner, sipOff: false, appleSigned: { _ in false }, launchItems: []))),
+                ("disguise-apple-label", make(qtop, Disguise.judge(qtop, sipOff: false, appleSigned: { _ in false }, launchItems: [qtopItem]))),
+                ("disguise-protection-off", make(mds, Disguise.judge(mds, sipOff: true, appleSigned: { _ in false }, launchItems: [])))]
+    }
+
+    static func disguiseChecks(_ now: Date) -> [(String, Bool, String)] {
+        var review: [(String, Bool, String)] = []
+        let unsigned: (String) -> Bool = { _ in false }
+        let apple: (String) -> Bool = { _ in true }
+        let mdsPath = "/System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Support/mds_stores"
+
+        // rule 1: a catalogue name with no path counts as macOS only for pid 0 (kernel_task has no program file)
+        let r1 = Pattern.match(name: "mds_stores", path: nil, pid: 4321) == nil && Pattern.match(name: "kernel_task", path: nil, pid: 0)?.id == "kernel-task"
+            && Pattern.match(name: "kernel_task", path: nil, pid: 4321) == nil && Pattern.match(name: "mds_stores", path: mdsPath, pid: 4321)?.id == "spotlight"
+        review.append(("disguise-missing-path-is-not-macos", r1, "mds_stores with no path matches nothing; kernel_task with no path matches only as pid 0"))
+
+        // rule 2: a macOS name outside macOS's folders, not signed by Apple; by the kernel's name or the name it gave itself
+        func judge(_ e: Evidence, sip: Bool = false, signed: @escaping (String) -> Bool = unsigned, items: [Disguise.LaunchItem] = []) -> Disguise.Finding? {
+            Disguise.judge(e, sipOff: sip, appleSigned: signed, launchItems: items)
+        }
+        let miner = disguiseEvidence("mdworker_local", "/private/tmp/mdworker_local", now: now)
+        let renamed = disguiseEvidence("helper", "/usr/local/bin/helper", args: ["mdworker", "-s", "mdworker"], now: now)
+        let own = disguiseEvidence("bird", "/Users/x/bin/bird", now: now)
+        let simulator = disguiseEvidence("mediaanalysisd", "/Library/Developer/CoreSimulator/Volumes/iOS_23A343/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.0.simruntime/Contents/Resources/RuntimeRoot/usr/libexec/mediaanalysisd", now: now)
+        let script = Evidence.sample(name: "python3", path: "/opt/homebrew/bin/python3", args: ["python3", "mds"], start: now, cores: 1)
+        let unrelated = disguiseEvidence("mdserve", "/Users/x/bin/mdserve", now: now)
+        let r2 = judge(miner) == .macOSName(name: "mdworker_local", path: "/private/tmp/mdworker_local")
+            && judge(renamed) == .macOSName(name: "mdworker", path: "/usr/local/bin/helper")
+            && judge(own) == .macOSName(name: "bird", path: "/Users/x/bin/bird")
+            && judge(simulator, signed: apple) == nil && judge(script) == nil && judge(unrelated) == nil
+        review.append(("disguise-macos-name-elsewhere", r2, "miner \(String(describing: judge(miner))); renamed \(String(describing: judge(renamed))); Apple-signed simulator copy, a script and mdserve not flagged"))
+
+        // the card: who it is, where it runs, "worth a look", never "malware"; showing it is recommended; stopping it is
+        // offered with Caution; the miner sentence only for the names miners used
+        let minerCard = Card.make(miner, now: now, disguise: judge(miner))
+        let ownCard = Card.make(own, now: now, disguise: judge(own))
+        let text = { (c: Card) in c.headline + " " + c.explanation }
+        let r3 = minerCard.state == .unknown && minerCard.headline == "This calls itself mdworker_local, a name macOS uses, but it isn't macOS's own."
+            && text(minerCard).contains("runs from a temporary folder") && text(minerCard).contains("Miners hidden in pirated apps")
+            && minerCard.recommended?.id == "reveal" && minerCard.fixes.contains { $0.id == "stop" && $0.caution }
+            && !text(ownCard).contains("Miners") && text(ownCard).contains("If it's yours, that's fine.")
+            && ![minerCard, ownCard].contains { text($0).lowercased().contains("malware") }
+        review.append(("disguise-card", r3, text(minerCard) + " Options: \(minerCard.fixes.map(\.id))"))
+
+        // a path that couldn't be read: "couldn't check", not macOS and not a disguise
+        let unread = disguiseEvidence("mds_stores", nil, args: [], pid: 4321, mine: false, now: now)
+        let kernel = disguiseEvidence("kernel_task", nil, args: [], pid: 0, mine: false, now: now)
+        let unreadCard = Card.make(unread, now: now, disguise: judge(unread))
+        let r4 = judge(unread) == .unchecked(name: "mds_stores") && judge(kernel) == nil
+            && unreadCard.headline.contains("couldn't check where it lives") && !unreadCard.fixes.contains { $0.id == "stop" }
+        review.append(("disguise-unchecked-path", r4, unreadCard.headline))
+
+        // with System Integrity Protection off, macOS's folders aren't protected: a catalogue name there must be Apple's
+        let mds = disguiseEvidence("mds_stores", mdsPath, mine: false, now: now)
+        let offCard = Card.make(mds, now: now, disguise: judge(mds, sip: true))
+        let r5 = judge(mds) == nil && judge(mds, sip: true, signed: apple) == nil && judge(mds, sip: true) == .notAppleSigned(name: "mds_stores", path: mdsPath)
+            && offCard.fixes.contains { $0.id == "sip" } && !offCard.fixes.contains { $0.id == "stop" }
+            && Disguise.sipOffSaid("System Integrity Protection status: disabled.") && !Disguise.sipOffSaid("System Integrity Protection status: enabled.")
+            && Disguise.sipOffSaid("System Integrity Protection status: enabled (Custom Configuration).\n\n\tFilesystem Protections: disabled")
+        review.append(("disguise-protection-off", r5, offCard.headline))
+
+        // a launch item labelled com.apple.… outside macOS's folders whose program Apple didn't sign: by the process or a
+        // parent; yours can be turned off like another app's helper, the system's needs an administrator
+        let qtop = disguiseEvidence("qtop", qtopProgram, now: now)
+        var child = disguiseEvidence("sh", "/bin/sh", now: now)
+        child = Evidence(pid: child.pid, name: child.name, path: child.path, args: child.args, cwd: nil, start: child.start, mine: true, coresNow: 2,
+                         coresAverage: 2, performanceShare: nil, memoryBytes: 0, ancestors: [.init(pid: 500, name: "qtop", path: qtopProgram, args: [])],
+                         writing: [], locks: [], progress: nil, bytesWrittenDuringSample: 0, lastOutput: nil, lastLine: nil, savesAsItGoes: false, workStart: nil)
+        let daemonItem = Disguise.LaunchItem(label: "com.apple.qtop", plist: "/Library/LaunchDaemons/com.apple.qtop.plist", program: qtopProgram, appleSigned: false)
+        let signedItem = Disguise.LaunchItem(label: "com.apple.installer.osmessagetracing", plist: "/Library/LaunchDaemons/com.apple.installer.osmessagetracing.plist",
+                                             program: qtopProgram, appleSigned: true)
+        let yours = Card.make(qtop, now: now, disguise: judge(qtop, items: [qtopItem]))
+        let system = Card.make(qtop, now: now, disguise: judge(qtop, items: [daemonItem]))
+        let r6 = judge(qtop, items: [qtopItem]) == .appleLabel(label: "com.apple.qtop", plist: qtopItem.plist, program: qtopProgram)
+            && judge(child, items: [qtopItem]) != nil && judge(qtop, items: [signedItem]) == nil && judge(qtop) == nil
+            && yours.fixes.contains { $0.id == "agent" } && !yours.fixes.contains { $0.id == "loginitems" } && yours.recommended?.id == "reveal"
+            && system.fixes.contains { $0.id == "loginitems" } && !system.fixes.contains { $0.id == "agent" }
+            && text(yours).contains("from your LaunchAgents folder")
+        review.append(("disguise-apple-label", r6, text(yours) + " Options: \(yours.fixes.map(\.id)); system's: \(system.fixes.map(\.id))"))
+
+        // on this Mac, for real: Apple's own program passes `anchor apple`, a file Cool Head writes doesn't; plists labelled
+        // com.apple.… are read, others left alone; a com.apple label is turned off only when Apple didn't sign its program
+        let fm = FileManager.default
+        let dir = NSTemporaryDirectory() + "coolhead-disguise-\(getpid())-\(UUID().uuidString.prefix(8))"
+        try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(atPath: dir) }
+        let fake = dir + "/fake-tool"
+        fm.createFile(atPath: fake, contents: Data("#!/bin/sh\nexit 0\n".utf8), attributes: [.posixPermissions: 0o755])
+        func plist(_ file: String, _ d: [String: Any]) {
+            fm.createFile(atPath: dir + "/" + file, contents: try! PropertyListSerialization.data(fromPropertyList: d, format: .xml, options: 0))
+        }
+        plist("com.apple.fake.plist", ["Label": "com.apple.fake", "ProgramArguments": [fake, "--run"]])
+        plist("com.apple.real.plist", ["Label": "com.apple.real", "Program": "/usr/bin/true"])
+        plist("com.example.other.plist", ["Label": "com.example.other", "Program": fake])
+        let items = Disguise.launchItems(in: [dir])
+        let signedTrue = Disguise.appleSigned("/usr/bin/true"), signedFake = Disguise.appleSigned(fake)
+        let refuses = !BackgroundAgents.turnOff(BackgroundAgents.Agent(label: "com.apple.never", plist: "/dev/null", program: "/usr/bin/true", owner: "x"), marker: "selftestDisguise-\(getpid())")
+        UserDefaults.standard.removeObject(forKey: "selftestDisguise-\(getpid())")
+        let r7 = signedTrue && !signedFake && items.map(\.label) == ["com.apple.fake", "com.apple.real"]
+            && items.first?.appleSigned == false && items.last?.appleSigned == true && refuses
+        review.append(("disguise-reads-signatures", r7, "/usr/bin/true Apple-signed \(signedTrue); a file written now \(signedFake); items \(items.map { "\($0.label) signed \($0.appleSigned)" }); refuses an Apple-signed com.apple item \(refuses)"))
+        return review
+    }
+}

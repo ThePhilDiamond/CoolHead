@@ -21,6 +21,7 @@ public struct Fixture {
         batteryPageChecks,
         browserRestartChecks,
         catalogueChecks,
+        disguiseChecks,
         graphicsChipChecks,
         hangChecks,
         hardwareChecks,
@@ -99,8 +100,8 @@ public struct Fixture {
         review.append(("F7-quit-only-main-programs", helper.quittableBundle == nil && xcode.quittableBundle == "/Applications/Xcode.app",
                        "a helper inside Xcode can't be quit as Xcode"))
         // F18: a catalogue name only counts for macOS's own copy
-        review.append(("F18-name-needs-macos-path", Pattern.match(name: "bird", path: "/Users/x/bin/bird") == nil
-                       && Pattern.match(name: "bird", path: "/System/Library/PrivateFrameworks/CloudDocsDaemon.framework/Versions/A/Support/bird") != nil,
+        review.append(("F18-name-needs-macos-path", Pattern.match(name: "bird", path: "/Users/x/bin/bird", pid: 99999) == nil
+                       && Pattern.match(name: "bird", path: "/System/Library/PrivateFrameworks/CloudDocsDaemon.framework/Versions/A/Support/bird", pid: 99999) != nil,
                        "someone's own program called bird isn't taken for iCloud"))
         // F22: secrets in command lines are hidden
         let shown = Redact.args(["tool", "--token=abc123", "--password", "hunter2", "https://me:pw123@example.com/x"]).joined(separator: " ")
@@ -399,7 +400,7 @@ public struct Fixture {
             Fixture(id: "spotlight-long", evidence: .sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores",
                                                            start: ago(48 * hour), cores: 1.5),
                     busyFor: 5 * hour, expectState: .unknown, expectHeadline: "longer than usual", expectAction: "Look it up"),
-            Fixture(id: "kernel-task-long", evidence: .sample(name: "kernel_task", path: nil, start: ago(72 * hour), cores: 2),
+            Fixture(id: "kernel-task-long", evidence: .sample(name: "kernel_task", path: nil, start: ago(72 * hour), cores: 2, pid: 0),
                     busyFor: 2 * hour, expectState: .unknown, expectHeadline: "keeping the chip cool",
                     expectAction: "Find what is heating the Mac"),
             Fixture(id: "browser-tab", evidence: .sample(
@@ -418,8 +419,8 @@ public struct Fixture {
 extension Evidence {
     /// A made-up process for examples and tests.
     static func sample(name: String, path: String?, args: [String] = [], cwd: String? = nil, start: Date, cores: Double,
-                       progress: Progress? = nil, lastLine: String? = nil) -> Evidence {
-        Evidence(pid: 99999, name: name, path: path, args: args, cwd: cwd, start: start, mine: true, coresNow: cores,
+                       progress: Progress? = nil, lastLine: String? = nil, pid: pid_t = 99999) -> Evidence {
+        Evidence(pid: pid, name: name, path: path, args: args, cwd: cwd, start: start, mine: true, coresNow: cores,
                  coresAverage: cores, performanceShare: nil, memoryBytes: 500_000_000, ancestors: [], writing: [], locks: [],
                  progress: progress, bytesWrittenDuringSample: 0, lastOutput: progress?.lineTime, lastLine: lastLine ?? progress?.line,
                  savesAsItGoes: false, workStart: start)

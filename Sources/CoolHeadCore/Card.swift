@@ -337,12 +337,15 @@ public struct Card {
 
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
                             frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil,
-                            agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil) -> Card {
-        var c = body(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery,
-                     syncFeed: syncFeed, backupFeed: backupFeed)
+                            agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil) -> Card {
+        // who it is comes first: a program borrowing macOS's name or an Apple label gets that card, whatever it's doing
+        // (see Disguise)
+        var c = disguise.map { Disguise.card($0, e) }
+            ?? body(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery,
+                    syncFeed: syncFeed, backupFeed: backupFeed)
         // another app's background helper: stopping it doesn't last, since launchd starts it again, so turning it off is
         // offered too (see BackgroundAgents); never on macOS's own or security software, which never get here as agents
-        if let a = agent, e.mine, c.state != .quiet {
+        if let a = agent, e.mine, c.state != .quiet, !c.fixes.contains(where: { $0.id == "agent" }) {
             c = Card(state: c.state, headline: c.headline, explanation: c.explanation, fixes: c.fixes + [BackgroundAgents.fix(a)])
         }
         // the processes it names, as shown (see Naming): the process, when the card names it (macOS's own processes and
@@ -388,7 +391,7 @@ public struct Card {
             : nil
 
         // macOS's own processes: what it is doing, and whether this has gone on longer than usual
-        if let k = Pattern.match(name: e.name, path: e.path), e.progress == nil {
+        if let k = Pattern.match(name: e.name, path: e.path, pid: e.pid), e.progress == nil {
             let long = busyFor > k.usualHours * 3600 && busyFor >= 20 * 60
             // Time Machine copying a build's output: the build folder is the cause to fix (see BackupExclusions)
             let feed = k.id == "time-machine" && active ? backupFeed : nil
