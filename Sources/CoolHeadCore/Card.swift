@@ -207,6 +207,37 @@ public struct Fix: Identifiable {
     }
 }
 
+extension Fix {
+    /// Why an option is marked Caution, in one sentence, shown when the pointer rests on the label; nil when it isn't
+    /// (Phil, 16 November 2026: "perhaps the description should explain why there's the caution warning? If not, mousing
+    /// over the caution label should explain why it's got the warning"). One kind per line, with no default, so a new
+    /// kind says its reason.
+    public var cautionReason: String? {
+        guard caution else { return nil }
+        switch kind {
+        case .stop: return "It ends at once, without a chance to save or finish what it was doing."
+        case .forceQuit: return "The app ends at once, without a chance to save."
+        case .restartBrowser: return "Private windows, text typed into pages and downloads in progress don't come back."
+        case .stopAgent: return "What it does for its app, such as updates or syncing, stops too, so the app may not work as it should."
+        // a quit marked losingWork() where it's made: its description says what is lost
+        case .quitApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
+        case .keepOutOfBackup: return "It won't be in your backups."
+        case .wait: return nil
+        case .cooler: return nil
+        case .lookUp: return nil
+        case .openApp: return nil
+        case .reveal: return nil
+        case .guide: return nil
+        case .share: return nil
+        case .openPage: return nil
+        case .pauseJob: return nil
+        case .pauseSync: return nil
+        case .chromeLimit: return nil
+        case .resume: return nil
+        }
+    }
+}
+
 /// What the user sees: one sentence saying what it is and whether it is fine; behind "Explore fixes", a short
 /// explanation of how we know, and the options, each with its consequence, one of them recommended.
 public struct Card {
