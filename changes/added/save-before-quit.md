@@ -1,2 +1,1 @@
-- Where Cool Head can save for you (TextEdit, Preview, Pages, Numbers, Keynote, Microsoft Office), a quit comes as two options: Save and quit, which saves every open document first, and Quit, where the app asks about anything unsaved. Nothing is saved unless you choose it. Quit and reopen on a leaking app gets the same pair.
-  - Stop and Force Quit, which end a program at once, now ask "Did you save your work?" on the option itself: click again within 5 seconds to go ahead.
+- Stop and Force Quit, which end a program at once with no chance to save, now warn on the option itself: "Anything unsaved will be lost. Click again to stop it." The second click within 5 seconds goes ahead. Quit stays a normal quit, where the app asks about anything unsaved.

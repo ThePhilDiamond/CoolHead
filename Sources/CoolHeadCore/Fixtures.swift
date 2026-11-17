@@ -35,7 +35,6 @@ public struct Fixture {
         networkChecks,
         optionChecks,
         powerHistoryChecks,
-        saveAndQuitChecks,
         syncAndSecurityChecks,
     ]
 

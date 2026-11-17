@@ -356,7 +356,7 @@ struct CardView: View {
             note = "Opened \(name). Pause it from its menu bar icon. We'll remind you to resume at \(Fmt.time(until))."; noteFailed = false; acted = true
         case .wait(let until):
             watcher.snooze(live, until: until)
-        // Stop and Force Quit ask "Did you save?" on the option itself before this runs (see FixRow)
+        // Stop and Force Quit warn about unsaved work on the option itself before this runs (see FixRow)
         case .stop:
             show(watcher.stop(live))
         case .forceQuit:
@@ -419,32 +419,6 @@ struct CardView: View {
                 }()
                 note = n.text; noteFailed = n.failed; acted = !n.failed
                 if n.failed { Alerts.remind(n.text) }
-            }
-        case .saveAndQuit(let bundle, let reopen):
-            // you chose to save (see SaveAndQuit): the app saves every open document and quits; if it can't be told to,
-            // it stays open and the note says so (nothing is quit without the save you asked for)
-            let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
-            guard let id = Bundle(path: bundle)?.bundleIdentifier else { note = "Cool Head couldn't find \(name)."; noteFailed = true; return }
-            note = "Asked \(name) to save every open document and quit."; noteFailed = false; acted = true
-            Task {
-                let o = await SaveAndQuit.run(bundleID: id)
-                watcher.log("Save and \(reopen ? "reopen" : "quit") pressed for \(live.reportSubject): \(o == .quit ? "saved and quit" : o == .cancelled ? "cancelled" : "not done")")
-                switch o {
-                case .quit:
-                    guard reopen else { note = "Saved and quit \(name)."; return }
-                    for _ in 0..<40 where NSWorkspace.shared.runningApplications.contains(where: { $0.bundleURL?.path == bundle && !$0.isTerminated }) {
-                        try? await Task.sleep(nanoseconds: 250_000_000)
-                    }
-                    let config = NSWorkspace.OpenConfiguration(); config.activates = true
-                    let reopened = (try? await NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: config)) != nil
-                    note = reopened ? "Saved and reopened \(name). The memory it had built up is free." : "\(name) saved and quit, but didn't reopen. Open it again from Applications."
-                    noteFailed = !reopened; acted = reopened
-                    if !reopened { Alerts.remind("\(name) saved and quit, but didn't reopen. Open it again from Applications.") }
-                case .cancelled:
-                    note = "\(name) is still open: the save was cancelled."; noteFailed = true; acted = false
-                case .notAllowed, .failed:
-                    note = "Cool Head couldn't save for you, so \(name) is still open. Save in it, then quit it."; noteFailed = true; acted = false
-                }
             }
         case .share:
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
@@ -1338,7 +1312,6 @@ struct FixRow: View {
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"
         case .restartApp: return "arrow.clockwise.circle"
-        case .saveAndQuit: return "square.and.arrow.down"
         case .stopAgent: return "power.circle"
         case .unloadModels: return "memorychip"
         case .deleteBuildData: return "trash"
@@ -1349,9 +1322,10 @@ struct FixRow: View {
     /// For Pause syncing: how long, before anything happens.
     var runUntil: (Fix, Date) -> Void = { _, _ in }
     @State private var choosing = false
-    /// Stop and Force Quit end a program at once, with no chance to save: the first click asks "Did you save?" on the
+    /// Stop and Force Quit end a program at once, with no chance to save: the first click warns on the
     /// option itself, and a second click within 5 seconds goes ahead (Phil, 16 November 2026: *"a first click to overlay
-    /// the button with a message to the effect of "Did you save? Click again to proceed/quit once saved."*).
+    /// the button with a message to the effect of "Did you save? Click again to proceed/quit once saved."*; then *"if force
+    /// quitting warn of lost data unless they save with the guard"*). A normal quit needs no guard: the app asks.
     @State private var armed = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ARMED"] != nil
     var guarded: Bool { fix.kind == .stop || fix.kind == .forceQuit }
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
@@ -1400,7 +1374,7 @@ struct FixRow: View {
                             Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
                                 .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : Color.red)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Did you save your work?").font(.callout.weight(.semibold))
+                                Text("Anything unsaved will be lost.").font(.callout.weight(.semibold))
                                 Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
                             }
                             Spacer(minLength: 6)
