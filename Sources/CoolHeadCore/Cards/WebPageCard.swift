@@ -8,7 +8,11 @@ enum WebPageCard: ProcessCard {
     static let id = "web-page"
     static let kind = CardKind.explanation
     static let rule = "A browser's busy tab: only the browser's own task manager knows which"
-    static let match = Match.category
+    /// Sure for macOS's own web page process showing Safari's pages (or not saying for which app); otherwise it goes
+    /// by the process's name, which other apps' helpers can share.
+    static func confidence(_ s: Situation) -> Confidence {
+        s.webkit && (s.e.servedBy.map(Served.isSafari) ?? true) ? .named("it's macOS's own web page process, working for Safari") : .guess("it goes only by the process's name")
+    }
     static let samples = ["browser-tab", "safari-tab", "web-page-drawing"]
 
     static func card(_ s: Situation) -> Card? {

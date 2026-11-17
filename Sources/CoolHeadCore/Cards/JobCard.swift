@@ -7,7 +7,7 @@ enum JobCard: ProcessCard {
     static let id = "job"
     static let kind = CardKind.catchAll
     static let rule = "Stopping is recommended only when a job has stalled (Phil); on battery, only the really hungry or long-running are paused (Phil, 15 November 2026)"
-    static let match = Match.any
+    static func confidence(_ s: Situation) -> Confidence { .any("it fits any busy program") }
     static let samples = ["job-with-progress", "job-stalled", "job-waiting", "job-no-signs", "job-just-started", "virtual-machine", "background-helper", "intel-app-26"]
 
     static func card(_ s: Situation) -> Card? {

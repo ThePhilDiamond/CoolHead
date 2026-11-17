@@ -6,7 +6,7 @@ enum BackgroundStuckCard: ProcessCard {
     static let id = "background-stuck"
     static let kind = CardKind.stalled
     static let rule = "BackgroundWork.swift: one of macOS's services still busy long after an update, or again after a restart"
-    static let match = Match.name
+    static func confidence(_ s: Situation) -> Confidence { .named("it knows this part of macOS by name and has watched it stay busy") }
     static let samples = ["stuck-macos-service", "stuck-after-restart"]
 
     static func card(_ s: Situation) -> Card? { BackgroundWork.stuckCard(s.e, s.background, now: s.now) }

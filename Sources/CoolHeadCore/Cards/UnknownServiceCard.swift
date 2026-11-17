@@ -7,7 +7,7 @@ enum UnknownServiceCard: ProcessCard {
     static let id = "unknown-service"
     static let kind = CardKind.catchAll
     static let rule = "Research rule 6: a macOS service nobody catalogued is part of macOS; never silence, never alarm"
-    static let match = Match.category
+    static func confidence(_ s: Situation) -> Confidence { .type("it's one of macOS's own programs, though not one Cool Head knows by name") }
     static let samples = ["macos-unknown-low-priority", "macos-unknown-normal-priority"]
 
     static func card(_ s: Situation) -> Card? {

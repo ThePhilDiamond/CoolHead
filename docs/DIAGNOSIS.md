@@ -47,43 +47,41 @@ Stopping, running cooler and quitting are offered only for the person's own proc
 
 ## How a card is chosen
 
-The catalogue is one of several checks. Each kind of card about a busy process is its own file in [`Sources/CoolHeadCore/Cards`](../Sources/CoolHeadCore/Cards), every card that matches a process is made, and the ranker in [`ProcessCard.swift`](../Sources/CoolHeadCore/ProcessCard.swift) chooses one. `coolhead cards` lists every card with the rule it comes from and the samples it must win.
+The catalogue is one of several checks. Each kind of card about a busy process is its own file in [`Sources/CoolHeadCore/Cards`](../Sources/CoolHeadCore/Cards), every card that fits a process is made, and the ranker in [`ProcessCard.swift`](../Sources/CoolHeadCore/ProcessCard.swift) chooses one. `coolhead cards` lists every card with the rule it comes from and the samples it must win.
 
-The cards, by kind:
+The cards, by what they're about:
 
 1. **Who it is**: a program pretending to be part of macOS, using a macOS name from outside macOS's folders without Apple's signature, or a background item labelled like Apple's that Apple didn't sign ([`Disguise.swift`](../Sources/CoolHeadCore/Disguise.swift)).
 2. **Stuck**: macOS's own work that seems stuck, busy for over a day, judged by its priority and how long it has run, not by % CPU ([`BackgroundWork.swift`](../Sources/CoolHeadCore/BackgroundWork.swift)).
 3. **What it's doing**: the catalogue (macOS's own processes that Cool Head knows by name, below); security, device management and VPN software; sync apps; Chromium browsers and apps built like them (a tab, an extension or the graphics process); a macOS service working for an app, such as decoding video for it, and web pages shown by another app, such as Mail, where the card names that app ([`Served.swift`](../Sources/CoolHeadCore/Served.swift)); web pages in Safari or another browser; and games.
 4. **When nothing more specific explains it**: a macOS service that isn't in the catalogue, which the card says is part of macOS, working in the background; and anything else that's busy, by the states above (working, waiting, stalled, can't tell).
 
-When more than one card matches the same process, rules decide first, and are never traded against anything; weights decide only between cards the rules leave level:
+When more than one card fits the same process, each is scored on four things, from its own data, and the highest total wins (Phil, 17 November 2026: "prioritized in order of some aggregate of highest impact, lowest risk, highest confidence, lowest effort"):
 
-1. **Kind**, in the order above: a program named `mdworker` that isn't Apple's gets the disguise card, never Spotlight's.
-2. **A card that says more**: a card can state that it refines another, with its reason, and then wins over it. The Chrome card wins over the general web page card, because it knows the busy part is a tab or an extension and can open Chrome's Task Manager; the game card wins over the Chrome card, for a game built on Chromium, because games are protected and a game has no tabs; and so the game card wins over the web page card too.
-3. **The more cautious card**: the one whose riskiest option is less risky. A sync app's helper that looks like a browser tab gets the sync card, which offers to pause syncing, rather than the tab card, which offers to close the tab.
-4. **How specifically it matches** (a weight): a list of named apps or products before a category, a category before anything busy.
-5. **How strong the evidence is** (a weight; no card uses it yet).
+- **Confidence**, how surely it fits, from 0 to 3: 3 when it knows this exact app, product or part of macOS (or the app says it's a game, or one of its own tabs); 2 when it knows what kind of program this is; 1 when it goes only by a process's name, which other programs can share; 0 for the busy-job card, which fits anything. **It counts twice**, because advice for the wrong cause can't help however good it is.
+- **Impact** of its advice, the recommended option: 3 if it fixes the cause, 2 if it eases it, 1 if it only informs. A card that recommends nothing still tells you what's happening, so it counts as informing.
+- **Risk** of its advice: 3 for Caution, 1 if it interrupts something, 0 otherwise. It's taken away.
+- **Effort** of its advice: 1 for a task for you, 0 for one click or nothing to do. It's taken away.
 
-The same, as a flow chart. Every card that applies to the process is compared with the others, two at a time:
+Total: 2 × confidence + impact − risk − effort.
+
+One rule is outside the score: a card saying a program isn't what it claims to be always wins, because a score could let a busy-looking explanation outweigh a warning that a program may be harmful.
+
+The same, as a flow chart:
 
 ```mermaid
 flowchart TD
-    start["Every card that applies to a busy process<br/>(the busy-job card always does)"] --> kind
-    kind{"Are their kinds different?<br/>Who it is, stuck, what it's doing, catch-all"} -- Yes --> kindWins["The earlier kind wins"]
-    kind -- No --> refines{"Does one say it refines the other,<br/>directly or through a chain?"}
-    refines -- Yes --> refinesWins["The card that says more wins"]
-    refines -- No --> caution{"Is one card's riskiest option less risky?"}
-    caution -- Yes --> cautionWins["The more cautious card wins"]
-    caution -- No --> match{"Does one match more specifically?<br/>Named apps, then a category, then anything busy"}
-    match -- Yes --> matchWins["The more specific card wins"]
-    match -- No --> evidence{"Is the evidence for one stronger?<br/>(no card uses this yet)"}
-    evidence -- Yes --> evidenceWins["That card wins"]
-    evidence -- No --> tie["A tie: the selftest fails and names both.<br/>Merge them if they share the fix;<br/>otherwise write a rule with its reason."]
-    kindWins & refinesWins & cautionWins & matchWins & evidenceWins --> extras["Extras join the winner:<br/>a helper's Stop it starting by itself, an Intel app's note,<br/>older Electron apps on a busy WindowServer"]
-    extras --> why["Its Nerdy stuff says why it was chosen"]
+    start["Every card that fits a busy process<br/>(the busy-job card always does)"] --> identity
+    identity{"Does one say the program isn't<br/>what it claims to be?"} -- Yes --> identityWins["That card wins"]
+    identity -- No --> score["Score each card:<br/>2 × confidence + impact − risk − effort"]
+    score --> top{"Is one total highest?"}
+    top -- Yes --> topWins["That card wins"]
+    top -- No --> tie["A tie: the selftest fails and names both.<br/>Merge them if they share the fix;<br/>otherwise change a card's confidence or options, with the reason."]
+    identityWins & topWins --> extras["Extras join the winner:<br/>a helper's Stop it starting by itself, an Intel app's note,<br/>older Electron apps on a busy WindowServer"]
+    extras --> why["Its Nerdy stuff names the closest other card<br/>and why this one was chosen over it"]
 ```
 
-If no rule or weight tells two matching cards apart, the selftest fails and names both, and the tie is settled with a rule and its reason. Each card's Nerdy stuff says which cards it was chosen over, and why. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
+If two cards tie, the selftest fails and names both. Each card's Nerdy stuff names the closest other card and says, point by point, why this one was chosen over it. `coolhead cards --json` shows every card's score on every sample. [`GoldenRanking.swift`](../Sources/CoolHeadCore/GoldenRanking.swift) records which card and options every sample card gets; the selftest fails when one changes, until the file is rewritten with `coolhead ranking --write` in the same pull request, so the change shows in its diff.
 
 Then additions join whichever card won: another app's background helper gets **Stop it starting by itself**; an Intel app, or one set to open using Rosetta, gets a sentence and a search; on macOS 26.0 and 26.1, a busy WindowServer names open apps built on an older Electron.
 
