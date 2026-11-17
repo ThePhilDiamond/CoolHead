@@ -401,11 +401,11 @@ extension HardwareReport {
             let soldered = "The drive is built into the Mac, so if it fails, what's on it can be lost and the repair is a new main board."
             if d.fault {
                 card("drive", .unknown, "The Mac's internal drive is reporting a fault.",
-                     "The drive's own health check has raised a warning (\(d.warnings.isEmpty ? "running out of spare space" : d.warnings.joined(separator: ", "))). \(soldered) Back up now, then run Apple Diagnostics and contact Apple.",
+                     "The drive's own health check has raised a warning (\(d.warnings.isEmpty ? "running out of spare space" : d.warnings.joined(separator: ", "))). \(soldered)",
                      [Hardware.recommend(backup), diagnostics], d.lines, subject: "the internal drive")
             } else if d.mediaErrors > 0 {
                 card("drive", .unknown, "The Mac's internal drive has found errors it couldn't correct.",
-                     "The drive's own health check has counted \(Hardware.count(d.mediaErrors)) of these errors since it was new. A few can be harmless, but they're often the first sign of a failing drive. \(soldered) Back up now, then run Apple Diagnostics: a code starting VDH means a drive fault.",
+                     "The drive's own health check has counted \(Hardware.count(d.mediaErrors)) of these errors since it was new. A few can be harmless, but they're often the first sign of a failing drive. \(soldered) In Apple Diagnostics, a code starting VDH means a drive fault.",
                      [Hardware.recommend(backup), diagnostics], d.lines, subject: "the internal drive")
             } else if d.percentUsed >= 80 {
                 card("drive", .quiet, d.percentUsed >= 100 ? "The Mac's internal drive has passed its rated life." : "The Mac's internal drive has used \(d.percentUsed)% of its rated life.",
