@@ -36,7 +36,9 @@ public enum BrowserRestart {
     /// Quits the app at `bundle` (every copy of it running from that path), waits up to `wait` seconds for it to close,
     /// then reopens it with `--restore-last-session`. Blocks the calling thread: call it off the main thread (see
     /// `restart`). `log` gets each step in words that name nothing private.
-    public static func restartBlocking(bundle: String, wait: TimeInterval = wait, activate: Bool = true, log: (String) -> Void = { _ in }) -> Outcome {
+    /// `arguments`: what it is reopened with; none for an app that isn't a Chromium browser (see Leaks).
+    public static func restartBlocking(bundle: String, wait: TimeInterval = wait, activate: Bool = true, arguments: [String] = [argument],
+                                       log: (String) -> Void = { _ in }) -> Outcome {
         let url = URL(fileURLWithPath: bundle)
         // found by where the app is installed, not by its display name (which can differ, or be shared)
         let id = Bundle(url: url)?.bundleIdentifier
@@ -66,7 +68,7 @@ public enum BrowserRestart {
         log("closed after \(took) seconds")
         Thread.sleep(forTimeInterval: 1)        // let its helper processes finish closing too
         let config = NSWorkspace.OpenConfiguration()
-        config.arguments = [argument]
+        config.arguments = arguments
         config.activates = activate
         let done = DispatchSemaphore(value: 0)
         let result = Box()
@@ -76,15 +78,16 @@ public enum BrowserRestart {
         }
         if done.wait(timeout: .now() + 15) == .timedOut { result.error = "macOS didn't open it within 15 seconds" }
         if let e = result.error { log("didn't reopen"); return .reopenFailed(e) }
-        log("reopened with its last session")
+        log(arguments.isEmpty ? "reopened" : "reopened with its last session")
         return .restarted(seconds: took)
     }
 
     /// The same, without blocking the caller: the work runs on a background thread.
-    public static func restart(bundle: String, wait: TimeInterval = wait, activate: Bool = true, log: @escaping (String) -> Void) async -> Outcome {
+    public static func restart(bundle: String, wait: TimeInterval = wait, activate: Bool = true, arguments: [String] = [argument],
+                               log: @escaping (String) -> Void) async -> Outcome {
         await withCheckedContinuation { c in
             DispatchQueue.global(qos: .userInitiated).async {
-                c.resume(returning: restartBlocking(bundle: bundle, wait: wait, activate: activate, log: log))
+                c.resume(returning: restartBlocking(bundle: bundle, wait: wait, activate: activate, arguments: arguments, log: log))
             }
         }
     }

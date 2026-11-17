@@ -145,6 +145,8 @@ public final class Watcher {
     public private(set) var agentsOff: [BackgroundAgents.Agent] = []
     public private(set) var backupExcluded: [String] = []
     @ObservationIgnored private var agentsReadAt = Date.distantPast
+    /// Each open app's memory and windows over the last hours, for spotting a leak (see Leaks).
+    @ObservationIgnored let leaks = Leaks.Tracker()
     /// macOS's own busy processes, read at most every 30 seconds each (see BackgroundWork).
     @ObservationIgnored private var backgroundReadings: [pid_t: (at: Date, reading: BackgroundWork.Reading)] = [:]
     public func refreshHeldBack(force: Bool = false) {
@@ -167,6 +169,16 @@ public final class Watcher {
         backgroundReadings = backgroundReadings.filter { now.timeIntervalSince($0.value.at) < 600 }
         backgroundReadings[e.pid] = (now, r)
         return r
+    }
+
+    /// Whether a process's busy work is already at background priority, read at most every 30 seconds each.
+    @ObservationIgnored private var priorityReadings: [pid_t: (at: Date, value: Bool?)] = [:]
+    func backgroundPriority(_ pid: pid_t, _ now: Date) -> Bool? {
+        if let r = priorityReadings[pid], now.timeIntervalSince(r.at) < 30 { return r.value }
+        let v = RunCooler.alreadyBackground(pid)
+        priorityReadings = priorityReadings.filter { now.timeIntervalSince($0.value.at) < 600 }
+        priorityReadings[pid] = (now, v)
+        return v
     }
 
     @discardableResult public func turnOnAgent(_ a: BackgroundAgents.Agent) -> Bool {
@@ -546,7 +558,13 @@ public final class Watcher {
             .sorted { max($0.value.cores, $0.value.gpu) > max($1.value.cores, $1.value.gpu) }.prefix(5)
         var live: [LiveCard] = []
         let gathered = busy.compactMap { pid, tr in
-            Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten), gpu: gpuTimes[pid] != nil ? tr.gpu : nil).map { (pid, tr, $0) }
+            Evidence.gather(pid: pid, measured: (tr.cores, tr.lastWritten), gpu: gpuTimes[pid] != nil ? tr.gpu : nil).map { e -> (pid_t, Track, Evidence) in
+                // your own busy work already at background priority: Run it cooler would do nothing (see RunCooler); not
+                // read once Cool Head has slowed it, so "Back to full speed" stays
+                var e = e
+                if e.mine, e.coresNow >= 0.5, cooled["\(pid)-\(e.start?.timeIntervalSince1970 ?? 0)"] == nil { e.atBackgroundPriority = backgroundPriority(pid, now) }
+                return (pid, tr, e)
+            }
         }
         // a game being played comes first: other busy work is offered to run cooler to leave it more room
         let game = gathered.first { $0.2.gameBundle != nil }.flatMap { $0.2.gameBundle }
@@ -678,13 +696,24 @@ public final class Watcher {
                     + (s.memoryLevel != nil
                        ? "Memory is tight too, so your Mac is moving data to and from its disk, which adds work and some heat. "
                        : "")
-                    + "Heat can linger after heavy work, or come from a warm room or a soft surface.",
+                    // rule 8: with little load, heat is the room, the surface or the charger (Apple 102336: 10 to 35°C)
+                    + "Heat can linger after heavy work, or come from a warm room, a soft surface or charging. Apple says Macs are happiest between 10 and 35°C.",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix.guide("air", "Give it air", "A hard surface, out of the sun, helps it cool.",
                                   steps: ["Move it onto a hard, flat surface: a bed, sofa or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "If you have a stand that lifts it, use it."], recommended: true)]),
                 details: s.lines(), reportSubject: "warm with no single cause")
             lc.heatCause = true
             out.append(lc)
+        }
+        // every 5 minutes, each open app's memory (with its helpers) and windows, so a leak can be told from work
+        if leaks.due(now) {
+            let paths = tracks.keys.reduce(into: [pid_t: String]()) { m, p in if let path = Proc.path(p) { m[p] = path } }
+            let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { a -> (bundle: String, pid: pid_t, bytes: UInt64)? in
+                guard let b = a.bundleURL?.path else { return nil }
+                let bytes = paths.filter { $0.value.hasPrefix(b + "/") }.reduce(UInt64(0)) { $0 + (tracks[$1.key]?.footprint ?? 0) }
+                return (b, a.processIdentifier, bytes)
+            }
+            leaks.note(apps, windows: Leaks.windowCounts, now: now)
         }
         if let level = s.memoryLevel {
             // count memory the way a person thinks of it: each app with all its helpers, each job on its own
@@ -695,7 +724,7 @@ public final class Watcher {
                 if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, measured: (tracks[p]?.cores ?? 0, 0), gpu: tracks[p].flatMap { $0.gpuTime != nil ? $0.gpu : nil }) }
             }
             let models = groups.prefix(3).contains(where: MemoryAdvice.isOllama) ? Leftovers.loadedRecently(now: now) : nil
-            let card = MemoryAdvice.card(groups, mac: s, now: now, models: models,
+            let card = MemoryAdvice.card(groups, mac: s, now: now, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
                                          buildData: MemoryAdvice.lowDisk(s) ? Leftovers.buildDataSize(now: now) : nil)
             let top = groups.first
             let subject = top.map { g -> String in

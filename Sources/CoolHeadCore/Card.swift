@@ -64,6 +64,7 @@ public struct Fix: Identifiable {
         case stopAgent(String, String)   // turn off another app's background helper (launchd label, its plist path): stopped now and at every login; undo any time
         case keepOutOfBackup(String)     // keep this folder out of Time Machine backups (a sticky exclusion, as tmutil addexclusion); undo any time
         case stopAndTrash([String], String?)  // a program pretending to be macOS's (see Disguise): turn off its launch item (this plist), stop it, and move these files to the Trash
+        case restartApp(String)          // a normal quit of the app at this bundle path, then open it again (a leak: see Leaks)
         case unloadModels([String])      // ask Ollama to unload these models now (see Leftovers); the next question loads one again
         case deleteBuildData(String)     // delete the contents of Xcode's DerivedData folder, after asking; Xcode rebuilds what it needs
     }
@@ -112,6 +113,7 @@ public struct Fix: Identifiable {
         case .stopAgent: return .coolHead
         case .keepOutOfBackup: return .coolHead
         case .stopAndTrash: return .coolHead
+        case .restartApp: return .coolHead
         case .unloadModels: return .coolHead
         case .deleteBuildData: return .coolHead
         case .lookUp: return .you          // opens a web search for you to read
@@ -153,6 +155,7 @@ public struct Fix: Identifiable {
         case .stopAgent: return .fixesCause        // it can't start again by itself
         case .keepOutOfBackup: return .fixesCause  // later backups skip what the job keeps rewriting
         case .stopAndTrash: return .fixesCause     // it can't run or start again unless put back from the Trash
+        case .restartApp: return .fixesCause       // the memory it had built up is given back
         case .unloadModels: return .fixesCause     // the model's memory is free at once
         case .deleteBuildData: return .fixesCause  // the space is free at once
         }
@@ -173,6 +176,7 @@ public struct Fix: Identifiable {
         case .stopAgent: return true
         case .keepOutOfBackup: return false
         case .stopAndTrash: return true
+        case .restartApp: return true
         case .unloadModels: return false
         case .deleteBuildData: return false
         case .wait: return false
@@ -203,6 +207,7 @@ public struct Fix: Identifiable {
         case .restartBrowser: return true  // private windows, unsent form text and downloads in progress don't come back
         case .stopAgent: return true       // what the helper does for its app (updates, sync, a licence check) isn't known, so stopping it may break something
         case .stopAndTrash: return true       // what the program was doing isn't known; it can be put back from the Trash
+        case .restartApp: return false        // the app asks to save; one that loses more is marked losingWork() where it's made
         case .unloadModels: return false      // nothing is lost: the next question loads it again
         case .deleteBuildData: return false   // nothing is lost: Xcode rebuilds it, at the cost of a slower next build
         case .keepOutOfBackup: return false   // known and undoable: only rebuildable build output is offered, and the option says it won't be backed up
@@ -235,6 +240,7 @@ extension Fix {
         case .restartBrowser: return "Private windows, text typed into pages and downloads in progress don't come back."
         case .stopAgent: return "What it does for its app, such as updates or syncing, stops too, so the app may not work as it should."
         case .stopAndTrash: return "It ends at once, and anything that relies on it stops working until you put it back from the Trash."
+        case .restartApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
         case .unloadModels: return nil
         case .deleteBuildData: return nil
         // a quit marked losingWork() where it's made: its description says what is lost
@@ -323,6 +329,7 @@ public struct Card {
         case .forceQuit: return 4
         case .stopAgent: return 4
         case .stopAndTrash: return 4
+        case .restartApp: return 3     // closes the app, but it opens again: less loss than quitting
         case .unloadModels: return 1
         case .deleteBuildData: return 1
         case .stop: return f.id == "stop" ? 5 : 4      // closing one tab or extension loses less than quitting its browser
@@ -352,6 +359,7 @@ public struct Card {
             case .stopAgent: return true
             case .keepOutOfBackup: return true
             case .stopAndTrash: return true
+            case .restartApp: return true
             case .unloadModels: return true
             case .deleteBuildData: return true
             // opening an app, showing a folder or showing how help, but don't act on the cause
@@ -455,8 +463,10 @@ public struct Card {
         let macOSProgram = e.script == nil && (e.path.map(CaseReport.isMacOS) ?? true)
         let stoppable = e.mine && !macOSProgram && !appMain
         let stop: Fix? = stoppable ? Fix(id: "stop", title: "Stop it", consequence: stopConsequence(), kind: .stop, recommended: state == .stalled) : nil
-        let cooler: Fix? = e.mine && e.coresNow >= 0.5
-            ? Fix(id: "cooler", title: "Run it cooler", consequence: "Slower, but less heat. Undo any time.", kind: .cooler, recommended: false)
+        // only where it helps (see RunCooler): your own work above background priority, never macOS's own
+        let cooler: Fix? = RunCooler.offered(e)
+            ? Fix(id: "cooler", title: "Run it cooler", consequence: RunCooler.consequence(e), kind: .cooler, recommended: false,
+                  holdBack: RunCooler.isVirtualMachine(e))     // never put in place of a task's recommendation for a VM
             : nil
 
         // macOS's own processes: what it is doing, and whether this has gone on longer than usual
@@ -530,7 +540,7 @@ public struct Card {
                                 Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
                                     kind: .pauseSync(bundle, sync), recommended: warm || gameRunning != nil
                                         || (onBattery && (e.coresNow >= 2 || ((battery ?? 100) < 50 && e.coresNow >= 1)))),
-                                e.mine && e.coresNow >= 0.5 ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
+                                RunCooler.offered(e) ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
                                 Fix(id: "quit", title: "Quit \(sync)", consequence: "Stops syncing until you open it again.", kind: .quitApp(bundle))].compactMap { $0 })
         }
 
@@ -545,7 +555,7 @@ public struct Card {
                                : "\(what) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor)).")
                 + (part == .graphics ? "" : " Only \(app) knows which.")
                 + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil])
-            let canCool = e.mine && e.coresNow >= 0.5 && part != .graphics     // slowing graphics would slow all of it
+            let canCool = RunCooler.offered(e) && part != .graphics     // slowing graphics would slow all of it
             let page = { (url: String, title: String, why: String, rec: Bool) in
                 Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
             let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.").fixingTheCause()
@@ -601,7 +611,8 @@ public struct Card {
             let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
             if !active { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }
             return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
-                        explanation: "That's normal while you play." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
+                        // rule 7: in full screen, Game Mode gives the game priority over background work (Apple, macOS 14)
+                        explanation: "That's normal while you play. In full screen, macOS's Game Mode gives it priority over background work." + Fmt.its([gpuClause, warm ? "adding to the heat" : nil]),
                         fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower quality or frame rate. Less heat, still smooth.", recommended: warm),
                                 Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game)).losingWork()])
         }
@@ -621,7 +632,7 @@ public struct Card {
                                           consequence: "Frozen, nothing lost; it carries on when you plug in. A download may time out.",
                                           kind: .pauseJob, recommended: true) : nil
         let cool = cooler.map { c -> Fix in
-            var c = c; c.recommended = warm || forGame
+            var c = c; c.recommended = (warm || forGame) && !RunCooler.isVirtualMachine(e)   // slowing a VM slows all of it: offered, not advised
             if let g = gameRunning { c = Fix(id: c.id, title: c.title, consequence: "Leaves more power for \(g). Undo any time.", kind: c.kind, recommended: c.recommended) }
             return c
         }
@@ -629,7 +640,7 @@ public struct Card {
         // priority slows its CPU work, not its drawing)
         let gpuApp = gpuLed ? e.quittableApp : nil
         let gpuQuit = gpuApp.flatMap { app in e.quittableBundle.map {
-            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. It may ask you to save first.", kind: .quitApp($0)) } }
+            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. It asks about anything unsaved.", kind: .quitApp($0)) } }
         // while the Mac is warm, a busy job says it is part of why
         let heat = Fmt.its([gpuClause, warm && heating ? "adding to the heat" : nil,
                             forGame || (gameRunning != nil && gpuLed) ? "competing with \(gameRunning!)" : nil, drains ? "draining your battery" : nil])

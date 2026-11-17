@@ -29,12 +29,15 @@ public struct Fixture {
         hangChecks,
         hardwareChecks,
         hardwarePageChecks,
+        leakChecks,
         leftoversChecks,
         memorySignalChecks,
         namingChecks,
         networkChecks,
         optionChecks,
         powerHistoryChecks,
+        powerStateChecks,
+        runCoolerChecks,
         syncAndSecurityChecks,
     ]
 

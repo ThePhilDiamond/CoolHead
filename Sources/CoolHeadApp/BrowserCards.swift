@@ -42,6 +42,10 @@ final class BrowserWatch {
         cards.filter { c in watcher.snoozed[c.cause].map { $0.until <= now || c.severity > $0.severity } ?? true }
     }
 
-    /// Whether a browser card should turn the menu bar badge yellow.
-    func needsLook(_ watcher: Watcher) -> Bool { visible(watcher).contains { $0.needsLook } }
+}
+
+extension BrowserWatch: CardSource {
+    func start(_ watcher: Watcher) { start() }
+    func panelOpened() { refresh() }       // at most once a minute
+    func cards(for watcher: Watcher) -> [LiveCard] { visible(watcher) }
 }
