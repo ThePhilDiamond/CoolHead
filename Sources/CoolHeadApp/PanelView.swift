@@ -504,13 +504,44 @@ struct ProblemView: View {
     @State private var words = ""
     @State private var copied = false
 
-    var report: String { ProblemReport.make(kind: kind, words: words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac) }
+    /// Opened from Report a problem under what Cool Head is holding back: the form opens in that section, under the
+    /// button, with no title of its own, and closes with `close`.
+    var inline = false
+    var close: (() -> Void)? = nil
+    /// Which of the things held back caused it: asked first whenever something is held back (Phil, 17 November 2026:
+    /// "The report flow should START by asking which freeze caused it."). Opened from under them, the first is picked
+    /// to start; opened from the tools, None of these is, so a report isn't pinned on a hold by default.
+    @State private var about: String?
+    static let somethingElse = "None of these"
+    var freezes: [String] { FrozenItem.all(watcher).map(\.line) }
+    var pick: String {
+        if let about, about == ProblemView.somethingElse || freezes.contains(about) { return about }
+        return inline ? (freezes.first ?? ProblemView.somethingElse) : ProblemView.somethingElse
+    }
+    func finish() { if let close { close() } else { watcher.showReport = false } }
+    /// Screenshots can show the first choice open (COOLHEAD_SNAPSHOT_CHOICE_OPEN).
+    static let choiceOpen = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CHOICE_OPEN"] != nil
+    /// The hold it's about, if one was picked; then a fix caused the trouble, so that isn't asked.
+    var chosen: String? { freezes.isEmpty || pick == ProblemView.somethingElse ? nil : pick }
+    var problem: String { chosen == nil ? kind : ProblemReport.kinds[0] }
+    /// The picked hold as the report says it (see `FrozenItem.reportLine`).
+    var chosenForReport: String? { chosen.flatMap { c in FrozenItem.all(watcher).first { $0.line == c }?.reportLine } }
+
+    var report: String { ProblemReport.make(kind: problem, words: words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac, about: chosenForReport) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Report a problem").font(.body.weight(.semibold))
-            Picker("What went wrong?", selection: $kind) { ForEach(ProblemReport.kinds, id: \.self) { Text($0) } }
-                .pickerStyle(.radioGroup).font(.callout)
+            if !inline { Text("Report a problem").font(.body.weight(.semibold)) }
+            // each question on its own line, its choices in a field under it that opens in place
+            if !freezes.isEmpty {
+                Text("Which of these caused it?").font(.callout.weight(.medium))
+                SelectField(options: freezes + [ProblemView.somethingElse], selection: Binding(get: { pick }, set: { about = $0 }),
+                            open: ProblemView.choiceOpen)
+            }
+            if chosen == nil {
+                Text("What went wrong?").font(.callout.weight(.medium))
+                SelectField(options: ProblemReport.kinds, selection: $kind, open: ProblemView.choiceOpen && freezes.isEmpty)
+            }
             Text("Tell us more (optional). It's public, so skip anything private.")
                 .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             TextEditor(text: $words)
@@ -535,25 +566,25 @@ struct ProblemView: View {
             HStack(spacing: 8) {
                 Button("Open in GitHub") {
                     watcher.log("Report a problem sent to GitHub")
-                    if let u = ProblemReport.issueURL(kind: kind, words: words, report: report) { NSWorkspace.shared.open(u) }
-                    watcher.showReport = false
+                    if let u = ProblemReport.issueURL(kind: problem, words: words, report: report) { NSWorkspace.shared.open(u) }
+                    finish()
                 }
                 .buttonStyle(.borderedProminent).controlSize(.small)
                 Button(copied ? "Copied" : "Copy") {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString("Problem: \(kind)\n\n\(words)\n\n\(report)", forType: .string)
+                    NSPasteboard.general.setString("Problem: \(problem)\n\n\(words)\n\n\(report)", forType: .string)
                     copied = true
                 }
                 .buttonStyle(.bordered).controlSize(.small)
-                Button("Cancel") { watcher.showReport = false }.buttonStyle(.plain).font(.callout).foregroundStyle(Ink.muted)
+                Button("Cancel") { finish() }.buttonStyle(.plain).font(.callout).foregroundStyle(Ink.muted)
             }
             Text("Nothing is posted until you press Submit on GitHub. No GitHub account? Use Copy.")
                 .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(inline ? 4 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
+        .background(inline ? Color.clear : Ink.card, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(inline ? Color.clear : Ink.edge, lineWidth: 1))
     }
 }
 
@@ -900,6 +931,16 @@ enum FrozenItem: Identifiable {
         case .backup(let p): return "Time Machine skips \(FrozenItem.name(p)) in \(FrozenItem.project(p))"
         }
     }
+    /// The line as a problem report says it: anonymised as the activity log is, with no file, folder or project names
+    /// (the README's promise for reports); the person sees it before anything leaves.
+    var reportLine: String {
+        switch self {
+        case .cooled(let c): return "Slowing \(c.reportSubject)"
+        case .paused(let p): return "\(p.reportSubject) is paused until you plug in"
+        case .backup: return "Time Machine skips a build folder"
+        case .sync, .chrome, .agent: return line
+        }
+    }
     var detail: String {
         switch self {
         case .cooled(let c): return "It's still working, just more slowly, since \(Fmt.time(c.since))."
@@ -942,19 +983,53 @@ enum FrozenItem: Identifiable {
 /// once expanded a button to unfreeze"). Undo lives here, never in the right-click menu, which is for settings only.
 struct FrozenList: View {
     let watcher: Watcher
+    @ObservedObject private var tools = Tools.shared
+    /// The lines' text in from the frost's sides: inside the section's own margin, a little less than on the panel, so
+    /// the words keep the width they had.
+    static let inset: CGFloat = 24
+
     var body: some View {
         let items = FrozenItem.all(watcher)
-        VStack(alignment: .leading, spacing: 0) {
+        let rows = VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                if i > 0 { Divider().opacity(0.6).padding(.horizontal, 30) }
-                // text in the clear middle, off the frost; more room at the bottom, where frost settles thickest, so
-                // the last line (often Report a problem) never sits on it. The room is inside each line, so a click
-                // anywhere in the frame opens the line it's beside (Phil, 17 November 2026: "The click box should
-                // fill the whole area.")
-                FrozenLine(item: item, watcher: watcher, top: i == 0 ? 10 : 0, bottom: i == items.count - 1 ? 18 : 0)
+                if i > 0 { Divider().opacity(0.6).padding(.horizontal, FrozenList.inset) }
+                // the same margin above the first line and below the last, so the lines sit centered in the frame
+                // (Phil, 17 November 2026: "fix the frozen pane so text is centered"). The margin is inside each line,
+                // so a click anywhere in the frame opens the line it's beside (Phil, 17 November 2026: "The click box
+                // should fill the whole area.")
+                FrozenLine(item: item, watcher: watcher, inset: FrozenList.inset, top: i == 0 ? 14 : 0, bottom: i == items.count - 1 ? 14 : 0)
             }
         }
-        .frozen()
+        // one titled section: the frosted lines, then Report a problem, whose form opens under it (Phil, 17 November
+        // 2026: "add a title to the frozen section, then have the button outside the frozen items but inside that
+        // section. And when clicked, the form expands from the button within that section")
+        VStack(alignment: .leading, spacing: 10) {
+            FrozenTitle(count: items.count).padding(.horizontal, 8).padding(.top, 4)
+            rows.frozen()
+            FrozenReportButton(watcher: watcher, count: items.count)
+            if tools.reportAboutHeld { ProblemView(watcher: watcher, inline: true) { tools.reportAboutHeld = false } }
+        }
+        .padding(6)
+        // the section takes the frost's colours at its edge, so the button and form read as part of it
+        .background(RoundedRectangle(cornerRadius: 13).fill(IceTint.color.opacity(0.12)))
+        .background(RoundedRectangle(cornerRadius: 13).fill(Ink.card))
+        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Frozen.ice.opacity(0.55), lineWidth: 1))
+    }
+}
+
+/// The section's title: what these are, and how many.
+struct FrozenTitle: View {
+    let count: Int
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("On hold").font(.callout.weight(.semibold))
+            Text("\(count)").font(.caption.weight(.semibold)).monospacedDigit()
+                .padding(.horizontal, 6).padding(.vertical, 1)
+                .background(Capsule().fill(Frozen.ice.opacity(0.3)))
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Ink.text)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -963,6 +1038,8 @@ struct FrozenList: View {
 struct FrozenLine: View {
     let item: FrozenItem
     let watcher: Watcher
+    /// How far the text sits in from the frost's sides.
+    var inset: CGFloat = 30
     /// Extra room above and below, inside the line's click area: the frame's own margin for the first and last line.
     var top: CGFloat = 0
     var bottom: CGFloat = 0
@@ -978,7 +1055,7 @@ struct FrozenLine: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 Button(item.button) { undo() }
-                    .buttonStyle(.bordered).controlSize(.small)
+                    .buttonStyle(IceButton()).font(.subheadline)
                     .fixedSize()
                     .help(item.undo.title)
                 Button { toggle() } label: {
@@ -992,11 +1069,10 @@ struct FrozenLine: View {
             .foregroundStyle(item.due ? Color.orange : Ink.text)
             if open {
                 Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
-                Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.caption)
             }
             if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
-        .padding(.horizontal, 30).padding(.top, 8 + top).padding(.bottom, 8 + bottom)
+        .padding(.horizontal, inset).padding(.top, 8 + top).padding(.bottom, 8 + bottom)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture { toggle() }
@@ -1013,6 +1089,98 @@ struct FrozenLine: View {
         case .chrome: if !watcher.removeChromeLimit() { failed = "That didn't work: Chrome's settings didn't change." }
         case .agent(let a): if !watcher.turnOnAgent(a) { failed = "That didn't work: macOS didn't turn it back on." }
         case .backup(let p): if !watcher.backUpAgain(p) { failed = "That didn't work: Time Machine's setting didn't change." }
+        }
+    }
+}
+
+/// Report a problem, once, for everything held back, instead of under each line; the form then starts by asking which
+/// one (Phil, 17 November 2026: "add the "report a problem" function as a separate line below any active freezes ...
+/// let them select from the active freezes and have a clean flow without cluttering the individual sections"). One
+/// wide button, not a row, so it doesn't read as another thing held back (Phil, 17 November 2026: "it's not a frozen
+/// row, but it is related ... Maybe the text and icon are one large button").
+struct FrozenReportButton: View {
+    let watcher: Watcher
+    /// How many things are held back, so one reads "this", not "one of these".
+    let count: Int
+    @ObservedObject private var tools = Tools.shared
+    var body: some View {
+        Button {
+            let open = !tools.reportAboutHeld
+            Tools.closeAll(watcher)
+            withAnimation(.easeOut(duration: 0.15)) { tools.reportAboutHeld = open }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.bubble")
+                Text(count == 1 ? "Report a problem with this" : "Report a problem with one of these")
+                Image(systemName: tools.reportAboutHeld ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 3)
+        }
+        .buttonStyle(IceButton(tinted: true)).font(.subheadline)
+        .accessibilityValue(tools.reportAboutHeld ? "Open" : "Closed")
+    }
+}
+
+/// A choice as a field that opens in place to a list, the chosen one ticked: cleaner than radio buttons, and every
+/// choice shows at once when open (Phil, 17 November 2026: "the radial form layout is pretty ugly/old-fashioned, we
+/// want a more modern style (e.g., typeform, a modern clean drop-down, or something else)").
+struct SelectField: View {
+    let options: [String]
+    @Binding var selection: String
+    @State private var open: Bool
+    init(options: [String], selection: Binding<String>, open: Bool = false) {
+        self.options = options; _selection = selection; _open = State(initialValue: open)
+    }
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 8)
+        VStack(spacing: 0) {
+            Button { withAnimation(.easeOut(duration: 0.12)) { open.toggle() } } label: {
+                HStack(spacing: 6) {
+                    Text(selection).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(Ink.muted)
+                }
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if open {
+                Divider()
+                ForEach(options, id: \.self) { o in
+                    Choice(text: o, on: o == selection) {
+                        selection = o
+                        withAnimation(.easeOut(duration: 0.12)) { open = false }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .font(.callout)
+        .foregroundStyle(Ink.text)
+        .background(shape.fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(shape.strokeBorder(open ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.15), lineWidth: 1))
+        .clipShape(shape)
+    }
+
+    struct Choice: View {
+        let text: String
+        let on: Bool
+        let action: () -> Void
+        @State private var hovering = false
+        var body: some View {
+            Button(action: action) {
+                HStack(spacing: 6) {
+                    Text(text).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    if on { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
+                }
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Color.primary.opacity(hovering ? 0.06 : 0))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering = $0 }
         }
     }
 }
@@ -1044,6 +1212,31 @@ enum IceTint {
             ? NSColor(srgbRed: 0.20, green: 0.30, blue: 0.40, alpha: 1)
             : NSColor(srgbRed: 0.56, green: 0.75, blue: 0.94, alpha: 1)
     })
+}
+
+/// A button on the frosted frame: a pale backing, so it stands out from the ice instead of blending into it (Phil,
+/// 17 November 2026: "only adding a background on the button so it had better contrast and didn't blend into the ice
+/// as much"). Lighter under the mouse, darker when pressed.
+struct IceButton: ButtonStyle {
+    /// Off the frost (Report a problem, under it): the frost's tint and edge, so it reads as part of the same section.
+    var tinted = false
+    func makeBody(configuration: Configuration) -> some View { Tile(configuration: configuration, tinted: tinted) }
+    struct Tile: View {
+        let configuration: ButtonStyleConfiguration
+        let tinted: Bool
+        @State private var hovering = false
+        var body: some View {
+            let shape = RoundedRectangle(cornerRadius: 6)
+            let wash = configuration.isPressed ? 0.5 : hovering ? 0.85 : 0.7
+            configuration.label
+                .foregroundStyle(Ink.text)
+                .padding(.horizontal, 9).padding(.vertical, 3.5)
+                .background(shape.fill(tinted ? AnyShapeStyle(IceTint.color.opacity(wash * 0.5)) : AnyShapeStyle(Color(nsColor: .controlBackgroundColor).opacity(wash))))
+                .overlay(shape.strokeBorder(tinted ? Frozen.ice.opacity(0.7) : Color.primary.opacity(0.12), lineWidth: 1))
+                .contentShape(shape)
+                .onHover { hovering = $0 }
+        }
+    }
 }
 
 /// Frost on a cold window, as people know it: a frosted rim hugging the edges of the glass, thickest in the corners

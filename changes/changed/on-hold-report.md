@@ -1,0 +1,1 @@
+- What Cool Head is holding back is now a section titled On hold, with one Report a problem button under it in place of one under each line. Its form opens there and starts by asking which one caused the problem, and the report names it without file, folder or project names. The report form's choices are now fields that open to a list, in place of radio buttons.

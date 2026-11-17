@@ -59,7 +59,7 @@ Everything runs on your Mac. No account, no analytics, and nothing stored about 
 - **Look it up** opens a web search for the process name.
 - **Share this case**, on cards Cool Head can't explain, shows you an anonymised report of that process.
 - **Start test**, in Test my network, runs Apple's own network test, which downloads and uploads test data with Apple's servers for up to 30 seconds.
-- **Report a problem**, along the bottom of the panel, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way.
+- **Report a problem**, along the bottom of the panel or under what Cool Head has on hold, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way.
 
 Reports never hold file names, paths or project names. You see every word first; then **Open in GitHub** opens it as an issue for you to submit (posted under your GitHub account, only if you press Submit), or **Copy** keeps it on your Mac to send however you like. Details: [SECURITY.md](SECURITY.md).
 
