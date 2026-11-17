@@ -1,0 +1,1 @@
+- Stop and Force Quit, which end a program at once with no chance to save, now warn on the option itself: "Anything unsaved will be lost. Click again to stop it." The second click within 5 seconds goes ahead. Quit stays a normal quit, where the app asks about anything unsaved.
