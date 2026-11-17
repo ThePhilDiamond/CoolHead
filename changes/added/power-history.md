@@ -1,1 +1,0 @@
-- **The past week**: which apps and parts of macOS used the most energy, which woke the chip most often, and why the Mac woke from sleep (on a timer, the lid, a charger, the Wi-Fi and Bluetooth chip), read from macOS's own power log. Cool Head reads only those figures, never the record of which app you were using, and keeps no copy. `coolhead history` prints the same in Terminal.
