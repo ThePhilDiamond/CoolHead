@@ -584,17 +584,42 @@ public struct Card {
                         headline: head, explanation: explanation, fixes: fixes.compactMap { $0 })
         }
 
-        // web pages: the busy process is a tab or extension, and only the browser knows which
-        // WebKit's graphics process draws web pages for Safari, and for any other app that shows them
+        let used = gpuLed ? "has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
+            : "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
         let webkitGPU = e.name == "com.apple.WebKit.GPU" || (e.path?.contains("com.apple.WebKit.GPU") ?? false)
         let webkit = webkitGPU || e.name == "com.apple.WebKit.WebContent" || (e.path?.contains("com.apple.WebKit.WebContent") ?? false)
+
+        // a macOS service working for an app (see Served, research rule 4): the work is the app's, so the card names it
+        // and quitting it is the advice
+        if let b = e.servedBy, !webkit, active {
+            let app = Served.name(b)
+            return Card(state: busyFor > 20 * 60 ? .unknown : .working,
+                        headline: Served.doing(e).map { "macOS is \($0) for \(app)." } ?? "A part of macOS is busy working for \(app).",
+                        explanation: "The macOS process doing it, \(e.name), \(used)" + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil]),
+                        fixes: [Served.quit(b), lookUp(e.name, recommended: false), wait(until: nil, now: now, recommended: false)])
+        }
+
+        // web pages shown by another app (Mail, or an app with a web view): WebKit's processes do the work for it, and
+        // quitting that app is the advice
+        if webkit, let b = e.servedBy, !Served.isSafari(b), active {
+            let app = Served.name(b)
+            return Card(state: busyFor > 20 * 60 ? .unknown : .working,
+                        headline: webkitGPU ? "A web page in \(app) is drawing a lot: video or animation." : "A web page in \(app) is working hard.",
+                        explanation: "macOS \(webkitGPU ? "draws" : "runs") \(app)'s web pages in a separate process, which \(used)"
+                            + Fmt.its([gpuLed ? nil : gpuClause, warm && heating ? "adding to the heat" : nil]),
+                        fixes: [Served.quit(b), lookUp(e.name, recommended: false), wait(until: nil, now: now, recommended: false)])
+        }
+
+        // web pages: the busy process is a tab or extension, and only the browser knows which
+        // WebKit's graphics process draws web pages for Safari, and for any other app that shows them: when macOS
+        // doesn't say which app it's for, it's most often Safari
         if let app = webkit ? "Safari" : e.app, webkit || e.name.contains("Renderer") || e.name.contains("Web Content") || e.name.contains("(Plugin)") {
             let tm = app.contains("Safari") ? "Window ▸ Activity" : "Window ▸ Task Manager"
-            let used = gpuLed ? "has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
-                : "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
+            let forSafari = e.servedBy.map(Served.isSafari) == true
             return Card(state: !active ? .quiet : busyFor > 20 * 60 ? .unknown : .starting,
                         headline: webkitGPU ? "A web page is drawing a lot: video or animation." : "A \(app) tab is working hard.",
-                        explanation: (webkitGPU ? "The process that draws web pages \(used) It's usually a Safari tab, though other apps that show web pages have one too."
+                        explanation: (webkitGPU ? (forSafari ? "The process that draws Safari's pages \(used)"
+                                                   : "The process that draws web pages \(used) It's usually a Safari tab, though other apps that show web pages have one too.")
                             : "One tab or extension \(used) Only \(app) knows which.") + Fmt.its([gpuLed ? nil : gpuClause]),
                         fixes: [((e.outerBundle ?? (webkit ? "/Applications/Safari.app" : nil)).map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: "Choose \(tm), then click CPU to put the busiest first.", recommended: true) }
                                     ?? Fix.guide("find", "Find the busy tab", "In \(app), choose \(tm) and click CPU.", steps: ["In \(app), choose \(tm).", "Click CPU to put the busiest tab first.", "Close it, or reload it if you need it."], recommended: true)).fixingTheCause(),

@@ -48,6 +48,8 @@ public struct Evidence {
     /// Its busy work already runs at background priority, so Run it cooler would do nothing (see RunCooler); nil when
     /// unknown, or when Cool Head itself slowed it.
     public var atBackgroundPriority: Bool? = nil
+    /// The app a macOS helper is working for, by its bundle (WebKit's page processes, the video decoder): see Served.
+    public var servedBy: String? = nil
 
     /// Samples the process twice, `interval` seconds apart, to measure CPU and graphics-chip use now.
     /// With `measured`, uses CPU, disk writes and graphics-chip share the caller already measured (the watcher) and
@@ -111,12 +113,14 @@ public struct Evidence {
         // its working folder is still named, but not on another volume when files aren't to be touched (finding its
         // project looks for a .git folder there)
         let cwd = Proc.cwd(pid).flatMap { readFiles || !$0.hasPrefix("/Volumes/") ? $0 : nil }
-        return Evidence(pid: pid, name: b.name, path: Proc.path(pid), args: Proc.args(pid), cwd: cwd,
+        var e = Evidence(pid: pid, name: b.name, path: Proc.path(pid), args: Proc.args(pid), cwd: cwd,
                         start: b.start, mine: b.uid == getuid(), coresNow: now, coresAverage: avg,
                         performanceShare: pshare, memoryBytes: u2?.footprint ?? 0, ancestors: chain,
                         writing: writing, locks: locks, progress: progress,
                         bytesWrittenDuringSample: written, lastOutput: newest?.0, lastLine: last,
                         savesAsItGoes: false, workStart: workStart, gpuShare: gpuShare)
+        e.servedBy = Served.app(pid: pid, path: e.path)
+        return e
     }
 
     /// What can be known about a process owned by another user (root, or a macOS service account): macOS lets
@@ -124,10 +128,12 @@ public struct Evidence {
     static func limited(pid: pid_t, measured: (cores: Double, written: UInt64)?, gpu: Double? = nil) -> Evidence? {
         guard let path = Proc.path(pid) else { return nil }
         let cores = measured?.cores ?? (Proc.psCPU()[pid] ?? 0) / 100
-        return Evidence(pid: pid, name: (path as NSString).lastPathComponent, path: path, args: [], cwd: nil, start: nil,
-                        mine: false, coresNow: cores, coresAverage: cores, performanceShare: nil, memoryBytes: 0,
-                        ancestors: [], writing: [], locks: [], progress: nil, bytesWrittenDuringSample: 0,
-                        lastOutput: nil, lastLine: nil, savesAsItGoes: false, workStart: nil, gpuShare: gpu)
+        var e = Evidence(pid: pid, name: (path as NSString).lastPathComponent, path: path, args: [], cwd: nil, start: nil,
+                         mine: false, coresNow: cores, coresAverage: cores, performanceShare: nil, memoryBytes: 0,
+                         ancestors: [], writing: [], locks: [], progress: nil, bytesWrittenDuringSample: 0,
+                         lastOutput: nil, lastLine: nil, savesAsItGoes: false, workStart: nil, gpuShare: gpu)
+        e.servedBy = Served.app(pid: pid, path: path)
+        return e
     }
 
     /// Only regular files on this Mac's own disks: reading a pipe would wait forever, and a file on a network

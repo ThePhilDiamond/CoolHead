@@ -36,6 +36,7 @@ public struct Fixture {
         optionChecks,
         powerHistoryChecks,
         runCoolerChecks,
+        servedChecks,
         syncAndSecurityChecks,
     ]
 

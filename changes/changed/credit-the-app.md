@@ -1,0 +1,1 @@
+- When macOS shows web pages for another app (Mail, or an app with a web view such as Google Drive's), the card names that app and offers to quit it, instead of calling it a Safari tab. When macOS's own services work for an app, such as decoding video, the card says which app they're working for.
