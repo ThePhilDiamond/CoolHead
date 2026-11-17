@@ -428,6 +428,25 @@ struct CardView: View {
             note = "Asked \(name) to quit. It opens again once it has closed."; noteFailed = false; acted = true
             Task {
                 let w = watcher
+                // it saves first where the app allows it (see SaveAndQuit); once it has quit, the restart below finds it
+                // closed and reopens it
+                if SaveAndQuit.scriptable(bundle: bundle), let id = Bundle(path: bundle)?.bundleIdentifier {
+                    note = "Asked \(name) to save your work and quit. It opens again once it has closed."
+                    let saved = await SaveAndQuit.run(bundleID: id)
+                    w.log("Quit and reopen \(name) pressed: save and quit \(saved == .quit ? "done" : "not done")")
+                    if saved == .cancelled { note = "\(name) is still open: the save was cancelled."; noteFailed = true; acted = false; return }
+                    if saved == .quit {
+                        for _ in 0..<40 where NSWorkspace.shared.runningApplications.contains(where: { $0.bundleURL?.path == bundle && !$0.isTerminated }) {
+                            try? await Task.sleep(nanoseconds: 250_000_000)
+                        }
+                        let config = NSWorkspace.OpenConfiguration(); config.activates = true
+                        let reopened = (try? await NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: config)) != nil
+                        note = reopened ? "Saved your work and reopened \(name). The memory it had built up is free." : "\(name) saved and quit, but didn't reopen. Open it again from Applications."
+                        noteFailed = !reopened; acted = reopened
+                        if !reopened { Alerts.remind("\(name) saved and quit, but didn't reopen. Open it again from Applications.") }
+                        return
+                    }
+                }
                 let o = await BrowserRestart.restart(bundle: bundle, arguments: []) { step in w.log("Quit and reopen \(name) pressed: \(step)") }
                 let n: (text: String, failed: Bool) = {
                     if case .restarted = o { return ("Reopened \(name). The memory it had built up is free.", false) }

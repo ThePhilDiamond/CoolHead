@@ -38,9 +38,12 @@ extension Fixture {
         let quit = Fix(id: "quit", title: "Quit Pages", consequence: "Frees 2.0 GB. Save your work first; it asks about anything unsaved.", kind: .quitApp(yes))
         let plain = Fix(id: "quit", title: "Quit Plain", consequence: "Frees 2.0 GB. Save your work first; it asks about anything unsaved.", kind: .quitApp(no))
         let slack = Fix(id: "quit", title: "Quit Slack", consequence: "Frees 1.1 GB. No messages until you reopen it.", kind: .quitApp(yes))
-        let card = Card(state: .unknown, headline: "x", explanation: "y", fixes: [quit, plain, slack])
-        let r3 = card.fixes[0].consequence == "Frees 2.0 GB. Saves your work first, then quits." && card.fixes[1].consequence == plain.consequence
-            && card.fixes[2].consequence == slack.consequence
+        let reopen = Fix(id: "reopen", title: "Quit and reopen Scripted", consequence: "Save your work first. Gives back about 7.4 GB; some windows may not reopen.", kind: .restartApp(yes))
+        let card = Card(state: .unknown, headline: "x", explanation: "y", fixes: [quit, plain, slack, reopen])
+        let r3 = card.fixes.first { $0.id == "quit" && $0.title == "Quit Pages" }?.consequence == "Frees 2.0 GB. Saves your work first, then quits."
+            && card.fixes.first { $0.title == "Quit Plain" }?.consequence == plain.consequence
+            && card.fixes.first { $0.title == "Quit Slack" }?.consequence == slack.consequence
+            && card.fixes.first { $0.id == "reopen" }?.consequence == "Saves your work first. Gives back about 7.4 GB; some windows may not reopen."
         review.append(("save-quit-wording", r3, card.fixes.map { "\($0.title): \($0.consequence)" }.joined(separator: " | ")))
         return review
     }

@@ -1,2 +1,2 @@
-- Quit saves your work first in apps that allow it (TextEdit, Preview, Pages, Numbers, Keynote, Microsoft Office). Other apps quit normally and ask about anything unsaved.
+- Quit saves your work first in apps that allow it (TextEdit, Preview, Pages, Numbers, Keynote, Microsoft Office); so does Quit and reopen. Other apps quit normally and ask about anything unsaved.
   - Stop and Force Quit, which end a program at once, now ask "Did you save your work?" on the option itself: click again within 5 seconds to go ahead.

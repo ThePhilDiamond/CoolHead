@@ -59,8 +59,17 @@ public enum SaveAndQuit {
 
     /// A quit option, worded for what will happen: "Saves your work first, then quits." where Cool Head can save for you.
     public static func worded(_ f: Fix, scriptable: (String) -> Bool = { scriptable(bundle: $0) }) -> Fix {
-        guard case .quitApp(let bundle) = f.kind, f.consequence.contains(asks), scriptable(bundle) else { return f }
-        var g = Fix(id: f.id, title: f.title, consequence: f.consequence.replacingOccurrences(of: asks, with: "Saves your work first, then quits."),
+        let words: String
+        switch f.kind {
+        case .quitApp(let bundle) where f.consequence.contains(asks) && scriptable(bundle):
+            words = f.consequence.replacingOccurrences(of: asks, with: "Saves your work first, then quits.")
+        // Quit and reopen (see Leaks): "Save your work first." becomes what Cool Head does
+        case .restartApp(let bundle) where f.consequence.hasPrefix("Save your work first. ") && scriptable(bundle):
+            words = "Saves your work first. " + f.consequence.dropFirst("Save your work first. ".count)
+        default:
+            return f
+        }
+        var g = Fix(id: f.id, title: f.title, consequence: words,
                     kind: f.kind, recommended: f.recommended)
         g.resultOverride = f.resultOverride; g.holdBack = f.holdBack; g.cautionOverride = f.cautionOverride
         return g
