@@ -1,1 +1,0 @@
-- Steps that send you to Chrome's Task Manager say where the Window menu is, which heading to click, and what to close. Menu items, buttons, and settings named in steps are underlined, so they stand out.

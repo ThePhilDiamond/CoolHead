@@ -1,6 +1,0 @@
-- Cleaner, a new tool along the bottom of the panel (a broom), for what deleted apps leave behind and what takes space and rebuilds itself.
-  - Quick clean moves what nothing uses to the Trash with one click: background helpers whose program is gone, logs and crash reports over 30 days old, and saved windows of deleted apps.
-  - Deep clean is a list to choose from: what rebuilds itself is ticked (Xcode's build data, Homebrew's and npm's downloads, and Chrome's cache while Chrome is closed); what Cool Head can't be sure of is left for you to tick and marked Caution, such as settings panes in the System Settings sidebar whose app is gone, a deleted app's caches, and old macOS installers.
-  - Check Downloads… looks, in a folder you choose, for old installers and identical second downloads.
-  - Everything goes to the Trash after a second click, and Cool Head can put it back; items in folders for all users ask for an administrator's password and leave nothing installed.
-  - Links to Privacy & Security, where deleted apps can stay in the permission lists, and to Apple's Storage settings.
