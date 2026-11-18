@@ -1,1 +1,0 @@
-- Temperatures follow your Mac's setting in Language & Region: °F or °C.

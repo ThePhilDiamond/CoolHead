@@ -1,1 +1,0 @@
-- Hardware shows the drive's life used, what it has written and its hours on as tiles, a Temperatures section for the chip, battery and drive, and says which parts it checked.

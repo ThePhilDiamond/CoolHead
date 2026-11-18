@@ -1,1 +1,0 @@
-- The memory card says less: what's happening and what matters, with the other apps using a lot in Nerdy stuff.

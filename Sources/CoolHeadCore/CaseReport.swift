@@ -3,7 +3,7 @@ import Security
 
 public enum CoolHead {
     /// Kept in step with the VERSION file; scripts/build-app.sh checks they match.
-    public static let version = "0.8.0"
+    public static let version = "0.9.0"
 }
 
 /// The anonymised report behind "Share this case": what Cool Head saw about a process it couldn't explain, with
