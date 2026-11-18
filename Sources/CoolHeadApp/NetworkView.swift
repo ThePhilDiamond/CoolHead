@@ -419,7 +419,7 @@ struct NetworkView: View {
                     }
                     .buttonStyle(.plain).foregroundStyle(Color.accentColor)
                 }
-                if let note { Text(note).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
+                if let note { Text(ui: note).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
             }
         }
     }

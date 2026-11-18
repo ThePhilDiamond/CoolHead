@@ -661,7 +661,7 @@ public enum NetworkCheck {
         // 5. iCloud Private Relay (one tester), a VPN, a proxy: test without them; Cool Head never turns them off
         if r.rpm < goodRPM {
             out.append(Fix(id: "net-private-relay", title: "Test with Private Relay off",
-                           consequence: "If it's on (Apple Account ▸ iCloud ▸ Private Relay), turn it off and test again. One tester found it cut responsiveness on two of three Macs.",
+                           consequence: "If it's on (\(Fmt.path("Apple Account", "iCloud", "Private Relay"))), turn it off and test again. One tester found it cut responsiveness on two of three Macs.",
                            kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.systempreferences.AppleIDSettings")))
         }
         if s.vpn?.carriesWebsites == true {
@@ -670,7 +670,7 @@ public enum NetworkCheck {
         }
         if s.proxy || s.autoProxy {
             out.append(Fix(id: "net-proxy", title: "Check the proxy setting",
-                           consequence: "In Network ▸ Details ▸ Proxies. Turn it off only if you know you don't need it.",
+                           consequence: "In \(Fmt.path("Network", "Details", "Proxies")). Turn it off only if you know you don't need it.",
                            kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.Network-Settings.extension")))
         }
         // 6. slow, with a good signal or a cable: the line itself
