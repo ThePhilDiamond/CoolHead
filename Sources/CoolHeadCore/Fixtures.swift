@@ -96,7 +96,7 @@ public struct Fixture {
         review.append(("memory-groups", chromeHelper?.key == "/Applications/Google Chrome.app" && chromeHelper?.kind == .browser && pyJob?.kind == .job,
                        "Chrome's helpers count as Chrome; a Python script counts as a job"))
         var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
-        let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, chrome: .available(4096))
+        let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, chrome: .available(4096), tabMemoryOn: false)
         // One Click First (Phil, 16 November 2026): Limit Chrome is recommended; closing the heaviest tabs fixes the cause
         review.append(("memory-browser", browserCard.recommended?.id == "chromelimit"
                        && browserCard.betterThanRecommended.map(\.id) == ["tabs"]
@@ -113,14 +113,14 @@ public struct Fixture {
                       ChromeLimit.limitMB(memory: gbs[3], chromeUse: 10_000_000_000)]
         let offered = browserCard.fixes.first { $0.id == "chromelimit" }
         let chromeGroup = [MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)]
-        let limitedCard = MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .set(4096))
+        let limitedCard = MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .set(4096), tabMemoryOn: false)
         let noRemove = !limitedCard.fixes.contains { $0.id == "chromelimit" } && limitedCard.explanation.contains("over its 4 GB limit")
         let driveFirst = MemoryAdvice.card([MemGroup(key: "g", name: "Google Drive", kind: .app, bundle: "/Applications/Google Drive.app", bytes: 4_700_000_000, count: 3)]
-                                           + chromeGroup, mac: tight, now: now, chrome: .available(4096))
+                                           + chromeGroup, mac: tight, now: now, chrome: .available(4096), tabMemoryOn: false)
         let secondOffered = driveFirst.fixes.contains { $0.id == "chromelimit" }
-        let notOffered = !MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .unavailable).fixes.contains { $0.id == "chromelimit" }
+        let notOffered = !MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .unavailable, tabMemoryOn: false).fixes.contains { $0.id == "chromelimit" }
             && !MemoryAdvice.card([MemGroup(key: "e", name: "Microsoft Edge", kind: .browser, bundle: "/Applications/Microsoft Edge.app", bytes: 5_500_000_000, count: 41)],
-                                  mac: tight, now: now, chrome: .available(4096)).fixes.contains { $0.id == "chromelimit" }
+                                  mac: tight, now: now, chrome: .available(4096), tabMemoryOn: false).fixes.contains { $0.id == "chromelimit" }
         let scratch = "io.github.thephildiamond.coolhead.selftest-chrome", scratchMark = "selftestChromeLimitMB"
         let sixteen = gbs[2]
         _ = ChromeLimit.remove(domain: scratch, marker: scratchMark)
@@ -161,14 +161,14 @@ public struct Fixture {
         let browserOrder = browserCard.fixes.map(\.id).joined(separator: " ")
         let driveOrder = driveFirst.fixes.map(\.id).joined(separator: " ")
         func card(_ name: String) -> Card {
-            MemoryAdvice.card([MemGroup(key: name, name: name, kind: .browser, bundle: "/Applications/\(name).app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, chrome: .unavailable)
+            MemoryAdvice.card([MemGroup(key: name, name: name, kind: .browser, bundle: "/Applications/\(name).app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, chrome: .unavailable, tabMemoryOn: false)
         }
         let edgeRestart = card("Microsoft Edge").fixes.first { $0.id == "restart" }
         let notChromium = ["Safari", "Firefox", "Arc", "Opera"].filter { card($0).fixes.contains { $0.id == "restart" } }
         let restartCard = restartFix?.title == "Restart Google Chrome, keeping your tabs"
             && restartFix?.kind == .restartBrowser("/Applications/Google Chrome.app") && restartFix?.recommended == false
             && restartFix?.consequence == "Closes and reopens Google Chrome, freeing memory it built up. Your tabs come back; Incognito windows, unsent form text, and downloads in progress don't."
-            && browserOrder == "chromelimit tabs restart quit saver" && driveOrder == "quit restart quit2 chromelimit pause"
+            && browserOrder == "chromelimit tabs restart quit saver tabmemory" && driveOrder == "quit restart quit2 chromelimit pause"
             && edgeRestart?.consequence.contains("InPrivate windows") == true && notChromium.isEmpty
             && BrowserRestart.note(.stillOpen, name: "Google Chrome").text.contains("so it wasn't reopened") && BrowserRestart.note(.stillOpen, name: "Google Chrome").failed
             && !BrowserRestart.note(.restarted(seconds: 3), name: "Google Chrome").failed
