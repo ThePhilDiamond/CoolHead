@@ -7,7 +7,7 @@ How versions are numbered, what each release contains, and the steps to make one
 Cool Head follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): **MAJOR.MINOR.PATCH**, for example 0.5.0.
 
 - **PATCH** (0.5.0 to 0.5.1): fixes only. Nothing new to learn.
-- **MINOR** (0.5.0 to 0.6.0): anything new a user would notice, such as a new option, card or setting, with or without fixes.
+- **MINOR** (0.5.0 to 0.6.0): anything new a user would notice, such as a new option, card, or setting, with or without fixes.
 - **MAJOR** (0.x to 1.0): saved for when Cool Head is notarized and its behaviour is settled. While the major number is 0, anything may still change.
 
 One number names a version everywhere:
@@ -36,14 +36,14 @@ Every change, the maintainer's included, goes through a pull request: `main` acc
 
 ## Steps
 
-1. **During development**, each change a user would notice gets its own file in [changes/](changes/README.md), under `added/`, `changed/` or `fixed/`, so pull requests don't edit the same lines of CHANGELOG.md.
+1. **During development**, each change a user would notice gets its own file in [changes/](changes/README.md), under `added/`, `changed/`, or `fixed/`, so pull requests don't edit the same lines of CHANGELOG.md.
 2. **Choose the number** by the rules above: MINOR if anything is in `changes/added` or `changes/changed`, PATCH if it's all in `changes/fixed`.
 3. **Prepare the release** in one pull request named `Release X.Y.Z`:
-   - Run `scripts/gather-changes.sh X.Y.Z`: it moves every entry in `changes/` into a new `## [X.Y.Z] - YYYY-MM-DD` section of CHANGELOG.md, oldest first, under Added, Changed and Fixed, updates the links at the bottom (`[Unreleased]` compares `vX.Y.Z...HEAD`; `[X.Y.Z]` compares the previous tag with `vX.Y.Z`), and removes the entry files. Read the section through before committing.
+   - Run `scripts/gather-changes.sh X.Y.Z`: it moves every entry in `changes/` into a new `## [X.Y.Z] - YYYY-MM-DD` section of CHANGELOG.md, oldest first, under Added, Changed, and Fixed, updates the links at the bottom (`[Unreleased]` compares `vX.Y.Z...HEAD`; `[X.Y.Z]` compares the previous tag with `vX.Y.Z`), and removes the entry files. Read the section through before committing.
    - Set `VERSION` and `CoolHead.version` to X.Y.Z.
    - If the version changes something a user sees, add its short note for the app's What's new (`WhatsNew` in `Sources/CoolHeadApp/PanelView.swift`).
-   - Run `scripts/check-version.sh vX.Y.Z`, `swift build -c release` and `.build/release/coolhead selftest`.
-4. **Merge, then tag**: once `build` passes, squash-merge the pull request, pull `main`, and tag the merged commit: `git tag -a vX.Y.Z -m "Cool Head X.Y.Z"`, then push the tag. The release workflow checks the numbers, builds, runs the selftest, signs the zip, and publishes the release with its title, notes and downloads.
+   - Run `scripts/check-version.sh vX.Y.Z`, `swift build -c release`, and `.build/release/coolhead selftest`.
+4. **Merge, then tag**: once `build` passes, squash-merge the pull request, pull `main`, and tag the merged commit: `git tag -a vX.Y.Z -m "Cool Head X.Y.Z"`, then push the tag. The release workflow checks the numbers, builds, runs the selftest, signs the zip, and publishes the release with its title, notes, and downloads.
 5. **Check the release**: the zip's checksum matches `SHA256SUMS.txt`, its signature verifies, the app reports X.Y.Z, and its selftest passes.
 
 ## History

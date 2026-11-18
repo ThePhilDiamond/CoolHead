@@ -224,8 +224,8 @@ public enum Disguise {
                         fixes: [Card.share])
         case .notAppleSigned(let name, _):
             let steps = ["Shut down your Mac.", "Press and hold the power button until the startup options appear, then choose Options to start in Recovery.",
-                         "Choose Utilities ▸ Terminal, type csrutil enable, and press Return."]
-                + (protection.sealBroken || !path(isOnDataVolume: f) ? ["Type csrutil authenticated-root enable, and press Return."] : [])
+                         "Choose \(Fmt.path("Utilities", "Terminal")), type \(Fmt.ui("csrutil enable")), and press Return."]
+                + (protection.sealBroken || !path(isOnDataVolume: f) ? ["Type \(Fmt.ui("csrutil authenticated-root enable")), and press Return."] : [])
                 + ["Restart."]
             return Card(state: .unknown, headline: "This copy of \(name) isn't Apple's.",
                         explanation: "macOS's protection is off on this Mac, and this program in macOS's folders has been changed. \(disclaimer)",
@@ -249,8 +249,8 @@ public enum Disguise {
             } else {
                 // the system's own launch items need an administrator (see the padlock line in the research)
                 fix = Fix.guide("loginitems", "Turn it off in Login Items", "Needs an administrator password.",
-                                steps: ["Open System Settings ▸ General ▸ Login Items & Extensions.",
-                                        "Under Allow in the Background, find the item for \(file) and switch it off.",
+                                steps: ["Open \(Fmt.path("System Settings", "General", "Login Items & Extensions")).",
+                                        "Under \(Fmt.ui("Allow in the Background")), find the item for \(file) and switch it off.",
                                         "Enter an administrator password if asked."], recommended: true)
             }
             return Card(state: .unknown, headline: "A background item is pretending to be Apple's.",

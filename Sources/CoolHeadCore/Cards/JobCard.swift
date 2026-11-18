@@ -99,7 +99,7 @@ enum JobCard: ProcessCard {
         // while the Mac is warm, a busy job says it is part of why
         let heat = Fmt.its([s.gpuClause, warm && s.heating ? "adding to the heat" : nil,
                             forGame || (s.gameRunning != nil && s.gpuLed) ? "competing with \(s.gameRunning!)" : nil, drains ? "draining your battery" : nil])
-            + (gpuApp != nil ? " Pausing or closing a video, animation or 3D view in it lets the chip rest." : "")
+            + (gpuApp != nil ? " Pausing or closing a video, animation, or 3D view in it lets the chip rest." : "")
         switch s.state {
         case .working:
             if let p = e.progress {

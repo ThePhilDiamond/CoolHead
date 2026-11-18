@@ -1,0 +1,1 @@
+- Lists of three or more in Cool Head's text, and in its documents, use a comma before the last "and" or "or".

@@ -34,7 +34,7 @@ extension Fixture {
                     N.summary(res(2, 0.5, 100), weakLink)]
         let summed = sums == [
             "Fast enough for everything, from 4K video to calls and games.",
-            "Fine for browsing, HD video, 4K video and games, but uploads are slow, so video calls may break up.",
+            "Fine for browsing, HD video, 4K video, and games, but uploads are slow, so video calls may break up.",
             "Fine for browsing and HD video, but the delay is long, so calls and games may lag.",
             "Fine for browsing, but the Wi-Fi signal is weak, and downloads are slow.",
         ]
@@ -80,7 +80,7 @@ extension Fixture {
             && N.dnsKind(["192.168.1.53"], router: "192.168.1.1") == .local && N.dnsKind(["172.20.0.2"], router: nil) == .local
             && N.dnsKind(["172.32.0.2"], router: nil) == .internet && N.dnsKind(["1.1.1.1"], router: "10.0.0.1") == .internet
             && N.dnsKind([], router: nil) == .none
-        review.append(("network-dns-kind", d, "router, local and internet servers told apart: \(d)"))
+        review.append(("network-dns-kind", d, "router, local, and internet servers told apart: \(d)"))
 
         // nettop's second sample is what moved in the last second; one app's processes are added together, macOS's
         // own say so, and Cool Head and the test itself are left out

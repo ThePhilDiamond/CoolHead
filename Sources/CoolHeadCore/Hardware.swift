@@ -459,8 +459,8 @@ extension HardwareReport {
         if let b = battery {
             let swollen = "If the case bulges, the lid won't close flat, or the trackpad feels raised, stop using the Mac and take it to Apple: a swollen battery is a fire risk."
             let check = Fix.guide("battery", "Check the battery with Apple's steps", "Takes a few minutes; the last step restarts the Mac.", steps: [
-                "Choose Apple menu ▸ System Settings ▸ Battery, and click the ⓘ next to Battery Health.",
-                "Make sure Optimized Battery Charging is on.",
+                "Choose \(Fmt.path("Apple menu", "System Settings", "Battery")), and click the ⓘ next to \(Fmt.ui("Battery Health")).",
+                "Make sure \(Fmt.ui("Optimized Battery Charging")) is on.",
                 "Charge with the adapter that came with the Mac, or one with as many watts.",
                 "Shut down the Mac, close the lid for 30 seconds, then start it up.",
                 "If it still says Service Recommended, run Apple Diagnostics and contact Apple.",
@@ -485,7 +485,7 @@ extension HardwareReport {
                 case .onHold(let pct):
                     card("charging", .quiet, "Charging is on hold at \(pct)%.",
                          "That's most likely on purpose: Optimized Battery Charging, or a Charge Limit you set, holds the charge to slow battery wear and charges to full before you usually unplug.",
-                         [Fix.guide("full", "Charge to full now", "Charges to 100% this time; it goes back to normal afterwards.", steps: ["Click the battery in the menu bar.", "Choose Charge to Full Now. If it isn't there, the hold is a Charge Limit: change it in System Settings ▸ Battery."])],
+                         [Fix.guide("full", "Charge to full now", "Charges to 100% this time; it goes back to normal afterwards.", steps: ["Click the battery in the menu bar.", "Choose \(Fmt.ui("Charge to Full Now")). If it isn't there, the hold is a Charge Limit: change it in \(Fmt.path("System Settings", "Battery"))."])],
                          b.lines, subject: "charging")
                 case .tooWarm(let t):
                     card("charging", .quiet, "The battery is too warm to charge.",
@@ -498,7 +498,7 @@ extension HardwareReport {
                 case .unknown:
                     let restart = appleSilicon ? " Restart the Mac: Apple silicon Macs have no SMC to reset, and a restart does that job." : " Restart the Mac."
                     card("charging", .quiet, "It's plugged in but not charging, and Cool Head can't tell why.",
-                         "The battery isn't warm and isn't near a charge limit. Try another cable, socket or charger." + restart + " If it still won't charge, run Apple Diagnostics.",
+                         "The battery isn't warm and isn't near a charge limit. Try another cable, socket, or charger." + restart + " If it still won't charge, run Apple Diagnostics.",
                          [diagnostics], b.lines, subject: "charging")
                 }
             }
@@ -588,8 +588,8 @@ public enum Hardware {
 
     static let backUp = Fix.guide("backup", "Back up now", "Copies your files to another drive, so nothing is lost if this one fails.", steps: [
         "Connect your backup drive.",
-        "Click the Time Machine icon in the menu bar and choose Back Up Now.",
-        "No Time Machine yet? Set it up in System Settings ▸ General ▸ Time Machine, or copy what matters to another drive."])
+        "Click the Time Machine icon in the menu bar and choose \(Fmt.ui("Back Up Now")).",
+        "No Time Machine yet? Set it up in \(Fmt.path("System Settings", "General", "Time Machine")), or copy what matters to another drive."])
 
     static let lessPower = Fix.guide("power", "Give the device the power it needs", "Apple's steps for a device that wants too much power.", steps: [
         "Unplug the device, then plug it in again.",

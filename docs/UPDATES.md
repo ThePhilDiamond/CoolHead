@@ -1,10 +1,10 @@
 # How Cool Head updates itself
 
-Cool Head checks GitHub for a newer release a minute after it opens and then once a day. When one exists, the panel says so, with **Install** and **What's new**. To check now, open the Settings page (the gear at the right end of the panel's toolbar) and click **Check Now** beside the version: it says "Up to date", or downloads, verifies and installs the update. **Check for updates automatically**, on the same page, turns the daily check off.
+Cool Head checks GitHub for a newer release a minute after it opens and then once a day. When one exists, the panel says so, with **Install** and **What's new**. To check now, open the Settings page (the gear at the right end of the panel's toolbar) and click **Check Now** beside the version: it says "Up to date", or downloads, verifies, and installs the update. **Check for updates automatically**, on the same page, turns the daily check off.
 
 ## What it sends
 
-One request to GitHub's public API for the latest release of this repository. If you press Install, the download of that release's zip and its signature. Nothing about you, your Mac or your processes; GitHub sees the request come from your internet address, as it does for any web page.
+One request to GitHub's public API for the latest release of this repository. If you press Install, the download of that release's zip and its signature. Nothing about you, your Mac, or your processes; GitHub sees the request come from your internet address, as it does for any web page.
 
 ## How it knows the update is genuine
 
@@ -25,7 +25,7 @@ A release without a signature can't be installed from inside the app; the panel 
 
 ## Tested
 
-On 15 November 2026 a copy labelled 0.2.9 found v0.3.0 on GitHub, verified its signature, replaced itself and reopened as 0.3.0 (`COOLHEAD_UPDATE_TEST=1` makes a copy check and install at launch). The same day, a real installed 0.3.0 updated itself to v0.3.1 when its version was clicked.
+On 15 November 2026 a copy labelled 0.2.9 found v0.3.0 on GitHub, verified its signature, replaced itself, and reopened as 0.3.0 (`COOLHEAD_UPDATE_TEST=1` makes a copy check and install at launch). The same day, a real installed 0.3.0 updated itself to v0.3.1 when its version was clicked.
 
 ## Not covered
 

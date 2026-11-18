@@ -582,7 +582,7 @@ public enum NetworkCheck {
         let fine = tasks.filter { fit($0, r) == .fine }.compactMap { phrase[$0.name] }
         let issues = problems.prefix(2).joined(separator: ", and ")
         guard !fine.isEmpty else { return issues.prefix(1).uppercased() + issues.dropFirst() + "." }
-        let good = fine.count == 1 ? fine[0] : fine.dropLast().joined(separator: ", ") + " and " + fine.last!
+        let good = Fmt.list(fine)
         return "Fine for \(good), but \(issues)."
     }
 
@@ -637,7 +637,7 @@ public enum NetworkCheck {
         // 2. a weak Wi-Fi signal
         if case .wifi(let w) = s.link, w.rssi <= weakSignal {
             out.append(.guide("net-signal", "Get a stronger Wi-Fi signal", "The signal is weak (\(w.rssi) dBm).",
-                              steps: ["Move closer to the router, or away from walls, metal and microwaves.",
+                              steps: ["Move closer to the router, or away from walls, metal, and microwaves.",
                                       "Use a cable if you can: it's steadier than Wi-Fi.",
                                       "Test again."]))
             out.append(.openApp("net-diagnostics", "Ask Apple's Wireless Diagnostics", bundle: wirelessDiagnostics,
@@ -649,7 +649,7 @@ public enum NetworkCheck {
                               "Keeps the connection quick to respond while it's busy; top speed may drop a little.",
                               steps: [s.router.map { "Open your router's settings: its app, or http://\($0) in a browser." }
                                           ?? "Open your router's settings (its app, or the address on its label).",
-                                      "Look for Smart Queue, SQM, QoS or Bufferbloat, and turn it on.",
+                                      "Look for Smart Queue, SQM, QoS, or Bufferbloat, and turn it on.",
                                       "Test again."]))
         }
         // 4. AirDrop's radio link hopping channels (several reports, no Apple statement)
@@ -661,7 +661,7 @@ public enum NetworkCheck {
         // 5. iCloud Private Relay (one tester), a VPN, a proxy: test without them; Cool Head never turns them off
         if r.rpm < goodRPM {
             out.append(Fix(id: "net-private-relay", title: "Test with Private Relay off",
-                           consequence: "If it's on (Apple Account ▸ iCloud ▸ Private Relay), turn it off and test again. One tester found it cut responsiveness on two of three Macs.",
+                           consequence: "If it's on (\(Fmt.path("Apple Account", "iCloud", "Private Relay"))), turn it off and test again. One tester found it cut responsiveness on two of three Macs.",
                            kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.systempreferences.AppleIDSettings")))
         }
         if s.vpn?.carriesWebsites == true {
@@ -670,7 +670,7 @@ public enum NetworkCheck {
         }
         if s.proxy || s.autoProxy {
             out.append(Fix(id: "net-proxy", title: "Check the proxy setting",
-                           consequence: "In Network ▸ Details ▸ Proxies. Turn it off only if you know you don't need it.",
+                           consequence: "In \(Fmt.path("Network", "Details", "Proxies")). Turn it off only if you know you don't need it.",
                            kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.Network-Settings.extension")))
         }
         // 6. slow, with a good signal or a cable: the line itself
@@ -706,7 +706,7 @@ public enum NetworkCheck {
             }
             out.append("Wi-Fi is sending at up to \(grouped(Int(w.rate.rounded()))) Mbps on channel \(w.channel)" + (w.band.isEmpty ? "." : " (\(w.band))."))
             if s.awdlOn && !awdlChannels.contains(w.channel) {
-                out.append("The radio link AirDrop and Continuity use is on, and it listens on channel 6, 44 or 149 rather than your router's \(w.channel). Several people report this causes short, regular stutters, though Apple hasn't said so; setting AirDrop to No One stopped it for some.")
+                out.append("The radio link AirDrop and Continuity use is on, and it listens on channel 6, 44, or 149 rather than your router's \(w.channel). Several people report this causes short, regular stutters, though Apple hasn't said so; setting AirDrop to No One stopped it for some.")
             }
         case .cable: out.append("Connected by cable.")
         case .other: out.append("Connected, but not by Wi-Fi or cable (perhaps through a phone).")

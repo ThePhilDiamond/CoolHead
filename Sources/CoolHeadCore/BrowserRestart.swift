@@ -104,9 +104,9 @@ public enum BrowserRestart {
         case .refused:
             return ("\(name) didn't quit. It may be asking you something.", true)
         case .stillOpen:
-            return ("\(name) is still open after \(Int(wait)) seconds, so it wasn't reopened. It may be asking you something, such as about a download. If it closes later, open it again: it may offer to restore your tabs, or look in History ▸ Recently Closed.", true)
+            return ("\(name) is still open after \(Int(wait)) seconds, so it wasn't reopened. It may be asking you something, such as about a download. If it closes later, open it again: it may offer to restore your tabs, or look in \(Fmt.path("History", "Recently Closed")).", true)
         case .reopenFailed(let why):
-            return ("\(name) closed but didn't reopen: \(why). Open it again: it may offer to restore your tabs, or look in History ▸ Recently Closed.", true)
+            return ("\(name) closed but didn't reopen: \(why). Open it again: it may offer to restore your tabs, or look in \(Fmt.path("History", "Recently Closed")).", true)
         }
     }
 

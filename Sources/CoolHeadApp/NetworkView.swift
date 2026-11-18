@@ -235,7 +235,7 @@ struct NetworkView: View {
     func tile(_ symbol: String, _ value: String?, _ unit: String, _ label: String, _ level: Int) -> some View {
         tileFrame {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Image(systemName: symbol).font(.caption.weight(.semibold))
+                Image(systemName: symbol).font(.system(size: NetworkView.tileIcon, weight: .semibold))
                     .foregroundStyle(value == nil ? Ink.muted : NetworkView.color(level))
                 if let value {
                     // the figure gives way before its unit does, so "Mbps" is never cut off
@@ -250,6 +250,10 @@ struct NetworkView: View {
             }
         } unit: { Text(label) }
     }
+
+    /// The symbol on every speed and privacy tile, in points (Phil, 18 November 2026: "I think all the icons on those
+    /// tiles need to be a little bigger", then "Let's do 14 points for the icon size").
+    static let tileIcon: CGFloat = 14
 
     /// A tile's frame, the same size whatever it holds.
     func tileFrame<Top: View, Unit: View>(@ViewBuilder _ top: () -> Top, @ViewBuilder unit: () -> Unit) -> some View {
@@ -337,7 +341,7 @@ struct NetworkView: View {
             HStack(spacing: 8) {
                 privacyTile(vpn?.level == 0 ? "lock.shield.fill" : "lock.shield", vpn?.level ?? -1, vpn?.value, "VPN", waiting: s == nil)
                     .help(s.map { $0.vpn.map(NetworkCheck.vpnLine) ?? "No VPN is connected." } ?? "")
-                privacyTile("character.magnify", -1, dns?.value, "Site lookup (DNS)", waiting: s == nil)
+                privacyTile("text.magnifyingglass", -1, dns?.value, "Site lookup (DNS)", waiting: s == nil)
                     .help(s.map(NetworkCheck.dnsLine) ?? "")
                 privacyTile("globe", seen?.level ?? -1, seen?.value, "Sites see you in", waiting: testing && seen == nil)
                     .help(seen?.detail ?? "")
@@ -352,7 +356,7 @@ struct NetworkView: View {
     func privacyTile(_ symbol: String, _ level: Int, _ value: String?, _ label: String, waiting: Bool) -> some View {
         tileFrame {
             HStack(spacing: 5) {
-                Image(systemName: symbol).font(.caption.weight(.semibold))
+                Image(systemName: symbol).font(.system(size: NetworkView.tileIcon, weight: .semibold))
                     .foregroundStyle(value == nil || level < 0 ? Ink.muted : NetworkView.color(level))
                 if let value {
                     Text(value).font(.system(.callout, design: .rounded).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.6)
@@ -415,7 +419,7 @@ struct NetworkView: View {
                     }
                     .buttonStyle(.plain).foregroundStyle(Color.accentColor)
                 }
-                if let note { Text(note).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
+                if let note { Text(ui: note).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
             }
         }
     }

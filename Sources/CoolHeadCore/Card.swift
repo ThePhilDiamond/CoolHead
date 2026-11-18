@@ -238,7 +238,7 @@ extension Fix {
         switch kind {
         case .stop: return "It ends at once, without a chance to save or finish what it was doing."
         case .forceQuit: return "The app ends at once, without a chance to save."
-        case .restartBrowser: return "Private windows, text typed into pages and downloads in progress don't come back."
+        case .restartBrowser: return "Private windows, text typed into pages, and downloads in progress don't come back."
         case .stopAgent: return "What it does for its app, such as updates or syncing, stops too, so the app may not work as it should."
         case .stopAndTrash: return "It ends at once, and anything that relies on it stops working until you put it back from the Trash."
         case .restartApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
@@ -440,6 +440,19 @@ public struct Card {
 
 /// Formats in Phil's style: 4:50pm, 3 hours 20 minutes.
 public enum Fmt {
+    /// A list in a sentence, in US style with the Oxford comma from three items (Phil, 18 November 2026: "in all copy
+    /// that lists things in sentences, please use oxford commas for lists of three or more"): "A", "A and B",
+    /// "A, B, and C". Not ListFormatter, which follows the Mac's region and drops the comma in British English.
+    public static func list(_ items: [String], or: Bool = false) -> String {
+        let word = or ? "or" : "and"
+        switch items.count {
+        case 0: return ""
+        case 1: return items[0]
+        case 2: return "\(items[0]) \(word) \(items[1])"
+        default: return items.dropLast().joined(separator: ", ") + ", \(word) " + items.last!
+        }
+    }
+
     /// A temperature, given in °C, in the unit this Mac is set to (Phil, 17 November 2026: "we should inherit the unit
     /// from the macOS region settings"): System Settings ▸ General ▸ Language & Region ▸ Temperature where it's been
     /// chosen, otherwise the region's usual unit. Cool Head's own limits stay in °C.
@@ -487,8 +500,7 @@ public enum Fmt {
     public static func its(_ clauses: [String?]) -> String {
         let c = clauses.compactMap { $0 }
         guard !c.isEmpty else { return "" }
-        let joined = c.count == 1 ? c[0] : c.count == 2 ? "\(c[0]) and \(c[1])" : c.dropLast().joined(separator: ", ") + ", and " + c.last!
-        return " It's \(joined)."
+        return " It's \(Fmt.list(c))."
     }
 
     /// A name at the start of a sentence: a leading "the", "a", "an" or "another" gets its capital ("the claude

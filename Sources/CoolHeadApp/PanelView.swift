@@ -300,7 +300,7 @@ struct CardView: View {
             }
             Button("Cancel", role: .cancel) { confirmStop = nil }
         } message: {
-            Text(confirmStop?.consequence ?? "")
+            Text(ui: confirmStop?.consequence ?? "")
         }
     }
 
@@ -312,7 +312,7 @@ struct CardView: View {
         if let n = note {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: noteFailed ? "exclamationmark.circle" : "checkmark.circle")
-                Text(n).fixedSize(horizontal: false, vertical: true)
+                Text(ui: n).fixedSize(horizontal: false, vertical: true)
             }
             .font(.callout.weight(.medium))
             .foregroundStyle(noteFailed ? Color.orange : Color.green)
@@ -634,7 +634,7 @@ enum WhatsNew {
     static let notes: [String: [String]] = [
         "0.9.0": [
             "Settings are in the panel, behind the gear at the right of the toolbar, with the menu bar icon to pick by sight.",
-            "The top of the panel shows how your Mac is running, with gauges for the chip, memory and heat.",
+            "The top of the panel shows how your Mac is running, with gauges for the chip, memory, and heat.",
             "Each card says why it recommends what it does, and what that costs, under Nerdy stuff.",
             "Test my network shows your VPN, who looks website names up, and the country websites see you in.",
             "What Cool Head is holding back is one On hold section, with one Report a problem for all of it.",
@@ -671,7 +671,7 @@ enum WhatsNew {
         "0.5.0": [
             "Click anywhere on a card to open it, and again to close it. Each option is a clear button that says what it does.",
             "After an option works, it says what was done, instead of leaving the options to press again.",
-            "Anything Cool Head is slowing, pausing or limiting is one line at the top, with Speed up, Resume or Remove.",
+            "Anything Cool Head is slowing, pausing, or limiting is one line at the top, with Speed up, Resume, or Remove.",
             "When memory is tight, Limit Chrome sets Chrome's own memory limit.",
         ],
         "0.4.4": [
@@ -1543,8 +1543,8 @@ struct FixRow: View {
                             }
                             if !line.isEmpty {
                                 // the last line keeps room for the corner label, so the label never covers words
-                                (Text(line) + (tag.map { OptionTag.room($0.words) } ?? Text("")))
-                                    .accessibilityLabel(line)
+                                (Text(ui: line) + (tag.map { OptionTag.room($0.words) } ?? Text("")))
+                                    .accessibilityLabel(Fmt.plain(line))
                                     .font(.callout).opacity(0.8).fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -1575,7 +1575,7 @@ struct FixRow: View {
                         ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
                                 Text("\(i + 1).").monospacedDigit().foregroundStyle(Ink.muted)
-                                Text(step).fixedSize(horizontal: false, vertical: true)
+                                Text(ui: step).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }

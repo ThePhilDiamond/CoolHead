@@ -61,7 +61,7 @@ public enum BrowserTampering {
         // settings Cool Head didn't make, on a Mac no organization manages (rule 3)
         if !managed, let p = policies.first(where: { !$0.foreign.isEmpty }) {
             let f = p.foreign
-            let what = f.count == 1 ? f[0] : f.count == 2 ? "\(f[0]) and \(f[1])" : f.dropLast().joined(separator: ", ") + ", and " + f.last!
+            let what = Fmt.list(f)
             var lc = LiveCard(id: "browser-policy-\(p.browser)", pid: nil, card: Card(
                 state: .unknown,
                 headline: "\(p.browser) is managed by settings Cool Head didn't make.",

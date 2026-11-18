@@ -115,7 +115,7 @@ public enum Decision {
     /// A fact with "{who}" in it, filled with who the card is about.
     static func fill(_ s: String, _ subject: String) -> String { s.replacingOccurrences(of: "{who}", with: subject) }
 
-    static func list(_ p: [String]) -> String { p.count < 3 ? p.joined(separator: " and ") : p.dropLast().joined(separator: ", ") + ", and " + p.last! }
+    static func list(_ p: [String]) -> String { Fmt.list(p) }
 
     static func stakes(_ s: OptionFacts.Stakes?, after cost: Bool) -> String {
         switch s {

@@ -9,7 +9,7 @@ enum ChromiumBrowserCard: ProcessCard {
     static let id = "chromium-browser"
     static let kind = CardKind.explanation
     static let rule = "Phil, 15 November 2026: improve Chrome's performance without quitting it"
-    static func confidence(_ s: Situation) -> Confidence { .type("the app says this process is one of its tabs, extensions or its graphics process") }
+    static func confidence(_ s: Situation) -> Confidence { .type("the app says this process is one of its tabs, extensions, or its graphics process") }
     static let samples = ["chrome-tab", "chrome-tab-in-front-warm", "chrome-extension", "chrome-graphics"]
 
     static func card(_ s: Situation) -> Card? {
@@ -46,7 +46,8 @@ enum ChromiumBrowserCard: ProcessCard {
         let canCool = RunCooler.offered(e) && part != .graphics     // slowing graphics would slow all of it
         let page = { (url: String, title: String, why: String, rec: Bool) in
             Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
-        let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.").fixingTheCause()
+        let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: [TaskManager.open(app), TaskManager.sort(by: "CPU", so: "the busiest"),
+                                       part == .extensionPart ? "Its name says which extension it is." : "Close that tab, or reload it if you need it."].joined(separator: " ")).fixingTheCause()
         let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle)).losingWork()
         var fixes: [Fix?]
         switch part {

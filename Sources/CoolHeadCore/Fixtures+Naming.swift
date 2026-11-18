@@ -25,7 +25,18 @@ extension Fixture {
             && Naming.distinct([.init("a script", .script), .init("a script", .script)]) == ["a script", "another script"]
             && Fmt.sentenceStart("macOS's mds") == "macOS's mds" && Fmt.sentenceStart("the claude command-line program") == "The claude command-line program"
         return [("names-tell-apart", bad.isEmpty && cases && named >= aboutProcesses * 2 / 3,
-                 bad.isEmpty ? "\(named) of \(aboutProcesses) example cards about processes record their names; all can be told apart; cases \(cases)" : bad.joined(separator: "; "))]
+                 bad.isEmpty ? "\(named) of \(aboutProcesses) example cards about processes record their names; all can be told apart; cases \(cases)" : bad.joined(separator: "; ")),
+                // every list of three or more in a sentence takes the Oxford comma (Phil, 18 November 2026), and code builds
+                // its lists with Fmt.list, not ListFormatter, which drops the comma in British English
+                oxfordComma()]
+    }
+
+    static func oxfordComma() -> (String, Bool, String) {
+        let lists = [Fmt.list([]), Fmt.list(["a"]), Fmt.list(["a", "b"]), Fmt.list(["a", "b", "c"]), Fmt.list(["a", "b", "c"], or: true),
+                     Hang.waitingWords(["ffmpeg", "ffprobe", "node", "python3"]) ?? ""]
+        let ok = lists == ["", "a", "a and b", "a, b, and c", "a, b, or c",
+                           "It started 4 programs that may be waiting on it: ffmpeg, ffprobe, node, and others."]
+        return ("lists-oxford-comma", ok, lists.joined(separator: " | "))
     }
 
     /// No sample cards of its own for `coolhead wording`.

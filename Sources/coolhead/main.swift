@@ -6,6 +6,10 @@ import CoolHeadCore
 // waits to be asked to quit, so the selftest can restart it the way Cool Head restarts a browser
 if BrowserRestart.isTestApp(Bundle.main.bundleIdentifier) { BrowserRestart.runTestApp() }
 
+/// Everything this program prints is plain text: the marks that underline menu items in the panel are dropped (see
+/// MenuWords.swift).
+func print(_ s: String = "", terminator: String = "\n") { Swift.print(Fmt.plain(s), terminator: terminator) }
+
 let usage = """
 coolhead: explains what is keeping this Mac busy, hot or awake.
 

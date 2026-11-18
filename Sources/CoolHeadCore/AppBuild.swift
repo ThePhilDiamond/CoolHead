@@ -139,7 +139,7 @@ public enum AppBuild {
             guard f.macOS.major < 27 else { return nil }            // 27 ignores the setting and runs it natively
             return (" It's set to open using Rosetta, so it runs translated though it has an Apple silicon version.",
                     Fix.guide("native", "Run it natively", "Turns off Open using Rosetta.",
-                              steps: ["Quit \(app).", "In Finder, select \(app) and choose File ▸ Get Info.", "Turn off Open using Rosetta, then open it again."]))
+                              steps: ["Quit \(app).", "In Finder, select \(app) and choose \(Fmt.path("File", "Get Info")).", "Turn off \(Fmt.ui("Open using Rosetta")), then open it again."]))
         case nil:
             return nil
         }
@@ -149,7 +149,7 @@ public enum AppBuild {
     public static func electronAddition(_ f: Facts) -> (sentence: String, fix: Fix)? {
         guard electronWindow(f.macOS), !f.oldElectron.isEmpty else { return nil }
         let n = f.oldElectron
-        let names = n.count == 1 ? n[0] : n.count == 2 ? "\(n[0]) and \(n[1])" : n.dropLast().joined(separator: ", ") + ", and " + n.last!
+        let names = Fmt.list(n)
         let them = f.oldElectron.count == 1 ? "it" : "them"
         return (" \(names) \(f.oldElectron.count == 1 ? "is" : "are") built on an older Electron that makes macOS \(f.macOS.major).\(f.macOS.minor) draw slowly: update \(them).",
                 Fix.guide("electron", "Update \(names)", "Newer versions fix the slowdown.",
