@@ -83,7 +83,7 @@ struct HardwareView: View {
             if !p.lines.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(p.lines, id: \.self) {
-                        Text($0).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                        Text(ui: $0).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(.leading, p.tiles.isEmpty ? 26 : 0)
@@ -91,7 +91,7 @@ struct HardwareView: View {
             if let backup = p.backup {
                 HStack(spacing: 8) {
                     Image(systemName: "clock.arrow.circlepath").font(.caption).foregroundStyle(Ink.muted)
-                    Text(backup).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                    Text(ui: backup).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     // nothing backs the drive up: one click to Time Machine's settings
                     if report?.timeMachine == .notSetUp {

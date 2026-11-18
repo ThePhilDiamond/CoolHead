@@ -300,7 +300,7 @@ struct CardView: View {
             }
             Button("Cancel", role: .cancel) { confirmStop = nil }
         } message: {
-            Text(confirmStop?.consequence ?? "")
+            Text(ui: confirmStop?.consequence ?? "")
         }
     }
 
@@ -312,7 +312,7 @@ struct CardView: View {
         if let n = note {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: noteFailed ? "exclamationmark.circle" : "checkmark.circle")
-                Text(n).fixedSize(horizontal: false, vertical: true)
+                Text(ui: n).fixedSize(horizontal: false, vertical: true)
             }
             .font(.callout.weight(.medium))
             .foregroundStyle(noteFailed ? Color.orange : Color.green)
@@ -1543,8 +1543,8 @@ struct FixRow: View {
                             }
                             if !line.isEmpty {
                                 // the last line keeps room for the corner label, so the label never covers words
-                                (Text(line) + (tag.map { OptionTag.room($0.words) } ?? Text("")))
-                                    .accessibilityLabel(line)
+                                (Text(ui: line) + (tag.map { OptionTag.room($0.words) } ?? Text("")))
+                                    .accessibilityLabel(Fmt.plain(line))
                                     .font(.callout).opacity(0.8).fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -1575,7 +1575,7 @@ struct FixRow: View {
                         ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
                                 Text("\(i + 1).").monospacedDigit().foregroundStyle(Ink.muted)
-                                Text(step).fixedSize(horizontal: false, vertical: true)
+                                Text(ui: step).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }

@@ -91,8 +91,8 @@ public enum Wording {
         var s = c.headline + "\n"
         if !c.explanation.isEmpty { s += "  " + c.explanation + "\n" }
         for f in c.fixes {
-            s += "  \(f.recommended ? "→" : "·") [\(f.doer == .coolHead ? "one click" : "you")] \(f.title)" + (f.consequence.isEmpty ? "" : ": \(f.consequence)") + "\n"
-            if case .guide(let steps) = f.kind { for (i, step) in steps.enumerated() { s += "      \(i + 1). \(step)\n" } }
+            s += "  \(f.recommended ? "→" : "·") [\(f.doer == .coolHead ? "one click" : "you")] \(f.title)" + (f.consequence.isEmpty ? "" : ": \(Fmt.plain(f.consequence))") + "\n"
+            if case .guide(let steps) = f.kind { for (i, step) in steps.enumerated() { s += "      \(i + 1). \(Fmt.plain(step))\n" } }
         }
         return s
     }

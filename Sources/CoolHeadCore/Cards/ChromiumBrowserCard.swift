@@ -46,7 +46,8 @@ enum ChromiumBrowserCard: ProcessCard {
         let canCool = RunCooler.offered(e) && part != .graphics     // slowing graphics would slow all of it
         let page = { (url: String, title: String, why: String, rec: Bool) in
             Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
-        let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: "Choose Window ▸ Task Manager, then click CPU to put the busiest first.").fixingTheCause()
+        let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: [TaskManager.open(app), TaskManager.sort(by: "CPU", so: "the busiest"),
+                                       part == .extensionPart ? "Its name says which extension it is." : "Close that tab, or reload it if you need it."].joined(separator: " ")).fixingTheCause()
         let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle)).losingWork()
         var fixes: [Fix?]
         switch part {

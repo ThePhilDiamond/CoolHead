@@ -176,10 +176,10 @@ public enum MemoryAdvice {
 
         switch top.kind {
         case .browser:
-            let menu = top.name == "Safari" ? "Choose Window ▸ Activity" : top.name == "Firefox" ? "Type about:processes in the address bar" : "Choose Window ▸ Task Manager"
-            fixes.append((top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: "\(menu), then click Memory to put the biggest first.", recommended: true) }
-                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "In \(top.name): \(menu.prefix(1).lowercased() + menu.dropFirst()), then click Memory.",
-                                      steps: ["In \(top.name): \(menu.prefix(1).lowercased() + menu.dropFirst()).", "Click Memory to put the biggest first.", "Close the tabs at the top that you don't need."], recommended: true)).fixingTheCause())
+            let steps = [TaskManager.open(top.name), TaskManager.sort(by: "Memory", so: "the tab using the most"), "Close the tabs near the top that you don't need."]
+            fixes.append((top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: steps.joined(separator: " "), recommended: true) }
+                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "In \(top.name), find the tabs using the most memory and close the ones you don't need.",
+                                      steps: ["Open \(top.name)."] + steps, recommended: true)).fixingTheCause())
             if top.name == "Google Chrome" {
                 let st = chrome ?? ChromeLimit.status(chromeUse: top.bytes)
                 if let limit = ChromeLimit.fix(st) { fixes.append(limit) }

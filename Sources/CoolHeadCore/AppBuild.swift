@@ -139,7 +139,7 @@ public enum AppBuild {
             guard f.macOS.major < 27 else { return nil }            // 27 ignores the setting and runs it natively
             return (" It's set to open using Rosetta, so it runs translated though it has an Apple silicon version.",
                     Fix.guide("native", "Run it natively", "Turns off Open using Rosetta.",
-                              steps: ["Quit \(app).", "In Finder, select \(app) and choose File ▸ Get Info.", "Turn off Open using Rosetta, then open it again."]))
+                              steps: ["Quit \(app).", "In Finder, select \(app) and choose \(Fmt.path("File", "Get Info")).", "Turn off \(Fmt.ui("Open using Rosetta")), then open it again."]))
         case nil:
             return nil
         }

@@ -208,12 +208,12 @@ public enum BackgroundWork {
         if !s.afterRestart {
             return Card(state: .unknown, headline: "\(e.name), part of macOS, seems stuck: it's been busy for \(long).",
                         explanation: "macOS's background work doesn't usually run this long. We can't be certain it's stuck.",
-                        fixes: [Fix.guide("restart", "Restart your Mac", "Save your work first.", steps: ["Save your work.", "Choose Apple menu ▸ Restart."], recommended: true),
+                        fixes: [Fix.guide("restart", "Restart your Mac", "Save your work first.", steps: ["Save your work.", "Choose \(Fmt.path("Apple menu", "Restart"))."], recommended: true),
                                 Card.share])
         }
         return Card(state: .unknown, headline: "\(e.name), part of macOS, is stuck: a restart didn't clear it.",
                     explanation: "It's been busy for \(long): a macOS fault only Apple can fix. We can't be certain of the cause.",
-                    fixes: [Fix.openApp("update", "Check for a macOS update", bundle: systemSettings, steps: "Choose General ▸ Software Update.", recommended: true),
+                    fixes: [Fix.openApp("update", "Check for a macOS update", bundle: systemSettings, steps: "Choose \(Fmt.path("General", "Software Update")).", recommended: true),
                             Fix.openApp("feedback", "Tell Apple", bundle: feedbackAssistant, steps: "Choose New Feedback, then macOS, and say \(e.name) has been busy for \(long)."),
                             Card.share])
     }
