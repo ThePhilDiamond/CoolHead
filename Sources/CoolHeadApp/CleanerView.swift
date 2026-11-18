@@ -14,7 +14,10 @@ struct CleanerView: View {
     @ObservedObject var model = CleanerModel.shared
     /// Screenshots can show Deep clean's list open (COOLHEAD_SNAPSHOT_CLEANER=open).
     @State private var showDeep = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CLEANER"] == "open"
-    @State private var showMoved = false
+    /// Which lists have their small items unfolded ("quick", "rebuilds", "check", "moved"); all, in an open screenshot.
+    @State private var openSmall: Set<String> = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CLEANER"] == "open"
+        ? ["quick", "rebuilds", "check", "moved"] : []
+    @State private var showMoved = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CLEANER"] == "open"
     /// Deep clean's ticks the person changed; otherwise what rebuilds itself is ticked and the rest isn't.
     @State private var ticks: [String: Bool] = [:]
     /// The first click on a clean button arms it; a second within 5 seconds goes ahead.
@@ -27,11 +30,13 @@ struct CleanerView: View {
     var deep: [Cleaner.Find] { finds.filter { $0.group != .quick } }
     func ticked(_ f: Cleaner.Find) -> Bool { f.blocked == nil && (ticks[f.id] ?? (f.group == .rebuilds)) }
     var deepNow: [Cleaner.Find] { deep.filter(ticked) }
+    /// What Cool Head moved: in a screenshot, made-up items.
+    var moved: [Cleaner.Moved] { CleanerView.snapshot ? Cleaner.sampleMoved() : model.moved }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Label { Text("Cleaner") } icon: { Image(nsImage: Broom.image(size: 15)) }.font(.body.weight(.semibold))
+                Label("Cleaner", systemImage: "bubbles.and.sparkles").font(.body.weight(.semibold))
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
@@ -51,12 +56,11 @@ struct CleanerView: View {
                         Text(v.meaning).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                if let m = model.message { Text(m).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
-                if !quick.isEmpty { quickBox }
+                if let m = CleanerView.snapshot ? "Moved 3 items (272 MB) to the Trash." : model.message { Text(m).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
+                quickBox
                 if !deep.isEmpty { deepBox }
             }
-            downloadsRow
-            if !model.moved.isEmpty && !CleanerView.snapshot { movedBox }
+            if !moved.isEmpty { movedBox }
             Divider()
             // what Cool Head can't see or clear itself: where to do it
             VStack(alignment: .leading, spacing: 10) {
@@ -76,12 +80,12 @@ struct CleanerView: View {
         .onAppear { if !CleanerView.snapshot { model.scan() } }
     }
 
-    /// A clean button: the first click asks ("Move 3 items to the Trash?"), a second within 5 seconds goes ahead.
-    func cleanButton(_ id: String, _ words: String, count: Int, admin: Bool, prominent: Bool, run: @escaping () -> Void) -> some View {
+    /// A clean button: the first click asks ("Move 3 items (1.2 GB) to the Trash?"), a second within 5 seconds goes ahead.
+    func cleanButton(_ id: String, _ words: String, count: Int, bytes: UInt64, admin: Bool, prominent: Bool, run: @escaping () -> Void) -> some View {
         let isArmed = armed == id
         let label = HStack(spacing: 4) {
             if admin { Image(systemName: "lock.fill").font(.system(size: 9)) }
-            Text(isArmed ? "Move \(count == 1 ? "1 item" : "\(count) items") to the Trash?" : words).padding(.horizontal, 4)
+            Text(isArmed ? "Move \(Cleaner.count(count, bytes: bytes)) to the Trash?" : words).padding(.horizontal, 4)
         }
         let action = {
             if isArmed { armed = nil; run() } else {
@@ -103,6 +107,8 @@ struct CleanerView: View {
     }
 
     /// Quick clean: each thing it moves, listed, and one button. Nothing in it is used, so there's nothing to choose.
+    /// The check for identical copies in Downloads is here too, since the original always stays (Phil, 18 November
+    /// 2026: "Check for duplicate files under deep clean should be under quick clean, as it's a quick zero-risk choice").
     var quickBox: some View {
         let bytes = quick.compactMap(\.bytes).reduce(0, +)
         return VStack(alignment: .leading, spacing: 8) {
@@ -110,31 +116,32 @@ struct CleanerView: View {
                 Image(systemName: "sparkles").foregroundStyle(Color.accentColor).frame(width: 18)
                 Text("Quick clean").font(.callout.weight(.semibold))
                 Spacer()
-                if bytes >= 50_000_000 { Text(MemoryAdvice.diskGB(bytes)).foregroundStyle(Ink.muted) }
+                if bytes > 0 { Text(Fmt.fileSize(bytes)).foregroundStyle(Ink.muted) }
             }
-            Text("Nothing uses these, and nothing has to rebuild them.")
+            Text(quick.isEmpty ? "Nothing to clear now." : "Nothing uses these, and nothing has to rebuild them.")
                 .font(.caption).foregroundStyle(Ink.muted).padding(.leading, 26)
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(quick) { f in
+            folding("quick", quick, bytes: \.bytes) { f in
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Ink.muted).padding(.top, 4)
                         VStack(alignment: .leading, spacing: 1) {
                             HStack(alignment: .firstTextBaseline) {
                                 Text(f.title)
                                 Spacer(minLength: 8)
-                                if let b = f.bytes, b >= 50_000_000 { Text(MemoryAdvice.diskGB(b)).foregroundStyle(Ink.muted) }
+                                if let b = f.bytes, b > 0 { Text(Fmt.fileSize(b)).foregroundStyle(Ink.muted) }
                             }
                             Text(f.detail).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                         }
                     }
+            }
+            .padding(.leading, 26)
+            if !quick.isEmpty {
+                HStack {
+                    Spacer()
+                    cleanButton("quick", "Quick clean", count: quick.count, bytes: bytes, admin: false, prominent: true) { model.clean(quick, label: "quick clean") }
                 }
+                .padding(.leading, 26)
             }
-            .padding(.leading, 26)
-            HStack {
-                Spacer()
-                cleanButton("quick", "Quick clean", count: quick.count, admin: false, prominent: true) { model.clean(quick, label: "quick clean") }
-            }
-            .padding(.leading, 26)
+            copiesRow.padding(.top, 2)
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -151,17 +158,17 @@ struct CleanerView: View {
             .compactMap { $0 }.joined(separator: " ")
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "bubbles.and.sparkles").foregroundStyle(Ink.muted).frame(width: 18)
+                Image(systemName: "checklist").foregroundStyle(Ink.muted).frame(width: 18)
                 Text("Deep clean").font(.callout.weight(.semibold))
                 Spacer()
-                if bytes > 0 { Text(MemoryAdvice.diskGB(bytes)).foregroundStyle(Ink.muted) }
+                if bytes > 0 { Text(Fmt.fileSize(bytes)).foregroundStyle(Ink.muted) }
             }
             Text(sentence).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 26)
             HStack {
                 disclosure(showDeep ? "Hide the list" : "Choose what's included", open: $showDeep)
                 Spacer()
-                cleanButton("deep", bytes >= 50_000_000 ? "Deep clean \(MemoryAdvice.diskGB(bytes))" : "Deep clean", count: deepNow.count,
+                cleanButton("deep", bytes > 0 ? "Deep clean \(Fmt.fileSize(bytes))" : "Deep clean", count: deepNow.count, bytes: bytes,
                             admin: deepNow.contains(where: \.needsAdmin), prominent: false) { model.clean(deepNow, label: "deep clean") }
             }
             .padding(.leading, 26)
@@ -172,7 +179,7 @@ struct CleanerView: View {
                         if !here.isEmpty {
                             Text(g.title.uppercased()).font(.caption2.weight(.semibold)).tracking(0.5).foregroundStyle(Ink.muted)
                                 .padding(.top, g == .check ? 6 : 0)
-                            ForEach(here) { deepRow($0) }
+                            folding(g == .check ? "check" : "rebuilds", here, bytes: \.bytes, ticked: ticked) { deepRow($0) }
                         }
                     }
                 }
@@ -198,7 +205,7 @@ struct CleanerView: View {
                             .help("macOS asks for an administrator's password, because this is in a folder for all users.")
                     }
                     Spacer(minLength: 8)
-                    if let b = f.bytes, b >= 50_000_000 { Text(MemoryAdvice.diskGB(b)).foregroundStyle(Ink.muted) }
+                    if let b = f.bytes, b > 0 { Text(Fmt.fileSize(b)).foregroundStyle(Ink.muted) }
                 }
                 Text(f.blocked.map { "Left out while \($0.lowercasedFirst). " + f.detail } ?? f.detail)
                     .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
@@ -219,15 +226,15 @@ struct CleanerView: View {
                 Image(systemName: "arrow.uturn.backward").foregroundStyle(Ink.muted).frame(width: 18)
                 Text("Moved to the Trash by Cool Head")
                 Spacer()
-                Text("\(model.moved.count)").foregroundStyle(Ink.muted)
+                Text(Cleaner.count(moved.count, bytes: moved.compactMap(\.bytes).reduce(0, +))).foregroundStyle(Ink.muted)
             }
             disclosure(showMoved ? "Hide them" : "Show them", open: $showMoved).padding(.leading, 26)
             if showMoved {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(model.moved.suffix(30).reversed(), id: \.self) { m in
+                folding("moved", Array(moved.suffix(30).reversed()), bytes: \.bytes) { m in
                         HStack(spacing: 8) {
                             Text((m.from as NSString).lastPathComponent).lineLimit(1).truncationMode(.middle)
                             Spacer(minLength: 8)
+                            if let b = m.bytes, b > 0 { Text(Fmt.fileSize(b)).foregroundStyle(Ink.muted) }
                             if m.admin {
                                 Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: m.to)]) }
                                     .buttonStyle(.bordered).controlSize(.small).fixedSize()
@@ -236,7 +243,6 @@ struct CleanerView: View {
                             }
                         }
                         .font(.caption)
-                    }
                 }
                 .padding(.leading, 26)
             }
@@ -244,13 +250,15 @@ struct CleanerView: View {
         .padding(.horizontal, 12)
     }
 
-    /// Installers and second copies in Downloads: only when the person chooses the folder, so macOS doesn't ask.
-    var downloadsRow: some View {
+    /// Identical copies in Downloads, in Quick clean: only when the person chooses the folder, so macOS doesn't ask. A
+    /// copy is a second download ("Report (1).pdf") whose bytes match the original's, compared in full, never by name
+    /// or size alone. Old installers found in the same folder go under Deep clean.
+    var copiesRow: some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "arrow.down.circle").foregroundStyle(Ink.muted).frame(width: 18)
+            Image(systemName: "doc.on.doc").foregroundStyle(Ink.muted).frame(width: 18)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Installers and copies in Downloads")
-                Text("Old .dmg and .pkg files, and identical second downloads. Cool Head looks only when you choose the folder.")
+                Text("Identical copies in Downloads")
+                Text("A second download that matches its original byte for byte, such as Report (1).pdf beside Report.pdf. The original stays. Cool Head looks only when you choose the folder, and lists old installers it finds there under Deep clean.")
                     .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Spacer()
@@ -259,7 +267,23 @@ struct CleanerView: View {
                 .padding(.top, 2)
             }
         }
-        .padding(.horizontal, 12)
+    }
+
+    /// A list with its items under 50 MB folded into one line that opens them ("17 smaller items under 50 MB each, 87 MB
+    /// in total"), so the big ones, which free the most, stand out (Phil, 18 November 2026: "I think we should group items
+    /// under 50MB by default and have an expand button").
+    func folding<Item: Identifiable, Row: View>(_ key: String, _ items: [Item], bytes: KeyPath<Item, UInt64?>,
+                                               ticked: ((Item) -> Bool)? = nil, @ViewBuilder row: @escaping (Item) -> Row) -> some View {
+        let (shown, small) = Cleaner.split(items) { $0[keyPath: bytes] }
+        let open = Binding(get: { openSmall.contains(key) }, set: { if $0 { openSmall.insert(key) } else { openSmall.remove(key) } })
+        return VStack(alignment: .leading, spacing: 6) {
+            ForEach(shown) { row($0) }
+            if !small.isEmpty {
+                disclosure(Cleaner.foldedLine(small.count, bytes: small.compactMap { $0[keyPath: bytes] }.reduce(0, +),
+                                              ticked: ticked.map { t in small.filter(t).count } ?? 0), open: open)
+                if open.wrappedValue { ForEach(small) { row($0) } }
+            }
+        }
     }
 
     func disclosure(_ words: String, open: Binding<Bool>) -> some View {
@@ -325,21 +349,26 @@ final class CleanerModel: ObservableObject {
         working = true
         let plain = list.filter { !$0.needsAdmin }, admin = list.filter(\.needsAdmin)
         Task.detached(priority: .userInitiated) {
-            var moved = 0, failed = 0
-            for f in plain { let r = Cleaner.trash(f); moved += r.moved.count; failed += r.failed.count }
+            var moved = 0, failed = 0, bytes: UInt64 = 0
+            for f in plain {
+                let r = Cleaner.trash(f)
+                moved += r.moved.count; failed += r.failed.count; bytes += r.moved.compactMap(\.bytes).reduce(0, +)
+            }
             let moves = admin.flatMap { Cleaner.adminMoves($0) }
             var adminOK = true
             if !moves.isEmpty {
+                // measured before they move: once in the Trash, they're behind its privacy
+                var sizes: [String: UInt64] = [:]
+                for m in moves { sizes[m.from] = Cleaner.size(m.from) }
                 adminOK = AdminJob.run(Cleaner.adminArguments(moves),
                                        prompt: "Cool Head: move \(moves.count == 1 ? "1 item" : "\(moves.count) items") from a folder for all users to your Trash. Nothing stays installed.\n")
-                Cleaner.rememberAdmin(moves)
-                let done = moves.filter { FileManager.default.fileExists(atPath: $0.to) }.count
-                moved += done; failed += moves.count - done
+                let done = Cleaner.rememberAdmin(moves, sizes: sizes)
+                moved += done.count; failed += moves.count - done.count; bytes += done.compactMap(\.bytes).reduce(0, +)
             }
-            let (m, f, ok) = (moved, failed, adminOK)
+            let (m, f, ok, b) = (moved, failed, adminOK, bytes)
             await MainActor.run {
                 Watcher.shared.log("Cleaner: \(label), \(m) moved to the Trash, \(f) not moved")
-                self.message = (m > 0 ? "Moved \(m == 1 ? "1 item" : "\(m) items") to the Trash. " : "")
+                self.message = (m > 0 ? "Moved \(Cleaner.count(m, bytes: b)) to the Trash. " : "")
                     + (f > 0 ? (ok ? "\(f == 1 ? "1 item" : "\(f) items") couldn't be moved." : "Nothing in the folders for all users was moved.") : "")
                 self.working = false
                 self.chosen.removeAll { c in list.contains { $0.id == c.id } }
@@ -362,7 +391,17 @@ final class CleanerModel: ObservableObject {
         panel.prompt = "Check"
         panel.message = "Cool Head looks for old installers and identical second downloads in the folder you choose."
         NSApp.activate(ignoringOtherApps: true)
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        // in front of Cool Head's panel: `begin`, not `runModal`, which puts it back at the level for dialogs, under the
+        // panel (Phil, 18 November 2026: "the About pane and the "select a folder" to check for duplicates spawn and sit
+        // behind the Cool Head pane")
+        panel.level = .abovePanel
+        panel.begin { [weak self] answer in
+            guard answer == .OK, let url = panel.url else { return }
+            MainActor.assumeIsolated { self?.chose(url) }
+        }
+    }
+
+    private func chose(_ url: URL) {
         let found = Cleaner.scanDownloads(url.path)
         Watcher.shared.log("Cleaner: checked a chosen folder, \(found.count) found")
         chosen = found
@@ -421,35 +460,6 @@ private extension String {
     }
 }
 
-/// A broom, drawn: macOS's own symbols have none. The handle runs up to the right; the bristles fan out at the bottom
-/// left, with a band where they're bound. A template image, so it takes the button's colour like the symbols do.
-enum Broom {
-    static func image(size s: CGFloat) -> NSImage {
-        let img = NSImage(size: NSSize(width: s, height: s), flipped: false) { _ in
-            guard let cg = NSGraphicsContext.current?.cgContext else { return false }
-            let k = s / 18
-            cg.scaleBy(x: k, y: k)
-            cg.translateBy(x: 9, y: 9)
-            cg.rotate(by: -.pi / 5)
-            cg.setFillColor(NSColor.black.cgColor)
-            cg.setStrokeColor(NSColor.black.cgColor)
-            // handle
-            cg.setLineWidth(1.6); cg.setLineCap(.round)
-            cg.move(to: CGPoint(x: 0, y: -1)); cg.addLine(to: CGPoint(x: 0, y: 9.2)); cg.strokePath()
-            // band
-            cg.fill(CGRect(x: -2.4, y: -2.6, width: 4.8, height: 1.8))
-            // bristles: a fan, with the strands' gaps cut out
-            let fan = CGMutablePath()
-            fan.move(to: CGPoint(x: -2.4, y: -3.2)); fan.addLine(to: CGPoint(x: 2.4, y: -3.2))
-            fan.addLine(to: CGPoint(x: 4.6, y: -9.2)); fan.addLine(to: CGPoint(x: -4.6, y: -9.2)); fan.closeSubpath()
-            cg.addPath(fan); cg.fillPath()
-            cg.setBlendMode(.clear); cg.setLineWidth(0.7)
-            for x in [-1.5, 0.0, 1.5] as [CGFloat] {
-                cg.move(to: CGPoint(x: x * 0.55, y: -4.2)); cg.addLine(to: CGPoint(x: x * 1.25, y: -9.4)); cg.strokePath()
-            }
-            return true
-        }
-        img.isTemplate = true
-        return img
-    }
+extension Cleaner.Moved: Identifiable {
+    public var id: String { from + "\u{0}" + to }
 }

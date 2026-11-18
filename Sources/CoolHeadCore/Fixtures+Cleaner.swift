@@ -106,6 +106,8 @@ extension Fixture {
         let dl = root + "/Downloads"
         file(dl + "/Report.pdf", bytes: 5_000); file(dl + "/Report (1).pdf", bytes: 5_000)
         file(dl + "/Notes.txt", bytes: 10); fm.createFile(atPath: dl + "/Notes (1).txt", contents: Data("different".utf8))
+        // same name pattern and same size, one byte different: compared byte for byte, so not offered
+        fm.createFile(atPath: dl + "/Photo.jpg", contents: Data("abcdefgh".utf8)); fm.createFile(atPath: dl + "/Photo (1).jpg", contents: Data("abcdefgX".utf8))
         file(dl + "/Old.dmg", bytes: 100, daysOld: 40); file(dl + "/Open.dmg", bytes: 100, daysOld: 40); file(dl + "/New.pkg", bytes: 100)
         let downloads = Cleaner.scanDownloads(dl, now: now, mounted: [dl + "/Open.dmg"])
         let ids = Set(downloads.map(\.id))
@@ -129,10 +131,29 @@ extension Fixture {
         let inTrash = t.moved.count == 2 && t.moved.allSatisfy { fm.fileExists(atPath: $0.to) }
         let listed = Cleaner.movedList(defaults).count == 2
         let back = t.moved.allSatisfy { Cleaner.putBack($0, defaults: defaults) }
-        review.append(("cleaner-trash-and-put-back", inTrash && listed && back && fm.fileExists(atPath: victim) && t.failed == [through]
+        let sized = t.moved.first { $0.from == victim }?.bytes == 100
+        review.append(("cleaner-trash-and-put-back", inTrash && listed && back && sized && fm.fileExists(atPath: victim) && t.failed == [through]
                        && fm.fileExists(atPath: dl + "/Report.pdf") && fm.fileExists(atPath: dl + "/Notes.txt") && Cleaner.movedList(defaults).isEmpty,
-                       "moved \(t.moved.count) (a file and a link, its target kept), refused \(t.failed.count) (through a linked folder), put back \(back)"))
+                       "moved \(t.moved.count) (a file and a link, its target kept; the file's size kept: \(sized)), refused \(t.failed.count) (through a linked folder), put back \(back)"))
         defaults.removePersistentDomain(forName: "coolhead-selftest-cleaner")
+
+        // sizes beside counts, in thousands like Finder (Phil, 18 November 2026: "when we show the number of files moved, we
+        // also need to show the file size (B/KB/MB/GB)"); a list saved before sizes were kept still loads
+        let sizes = [0, 999, 1_000, 48_200, 999_600, 3_210_000, 14_400_000_000].map { Fmt.fileSize(UInt64($0)) }
+        let old = try? JSONDecoder().decode([Cleaner.Moved].self, from: Data(#"[{"from":"/a","to":"/b","admin":false,"at":0}]"#.utf8))
+        review.append(("cleaner-sizes", sizes == ["0 B", "999 B", "1.0 KB", "48 KB", "1.0 MB", "3.2 MB", "14 GB"]
+                       && Cleaner.count(1, bytes: 0) == "1 item" && Cleaner.count(3, bytes: 1_200_000_000) == "3 items (1.2 GB)"
+                       && old?.first?.bytes == nil && old?.count == 1, "\(sizes)"))
+
+        // items under 50 MB fold into one line when there are two or more (Phil, 18 November 2026: "I think we should group
+        // items under 50MB by default and have an expand button"); one alone shows
+        let mixed: [UInt64?] = [6_100_000_000, 12_000_000, nil, 2_400_000, 50_000_000]
+        let (shown, folded) = Cleaner.split(mixed) { $0 }
+        let lone = Cleaner.split([UInt64?(6_100_000_000), 9_000_000]) { $0 }
+        review.append(("cleaner-small-items-fold", shown == [6_100_000_000, 50_000_000] && folded.count == 3 && lone.folded.isEmpty
+                       && Cleaner.foldedLine(17, bytes: 87_000_000) == "17 smaller items under 50 MB each, 87 MB in total"
+                       && Cleaner.foldedLine(2, bytes: 27_000_000, ticked: 1) == "2 smaller items under 50 MB each, 27 MB in total; 1 ticked",
+                       Cleaner.foldedLine(folded.count, bytes: folded.compactMap { $0 }.reduce(0, +))))
 
         // the password job's command: each name its own argument, never parsed by a shell; nothing for items that need none
         let a = Cleaner.adminArguments([(from: "/Library/PreferencePanes/A b.prefPane", to: home + "/.Trash/A b.prefPane")])

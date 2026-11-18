@@ -1,0 +1,1 @@
+- Cleaner: items under 50 MB fold into one line, such as "3 smaller items under 50 MB each, 14 MB in total", which opens them, so the big ones stand out. One small item alone still shows.

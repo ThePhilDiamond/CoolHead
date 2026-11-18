@@ -58,8 +58,9 @@ struct ToolsBar: View {
                 tools.trusted = open
             }
             // leftovers to clear, beside the other tools for the Mac itself (Phil, 18 November 2026: "Can we add a broom
-            // "cleaner" tool"); macOS's symbols have no broom, so it's drawn
-            ToolButton(symbol: "", image: Broom.image(size: 15), name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
+            // "cleaner" tool"); a drawn broom was hard to make out at this size, so macOS's bubbles and sparkles (Phil,
+            // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles")
+            ToolButton(symbol: "bubbles.and.sparkles", name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
                 let open = !tools.cleaner
                 closeAll()
                 tools.cleaner = open
@@ -125,8 +126,6 @@ final class Tools: ObservableObject {
 /// A tool: its icon, with its name under it (or, with names hidden, as a tooltip), tinted while it's open.
 struct ToolButton: View {
     let symbol: String
-    /// A drawn icon, for a tool macOS has no symbol for (the Cleaner's broom).
-    var image: NSImage? = nil
     let name: String
     let tip: String
     let labels: Bool
@@ -137,10 +136,8 @@ struct ToolButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
-                Group {
-                    if let image { Image(nsImage: image) } else { Image(systemName: symbol).font(.system(size: 15)) }
-                }
-                .frame(height: 18)
+                Image(systemName: symbol).font(.system(size: 15))
+                    .frame(height: 18)
                 if labels { Text(name).font(.caption2) }
             }
             .frame(minWidth: labels ? 44 : 30)

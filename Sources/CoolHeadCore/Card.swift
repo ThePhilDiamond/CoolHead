@@ -529,4 +529,13 @@ public enum Fmt {
         let g = Double(b) / 1_073_741_824
         return g >= 1 ? String(format: "%.1f GB", g) : "\(Int(Double(b) / 1_048_576)) MB"
     }
+
+    /// A file's size the way Finder shows it, in thousands: "512 B", "48 KB", "3.2 MB", "14 GB" (Phil, 18 November 2026:
+    /// "when we show the number of files moved, we also need to show the file size (B/KB/MB/GB)").
+    public static func fileSize(_ b: UInt64) -> String {
+        var v = Double(b), unit = 0
+        while v >= 999.5 && unit < 3 { v /= 1000; unit += 1 }
+        if unit == 0 { return "\(b) B" }
+        return String(format: v < 9.95 ? "%.1f" : "%.0f", v) + " " + ["B", "KB", "MB", "GB"][unit]
+    }
 }
