@@ -1,1 +1,0 @@
-- The top of the panel is one row, gently tinted green, yellow or red: the snowflake, what's happening in plain words, and round gauges for the chip, memory and the chip's heat.

@@ -1,1 +1,0 @@
-- The chip's temperature, in the top row's Heat gauge and under Hardware ▸ Temperatures. macOS has no public way to read it, so Cool Head reads it from macOS's sensor service, as monitoring tools do; SECURITY.md says how.

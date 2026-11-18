@@ -1,5 +1,0 @@
-- Test my network has a Privacy section: whether a VPN is on, by name, and whether it carries all your traffic, only a few addresses, or lets IPv6 or website-name lookups go around it, with what to look for in its settings; who looks website names up (your router, or a service such as Cloudflare or Quad9) and who set that; and, from the test, the country websites see you in, which with a VPN is compared with the country they'd see without it. For that, the test also asks Cloudflare where the request came from; Cool Head shows only the country.
-  - A VPN that carries only some addresses is now noticed; before, only one that was the Mac's main connection was.
-  - When the router didn't give the Mac an address, the top line says so and what to do.
-  - The Smart Queue steps give your router's own address to open its settings.
-  - `coolhead network --test` asks it too, and `coolhead network --where` asks it alone.

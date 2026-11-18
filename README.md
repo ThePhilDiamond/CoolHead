@@ -7,7 +7,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
-    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a warm Mac: a card saying a photo export job is 16% done and ready around 8:26pm, adding to the heat; under One click, Run it cooler is recommended and Stop it is marked Caution; the tools along the bottom are Network, Battery, Trends, Trusted and Report">
+    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a hot Mac: the top row says Running hot, 1 to watch, with Chip, Memory and Heat gauges; a card says a Google Chrome tab is working hard, with Run this tab cooler recommended under One click, Close just that tab and Quit Google Chrome marked Caution, and Find the busy tab under Do it yourself; the tools along the bottom are Network, Battery, Hardware, Trends, Trusted, Report and Settings">
   </picture>
 </p>
 
@@ -32,7 +32,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 ## What it knows
 
 - **A warm Mac has a cause.** When your Mac warms up, each thing warming it gets a card with something to do, and the menu bar icon turns yellow.
-- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing is one frosted line at the top of the panel ("Slowing Photo Export to keep your Mac cool"), with **Speed up** to put it back.
+- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing, pausing, limiting or has turned off is a frosted line in the **On hold** section at the top of the panel ("Chrome is limited to 4 GB"), with the button to undo it on the line itself (**Speed up**, **Resume**, **Remove limit**, **Turn on**).
 - **Chrome without quitting it.** It tells a busy tab, a busy extension, and Chrome's graphics work apart (also in Edge, Brave, and Arc), and offers what fits: run just that tab cooler, Energy Saver, turn off an extension, or close just that tab, before ever suggesting Quit. When memory is tight, **Limit Chrome** sets Chrome's own memory limit (Chrome then says it's "managed by your organization"; restore it from the top of the panel). **Restart Chrome, keeping your tabs** closes Chrome normally (so it can ask about downloads) and reopens it with the same windows and tabs, freeing the memory it has built up; Incognito windows, unsent form text, and downloads in progress don't come back (also for Edge, Brave, Vivaldi, and Chromium).
 - **The graphics chip counts.** An app keeping the graphics chip busy gets a card even when it uses little CPU, saying how much of the chip it uses.
 - **Games come first.** A game is never slowed down; other busy work is offered to run cooler instead, to leave the game more power.
@@ -48,7 +48,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/pinned-dark.png">
-    <img src="docs/images/pinned-light.png" width="400" alt="A frosted line at the top of the panel saying Slowing Photo Export to keep your Mac cool, with Speed up, above the job's card">
+    <img src="docs/images/pinned-light.png" width="400" alt="The On hold section at the top of the panel: frosted lines saying Chrome is limited to 4 GB with Remove limit, GoogleUpdater's background helper is turned off with Turn on, and Time Machine skips DerivedData in Xcode with Back it up, then Report a problem with one of these, above a job's card">
   </picture>
 </p>
 

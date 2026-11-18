@@ -1,1 +1,0 @@
-- Trends says what each figure means: click an app for whether its share of the energy is worth doing anything about. macOS's own parts are one line, and the list of what woke the chip most often is gone, since it gave nothing to act on.

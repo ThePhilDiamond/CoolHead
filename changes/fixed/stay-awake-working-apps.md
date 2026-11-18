@@ -1,1 +1,0 @@
-- An app keeping your Mac awake while it's working, such as Claude during a long task, no longer gets a card. One appears only when the app has done almost nothing for half an hour, and it says for how long.

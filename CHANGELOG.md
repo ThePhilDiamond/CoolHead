@@ -6,6 +6,38 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.9.0] - 2026-11-17
+
+### Added
+
+- The chip's temperature, in the top row's Heat gauge and under Hardware ▸ Temperatures. macOS has no public way to read it, so Cool Head reads it from macOS's sensor service, as monitoring tools do; SECURITY.md says how.
+- Test my network has a Privacy section: whether a VPN is on, by name, and whether it carries all your traffic, only a few addresses, or lets IPv6 or website-name lookups go around it, with what to look for in its settings; who looks website names up (your router, or a service such as Cloudflare or Quad9) and who set that; and, from the test, the country websites see you in, which with a VPN is compared with the country they'd see without it. For that, the test also asks Cloudflare where the request came from; Cool Head shows only the country.
+  - A VPN that carries only some addresses is now noticed; before, only one that was the Mac's main connection was.
+  - When the router didn't give the Mac an address, the top line says so and what to do.
+  - The Smart Queue steps give your router's own address to open its settings.
+  - `coolhead network --test` asks it too, and `coolhead network --where` asks it alone.
+- A card about a busy process now explains its recommendation in its Nerdy stuff, in plain words: what Cool Head saw, why it recommends what it does, what that costs or what it checked, and why a stronger option isn't recommended. `coolhead cards` lists every kind of card, the rule it comes from and its samples.
+
+### Changed
+
+- A Caution option asks twice: the first click says why it's risky, and a second click goes ahead.
+- Hardware shows the drive's life used, what it has written and its hours on as tiles, a Temperatures section for the chip, battery and drive, and says which parts it checked.
+- The memory card says less: what's happening and what matters, with the other apps using a lot in Nerdy stuff.
+- The top of the panel is one row, gently tinted green, yellow or red: the snowflake, what's happening in plain words, and round gauges for the chip, memory and the chip's heat.
+- Cool Head reads less of macOS's power log: only each app's energy and why the Mac woke, no longer how often each app woke the chip.
+- The snowflake in the menu bar and at the top of the panel always agree now: it melts when something is slowing your Mac or needs a look, and bursts into flames for a serious problem, such as a stuck job, very tight memory, or macOS slowing it hard to cool it down. A Mac that macOS is slowing a little melts now, instead of bursting into flames.
+- Temperatures follow your Mac's setting in Language & Region: °F or °C.
+- Trends says what each figure means: click an app for whether its share of the energy is worth doing anything about. macOS's own parts are one line, and the list of what woke the chip most often is gone, since it gave nothing to act on.
+- Settings are in the panel: a gear at the right end of the toolbar opens a Settings page with notifications, Open at login, update checks, the version with Check Now, the menu bar icon (both styles shown to pick from), whether the tools' names show, About and Quit. The first-launch welcome lets you pick the icon and Open at login, and the right-click menu is now just Settings…, About and Quit.
+- What Cool Head is holding back is now a section titled On hold, with one Report a problem button under it in place of one under each line. Its form opens there and starts by asking which one caused the problem, and the report names it without file, folder or project names. The report form's choices are now fields that open to a list, in place of radio buttons.
+
+### Fixed
+
+- The drive's health disappeared from Hardware after Cool Head first read it: Cool Head kept the drive's health record open, so every later read failed, in the app and in `coolhead hardware`, until it quit.
+- A click anywhere in the frosted frame at the top of the panel opens the line beside it, including its edges.
+- An app keeping your Mac awake while it's working, such as Claude during a long task, no longer gets a card. One appears only when the app has done almost nothing for half an hour, and it says for how long.
+- The lines at the top of the panel for what Cool Head is holding back sit centered in their frosted frame, and their buttons have a backing, so they no longer blend into the frost.
+
 ## [0.8.0] - 2026-11-17
 
 ### Added
@@ -259,7 +291,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.6.0...v0.6.1

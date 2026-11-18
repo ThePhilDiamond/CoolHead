@@ -1,1 +1,0 @@
-- A Caution option asks twice: the first click says why it's risky, and a second click goes ahead.

@@ -1,1 +1,0 @@
-- The lines at the top of the panel for what Cool Head is holding back sit centered in their frosted frame, and their buttons have a backing, so they no longer blend into the frost.
