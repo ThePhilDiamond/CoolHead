@@ -88,7 +88,7 @@ public struct PowerHistory: Equatable {
         if share >= 0.10 { return what + "A fair share, as for anything you use a lot. If you rarely use it, \(stop) when you're done with it." }
         return what + "A small share: nothing to do."
     }
-    public static let macOSDetail = "Drawing the screen, Spotlight, backups, updates and the rest of macOS's own work, together. There's nothing to change here; when one part stays busy, Cool Head shows a card saying which and why."
+    public static let macOSDetail = "Drawing the screen, Spotlight, backups, updates, and the rest of macOS's own work, together. There's nothing to change here; when one part stays busy, Cool Head shows a card saying which and why."
 
     /// Wakes from sleep by cause, most first.
     public var wakesByCause: [(Cause, [Wake])] {
@@ -430,7 +430,7 @@ extension PowerHistory {
     public static let source = "From macOS's own power log, which keeps about a week. Cool Head keeps no copy."
 
     public static let energyHeading = "Used the most energy"
-    public static let energyNote = "Each one's share of the energy the chip, graphics and Neural Engine used while the Mac was awake. Click one for what it means."
+    public static let energyNote = "Each one's share of the energy the chip, graphics, and Neural Engine used while the Mac was awake. Click one for what it means."
     public static let wakesHeading = "Why it woke from sleep"
 
     /// Names for a list of users, told apart where two are alike, and what each is when it isn't an app.
@@ -459,7 +459,7 @@ extension PowerHistory {
         switch cause {
         case .lid: return "\(n) when the lid was opened."
         case .button: return "\(n) when the power button was pressed."
-        case .input: return "\(n) when a keyboard, mouse or trackpad was used."
+        case .input: return "\(n) when a keyboard, mouse, or trackpad was used."
         case .plug: return "\(n) when something was plugged in, often the charger."
         case .network: return "\(n) for network activity, such as another device reaching this Mac."
         case .bluetooth: return "\(n) by a Bluetooth device."

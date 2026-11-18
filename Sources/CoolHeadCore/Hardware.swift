@@ -498,7 +498,7 @@ extension HardwareReport {
                 case .unknown:
                     let restart = appleSilicon ? " Restart the Mac: Apple silicon Macs have no SMC to reset, and a restart does that job." : " Restart the Mac."
                     card("charging", .quiet, "It's plugged in but not charging, and Cool Head can't tell why.",
-                         "The battery isn't warm and isn't near a charge limit. Try another cable, socket or charger." + restart + " If it still won't charge, run Apple Diagnostics.",
+                         "The battery isn't warm and isn't near a charge limit. Try another cable, socket, or charger." + restart + " If it still won't charge, run Apple Diagnostics.",
                          [diagnostics], b.lines, subject: "charging")
                 }
             }

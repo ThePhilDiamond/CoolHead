@@ -712,10 +712,10 @@ public final class Watcher {
                        ? "Memory is tight too, so your Mac is moving data to and from its disk, which adds work and some heat. "
                        : "")
                     // rule 8: with little load, heat is the room, the surface or the charger (Apple 102336: 10 to 35°C)
-                    + "Heat can linger after heavy work, or come from a warm room, a soft surface or charging. Apple says Macs are happiest between \(Fmt.temperature(10)) and \(Fmt.temperature(35)).",
+                    + "Heat can linger after heavy work, or come from a warm room, a soft surface, or charging. Apple says Macs are happiest between \(Fmt.temperature(10)) and \(Fmt.temperature(35)).",
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix.guide("air", "Give it air", "A hard surface, out of the sun, helps it cool.",
-                                  steps: ["Move it onto a hard, flat surface: a bed, sofa or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "If you have a stand that lifts it, use it."], recommended: true)]),
+                                  steps: ["Move it onto a hard, flat surface: a bed, sofa, or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "If you have a stand that lifts it, use it."], recommended: true)]),
                 details: s.lines(), reportSubject: "warm with no single cause")
             lc.heatCause = true
             out.append(lc)
@@ -807,7 +807,7 @@ public final class Watcher {
             if state.onPower && !pausedJobs.isEmpty {
                 let names = pausedJobs.map(\.name)
                 resumeAllPaused(why: "plugged in")
-                notices.append(ListFormatter.localizedString(byJoining: names) + (names.count == 1 ? " carries" : " carry") + " on: you plugged in.")
+                notices.append(Fmt.list(names) + (names.count == 1 ? " carries" : " carry") + " on: you plugged in.")
             }
             // paused jobs that have ended are forgotten
             let pausedBefore = pausedJobs.count

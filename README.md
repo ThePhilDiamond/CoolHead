@@ -7,7 +7,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
-    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a hot Mac: the top row says Running hot, 1 to watch, with Chip, Memory and Heat gauges; a card says a Google Chrome tab is working hard, with Run this tab cooler recommended under One click, Close just that tab and Quit Google Chrome marked Caution, and Find the busy tab under Do it yourself; the tools along the bottom are Network, Battery, Hardware, Trends, Trusted, Report and Settings">
+    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a hot Mac: the top row says Running hot, 1 to watch, with Chip, Memory, and Heat gauges; a card says a Google Chrome tab is working hard, with Run this tab cooler recommended under One click, Close just that tab and Quit Google Chrome marked Caution, and Find the busy tab under Do it yourself; the tools along the bottom are Network, Battery, Hardware, Trends, Trusted, Report, and Settings">
   </picture>
 </p>
 
@@ -32,7 +32,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 ## What it knows
 
 - **A warm Mac has a cause.** When your Mac warms up, each thing warming it gets a card with something to do, and the menu bar icon turns yellow.
-- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing, pausing, limiting or has turned off is a frosted line in the **On hold** section at the top of the panel ("Chrome is limited to 4 GB"), with the button to undo it on the line itself (**Speed up**, **Resume**, **Remove limit**, **Turn on**).
+- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing, pausing, limiting, or has turned off is a frosted line in the **On hold** section at the top of the panel ("Chrome is limited to 4 GB"), with the button to undo it on the line itself (**Speed up**, **Resume**, **Remove limit**, **Turn on**).
 - **Chrome without quitting it.** It tells a busy tab, a busy extension, and Chrome's graphics work apart (also in Edge, Brave, and Arc), and offers what fits: run just that tab cooler, Energy Saver, turn off an extension, or close just that tab, before ever suggesting Quit. When memory is tight, **Limit Chrome** sets Chrome's own memory limit (Chrome then says it's "managed by your organization"; restore it from the top of the panel). **Restart Chrome, keeping your tabs** closes Chrome normally (so it can ask about downloads) and reopens it with the same windows and tabs, freeing the memory it has built up; Incognito windows, unsent form text, and downloads in progress don't come back (also for Edge, Brave, Vivaldi, and Chromium).
 - **The graphics chip counts.** An app keeping the graphics chip busy gets a card even when it uses little CPU, saying how much of the chip it uses.
 - **Games come first.** A game is never slowed down; other busy work is offered to run cooler instead, to leave the game more power.
@@ -40,7 +40,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 - **Security software is left alone.** Your employer's security, device management, and VPN software is never offered Stop, Run it cooler, or Quit.
 - **Battery Saver.** On battery, a really hungry job can be paused until you plug in. Nothing is lost, and it carries on by itself. Switch it on the Battery tool's page, beside the battery's health and what it's doing now.
 - **Sleep and power.** It notices an app that has kept your Mac awake for hours, Low Power Mode left on with the charger while your Mac is busy, and a battery that drained while asleep because the Mac kept waking, and says what woke it.
-- **Browser changes you didn't make.** It notices Chrome, Edge or Brave managed by settings that adware uses (forcing an extension, or setting the search engine, home page or a proxy) on a Mac no organization manages, and a browser a script started with an extension loaded from a folder.
+- **Browser changes you didn't make.** It notices Chrome, Edge, or Brave managed by settings that adware uses (forcing an extension, or setting the search engine, home page, or a proxy) on a Mac no organization manages, and a browser a script started with an extension loaded from a folder.
 - **Apps that keep crashing.** An app that crashed 5 or more times in a day, from macOS's own crash reports, with a way to look it up and see the reports.
 - **Quiet hangs count too.** A process can be stuck while using almost nothing: paused by something else, waiting on a network drive that dropped, or an app macOS marks Not Responding. Each gets a card saying what started it and what may be waiting on it, with **Resume**, checking the drive, or **Force quit** (it asks first).
 - **Always trust** an app or job you know is fine: it stays listed but calm, and is still flagged if it looks stuck, your Mac gets hot, or it runs nonstop for 8 hours.
@@ -61,7 +61,7 @@ Everything runs on your Mac. No account, no analytics, and nothing stored about 
 - **Start test**, in Test my network, runs Apple's own network test, which downloads and uploads test data with Apple's servers for up to 30 seconds.
 - **Report a problem**, along the bottom of the panel or under what Cool Head has on hold, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way.
 
-Reports never hold file names, paths or project names. You see every word first; then **Open in GitHub** opens it as an issue for you to submit (posted under your GitHub account, only if you press Submit), or **Copy** keeps it on your Mac to send however you like. Details: [SECURITY.md](SECURITY.md).
+Reports never hold file names, paths, or project names. You see every word first; then **Open in GitHub** opens it as an issue for you to submit (posted under your GitHub account, only if you press Submit), or **Copy** keeps it on your Mac to send however you like. Details: [SECURITY.md](SECURITY.md).
 
 ## System requirements
 
@@ -75,7 +75,7 @@ macOS 15 Sequoia or later, on Apple Silicon or Intel. Cool Head still opens on m
 
 <p align="center"><img src="docs/images/menu-icons.png" width="270" alt="The menu bar icons: Melting Snowflake whole, drooping, and in flames; and the snowflake with a green circle, yellow triangle, or red octagon, on dark and light menu bars"></p>
 
-Click the snowflake for the panel. At its top is how your Mac is running, in a row tinted green, yellow or red: the snowflake whole, melting or in flames, always the same as the menu bar icon's level; what's happening in a few words, such as "1 to watch" over "Memory is tight, so it's slower than it could be"; and round gauges for how busy the chip and memory are and how hot the chip is. Its tools are along the bottom: Test my network, Battery (its health, and Battery Saver's switch), Hardware (the drive's life used, what it has written and its hours on, whether Time Machine backs it up, the chip's, battery's and drive's temperatures, crash restarts in plain words, and port errors), Trends (the past week from macOS's power log), Trusted, and, at the right after a line, Report a problem and Settings. Settings has notifications, Open at login, automatic update checks, the version with Check Now, the menu bar icon (shown in pictures to pick from), whether the tools' names show, About and Quit. Right-click the snowflake for a short menu: Settings…, About and Quit.
+Click the snowflake for the panel. At its top is how your Mac is running, in a row tinted green, yellow, or red: the snowflake whole, melting, or in flames, always the same as the menu bar icon's level; what's happening in a few words, such as "1 to watch" over "Memory is tight, so it's slower than it could be"; and round gauges for how busy the chip and memory are and how hot the chip is. Its tools are along the bottom: Test my network, Battery (its health, and Battery Saver's switch), Hardware (the drive's life used, what it has written, its hours on, whether Time Machine backs it up, the chip's, battery's, and drive's temperatures, crash restarts in plain words, and port errors), Trends (the past week from macOS's power log), Trusted, and, at the right after a line, Report a problem and Settings. Settings has notifications, Open at login, automatic update checks, the version with Check Now, the menu bar icon (shown in pictures to pick from), whether the tools' names show, About, and Quit. Right-click the snowflake for a short menu: Settings…, About and Quit.
 
 After that, Cool Head keeps itself up to date: when a new version is out, the panel offers to install it, and checks the download is genuine first.
 
@@ -106,12 +106,12 @@ The app includes `coolhead`, a command-line tool that prints the same cards as t
 
 | Command | What it prints |
 |---|---|
-| `coolhead now` | The Mac's heat, power, battery and memory, and a card for each busy process |
+| `coolhead now` | The Mac's heat, power, battery, and memory, and a card for each busy process |
 | `coolhead why <name or PID>` | One process's card, and the facts behind it |
 | `coolhead case <name or PID>` | What **Share this case** would show for one process (nothing is sent) |
 | `coolhead memory` | Who is using the memory, counted by app, and what could be done |
 | `coolhead hangs` | What's paused, stuck waiting on a drive, or not responding |
-| `coolhead hardware` | The drive, battery, crash restarts and ports |
+| `coolhead hardware` | The drive, battery, crash restarts, and ports |
 | `coolhead network` | How the Mac is connected; add `--test` to run Apple's network test |
 | `coolhead history` | What used the most energy in the past week, and why the Mac woke |
 

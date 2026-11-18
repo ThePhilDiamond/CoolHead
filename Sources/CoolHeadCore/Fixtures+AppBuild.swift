@@ -35,7 +35,7 @@ extension Fixture {
             && AppBuild.rosetta(translated: false, architectures: ["x86_64"]) == .intelOnly
             && AppBuild.rosetta(translated: true, architectures: ["x86_64", "arm64"]) == .setToRosetta
             && AppBuild.rosetta(translated: false, architectures: ["x86_64", "arm64"]) == nil && AppBuild.rosetta(translated: nil, architectures: []) == nil
-        review.append(("app-build-rosetta-read", r1, "headers: Intel-only, universal, thin Intel, a Java class file and a script told apart"))
+        review.append(("app-build-rosetta-read", r1, "headers: Intel-only, universal, thin Intel, a Java class file, and a script told apart"))
 
         // the card, by macOS version: on 26 Rosetta and macOS 28; on 27 Apple's own list; "Open using Rosetta" only before 27
         let app = Evidence.sample(name: "Old Tool", path: intelAppPath, start: now.addingTimeInterval(-3 * 3600), cores: 1.5)

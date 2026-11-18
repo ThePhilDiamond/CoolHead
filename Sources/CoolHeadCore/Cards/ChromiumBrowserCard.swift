@@ -9,7 +9,7 @@ enum ChromiumBrowserCard: ProcessCard {
     static let id = "chromium-browser"
     static let kind = CardKind.explanation
     static let rule = "Phil, 15 November 2026: improve Chrome's performance without quitting it"
-    static func confidence(_ s: Situation) -> Confidence { .type("the app says this process is one of its tabs, extensions or its graphics process") }
+    static func confidence(_ s: Situation) -> Confidence { .type("the app says this process is one of its tabs, extensions, or its graphics process") }
     static let samples = ["chrome-tab", "chrome-tab-in-front-warm", "chrome-extension", "chrome-graphics"]
 
     static func card(_ s: Situation) -> Card? {

@@ -149,7 +149,7 @@ public enum AppBuild {
     public static func electronAddition(_ f: Facts) -> (sentence: String, fix: Fix)? {
         guard electronWindow(f.macOS), !f.oldElectron.isEmpty else { return nil }
         let n = f.oldElectron
-        let names = n.count == 1 ? n[0] : n.count == 2 ? "\(n[0]) and \(n[1])" : n.dropLast().joined(separator: ", ") + ", and " + n.last!
+        let names = Fmt.list(n)
         let them = f.oldElectron.count == 1 ? "it" : "them"
         return (" \(names) \(f.oldElectron.count == 1 ? "is" : "are") built on an older Electron that makes macOS \(f.macOS.major).\(f.macOS.minor) draw slowly: update \(them).",
                 Fix.guide("electron", "Update \(names)", "Newer versions fix the slowdown.",

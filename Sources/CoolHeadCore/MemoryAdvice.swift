@@ -159,7 +159,7 @@ public enum MemoryAdvice {
         // easier to read (Phil, 17 November 2026: "can we trim it to be more user-friendly and less intimidating to a lay
         // person?")
         let expl = pressure(s)
-        let also = next.isEmpty ? [] : ["Also using a lot: \(ListFormatter.localizedString(byJoining: next))"]
+        let also = next.isEmpty ? [] : ["Also using a lot: \(Fmt.list(next))"]
         var fixes: [Fix] = []
         var limitNote: String? = nil
         // the biggest app has been leaking: quitting and reopening it gives the memory back, so that's the advice
