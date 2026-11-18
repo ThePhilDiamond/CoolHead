@@ -92,6 +92,8 @@ final class Tools: ObservableObject {
     @Published var battery = false
     @Published var hardware = false
     @Published var settings = false
+    /// Report a problem is open in the On hold section, under what Cool Head is holding back.
+    @Published var reportAboutHeld = false
 
     /// Closes every tool, in one place, so they all behave alike: opening one closes the others, and the panel always
     /// opens with none open (Phil, 16 November 2026: "We need consistency across the tools, and I think the panel should
@@ -102,6 +104,7 @@ final class Tools: ObservableObject {
         shared.battery = false
         shared.hardware = false
         shared.settings = false
+        shared.reportAboutHeld = false
         watcher.showReport = false
         watcher.showHistory = false
     }
