@@ -16,20 +16,20 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
   - When the router didn't give the Mac an address, the top line says so and what to do.
   - The Smart Queue steps give your router's own address to open its settings.
   - `coolhead network --test` asks it too, and `coolhead network --where` asks it alone.
-- A card about a busy process now explains its recommendation in its Nerdy stuff, in plain words: what Cool Head saw, why it recommends what it does, what that costs or what it checked, and why a stronger option isn't recommended. `coolhead cards` lists every kind of card, the rule it comes from and its samples.
+- A card about a busy process now explains its recommendation in its Nerdy stuff, in plain words: what Cool Head saw, why it recommends what it does, what that costs or what it checked, and why a stronger option isn't recommended. `coolhead cards` lists every kind of card, the rule it comes from, and its samples.
 
 ### Changed
 
 - A Caution option asks twice: the first click says why it's risky, and a second click goes ahead.
-- Hardware shows the drive's life used, what it has written and its hours on as tiles, a Temperatures section for the chip, battery and drive, and says which parts it checked.
+- Hardware shows the drive's life used, what it has written, and its hours on as tiles, a Temperatures section for the chip, battery, and drive, and says which parts it checked.
 - The memory card says less: what's happening and what matters, with the other apps using a lot in Nerdy stuff.
-- The top of the panel is one row, gently tinted green, yellow or red: the snowflake, what's happening in plain words, and round gauges for the chip, memory and the chip's heat.
+- The top of the panel is one row, gently tinted green, yellow, or red: the snowflake, what's happening in plain words, and round gauges for the chip, memory, and the chip's heat.
 - Cool Head reads less of macOS's power log: only each app's energy and why the Mac woke, no longer how often each app woke the chip.
 - The snowflake in the menu bar and at the top of the panel always agree now: it melts when something is slowing your Mac or needs a look, and bursts into flames for a serious problem, such as a stuck job, very tight memory, or macOS slowing it hard to cool it down. A Mac that macOS is slowing a little melts now, instead of bursting into flames.
 - Temperatures follow your Mac's setting in Language & Region: °F or °C.
 - Trends says what each figure means: click an app for whether its share of the energy is worth doing anything about. macOS's own parts are one line, and the list of what woke the chip most often is gone, since it gave nothing to act on.
-- Settings are in the panel: a gear at the right end of the toolbar opens a Settings page with notifications, Open at login, update checks, the version with Check Now, the menu bar icon (both styles shown to pick from), whether the tools' names show, About and Quit. The first-launch welcome lets you pick the icon and Open at login, and the right-click menu is now just Settings…, About and Quit.
-- What Cool Head is holding back is now a section titled On hold, with one Report a problem button under it in place of one under each line. Its form opens there and starts by asking which one caused the problem, and the report names it without file, folder or project names. The report form's choices are now fields that open to a list, in place of radio buttons.
+- Settings are in the panel: a gear at the right end of the toolbar opens a Settings page with notifications, Open at login, update checks, the version with Check Now, the menu bar icon (both styles shown to pick from), whether the tools' names show, About, and Quit. The first-launch welcome lets you pick the icon and Open at login, and the right-click menu is now just Settings…, About and Quit.
+- What Cool Head is holding back is now a section titled On hold, with one Report a problem button under it in place of one under each line. Its form opens there and starts by asking which one caused the problem, and the report names it without file, folder, or project names. The report form's choices are now fields that open to a list, in place of radio buttons.
 
 ### Fixed
 
@@ -44,7 +44,7 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - Terms of use, in TERMS.md and linked from About: Cool Head is provided as is, a card is its best judgement and not a guarantee, and what you choose to do with it is your responsibility.
 - A program pretending to be part of macOS now says so: "mdworker_local is pretending to be part of macOS", because it uses a macOS name from outside macOS's folders without Apple's signature. One click stops it and moves it to the Trash, where you can put it back.
-  - Also a background item labelled like Apple's (`com.apple.…`) whose program Apple didn't sign: one click turns it off, stops it and moves both to the Trash. And a copy in macOS's folders that isn't Apple's, said only where those folders could really have been changed: Cool Head advises turning macOS's protection back on, and offers a reinstall without recommending it.
+  - Also a background item labelled like Apple's (`com.apple.…`) whose program Apple didn't sign: one click turns it off, stops it, and moves both to the Trash. And a copy in macOS's folders that isn't Apple's, said only where those folders could really have been changed: Cool Head advises turning macOS's protection back on, and offers a reinstall without recommending it.
   - A process named like part of macOS whose program couldn't be found is no longer taken for macOS's own; its card says it's probably part of macOS, but Cool Head couldn't confirm it.
 - Cards about macOS's own background work read it by priority and time, not % CPU: Spotlight indexing at low priority says it runs on the efficiency cores and uses little power; after a macOS update it says "You updated to macOS 27.2 2 days ago", and that's normal for hours or days.
   - macOS's own work busy for over a day says it seems stuck, and advises a restart. Still busy after a restart, it says only Apple can fix it, and offers to check for a macOS update or tell Apple.
@@ -52,18 +52,18 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
   - On macOS 26.0 and 26.1, a busy WindowServer names the open apps built on an older Electron that slows the Mac, and recommends updating them.
 - When memory is tight and Ollama is keeping an AI model loaded, one click unloads it and frees its memory; Ollama loads it again the next time it's asked something.
   - When the startup disk is nearly full, one click deletes Xcode's build data (it asks first); Xcode rebuilds what it needs.
-- A Hardware tool along the bottom: the drive's wear and temperature and whether Time Machine backs it up, crash restarts explained in plain words with what to do, and port errors. At the top of the panel, how your Mac is running: the snowflake whole, melting or in flames as it heats up, with how busy the chip and memory are.
+- A Hardware tool along the bottom: the drive's wear and temperature and whether Time Machine backs it up, crash restarts explained in plain words with what to do, and port errors. At the top of the panel, how your Mac is running: the snowflake whole, melting, or in flames as it heats up, with how busy the chip and memory are.
 - When memory is tight and the app using the most has kept growing for hours with the same windows open, the memory card says so plainly ("Pages is using more than it usually does"; it's at 8.5 GB, up from 1.1 GB three hours ago) and recommends saving your work, then Quit and reopen, which gives the memory back.
   - Options that quit an app now say to save your work first.
 - Stop and Force Quit, which end a program at once with no chance to save, now warn on the option itself: "Anything unsaved will be lost. Click again to stop it." The second click within 5 seconds goes ahead. Quit stays a normal quit, where the app asks about anything unsaved.
 - Cards for sleep and power: an app that has kept your Mac awake for hours (with Quit), Low Power Mode left on with the charger while your Mac is busy, and a battery that drained while asleep because the Mac kept waking, naming what woke it. The warm-but-nothing-busy card gives Apple's 10 to 35°C range, and a game's card says Game Mode gives it priority in full screen.
-- Cards for browser changes you didn't make: Chrome, Edge or Brave managed by settings Cool Head didn't make, on a Mac no organization manages (with a link to the browser's own policy page), and a browser a script started with an extension loaded from a folder (with the folder shown, and Quit).
+- Cards for browser changes you didn't make: Chrome, Edge, or Brave managed by settings Cool Head didn't make, on a Mac no organization manages (with a link to the browser's own policy page), and a browser a script started with an extension loaded from a folder (with the folder shown, and Quit).
 - A card for an app that keeps crashing: 5 or more crashes in 24 hours, read from the first line of macOS's crash reports, with Look it up and See the crash reports (in Console).
 
 ### Changed
 
 - Rest the pointer on a Caution label to see why the option is risky: "It ends at once, without a chance to save or finish what it was doing." Fixes the cause says why too.
-- What Cool Head is holding back, at the top of the panel, has its undo as a button right on each line (Speed up, Remove limit, Turn on and so on), and a chevron opens what each one is. The frost around them now grows along every edge. A folder left out of Time Machine shows its path starting with ~ rather than your account's name.
+- What Cool Head is holding back, at the top of the panel, has its undo as a button right on each line (Speed up, Remove limit, Turn on, and so on), and a chevron opens what each one is. The frost around them now grows along every edge. A folder left out of Time Machine shows its path starting with ~ rather than your account's name.
 - Run it cooler is offered only where it helps: not for work already running at background priority (slowing it further does nothing), and never for macOS's own programs. For a virtual machine it warns that everything running inside it slows down sharply.
 - When macOS shows web pages for another app (Mail, or an app with a web view such as Google Drive's), the card names that app and offers to quit it, instead of calling it a Safari tab. When macOS's own services work for an app, such as decoding video, the card says which app they're working for.
 - A macOS service Cool Head doesn't know by name now says so: it's part of macOS, working in the background, and, when its work runs at low priority, that it uses little power even though it looks busy. Before, it got the card for an unknown program ("We can't tell why").
@@ -84,7 +84,7 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
   - the Mac restarted because of a crash, or crashed more than once in a week;
   - a device asked a USB-C port for more power than it can give, or keeps failing to connect.
   - `coolhead hardware` prints every check, and what can't be checked: the memory, and Apple Diagnostics' own results.
-- Cool Head knows six more causes of heat, drain or a Mac that won't sleep, each with its source and the macOS versions it was seen on:
+- Cool Head knows six more causes of heat, drain, or a Mac that won't sleep, each with its source and the macOS versions it was seen on:
   - macOS's sound service, which keeps the Mac awake while apps play or record sound; when it's busy for long, a virtual microphone or an app that hides the microphone dot is the likely cause.
   - Contacts syncing on macOS 26.4 and later, where a Contacts widget is the likely cause.
   - Messages catching up with iCloud.
@@ -97,8 +97,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 - **Stop it starting by itself.** When a busy process is another app's background helper (Google's updater, for one), its card offers to turn the helper off: stopped now and kept from starting at login, which stopping alone can't do, since macOS starts a helper again. It's marked Caution, because what the helper does for its app stops too, and it asks first. Turn it back on from its line at the top of the panel.
 - **Keep build output out of Time Machine.** When Time Machine is busy while a build keeps rewriting its output (Xcode's DerivedData, a project's build or node_modules folder), its card says so and offers to leave that folder out of later backups, in one click. Only folders a build makes again are offered. Back it up again from its line at the top of the panel.
 - **Test my network**, a tool along the bottom of the panel, for a Mac that feels slow when nothing on it is busy. It shows how the Mac is connected without asking for any permission, and runs Apple's own network test only when you press Start test, since the test fills your connection for up to 30 seconds.
-  - The page keeps one size from the moment it opens: the Wi-Fi signal (Strong, Fair or Weak, with the numbers a click away), download, upload and delay fill in as the test runs.
-  - The result says in a few words whether the network is the problem, then in one plain sentence what the connection is fine for and only what isn't, and marks web, HD and 4K video, video calls and games as Fine, Laggy or Too slow, from the speeds the FCC, Netflix and Zoom publish.
+  - The page keeps one size from the moment it opens: the Wi-Fi signal (Strong, Fair, or Weak, with the numbers a click away), download, upload, and delay fill in as the test runs.
+  - The result says in a few words whether the network is the problem, then in one plain sentence what the connection is fine for and only what isn't, and marks web, HD and 4K video, video calls, and games as Fine, Laggy, or Too slow, from the speeds the FCC, Netflix, and Zoom publish.
   - When something is wrong, it offers fixes for the causes it found (a sync app filling the connection, a weak Wi-Fi signal, a router setting, AirDrop, iCloud Private Relay, a VPN or proxy), most useful first. When the network is fine, it offers none.
 
 ### Changed
@@ -151,7 +151,7 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 ### Added
 
 - **Limit Chrome**: when memory is tight and Chrome is one of the three biggest users, one click sets Chrome's own memory limit, with Memory Saver at Maximum. Past the limit, Chrome unloads tabs you aren't using; they reload when you click them. The limit is a quarter of your Mac's memory or what Chrome is using now, whichever is lower, so it frees memory straight away, and never below 2 GB. Chrome will then say it's "managed by your organization"; that's how Chrome shows any setting made this way. It isn't offered if Chrome already has these settings, and Cool Head only removes what it set.
-- Anything Cool Head is slowing, pausing or limiting (a job it's slowing to keep your Mac cool, a job paused until you plug in, a sync app you paused, the Chrome limit) is one line at the top of the panel saying so, with **Speed up**, **Resume** or **Remove** to open it and put it back.
+- Anything Cool Head is slowing, pausing, or limiting (a job it's slowing to keep your Mac cool, a job paused until you plug in, a sync app you paused, the Chrome limit) is one line at the top of the panel saying so, with **Speed up**, **Resume**, or **Remove** to open it and put it back.
 
 ### Changed
 
@@ -183,15 +183,15 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 ### Added
 
-- Security, device management and VPN software (CrowdStrike, Jamf, Microsoft Defender, Zscaler and others) is never offered Stop, Run it cooler or Quit: stopping it could leave your Mac unprotected or break your organization's rules. The list comes from System Sentinel, with thanks.
-- Sync apps (Google Drive, Dropbox, OneDrive, Box) recommend **Pause syncing** for 1 hour, 3 hours or until 8pm. Cool Head opens the app so you can pause it, and reminds you to resume, even after a restart.
+- Security, device management, and VPN software (CrowdStrike, Jamf, Microsoft Defender, Zscaler, and others) is never offered Stop, Run it cooler, or Quit: stopping it could leave your Mac unprotected or break your organization's rules. The list comes from System Sentinel, with thanks.
+- Sync apps (Google Drive, Dropbox, OneDrive, Box) recommend **Pause syncing** for 1 hour, 3 hours, or until 8pm. Cool Head opens the app so you can pause it, and reminds you to resume, even after a restart.
 - **Save Battery When Unplugged** (on by default, in the right-click menu): on battery, a really hungry job (two cores for 10 minutes) or a long one (a core for 30 minutes) is flagged even when your Mac is cool, with **Pause until you plug in**; below 50% battery, any job using a core for 10 minutes. Nothing is lost, and it carries on by itself when you plug in. Cool Head never leaves a job paused: quitting or restarting it lets the job carry on.
 
 ## [0.4.3] - 2026-11-15
 
 ### Added
 
-- Chrome without quitting it. Cool Head tells a busy tab, a busy extension and Chrome's graphics work apart (also in Edge, Brave and Arc), and offers what fits: run just that tab cooler, turn on Energy Saver, turn off an extension, or close just that tab, before ever suggesting Quit.
+- Chrome without quitting it. Cool Head tells a busy tab, a busy extension, and Chrome's graphics work apart (also in Edge, Brave, and Arc), and offers what fits: run just that tab cooler, turn on Energy Saver, turn off an extension, or close just that tab, before ever suggesting Quit.
 - If an app speeds a slowed process back up (Chrome does when you switch to the tab), it's unpinned and Cool Head says so.
 
 ### Changed
@@ -222,7 +222,7 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 ### Changed
 
 - Options come in one order everywhere: the recommended one first, marked **Recommended**; then ones you can undo; then ones that close or lose something; then sharing.
-- Waiting is now a clock in each card's corner: check back in 10 minutes, 30 minutes or an hour.
+- Waiting is now a clock in each card's corner: check back in 10 minutes, 30 minutes, or an hour.
 - The frozen border is frost on glass: crystals in the corners, a clear middle, no snowflakes.
 
 ## [0.4.0] - 2026-11-15

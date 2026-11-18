@@ -72,7 +72,7 @@ public enum Hang {
     public static func waitingWords(_ names: [String]) -> String? {
         let unique = names.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         guard !unique.isEmpty else { return nil }
-        let shown = ListFormatter.localizedString(byJoining: Array(unique.prefix(3))) + (unique.count > 3 ? " and others" : "")
+        let shown = Fmt.list(Array(unique.prefix(3)) + (unique.count > 3 ? ["others"] : []))
         return names.count == 1 ? "It started \(shown), which may be waiting on it."
                                 : "It started \(names.count) programs that may be waiting on it: \(shown)."
     }
