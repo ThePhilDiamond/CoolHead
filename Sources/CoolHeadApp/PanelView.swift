@@ -66,6 +66,8 @@ struct PanelView: View {
                                     close: { tools.battery = false })
                     } else if tools.hardware {
                         HardwareView(close: { tools.hardware = false })
+                    } else if tools.cleaner {
+                        CleanerView(close: { tools.cleaner = false })
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if watcher.showHistory {

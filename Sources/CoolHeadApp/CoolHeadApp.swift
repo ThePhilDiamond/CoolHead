@@ -433,6 +433,8 @@ enum Snapshot {
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_BATTERY"] != nil { Tools.shared.battery = true }
             // the Hardware tool's page, with made-up hardware (COOLHEAD_SNAPSHOT_HARDWARE=healthy or issue)
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"] != nil { Tools.shared.hardware = true }
+            // the Cleaner tool's page, with made-up finds
+            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CLEANER"] != nil { Tools.shared.cleaner = true }
             // the Settings page
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SETTINGS"] != nil { Tools.shared.settings = true }
             // Test my network's result, with made-up figures (never this Mac's network)
