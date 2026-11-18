@@ -147,7 +147,7 @@ struct CleanerView: View {
         let check = deep.filter { $0.group == .check }
         let rebuild = deep.contains { $0.group == .rebuilds }
         let sentence = [rebuild ? "What rebuilds itself is ticked; rebuilding can need the internet." : nil,
-                        check.isEmpty ? nil : "What Cool Head can't be sure of isn't: \(Cleaner.joined(Cleaner.kinds(check)))."]
+                        check.isEmpty ? nil : "What Cool Head can't be sure of isn't: \(Fmt.list(Cleaner.kinds(check)))."]
             .compactMap { $0 }.joined(separator: " ")
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {

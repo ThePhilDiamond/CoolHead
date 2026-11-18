@@ -28,7 +28,7 @@ extension Fixture {
         let roots = Cleaner.Roots(home: home, library: library, applications: [apps], now: now, macOSMajor: 26)
 
         // lists in sentences take the Oxford comma
-        let j = Cleaner.joined(["a", "b", "c"]) == "a, b, and c" && Cleaner.joined(["a", "b"]) == "a and b" && Cleaner.joined(["a"]) == "a"
+        let j = Fmt.list(["a", "b", "c"]) == "a, b, and c" && Fmt.list(["a", "b"]) == "a and b" && Fmt.list(["a"]) == "a"
         let k = Cleaner.kinds([.init(id: "pane:x", group: .check, title: "", detail: "", bytes: nil),
                                .init(id: "pane:y", group: .check, title: "", detail: "", bytes: nil),
                                .init(id: "install:Sonoma", group: .check, title: "", detail: "", bytes: nil)])
