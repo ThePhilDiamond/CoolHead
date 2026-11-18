@@ -1,1 +1,1 @@
-- The frost on held items could be drawn for a shorter row when the panel opened, leaving its bottom edge across the middle of the row until On hold was folded and opened again. It's now drawn again whenever the row changes size.
+- The frost on held items could stop short of the row's bottom, most often after closing and quickly reopening the panel, until On hold was folded and opened again. It's now drawn afresh each time the panel opens and whenever the row changes size.

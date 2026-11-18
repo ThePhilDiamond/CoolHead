@@ -132,6 +132,18 @@ struct CleanerView: View {
                             Text(f.detail).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                         }
                     }
+            } summary: { title, total, _, open in
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Ink.muted).padding(.top, 4)
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(title)
+                            Spacer(minLength: 8)
+                            if total > 0 { Text(Fmt.fileSize(total)).foregroundStyle(Ink.muted) }
+                        }
+                        eachOne(open)
+                    }
+                }
             }
             .padding(.leading, 26)
             if !quick.isEmpty {
@@ -179,7 +191,23 @@ struct CleanerView: View {
                         if !here.isEmpty {
                             Text(g.title.uppercased()).font(.caption2.weight(.semibold)).tracking(0.5).foregroundStyle(Ink.muted)
                                 .padding(.top, g == .check ? 6 : 0)
-                            folding(g == .check ? "check" : "rebuilds", here, bytes: \.bytes, ticked: ticked) { deepRow($0) }
+                            folding(g == .check ? "check" : "rebuilds", here, bytes: \.bytes, ticked: ticked) { deepRow($0) } summary: { title, total, on, open in
+                                // no tick of its own: each is chosen with the list open, Caution items included
+                                HStack(alignment: .top, spacing: 8) {
+                                    Toggle("", isOn: .constant(false)).toggleStyle(.checkbox).labelsHidden().hidden()
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                            Text(title)
+                                            Spacer(minLength: 8)
+                                            if total > 0 { Text(Fmt.fileSize(total)).foregroundStyle(Ink.muted) }
+                                        }
+                                        HStack(spacing: 6) {
+                                            eachOne(open)
+                                            if on > 0 { Text("\(on) ticked").font(.caption).foregroundStyle(Ink.muted) }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -243,6 +271,14 @@ struct CleanerView: View {
                             }
                         }
                         .font(.caption)
+                } summary: { title, total, _, open in
+                    HStack(spacing: 8) {
+                        Text(title)
+                        Spacer(minLength: 8)
+                        if total > 0 { Text(Fmt.fileSize(total)).foregroundStyle(Ink.muted) }
+                        eachOne(open)
+                    }
+                    .font(.caption)
                 }
                 .padding(.leading, 26)
             }
@@ -272,18 +308,28 @@ struct CleanerView: View {
     /// A list with its items under 50 MB folded into one line that opens them ("17 smaller items under 50 MB each, 87 MB
     /// in total"), so the big ones, which free the most, stand out (Phil, 18 November 2026: "I think we should group items
     /// under 50MB by default and have an expand button").
-    func folding<Item: Identifiable, Row: View>(_ key: String, _ items: [Item], bytes: KeyPath<Item, UInt64?>,
-                                               ticked: ((Item) -> Bool)? = nil, @ViewBuilder row: @escaping (Item) -> Row) -> some View {
+    /// The folded small items are one line laid out like the list's others (`summary`: its name, their total, how many
+    /// are ticked, and whether it's open), with "Show each one" in orange where the others have their detail (Phil, 18
+    /// November 2026: "it should match other line items with "(expand to see details)" or something similar in
+    /// orange"). Opened, the items follow it.
+    func folding<Item: Identifiable, Row: View, Summary: View>(_ key: String, _ items: [Item], bytes: KeyPath<Item, UInt64?>,
+                                               ticked: ((Item) -> Bool)? = nil, @ViewBuilder row: @escaping (Item) -> Row,
+                                               @ViewBuilder summary: (String, UInt64, Int, Binding<Bool>) -> Summary) -> some View {
         let (shown, small) = Cleaner.split(items) { $0[keyPath: bytes] }
         let open = Binding(get: { openSmall.contains(key) }, set: { if $0 { openSmall.insert(key) } else { openSmall.remove(key) } })
         return VStack(alignment: .leading, spacing: 6) {
             ForEach(shown) { row($0) }
             if !small.isEmpty {
-                disclosure(Cleaner.foldedLine(small.count, bytes: small.compactMap { $0[keyPath: bytes] }.reduce(0, +),
-                                              ticked: ticked.map { t in small.filter(t).count } ?? 0), open: open)
+                summary(Cleaner.foldedLine(small.count), small.compactMap { $0[keyPath: bytes] }.reduce(0, +),
+                        ticked.map { t in small.filter(t).count } ?? 0, open)
                 if open.wrappedValue { ForEach(small) { row($0) } }
             }
         }
+    }
+
+    /// The orange words that open the folded small items, in place of a line's detail.
+    func eachOne(_ open: Binding<Bool>) -> some View {
+        disclosure(open.wrappedValue ? "Hide them" : "Show each one", open: open)
     }
 
     func disclosure(_ words: String, open: Binding<Bool>) -> some View {

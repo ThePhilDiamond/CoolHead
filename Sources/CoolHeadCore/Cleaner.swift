@@ -509,10 +509,10 @@ public enum Cleaner {
     }
 
     /// Under this, an item folds with the other small ones (Phil, 18 November 2026: "I think we should group items under
-    /// 50MB by default and have an expand button").
-    public static let smallItem: UInt64 = 50_000_000
+    /// 50MB by default and have an expand button"; then "Maybe make the cutoff for small items 20MB?").
+    public static let smallItem: UInt64 = 20_000_000
 
-    /// A list split into what shows and what folds into one line: items under 50 MB (or of no known size) fold when
+    /// A list split into what shows and what folds into one line: items under 20 MB (or of no known size) fold when
     /// there are two or more of them; one alone shows, since its line would take the same room.
     public static func split<T>(_ items: [T], bytes: (T) -> UInt64?) -> (shown: [T], folded: [T]) {
         let small = items.filter { (bytes($0) ?? 0) < smallItem }
@@ -520,10 +520,10 @@ public enum Cleaner {
         return (items.filter { (bytes($0) ?? 0) >= smallItem }, small)
     }
 
-    /// The folded line: "17 smaller items under 50 MB each, 87 MB in total", and in Deep clean how many are ticked.
-    public static func foldedLine(_ n: Int, bytes: UInt64, ticked: Int = 0) -> String {
-        "\(n) smaller items under 50 MB each" + (bytes > 0 ? ", \(Fmt.fileSize(bytes)) in total" : "") + (ticked > 0 ? "; \(ticked) ticked" : "")
-    }
+    /// The folded line's name, a line in the list like the others with the total beside it: "17 smaller items, each
+    /// under 20 MB" (Phil, 18 November 2026: "The smaller items folded together should be a single line item that
+    /// matches the rest of the list unless expanded").
+    public static func foldedLine(_ n: Int) -> String { "\(n) smaller items, each under \(Fmt.fileSize(smallItem))" }
 
     /// "3 items (1.2 GB)", or "1 item" when no size is known: what a count of moved things says, everywhere it's shown.
     public static func count(_ n: Int, bytes: UInt64) -> String {

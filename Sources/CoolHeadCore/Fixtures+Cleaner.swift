@@ -145,15 +145,15 @@ extension Fixture {
                        && Cleaner.count(1, bytes: 0) == "1 item" && Cleaner.count(3, bytes: 1_200_000_000) == "3 items (1.2 GB)"
                        && old?.first?.bytes == nil && old?.count == 1, "\(sizes)"))
 
-        // items under 50 MB fold into one line when there are two or more (Phil, 18 November 2026: "I think we should group
-        // items under 50MB by default and have an expand button"); one alone shows
-        let mixed: [UInt64?] = [6_100_000_000, 12_000_000, nil, 2_400_000, 50_000_000]
+        // items under 20 MB fold into one line when there are two or more (Phil, 18 November 2026: "I think we should group
+        // items under 50MB by default and have an expand button"; "Maybe make the cutoff for small items 20MB?"); one
+        // alone shows
+        let mixed: [UInt64?] = [6_100_000_000, 12_000_000, nil, 2_400_000, 20_000_000]
         let (shown, folded) = Cleaner.split(mixed) { $0 }
         let lone = Cleaner.split([UInt64?(6_100_000_000), 9_000_000]) { $0 }
-        review.append(("cleaner-small-items-fold", shown == [6_100_000_000, 50_000_000] && folded.count == 3 && lone.folded.isEmpty
-                       && Cleaner.foldedLine(17, bytes: 87_000_000) == "17 smaller items under 50 MB each, 87 MB in total"
-                       && Cleaner.foldedLine(2, bytes: 27_000_000, ticked: 1) == "2 smaller items under 50 MB each, 27 MB in total; 1 ticked",
-                       Cleaner.foldedLine(folded.count, bytes: folded.compactMap { $0 }.reduce(0, +))))
+        review.append(("cleaner-small-items-fold", shown == [6_100_000_000, 20_000_000] && folded.count == 3 && lone.folded.isEmpty
+                       && Cleaner.foldedLine(17) == "17 smaller items, each under 20 MB",
+                       Cleaner.foldedLine(folded.count)))
 
         // the password job's command: each name its own argument, never parsed by a shell; nothing for items that need none
         let a = Cleaner.adminArguments([(from: "/Library/PreferencePanes/A b.prefPane", to: home + "/.Trash/A b.prefPane")])

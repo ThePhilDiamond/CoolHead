@@ -571,6 +571,7 @@ final class MenuPanel: NSPanel {
     func show(under button: NSStatusBarButton) {
         anchor = button
         for source in CardSources.all { source.panelOpened() }     // each at most once a minute
+        PanelFocus.shared.opened += 1
         if let size = host?.preferredContentSize, size.height > 0 { fit(size) } else { fit(NSSize(width: PanelView.width, height: 300)) }
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
