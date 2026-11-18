@@ -12,6 +12,11 @@ struct HistoryView: View {
     var close: (() -> Void)? = nil
     @State private var history: PowerHistory?
     @State private var loaded = false
+    /// One section open at a time, the energy first; the other folds to its heading (Phil, 18 November 2026: "The trends
+    /// page if we limit to one section showing at a time and the rest stay collapsed, it could control vertical space").
+    @State private var openSection: String? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_WAKES"] != nil ? "wakes" : "energy"
+    /// One row open at a time.
+    @State private var openRow: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -26,13 +31,17 @@ struct HistoryView: View {
                 }
                 let energy = h.energyRows()
                 if !energy.isEmpty {
-                    Section(heading: PowerHistory.energyHeading, note: PowerHistory.energyNote) {
+                    Section(heading: PowerHistory.energyHeading, note: PowerHistory.energyNote, open: openSection == "energy",
+                            toggle: { fold("energy") }) {
                         ForEach(Array(energy.enumerated()), id: \.offset) { _, row in
-                            Row(row: row, sample: sample != nil)          // a share, so the bar is out of 100%
+                            // a share, so the bar is out of 100%
+                            Row(row: row, sample: sample != nil, open: openRow == row.name) {
+                                withAnimation(.easeOut(duration: 0.15)) { openRow = openRow == row.name ? nil : row.name }
+                            }
                         }
                     }
                 }
-                Section(heading: PowerHistory.wakesHeading, note: nil) {
+                Section(heading: PowerHistory.wakesHeading, note: nil, open: openSection == "wakes", toggle: { fold("wakes") }) {
                     Text(h.wakesSummary).font(.callout).foregroundStyle(Ink.text)
                     ForEach(h.wakesByCause, id: \.0) { cause, wakes in
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -55,21 +64,37 @@ struct HistoryView: View {
         }
     }
 
-    /// A heading, its rows on a card, and a line saying what the figures mean.
+    func fold(_ section: String) { withAnimation(.easeOut(duration: 0.15)) { openSection = openSection == section ? nil : section } }
+
+    /// A heading that folds and opens it, its rows on a card, and a line saying what the figures mean.
     struct Section<Content: View>: View {
         let heading: String
         let note: String?
+        let open: Bool
+        let toggle: () -> Void
         @ViewBuilder let content: Content
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
-                Text(heading).font(.callout.weight(.semibold))
-                VStack(alignment: .leading, spacing: 9) { content }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
-                if let note { Text(note).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
+                Button(action: toggle) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Ink.muted)
+                            .rotationEffect(.degrees(open ? 90 : 0))
+                        Text(heading).font(.callout.weight(.semibold)).foregroundStyle(Ink.text)
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(open ? "shown" : "hidden")
+                if open {
+                    VStack(alignment: .leading, spacing: 9) { content }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
+                    if let note { Text(note).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
+                }
             }
         }
     }
@@ -80,7 +105,8 @@ struct HistoryView: View {
     struct Row: View {
         let row: PowerHistory.EnergyRow
         let sample: Bool
-        @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil
+        let open: Bool
+        let toggle: () -> Void
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
@@ -107,7 +133,7 @@ struct HistoryView: View {
                 }
             }
             .contentShape(Rectangle())
-            .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
+            .onTapGesture { toggle() }
             .hoverHighlight(true)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
@@ -136,7 +162,7 @@ struct HistoryView: View {
         Watcher.shared.showHistory = true
         let views: [(String, AnyView)] = [
             ("history-panel", AnyView(PanelView(watcher: Watcher.shared).background(.background))),
-            ("history", AnyView(HistoryView(sample: .sample()) {}.padding(16).frame(width: 412).background(.background))),
+            ("history", AnyView(HistoryView(sample: .sample()) {}.padding(16).frame(width: PanelView.width).background(.background))),
         ]
         for (file, view) in views { for (name, look) in [("light", NSAppearance.Name.aqua), ("dark", NSAppearance.Name.darkAqua)] {
             let host = NSHostingView(rootView: view)

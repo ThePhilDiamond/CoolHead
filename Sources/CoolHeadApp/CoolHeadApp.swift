@@ -517,7 +517,7 @@ final class MenuPanel: NSPanel {
     private weak var anchor: NSStatusBarButton?
 
     init() {
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 412, height: 300), styleMask: [.borderless, .nonactivatingPanel],
+        super.init(contentRect: NSRect(x: 0, y: 0, width: PanelView.width, height: 300), styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: true)
         isFloatingPanel = true
         level = .popUpMenu
@@ -559,7 +559,7 @@ final class MenuPanel: NSPanel {
     func show(under button: NSStatusBarButton) {
         anchor = button
         for source in CardSources.all { source.panelOpened() }     // each at most once a minute
-        if let size = host?.preferredContentSize, size.height > 0 { fit(size) } else { fit(NSSize(width: 412, height: 300)) }
+        if let size = host?.preferredContentSize, size.height > 0 { fit(size) } else { fit(NSSize(width: PanelView.width, height: 300)) }
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
         // close on a click anywhere else
@@ -573,7 +573,9 @@ final class MenuPanel: NSPanel {
         let iconFrame = bw.convertToScreen(button.convert(button.bounds, to: nil))
         let visible = screen.visibleFrame
         let w = size.width, h = min(size.height, visible.height - 16)
-        var x = iconFrame.midX - w / 2
+        // centered under the icon when it opens; while open, its left edge stays put, so when it grows by the scroll
+        // bar's room nothing in it moves sideways
+        var x = isVisible ? frame.minX : iconFrame.midX - w / 2
         x = min(max(x, visible.minX + 8), visible.maxX - w - 8)
         let top = iconFrame.minY - 6
         setFrame(NSRect(x: x, y: top - h, width: w, height: h), display: true)

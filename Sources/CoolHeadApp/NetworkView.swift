@@ -407,17 +407,18 @@ struct NetworkView: View {
         let fixes = tester.setup.map { NetworkCheck.fixes(r, $0) } ?? []
         if !fixes.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                GroupHeading(doer: .you)
-                // the three most useful; the rest on request, so a bad result isn't a wall of options
-                ForEach(allFixes ? fixes : Array(fixes.prefix(3))) { f in
-                    FixRow(fix: f, cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
-                }
-                if fixes.count > 3 {
-                    Button { withAnimation(.easeOut(duration: 0.15)) { allFixes.toggle() } } label: {
-                        Label(allFixes ? "Fewer options" : "More options (\(fixes.count - 3))", systemImage: allFixes ? "chevron.up" : "chevron.down")
-                            .font(.caption)
+                // the most useful shown, the rest folded to one line with how many, as on a card (Phil, 18 November
+                // 2026: "only have one expanded thing at a time"), so a bad result isn't a wall of options
+                FixRow(fix: fixes[0], cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
+                if fixes.count > 1 {
+                    GroupBar(doer: .you, count: fixes.count - 1, more: true, open: allFixes) {
+                        withAnimation(.easeOut(duration: 0.15)) { allFixes.toggle() }
                     }
-                    .buttonStyle(.plain).foregroundStyle(Color.accentColor)
+                    if allFixes {
+                        ForEach(fixes.dropFirst()) { f in
+                            FixRow(fix: f, cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
+                        }
+                    }
                 }
                 if let note { Text(ui: note).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
             }

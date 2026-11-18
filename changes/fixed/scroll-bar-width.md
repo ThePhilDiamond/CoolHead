@@ -1,0 +1,1 @@
+- With scroll bars set to always show, opening a card no longer narrows the panel's middle and makes the On hold lines wrap: the panel grows by the scroll bar's width instead.

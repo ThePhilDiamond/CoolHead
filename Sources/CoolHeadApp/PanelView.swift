@@ -20,20 +20,38 @@ struct PanelView: View {
         return Set(w.cards.filter { c in phrases.contains { c.card.headline.contains($0) } }.compactMap(\.pid))
     }
 
-    /// The middle scrolls; the panel grows with it up to this height, so it stays easy to read.
+    /// The middle scrolls; the panel grows with it up to this height, so it stays easy to read. High enough for all of
+    /// Test my network, results and an option included (Phil, 18 November 2026: "Let's increase the height cap to fit the
+    /// full network panel"; it was 560, or 62% of the screen), and on a short screen, the screen less the top row, the
+    /// tools, and a margin.
     static var maxMiddle: CGFloat {
         // screenshots of a whole long card (COOLHEAD_SNAPSHOT_TALL) aren't held to the screen's height
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_TALL"] != nil { return 1600 }
-        return min(560, (NSScreen.main?.visibleFrame.height ?? 900) * 0.62)
+        return min(720, (NSScreen.main?.visibleFrame.height ?? 900) - 220)
     }
     @State private var middleHeight: CGFloat = 0
+
+    /// The panel's width (Phil, 18 November 2026: "Is there a reason the panel couldn't be a bit wider?"; it was 412).
+    static let width: CGFloat = 440
+
+    /// With scroll bars that take room (System Settings ▸ Appearance ▸ Show scroll bars: Always, or with a mouse plugged in),
+    /// the panel grows by the scroll bar's width while the middle scrolls, so the scroll bar sits beside what's in the
+    /// middle and never narrows it (Phil, 18 November 2026: "expanding/collapsing a card effects the height of the frozen
+    /// pane, which it shouldn't", then "Can we EXPAND the panel when we need a scroll bar instead of rendering it inside the
+    /// panel?"). With scroll bars that float over the content, there's nothing to make room for.
+    static var scrollerRoom: CGFloat {
+        NSScroller.preferredScrollerStyle == .legacy ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
+    }
+    /// How much wider the panel is now: the scroll bar's room while the middle scrolls (it scrolls once it's taller than
+    /// maxMiddle).
+    var extra: CGFloat { middleHeight > PanelView.maxMiddle ? PanelView.scrollerRoom : 0 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // fixed at the top: the snowflake, what's happening and how busy the chip and memory are, in one row; the
             // status is its title (Phil, 17 November 2026: "remove the top bar so the top is just the large icon, what's
             // happening, and the chip and memory data"). The version is in the toolbar along the bottom.
-            RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level)
+            RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level, extra: extra)
             Divider()
             // scrolls once it is taller than the limit
             ScrollView {
@@ -86,6 +104,7 @@ struct PanelView: View {
             }
             .frame(height: min(max(middleHeight, 40), PanelView.maxMiddle))
             .onPreferenceChange(MiddleHeight.self) { middleHeight = $0 }
+            .onChange(of: watcher.panelSession) { PanelFocus.shared.open = nil }
             Divider()
             // fixed at the bottom
             VStack(alignment: .leading, spacing: 10) {
@@ -96,8 +115,9 @@ struct PanelView: View {
                              ? (watcher.showHistory, { watcher.showHistory.toggle() }) : nil)
             }
             .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
+            .padding(.trailing, extra)           // the tools stay where they were while the panel is wider
         }
-        .frame(width: 412)
+        .frame(width: PanelView.width + extra)
     }
 
     /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase (or any of several, separated by |),
@@ -152,10 +172,61 @@ struct GroupHeading: View {
     }
 }
 
+/// One thing open at a time in the middle: a card, or On hold (Phil, 18 November 2026: "only have one expanded thing at a
+/// time"). Opening one closes the other, so the panel rarely needs to scroll.
+final class PanelFocus: ObservableObject {
+    static let shared = PanelFocus()
+    /// The open card's id, or `onHold`; nil when everything is closed.
+    @Published var open: String? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONHOLD_OPEN"] != nil ? PanelFocus.onHold : nil
+    static let onHold = "on-hold"
+    /// Screenshots open the first card (COOLHEAD_SNAPSHOT_OPEN), unless On hold is shown open.
+    static let snapshotCard = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil
+    /// Screenshots open the option groups too (COOLHEAD_SNAPSHOT_GROUPS=one-click or you).
+    static let snapshotGroup = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_GROUPS"]
+    func toggle(_ id: String) { withAnimation(.easeOut(duration: 0.15)) { open = open == id ? nil : id } }
+}
+
+/// A group of options folded to one line with how many it holds; a click opens it (Phil, 18 November 2026: "it would
+/// show a single bar saying how many options there are in each of those categories. The only thing that shouldn't hide
+/// is the one recommended action").
+struct GroupBar: View {
+    let doer: Fix.Doer
+    let count: Int
+    /// A recommendation is shown above the groups, so every group holds more (Phil, 18 November 2026: "The One Click options
+    /// don't have "more" the way do it yourself options do, which is more clear and should be consistent").
+    let more: Bool
+    let open: Bool
+    let toggle: () -> Void
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 5) {
+                Image(systemName: doer == .coolHead ? "bolt.fill" : "hand.point.up.left.fill")
+                Text(doer == .coolHead ? "ONE CLICK" : "DO IT YOURSELF").fontWeight(.bold).tracking(0.5)
+                Text("\(count)\(more ? " more" : "") option\(count == 1 ? "" : "s")").foregroundStyle(Ink.muted)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(Ink.muted)
+                    .rotationEffect(.degrees(open ? 90 : 0))
+            }
+            .font(.caption)
+            .foregroundStyle(Ink.text)
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(doer == .coolHead ? "One click" : "Do it yourself"): \(count)\(more ? " more" : "") option\(count == 1 ? "" : "s")")
+        .accessibilityValue(open ? "shown" : "hidden")
+    }
+}
+
 struct CardView: View {
     let live: LiveCard
     let watcher: Watcher
-    @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil  // screenshots show it open
+    @ObservedObject private var focus = PanelFocus.shared
+    var open: Bool { focus.open == live.id }
+    /// The option group that's open, one at a time; the recommendation is always shown.
+    @State private var shownGroup: Fix.Doer? = PanelFocus.snapshotGroup.map { $0 == "you" ? .you : .coolHead }
     @State private var facts = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FACTS"] != nil  // screenshots show it open
     @State private var confirmStop: Fix?
     @State private var note: String?          // what happened after a button, when it didn't simply work
@@ -227,12 +298,15 @@ struct CardView: View {
                     if acted {
                         noteView
                     } else {
+                        let rec = live.card.fixes.first { $0.recommended }
+                        if let rec { row(rec) }
                         ForEach(groups, id: \.0) { doer, fixes in
-                            GroupHeading(doer: doer).padding(.top, doer == groups.first?.0 ? 0 : 4)
-                            ForEach(fixes) { f in
-                                FixRow(fix: f, cooled: watcher.isCooled(live), betterThanRecommended: live.card.betterThanRecommended.contains { $0.id == f.id },
-                                       run: { act($0) }, runUntil: { act($0, until: $1) })
-                                if noteFor == f.id { noteView }
+                            let rest = fixes.filter { $0.id != rec?.id }
+                            if !rest.isEmpty {
+                                GroupBar(doer: doer, count: rest.count, more: rec != nil, open: shownGroup == doer) {
+                                    withAnimation(.easeOut(duration: 0.15)) { shownGroup = shownGroup == doer ? nil : doer }
+                                }
+                                if shownGroup == doer { ForEach(rest) { row($0) } }
                             }
                         }
                         // an option that's no longer listed (the card changed): the note goes at the end
@@ -282,6 +356,7 @@ struct CardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .onTapGesture { toggle() }
+        .onAppear { if PanelFocus.snapshotCard, focus.open == nil, canOpen { focus.open = live.id } }
         .hoverHighlight(canOpen)
         .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
@@ -307,7 +382,14 @@ struct CardView: View {
     }
 
     var canOpen: Bool { !live.card.fixes.isEmpty || !live.card.explanation.isEmpty }
-    func toggle() { if canOpen { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } } }
+    func toggle() { if canOpen { focus.toggle(live.id) } }
+
+    /// One option, with what happened under it once pressed.
+    @ViewBuilder func row(_ f: Fix) -> some View {
+        FixRow(fix: f, cooled: watcher.isCooled(live), betterThanRecommended: live.card.betterThanRecommended.contains { $0.id == f.id },
+               run: { act($0) }, runUntil: { act($0, until: $1) })
+        if noteFor == f.id { noteView }
+    }
 
     /// What a button did, in green (or orange when it didn't work), right under the button pressed.
     @ViewBuilder var noteView: some View {
@@ -931,6 +1013,12 @@ enum FrozenItem: Identifiable {
 struct FrozenList: View {
     let watcher: Watcher
     @ObservedObject private var tools = Tools.shared
+    /// Folded to one frosted line until clicked, and closed when a card opens (Phil, 18 November 2026: "We could collapse
+    /// the frozen stuff into a single ice crystal indicator at the top with a count, and clicking would expand it"). A
+    /// labelled line, not an icon in the top row: these are changes Cool Head made, such as Chrome's limit, which makes
+    /// Chrome say it's managed, so they stay easy to notice.
+    @ObservedObject private var focus = PanelFocus.shared
+    var open: Bool { focus.open == PanelFocus.onHold }
     /// The lines' text in from the frost's sides: inside the section's own margin, a little less than on the panel, so
     /// the words keep the width they had.
     static let inset: CGFloat = 24
@@ -950,8 +1038,30 @@ struct FrozenList: View {
         // one titled section: the frosted lines, then Report a problem, whose form opens under it (Phil, 17 November
         // 2026: "add a title to the frozen section, then have the button outside the frozen items but inside that
         // section. And when clicked, the form expands from the button within that section")
+        if !open {
+            // the words on a dark band, like the lines' own buttons, so they read clearly over the frost (Phil, 18 November
+            // 2026: "The collapsed "on hold" count needs to be higher-contrast as it's too hard to read as-is")
+            HStack(spacing: 8) {
+                Image(systemName: "snowflake").font(.callout.weight(.semibold))
+                FrozenTitle(count: items.count, open: false)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.6)))
+            .environment(\.colorScheme, .dark)
+            .padding(.horizontal, FrozenList.inset - 8).padding(.vertical, 16)
+            .frozen()
+            .contentShape(Rectangle())
+            .onTapGesture { focus.toggle(PanelFocus.onHold) }
+            .hoverHighlight(true)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Shows what Cool Head is holding back")
+        } else {
         VStack(alignment: .leading, spacing: 10) {
-            FrozenTitle(count: items.count).padding(.horizontal, 8).padding(.top, 4)
+            FrozenTitle(count: items.count, open: true).padding(.horizontal, 8).padding(.top, 4)
+                .contentShape(Rectangle())
+                .onTapGesture { focus.toggle(PanelFocus.onHold) }
             rows.frozen()
             FrozenReportButton(watcher: watcher, count: items.count)
             if tools.reportAboutHeld { ProblemView(watcher: watcher, inline: true) { tools.reportAboutHeld = false } }
@@ -961,19 +1071,25 @@ struct FrozenList: View {
         .background(RoundedRectangle(cornerRadius: 13).fill(IceTint.color.opacity(0.12)))
         .background(RoundedRectangle(cornerRadius: 13).fill(Ink.card))
         .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Frozen.ice.opacity(0.55), lineWidth: 1))
+        }
     }
 }
 
-/// The section's title: what these are, and how many.
+/// The section's title: what these are, and how many, with a chevron that folds or opens it.
 struct FrozenTitle: View {
     let count: Int
+    var open = true
     var body: some View {
         HStack(spacing: 6) {
             Text("On hold").font(.callout.weight(.semibold))
-            Text("\(count)").font(.caption.weight(.semibold)).monospacedDigit()
+            // folded, the count is dark on white, to read at a glance over the frost
+            Text("\(count)").font(.caption.weight(.bold)).monospacedDigit()
+                .foregroundStyle(open ? Ink.text : Color.black)
                 .padding(.horizontal, 6).padding(.vertical, 1)
-                .background(Capsule().fill(Frozen.ice.opacity(0.3)))
+                .background(Capsule().fill(open ? Frozen.ice.opacity(0.3) : Color.white.opacity(0.92)))
             Spacer(minLength: 0)
+            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                .rotationEffect(.degrees(open ? 90 : 0))
         }
         .foregroundStyle(Ink.text)
         .accessibilityElement(children: .combine)
@@ -1545,9 +1661,17 @@ struct FixRow: View {
                         Image(systemName: icon).font(.body).frame(width: 22)
                             .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : ends ? Color.red : Color.accentColor)
                         VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 6) {
-                                Text(title).font(.callout.weight(.semibold))
-                                if recommended { RecommendedTag(onAccent: fix.doer == .coolHead) }
+                            // the tag beside the name when both fit on one line, otherwise above it, so a long name
+                            // isn't squeezed into three lines beside it
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 6) {
+                                    Text(title).font(.callout.weight(.semibold)).fixedSize()
+                                    if recommended { RecommendedTag(onAccent: fix.doer == .coolHead) }
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    if recommended { RecommendedTag(onAccent: fix.doer == .coolHead) }
+                                    Text(title).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                                }
                             }
                             if !line.isEmpty {
                                 // the last line keeps room for the corner label, so the label never covers words
