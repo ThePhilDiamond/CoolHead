@@ -190,7 +190,7 @@ public enum MemoryAdvice {
                     // which tasks in Chrome are big ... Can we get the different tabs to flag specific big ones?"); not offered once
                     // it's on (see ChromeHoverMemory)
                     if (tabMemoryOn ?? ChromeHoverMemory.read()) != true {
-                        fixes.append(Fix(id: "tabmemory", title: "Show each tab's memory", consequence: "Takes you to Chrome's Appearance settings. Turn on Show memory usage on tab hover preview card, then point at any tab to see how much it's using.", kind: .openPage(b, "chrome://settings/appearance")))
+                        fixes.append(Fix(id: "tabmemory", title: "Show each tab's memory", consequence: "Takes you to Chrome's Appearance settings. Turn on \(Fmt.ui("Show memory usage on tab hover preview card")), then point at any tab to see how much it's using.", kind: .openPage(b, "chrome://settings/appearance")))
                     }
                 }
             } else if top.name == "Microsoft Edge" {
