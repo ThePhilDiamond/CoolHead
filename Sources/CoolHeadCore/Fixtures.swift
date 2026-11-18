@@ -138,6 +138,16 @@ public struct Fixture {
                        && offered?.recommended == true && browserCard.fixes.firstIndex { $0.id == "chromelimit" } == 0
                        && noRemove && secondOffered && notOffered && didSet && wrote && didRemove && leftAlone,
                        "limits \(capMBs); offered \(offered?.title ?? "no"), also when Chrome is second \(secondOffered); once on, no Remove option and the card explains it \(noRemove); set \(didSet) wrote \(wrote) removed \(didRemove); others' settings left alone \(leftAlone)"))
+        // Show each tab's memory: offered on Chrome's card until Chrome's own setting is on, read from Local State
+        func hover(_ json: String) -> Bool? { ChromeHoverMemory.isOn(Data(json.utf8)) }
+        let reads = [hover(#"{"browser":{"hovercard":{"memory_usage_enabled":true}}}"#), hover(#"{"browser":{"hovercard":{"memory_usage_enabled":false}}}"#),
+                     hover(#"{"browser":{}}"#), hover("not json")]
+        let tabMemory = { (on: Bool) in MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .available(4096), tabMemoryOn: on).fixes.first { $0.id == "tabmemory" } }
+        let edgeTabMemory = card("Microsoft Edge").fixes.contains { $0.id == "tabmemory" }
+        review.append(("chrome-tab-memory", reads == [true, false, true, nil] && tabMemory(false)?.kind == .openPage("/Applications/Google Chrome.app", "chrome://settings/appearance")
+                       && tabMemory(true) == nil && !edgeTabMemory && ChromeHoverMemory.read(path: "/nonexistent/Local State") == nil,
+                       "on, off, older Chrome, unreadable: \(reads.map { $0.map(String.init) ?? "nil" }); offered when off \(tabMemory(false) != nil); when on \(tabMemory(true) != nil); Edge \(edgeTabMemory)"))
+
         // a sync app using the most memory: quitting loses nothing, so it says so, and Pause syncing is there too
         // (noticed in the Chrome limit test, 15 November 2026: "Quit Google Drive" said "It'll ask to save first")
         let driveQuit = driveFirst.fixes.first { $0.id == "quit" }
