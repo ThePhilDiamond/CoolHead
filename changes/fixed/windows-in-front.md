@@ -1,1 +1,0 @@
-- About and the folder chooser for Check Downloads… opened behind Cool Head's panel; they now open in front of it.

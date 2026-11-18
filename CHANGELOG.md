@@ -6,6 +6,23 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.11.0] - 2026-11-18
+
+### Changed
+
+- One thing opens at a time in the panel: a card, or On hold, which now folds to one frosted line with its count. An open card shows its recommended option, with One click and Do it yourself each folded to a line saying how many more options there are. Trends shows one section at a time.
+- The panel is a little wider, and tall enough for all of Test my network.
+- Cleaner: the check for identical copies in Downloads is now part of Quick clean, since the original always stays. A copy is a second download, such as Report (1).pdf beside Report.pdf, whose bytes match the original's in full.
+- Cleaner's icon is macOS's bubbles and sparkles, in place of a drawn broom that was hard to make out at its size. Deep clean's heading has a checklist icon.
+- Cleaner: every count of items shows their size too, in B, KB, MB, or GB: "Moved 3 items (272 MB) to the Trash", the question before moving, and the list of what Cool Head moved. Every item shows its size, however small.
+- Cleaner: items under 20 MB fold into one line laid out like the others, such as "3 smaller items, each under 20 MB" with their total, and "Show each one" opens them, so the big ones stand out. One small item alone still shows.
+
+### Fixed
+
+- With scroll bars set to always show, opening a card no longer narrows the panel's middle and makes the On hold lines wrap: the panel grows by the scroll bar's width instead.
+- The frost on held items could stop short of the row's bottom, most often after closing and quickly reopening the panel, until On hold was folded and opened again. It's now drawn afresh each time the panel opens and whenever the row changes size.
+- About and the folder chooser for Check Downloads… opened behind Cool Head's panel; they now open in front of it.
+
 ## [0.10.0] - 2026-11-18
 
 ### Added
@@ -309,7 +326,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.7.0...v0.8.0

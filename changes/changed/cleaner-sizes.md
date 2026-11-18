@@ -1,1 +1,0 @@
-- Cleaner: every count of items shows their size too, in B, KB, MB, or GB: "Moved 3 items (272 MB) to the Trash", the question before moving, and the list of what Cool Head moved. Every item shows its size, however small.
