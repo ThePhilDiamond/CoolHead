@@ -10,10 +10,12 @@ import Foundation
 public enum ProblemReport {
     public static let kinds = ["A fix caused trouble", "Cool Head isn't working right", "Something else"]
 
+    /// `about`: what Cool Head is holding back that the problem is with, when the person picked one.
     public static func make(kind: String, words: String, activity: [Watcher.LogEntry], cards: [LiveCard], mac: MacState,
-                            now: Date = Date()) -> String {
+                            about: String? = nil, now: Date = Date()) -> String {
         var lines: [String] = []
         lines.append("**What happened:** \(kind)")
+        if let about { lines.append("**With:** \(about)") }
         lines.append("")
         lines.append("**Cool Head's activity in the last 6 hours** (times to the nearest 5 minutes):")
         let recent = activity.filter { now.timeIntervalSince($0.t) <= 6 * 3600 }.suffix(40)

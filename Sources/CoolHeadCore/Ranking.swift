@@ -15,10 +15,11 @@ public enum Ranking {
     public static func lines(now: Date = Date()) -> [String] { Wording.samples(now: now).map { line($0.0, $0.1) } }
 
     /// Every sample card's explanation (its Nerdy stuff "We recommend …" line, see Decision.swift), one line each, with
-    /// clock times as "TIME" since the samples are made relative to now.
+    /// clock times as "TIME" since the samples are made relative to now. The day `Fmt.time` adds when it isn't today
+    /// ("yesterday", "on 16 November") goes too, or the check fails whenever a sample's time falls before midnight.
     public static func explanationLines(now: Date = Date()) -> [String] {
         Wording.samples(now: now).compactMap { id, c in
-            c.choice?.line.map { id + " · " + $0.replacingOccurrences(of: #"\b\d{1,2}(:\d{2})?(am|pm)\b"#, with: "TIME", options: .regularExpression) }
+            c.choice?.line.map { id + " · " + $0.replacingOccurrences(of: #"\b\d{1,2}(:\d{2})?(am|pm)( yesterday| tomorrow| on \d{1,2} [A-Z][a-z]+)?\b"#, with: "TIME", options: .regularExpression) }
         }
     }
 

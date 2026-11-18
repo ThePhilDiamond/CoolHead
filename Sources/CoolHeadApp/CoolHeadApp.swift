@@ -425,7 +425,10 @@ enum Snapshot {
                     panel.close()
                 }
             }
-            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] != nil { Watcher.shared.showReport = true }
+            // (COOLHEAD_SNAPSHOT_REPORT=held: opened from the button under what Cool Head is holding back)
+            if let how = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_REPORT"] {
+                if how == "held" { Tools.shared.reportAboutHeld = true } else { Watcher.shared.showReport = true }
+            }
             // the Battery tool's page, with a made-up battery when the screenshot uses example cards
             if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_BATTERY"] != nil { Tools.shared.battery = true }
             // the Hardware tool's page, with made-up hardware (COOLHEAD_SNAPSHOT_HARDWARE=healthy or issue)
