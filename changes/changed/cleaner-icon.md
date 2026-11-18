@@ -1,0 +1,1 @@
+- Cleaner's icon is macOS's bubbles and sparkles, in place of a drawn broom that was hard to make out at its size. Deep clean's heading has a checklist icon.

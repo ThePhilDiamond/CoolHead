@@ -179,6 +179,8 @@ final class PanelFocus: ObservableObject {
     /// The open card's id, or `onHold`; nil when everything is closed.
     @Published var open: String? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONHOLD_OPEN"] != nil ? PanelFocus.onHold : nil
     static let onHold = "on-hold"
+    /// Counts the panel's openings, so the frost is drawn fresh each time it opens.
+    @Published var opened = 0
     /// Screenshots open the first card (COOLHEAD_SNAPSHOT_OPEN), unless On hold is shown open.
     static let snapshotCard = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil
     /// Screenshots open the option groups too (COOLHEAD_SNAPSHOT_GROUPS=one-click or you).
@@ -717,7 +719,7 @@ struct WhatsNewCard: View {
 enum WhatsNew {
     static let notes: [String: [String]] = [
         "0.10.0": [
-            "Cleaner, the broom along the bottom, finds what deleted apps left behind and what rebuilds itself, and moves what you choose to the Trash.",
+            "Cleaner, the bubbles and sparkles along the bottom, finds what deleted apps left behind and what rebuilds itself, and moves what you choose to the Trash.",
             "When Chrome uses the most memory, its card can turn on Chrome's own memory display, so pointing at a tab shows how much it uses.",
             "Steps that send you somewhere say exactly where to click, with menu items and buttons underlined.",
             "Test my network's tiles have bigger symbols.",
@@ -1307,7 +1309,21 @@ struct IceButton: ButtonStyle {
 /// some sparkles. Vector shapes from a fixed pattern, so it never shimmers and costs almost nothing.
 struct Frost: View {
     var style = FrostStyle.current
+    @ObservedObject private var focus = PanelFocus.shared
     var body: some View {
+        // drawn anew whenever the row's size changes: a row that grew as the panel opened kept the frost drawn for its
+        // first, shorter size, with its bottom edge across the middle, until On hold was folded and opened again (Phil,
+        // 18 November 2026: "When I open the pane, the holds bar also renders with a visual error. Expanding and
+        // collapsing it fixes it")
+        // and each time the panel opens: after closing and reopening it quickly, the frost again stopped short of
+        // the row's bottom (Phil, 18 November 2026: "the frozen section render issue happens when I open, close, and
+        // reopen the pane in relatively quick succession")
+        GeometryReader { g in
+            frost.id("\(Int(g.size.width))x\(Int(g.size.height))-\(focus.opened)")
+        }
+    }
+
+    var frost: some View {
         Canvas { ctx, size in
             let w = size.width, h = size.height
             var seed: UInt64 = style.seed

@@ -1,0 +1,1 @@
+- Cleaner: the check for identical copies in Downloads is now part of Quick clean, since the original always stays. A copy is a second download, such as Report (1).pdf beside Report.pdf, whose bytes match the original's in full.

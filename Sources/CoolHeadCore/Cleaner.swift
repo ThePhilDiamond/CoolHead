@@ -417,6 +417,15 @@ public enum Cleaner {
         public let to: String
         public let admin: Bool
         public let at: Date
+        /// Its size when it moved, for "Moved 3 items (1.2 GB)"; nil in lists saved before sizes were kept.
+        public var bytes: UInt64? = nil
+    }
+
+    /// Space a file or folder takes; a link counts as itself, not what it points to. Nil when it isn't there.
+    public static func size(_ path: String) -> UInt64? {
+        guard let a = try? FileManager.default.attributesOfItem(atPath: path) else { return nil }
+        if a[.type] as? FileAttributeType == .typeDirectory { return Leftovers.size(of: path) }
+        return (a[.size] as? NSNumber)?.uint64Value
     }
     public static let movedKey = "cleanerMoved"
 
@@ -455,9 +464,10 @@ public enum Cleaner {
         for p in f.paths {
             guard safe(p, home: home) else { failed.append(p); continue }
             var to: NSURL?
+            let bytes = size(p)
             do {
                 try FileManager.default.trashItem(at: URL(fileURLWithPath: p), resultingItemURL: &to)
-                if let u = to as URL? { moved.append(Moved(from: p, to: u.path, admin: false, at: Date())) }
+                if let u = to as URL? { moved.append(Moved(from: p, to: u.path, admin: false, at: Date(), bytes: bytes)) }
             } catch { failed.append(p) }
         }
         remember(moved, defaults)
@@ -490,11 +500,44 @@ public enum Cleaner {
     public static func adminArguments(_ moves: [(from: String, to: String)]) -> [String] {
         ["/bin/sh", "-c", "while [ $# -ge 2 ]; do /bin/mv -n \"$1\" \"$2\"; shift 2; done", "sh"] + moves.flatMap { [$0.from, $0.to] }
     }
-    public static func rememberAdmin(_ moves: [(from: String, to: String)], defaults: UserDefaults = .standard) {
-        remember(moves.filter { FileManager.default.fileExists(atPath: $0.to) }.map { Moved(from: $0.from, to: $0.to, admin: true, at: Date()) }, defaults)
+    /// What the job moved, with each item's size measured before it moved (`sizes`, by original path).
+    @discardableResult
+    public static func rememberAdmin(_ moves: [(from: String, to: String)], sizes: [String: UInt64] = [:], defaults: UserDefaults = .standard) -> [Moved] {
+        let done = moves.filter { FileManager.default.fileExists(atPath: $0.to) }.map { Moved(from: $0.from, to: $0.to, admin: true, at: Date(), bytes: sizes[$0.from]) }
+        remember(done, defaults)
+        return done
+    }
+
+    /// Under this, an item folds with the other small ones (Phil, 18 November 2026: "I think we should group items under
+    /// 50MB by default and have an expand button"; then "Maybe make the cutoff for small items 20MB?").
+    public static let smallItem: UInt64 = 20_000_000
+
+    /// A list split into what shows and what folds into one line: items under 20 MB (or of no known size) fold when
+    /// there are two or more of them; one alone shows, since its line would take the same room.
+    public static func split<T>(_ items: [T], bytes: (T) -> UInt64?) -> (shown: [T], folded: [T]) {
+        let small = items.filter { (bytes($0) ?? 0) < smallItem }
+        guard small.count >= 2 else { return (items, []) }
+        return (items.filter { (bytes($0) ?? 0) >= smallItem }, small)
+    }
+
+    /// The folded line's name, a line in the list like the others with the total beside it: "17 smaller items, each
+    /// under 20 MB" (Phil, 18 November 2026: "The smaller items folded together should be a single line item that
+    /// matches the rest of the list unless expanded").
+    public static func foldedLine(_ n: Int) -> String { "\(n) smaller items, each under \(Fmt.fileSize(smallItem))" }
+
+    /// "3 items (1.2 GB)", or "1 item" when no size is known: what a count of moved things says, everywhere it's shown.
+    public static func count(_ n: Int, bytes: UInt64) -> String {
+        (n == 1 ? "1 item" : "\(n) items") + (bytes > 0 ? " (\(Fmt.fileSize(bytes)))" : "")
     }
 
     // MARK: made-up finds, for screenshots (COOLHEAD_SNAPSHOT_CLEANER), never this Mac's
+
+    /// Made-up things Cool Head moved, for screenshots of the list it can put back.
+    public static func sampleMoved(now: Date = Date()) -> [Moved] {
+        [Moved(from: "/Users/you/Library/Logs/Example", to: "/Users/you/.Trash/Example", admin: false, at: now, bytes: 270_000_000),
+         Moved(from: "/Users/you/Downloads/Report (1).pdf", to: "/Users/you/.Trash/Report (1).pdf", admin: false, at: now, bytes: 2_400_000),
+         Moved(from: "/Users/you/Library/LaunchAgents/com.example.helper.plist", to: "/Users/you/.Trash/com.example.helper.plist", admin: false, at: now, bytes: 612)]
+    }
 
     public static func sample() -> [Find] {
         [
@@ -504,6 +547,8 @@ public enum Cleaner {
                  detail: "Apps only ever read their newest ones.", bytes: 270_000_000),
             Find(id: "saved-state", group: .quick, title: "Saved windows of deleted apps",
                  detail: "Kept so an app reopens its windows, but these apps are gone.", bytes: 12_000_000),
+            Find(id: "copy:Report (1).pdf", group: .quick, title: "Report (1).pdf",
+                 detail: "An identical second download of Report.pdf, which stays.", bytes: 2_400_000),
             Find(id: "deriveddata", group: .rebuilds, title: "Xcode's build data",
                  detail: "Xcode rebuilds it, so each project's next build takes longer.", bytes: 6_100_000_000),
             Find(id: "homebrew", group: .rebuilds, title: "Homebrew's downloads",

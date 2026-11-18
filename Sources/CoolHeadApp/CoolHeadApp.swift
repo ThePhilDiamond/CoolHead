@@ -164,6 +164,7 @@ enum Alerts {
 }
 
 /// The standard About panel, with what Cool Head is and where its source lives.
+@MainActor
 enum About {
     static func show() {
         NSApp.activate(ignoringOtherApps: true)
@@ -182,7 +183,15 @@ enum About {
         // macOS shows the version and then the build number in brackets; they're the same here, so the build is left out
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Cool Head",
                                                      .applicationVersion: "Version \(CoolHead.version)", .version: ""])
+        // in front of the panel, which floats at the menus' level, when it's open (Phil, 18 November 2026: "the About
+        // pane and the "select a folder" to check for duplicates spawn and sit behind the Cool Head pane")
+        if MenuPanel.isOpen { NSApp.orderedWindows.first { $0 is NSPanel && !($0 is MenuPanel) && $0.isVisible }?.level = .abovePanel }
     }
+}
+
+extension NSWindow.Level {
+    /// Just above Cool Head's panel (`.popUpMenu`), for a window opened from it: About, or the folder chooser.
+    static let abovePanel = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
 }
 
 enum LoginItem {
@@ -516,6 +525,9 @@ final class MenuPanel: NSPanel {
     private var sizeObservation: NSKeyValueObservation?
     private weak var anchor: NSStatusBarButton?
 
+    /// Showing now, so a window opened from it goes in front (`.abovePanel`).
+    static var isOpen: Bool { NSApp.windows.contains { $0 is MenuPanel && $0.isVisible } }
+
     init() {
         super.init(contentRect: NSRect(x: 0, y: 0, width: PanelView.width, height: 300), styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: true)
@@ -559,6 +571,7 @@ final class MenuPanel: NSPanel {
     func show(under button: NSStatusBarButton) {
         anchor = button
         for source in CardSources.all { source.panelOpened() }     // each at most once a minute
+        PanelFocus.shared.opened += 1
         if let size = host?.preferredContentSize, size.height > 0 { fit(size) } else { fit(NSSize(width: PanelView.width, height: 300)) }
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
