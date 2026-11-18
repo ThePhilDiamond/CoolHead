@@ -6,6 +6,24 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.10.0] - 2026-11-18
+
+### Added
+
+- When Google Chrome is using the most memory, its card offers **Show each tab's memory**: it opens Chrome's Appearance settings to turn on memory in tab hover cards, so pointing at any tab shows how much it uses. It isn't offered once that setting is on.
+- Cleaner, a new tool along the bottom of the panel (a broom), for what deleted apps leave behind and what takes space and rebuilds itself.
+  - Quick clean moves what nothing uses to the Trash with one click: background helpers whose program is gone, logs and crash reports over 30 days old, and saved windows of deleted apps.
+  - Deep clean is a list to choose from: what rebuilds itself is ticked (Xcode's build data, Homebrew's and npm's downloads, and Chrome's cache while Chrome is closed); what Cool Head can't be sure of is left for you to tick and marked Caution, such as settings panes in the System Settings sidebar whose app is gone, a deleted app's caches, and old macOS installers.
+  - Check Downloads… looks, in a folder you choose, for old installers and identical second downloads.
+  - Everything goes to the Trash after a second click, and Cool Head can put it back; items in folders for all users ask for an administrator's password and leave nothing installed.
+  - Links to Privacy & Security, where deleted apps can stay in the permission lists, and to Apple's Storage settings.
+
+### Changed
+
+- Test my network's tiles have bigger symbols, and Site lookup (DNS) has a magnifying glass over a page, easier to read than the letter it had.
+- Lists of three or more in Cool Head's text, and in its documents, use a comma before the last "and" or "or".
+- Steps that send you to Chrome's Task Manager say where the Window menu is, which heading to click, and what to close. Menu items, buttons, and settings named in steps are underlined, so they stand out.
+
 ## [0.9.0] - 2026-11-17
 
 ### Added
@@ -291,7 +309,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.6.1...v0.7.0

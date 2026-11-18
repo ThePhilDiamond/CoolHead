@@ -716,6 +716,12 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.10.0": [
+            "Cleaner, the broom along the bottom, finds what deleted apps left behind and what rebuilds itself, and moves what you choose to the Trash.",
+            "When Chrome uses the most memory, its card can turn on Chrome's own memory display, so pointing at a tab shows how much it uses.",
+            "Steps that send you somewhere say exactly where to click, with menu items and buttons underlined.",
+            "Test my network's tiles have bigger symbols.",
+        ],
         "0.9.0": [
             "Settings are in the panel, behind the gear at the right of the toolbar, with the menu bar icon to pick by sight.",
             "The top of the panel shows how your Mac is running, with gauges for the chip, memory, and heat.",

@@ -1,1 +1,0 @@
-- Test my network's tiles have bigger symbols, and Site lookup (DNS) has a magnifying glass over a page, easier to read than the letter it had.
