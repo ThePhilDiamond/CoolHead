@@ -1,0 +1,1 @@
+- When Google Chrome is using the most memory, its card offers **Show each tab's memory**: it opens Chrome's Appearance settings to turn on memory in tab hover cards, so pointing at any tab shows how much it uses. It isn't offered once that setting is on.

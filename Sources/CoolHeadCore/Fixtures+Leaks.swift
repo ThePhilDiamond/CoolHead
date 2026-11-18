@@ -60,7 +60,7 @@ extension Fixture {
         let chrome = MemGroup(key: "/Applications/Google Chrome.app", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 9_100_000_000, count: 40)
         let card = MemoryAdvice.card([pages], mac: leakTightMac(), now: now, leak: steady)
         let claudeCard = MemoryAdvice.card([claude], mac: leakTightMac(), now: now, leak: steady)
-        let chromeCard = MemoryAdvice.card([chrome], mac: leakTightMac(), now: now, leak: steady)
+        let chromeCard = MemoryAdvice.card([chrome], mac: leakTightMac(), now: now, leak: steady, tabMemoryOn: false)
         let none = MemoryAdvice.card([pages], mac: leakTightMac(), now: now)
         let r = card.recommended
         let r3 = card.headline == "Memory is tight: Pages is using more than it usually does."

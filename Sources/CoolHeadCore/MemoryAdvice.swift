@@ -141,7 +141,7 @@ public enum MemoryAdvice {
     /// has loaded, when it is among the biggest (see Leftovers); `buildData`: the size of Xcode's build data, when the
     /// startup disk is nearly full.
     public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil,
-                            leak: Leaks.Leak? = nil, models: [Leftovers.Model]? = nil, buildData: UInt64? = nil) -> Card {
+                            leak: Leaks.Leak? = nil, models: [Leftovers.Model]? = nil, buildData: UInt64? = nil, tabMemoryOn: Bool? = nil) -> Card {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
             return Card(state: .unknown, headline: tight, explanation: pressure(s),
@@ -186,6 +186,12 @@ public enum MemoryAdvice {
                 limitNote = ChromeLimit.note(st, using: top.bytes)
                 if let b = top.bundle {
                     fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
+                    // Chrome names each tab and its memory, which Cool Head can't (Phil, 18 November 2026: "A user doesn't know
+                    // which tasks in Chrome are big ... Can we get the different tabs to flag specific big ones?"); not offered once
+                    // it's on (see ChromeHoverMemory)
+                    if (tabMemoryOn ?? ChromeHoverMemory.read()) != true {
+                        fixes.append(Fix(id: "tabmemory", title: "Show each tab's memory", consequence: "Takes you to Chrome's Appearance settings. Turn on \(Fmt.ui("Show memory usage on tab hover preview card")), then point at any tab to see how much it's using.", kind: .openPage(b, "chrome://settings/appearance")))
+                    }
                 }
             } else if top.name == "Microsoft Edge" {
                 if let b = top.bundle {

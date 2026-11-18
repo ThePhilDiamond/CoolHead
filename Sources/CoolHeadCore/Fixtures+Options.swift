@@ -32,7 +32,7 @@ extension Fixture {
         var tight = MacState(); tight.memoryPressure = "warning"
         func quit(_ name: String, _ kind: MemGroup.Kind = .app) -> Fix? {
             MemoryAdvice.card([MemGroup(key: name, name: name, kind: kind, bundle: "/Applications/\(name).app", bytes: 3_000_000_000, count: 3)],
-                              mac: tight, now: now, chrome: .unavailable).fixes.first { $0.id == "quit" }
+                              mac: tight, now: now, chrome: .unavailable, tabMemoryOn: false).fixes.first { $0.id == "quit" }
         }
         let calm = ["Slack", "Spotify", "Pages", "Google Drive"].map { (n: String) in (n, quit(n)) }
         let risky = [("Docker", quit("Docker")), ("zoom.us", quit("zoom.us")), ("Terminal", quit("Terminal")), ("Google Chrome", quit("Google Chrome", .browser))]

@@ -92,3 +92,33 @@ public enum ChromeLimit {
         return "Chrome is within its \(gb(mb)) limit."
     }
 }
+
+/// Chrome's own setting to show each tab's memory when you point at the tab (Settings ▸ Appearance, "Show memory usage
+/// on tab hover preview card"). Chrome knows which tab is which and Cool Head doesn't, so the memory card offers to
+/// turn it on, and stops offering once it's on (Phil, 18 November 2026: "Can we see if that setting is enabled? It
+/// would be annoying to get that card repeatedly after it's enabled").
+///
+/// Chrome keeps it in its Local State file as `browser.hovercard.memory_usage_enabled`
+/// (chrome/common/pref_names.h). It was registered on (chrome/browser/ui/browser_ui_prefs.cc), and a later Chrome
+/// switches it off once (chrome/browser/ui/tabs/tab_strip_prefs.cc), so on current Chrome it's off unless someone turned
+/// it on; with no value written, it's an older Chrome where it's on. Only this one value is read from the file.
+public enum ChromeHoverMemory {
+    public static let localState = NSHomeDirectory() + "/Library/Application Support/Google/Chrome/Local State"
+    nonisolated(unsafe) static var cached: (changed: Date, on: Bool?)?
+
+    /// Whether the setting is on, from Local State's contents; nil when they aren't Chrome's JSON.
+    public static func isOn(_ data: Data) -> Bool? {
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        let hover = (json["browser"] as? [String: Any])?["hovercard"] as? [String: Any]
+        return hover?["memory_usage_enabled"] as? Bool ?? true
+    }
+
+    /// This Mac's setting, read again only when Chrome has changed the file; nil when there's no Chrome to read.
+    public static func read(path: String = localState) -> Bool? {
+        guard let changed = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date else { return nil }
+        if let c = cached, c.changed == changed { return c.on }
+        let on = FileManager.default.contents(atPath: path).flatMap(isOn)
+        cached = (changed, on)
+        return on
+    }
+}
