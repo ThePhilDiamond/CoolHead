@@ -121,6 +121,8 @@ struct RunningStrip: View {
     /// The panel's status ("1 to watch", "All calm"), the row's title, and its level, for VoiceOver.
     let title: String
     let level: Watcher.Level
+    /// The scroll bar's room while the panel is wider, so the row's words and gauges stay where they were.
+    var extra: CGFloat = 0
     @StateObject private var load = ChipLoad()
 
     var snapshot: String? { ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_RUNNING"] }
@@ -179,6 +181,7 @@ struct RunningStrip: View {
             ForEach(gauges, id: \.name) { gauge($0) }
         }
         .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
+        .padding(.trailing, extra)
         // a gentle wash of the level's colour, never the only sign: the snowflake's shape (whole, melting, in flames)
         // and the title's words say the same (Phil, 17 November 2026: "a gentle background tint to the top bar for
         // green / yellow / red")
