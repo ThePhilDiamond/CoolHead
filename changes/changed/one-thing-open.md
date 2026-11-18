@@ -1,1 +1,0 @@
-- One thing opens at a time in the panel: a card, or On hold, which now folds to one frosted line with its count. An open card shows its recommended option, with One click and Do it yourself each folded to a line saying how many more options there are. Trends shows one section at a time.

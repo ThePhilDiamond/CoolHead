@@ -718,6 +718,12 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.11.0": [
+            "One thing opens at a time: a card, or On hold, which folds to one line with its count. An open card shows its recommended option, with the others folded below it.",
+            "The panel is a little wider, and tall enough for all of Test my network.",
+            "Cleaner shows each item's size, checks Downloads for identical copies as part of Quick clean, and folds items under 20 MB into one line.",
+            "About and the folder chooser open in front of the panel.",
+        ],
         "0.10.0": [
             "Cleaner, the bubbles and sparkles along the bottom, finds what deleted apps left behind and what rebuilds itself, and moves what you choose to the Trash.",
             "When Chrome uses the most memory, its card can turn on Chrome's own memory display, so pointing at a tab shows how much it uses.",
