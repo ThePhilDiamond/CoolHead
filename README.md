@@ -7,7 +7,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
-    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a hot Mac: the top row says Running hot, 1 to watch, with Chip, Memory, and Heat gauges; a card says a Google Chrome tab is working hard, with Run this tab cooler recommended under One click, Close just that tab and Quit Google Chrome marked Caution, and Find the busy tab under Do it yourself; the tools along the bottom are Network, Battery, Hardware, Trends, Trusted, Report, and Settings">
+    <img src="docs/images/panel-light.png" width="400" alt="The Cool Head panel on a hot Mac: the top row says Running hot, 1 to watch, with Chip, Memory, and Heat gauges; a card says a Google Chrome tab is working hard, with Run this tab cooler recommended under One click, Close just that tab and Quit Google Chrome marked Caution, and Find the busy tab under Do it yourself; the tools along the bottom are Network, Battery, Hardware, Trends, Trusted, Cleaner, Report, and Settings">
   </picture>
 </p>
 
