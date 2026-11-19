@@ -43,9 +43,13 @@ struct HistoryView: View {
                 }
                 Section(heading: PowerHistory.wakesHeading, note: nil, open: openSection == "wakes", toggle: { fold("wakes") }) {
                     Text(h.wakesSummary).font(.callout).foregroundStyle(Ink.text)
-                    // one row per cause, like the energy: a symbol, a short name, the count, and a bar out of every wake,
-                    // with what it means a click away (Phil, 19 November 2026: "Can we also fix the "Why it woke from
-                    // sleep" section to be more visual? it's a wall of text now")
+                    // every wake as one thin bar, split by cause, so each reads as a share of the whole (Phil, 19 November
+                    // 2026: "maybe as a pie chart or something that illustrates "share of total" rather than arbitrary
+                    // bars?"); a bar, not a pie, so the rows' figures sit beside it and a small cause still shows
+                    if !h.wakes.isEmpty { WakeSplit(causes: h.wakesByCause, total: h.wakes.count).padding(.bottom, 2) }
+                    // then one row per cause: its colour, a symbol, a short name, the count and its share, with what it
+                    // means a click away (Phil, 19 November 2026: "Can we also fix the "Why it woke from sleep" section to
+                    // be more visual? it's a wall of text now")
                     ForEach(h.wakesByCause, id: \.0) { cause, wakes in
                         let key = "wake-" + cause.rawValue
                         WakeRow(cause: cause, wakes: wakes, total: h.wakes.count, open: openRow == key) {
@@ -154,6 +158,45 @@ struct HistoryView: View {
         }
     }
 
+    /// Every wake as one thin bar, 8 points tall with round ends, a part per cause in the rows' order, 2 points apart.
+    /// Each cause keeps its own colour whatever its rank, from a palette checked for colour blindness in light and dark
+    /// (the dataviz skill's validator: every check passes; in light, three colours are under 3:1 against the card, so
+    /// the rows beside the bar carry every name and figure).
+    struct WakeSplit: View {
+        let causes: [(PowerHistory.Cause, [PowerHistory.Wake])]
+        let total: Int
+        @Environment(\.colorScheme) private var scheme
+
+        var body: some View {
+            GeometryReader { g in
+                let gaps = CGFloat(max(0, causes.count - 1)) * 2
+                HStack(spacing: 2) {
+                    ForEach(causes, id: \.0) { cause, wakes in
+                        Rectangle().fill(WakeSplit.color(cause, scheme))
+                            .frame(width: max(2, (g.size.width - gaps) * CGFloat(wakes.count) / CGFloat(max(1, total))))
+                            .help("\(PowerHistory.label(cause)): \(wakes.count), \(PowerHistory.share(Double(wakes.count) / Double(max(1, total))))")
+                    }
+                }
+                .clipShape(Capsule())
+            }
+            .frame(height: 8)
+            .accessibilityElement()
+            .accessibilityLabel(causes.map { "\(PowerHistory.label($0.0)), \(PowerHistory.share(Double($0.1.count) / Double(max(1, total))))" }
+                .joined(separator: "; "))
+        }
+
+        /// A cause's colour, fixed to the cause, never to its rank: the dataviz skill's eight categorical hues, stepped for
+        /// light and dark, and grey for reasons Cool Head doesn't recognize.
+        static func color(_ cause: PowerHistory.Cause, _ scheme: ColorScheme = .light) -> Color {
+            let light: [PowerHistory.Cause: UInt32] = [.schedule: 0x2a78d6, .lid: 0xeb6834, .wireless: 0x1baf7a, .plug: 0xeda100,
+                                                         .input: 0xe87ba4, .network: 0x008300, .bluetooth: 0x6250d6, .button: 0xe34948]
+            let dark: [PowerHistory.Cause: UInt32] = [.schedule: 0x3987e5, .lid: 0xd95926, .wireless: 0x199e70, .plug: 0xc98500,
+                                                        .input: 0xd55181, .network: 0x0ca30c, .bluetooth: 0x9085e9, .button: 0xe66767]
+            guard let hex = (scheme == .dark ? dark : light)[cause] else { return Color.gray }
+            return Color(red: Double(hex >> 16 & 0xff) / 255, green: Double(hex >> 8 & 0xff) / 255, blue: Double(hex & 0xff) / 255)
+        }
+    }
+
     /// One reason the Mac woke: its symbol, its short name, how many times, and a bar out of every wake; a click opens
     /// what it means.
     struct WakeRow: View {
@@ -162,29 +205,25 @@ struct HistoryView: View {
         let total: Int
         let open: Bool
         let toggle: () -> Void
+        @Environment(\.colorScheme) private var scheme
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .center, spacing: 10) {
+                HStack(alignment: .center, spacing: 8) {
+                    // its colour in the bar above, so the row is the bar's legend
+                    RoundedRectangle(cornerRadius: 2).fill(WakeSplit.color(cause, scheme)).frame(width: 8, height: 8)
                     Image(systemName: WakeRow.symbol(cause)).font(.system(size: 14)).foregroundStyle(Ink.muted)
                         .frame(width: 22, height: 22)
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(PowerHistory.label(cause)).font(.callout).foregroundStyle(Ink.text).lineLimit(1)
-                            Spacer(minLength: 8)
-                            Text("\(wakes.count)").font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
-                            Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Ink.muted)
-                        }
-                        GeometryReader { g in
-                            Capsule().fill(Color.accentColor.opacity(0.55))
-                                .frame(width: max(3, g.size.width * Double(wakes.count) / Double(max(1, total))), height: 4)
-                        }
-                        .frame(height: 4)
-                    }
+                    Text(PowerHistory.label(cause)).font(.callout).foregroundStyle(Ink.text).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text("\(wakes.count)").font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
+                    Text(PowerHistory.share(Double(wakes.count) / Double(max(1, total)))).font(.callout.monospacedDigit())
+                        .foregroundStyle(Ink.muted).frame(minWidth: 62, alignment: .trailing)
+                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Ink.muted)
                 }
                 if open {
                     Text(PowerHistory.detail(cause, wakes)).font(.caption).foregroundStyle(Ink.muted)
-                        .fixedSize(horizontal: false, vertical: true).padding(.leading, 32)
+                        .fixedSize(horizontal: false, vertical: true).padding(.leading, 46)
                 }
             }
             .contentShape(Rectangle())
