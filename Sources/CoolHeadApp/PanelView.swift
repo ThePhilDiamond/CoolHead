@@ -733,6 +733,13 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.12.0": [
+            "What Cool Head is slowing, limiting, pausing, or has turned off is now Managed by Cool Head, and each line says what it is without a click.",
+            "Cleaner checks any folder you choose for identical copies, and the folders inside it, starting with Downloads.",
+            "Trends shows why your Mac woke as one bar split by reason, and says what each line means without a click.",
+            "What you type in Report a problem is kept until you send it or press Cancel.",
+            "About opens in front of the panel.",
+        ],
         "0.11.0": [
             "One thing opens at a time: a card, or Managed by Cool Head, which folds to one line with its count. An open card shows its recommended option, with the others folded below it.",
             "The panel is a little wider, and tall enough for all of Test my network.",

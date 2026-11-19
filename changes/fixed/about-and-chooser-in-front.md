@@ -1,1 +1,0 @@
-- About now opens in front of the panel; in 0.11.0 it still opened behind it. Choosing a folder to check for identical copies no longer closes the panel.
