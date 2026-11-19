@@ -16,7 +16,7 @@ struct HardwareView: View {
             return HardwarePage.sample(kind)
         }
         if PanelView.sampleSnapshot { return HardwarePage.sample() }
-        // the chip's temperature is the Heat ring's live one, not the report's (read up to 10 minutes ago)
+        // the chip's temperature is the Temperature ring's live one, not the report's (read up to 10 minutes ago)
         var r = HardwareWatch.shared.report
         if let c = load.chipC { r?.chipC = c }
         return r
@@ -179,11 +179,11 @@ struct RunningStrip: View {
         }
     }
 
-    /// The sentence under the status. When the heat ring shows the battery or the drive, it names that part first, so the
+    /// The sentence under the status. When the temperature ring shows the battery or the drive, it names that part first, so the
     /// line beside a warm ring never says only "a normal temperature" (that sentence is the chip's).
     func meaning(_ r: HardwarePage.Running) -> String {
-        guard let g = gauges.last, g.level > 0, g.name == "Battery heat" || g.name == "Drive heat" else { return r.meaning }
-        let part = g.name == "Battery heat" ? "The battery" : "The drive"
+        guard let g = gauges.last, g.level > 0, g.name == "Battery temperature" || g.name == "Drive temperature" else { return r.meaning }
+        let part = g.name == "Battery temperature" ? "The battery" : "The drive"
         let thermal = RunningStrip.snapshotThermal ?? watcher.mac.thermal
         let chip = thermal == "serious" || thermal == "critical" ? "and macOS is slowing the chip to cool it." : "and the chip is at full speed."
         return "\(part) is \(g.level >= 2 ? "hot" : "warm"), \(chip)"
@@ -203,10 +203,10 @@ struct RunningStrip: View {
             // 19 November 2026: "Should we add a "usage" and "heat" title above the gauges with a vertical divider between
             // the usage and heat? Might be cleaner and more clear")
             let all = gauges
-            gaugeGroup("Usage", all.filter { !$0.isHeat })
-            if all.contains(where: \.isHeat) {
+            gaugeGroup("Usage", all.filter { !$0.isTemperature })
+            if all.contains(where: \.isTemperature) {
                 Divider().frame(height: 64)
-                gaugeGroup("Heat", all.filter(\.isHeat))
+                gaugeGroup("Temperature", all.filter(\.isTemperature))
             }
         }
         .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
@@ -243,11 +243,11 @@ struct RunningStrip: View {
             .tint(NetworkView.color(g.level))
             // macOS draws this gauge at a fixed size; smaller, so the title beside it keeps its room
             .scaleEffect(0.8).frame(width: 46, height: 46)
-            // the part's icon beside its name, so the heat ring says whose heat it is
+            // the part's icon beside its name, so the temperature ring says whose heat it is
             HStack(spacing: 3) {
                 if let s = g.symbol { Image(systemName: s).font(.system(size: 9, weight: .semibold)) }
-                // under the Heat title, only the part: "Battery", not "Battery heat"
-                Text(g.isHeat ? String(g.name.dropLast(" heat".count)) : g.name)
+                // under the Temperature title, only the part: "Battery", not "Battery temperature"
+                Text(g.isTemperature ? String(g.name.dropLast(" temperature".count)) : g.name)
             }
             .font(.caption).foregroundStyle(Ink.muted).fixedSize()           // grey, like every label: the ring's color carries the level
         }
@@ -262,13 +262,13 @@ struct RunningStrip: View {
 /// panel is open and not at all while it's closed.
 @MainActor
 final class ChipLoad: ObservableObject {
-    /// One reading for the Heat ring and the Hardware page's chip tile, so the two always agree (Phil, 19 November 2026:
+    /// One reading for the Temperature ring and the Hardware page's chip tile, so the two always agree (Phil, 19 November 2026:
     /// "the temp in the top bar doesn't match any of the temps in the hardware scan": the page showed the reading from its
     /// report, up to 10 minutes old, and the hottest sensor moves several degrees in seconds).
     static let shared = ChipLoad()
     @Published var busy = 0.0
     @Published var memoryFree = 100
-    /// The hottest chip sensor, for the Heat ring (see ChipTemperature); nil where it can't be read.
+    /// The hottest chip sensor, for the Temperature ring (see ChipTemperature); nil where it can't be read.
     @Published var chipC: Double?
     private var last: (busy: UInt64, total: UInt64)?
     private var timer: Timer?
