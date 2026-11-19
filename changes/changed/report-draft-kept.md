@@ -1,1 +1,0 @@
-- What you type in Report a problem is kept if the panel closes or you open a tool, until you send it or press Cancel. It's kept in memory only, so quitting Cool Head drops it.

@@ -6,6 +6,21 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.12.0] - 2026-11-19
+
+### Changed
+
+- Cleaner's check for identical copies works on any folder you choose, with Downloads chosen to start, and the folders inside it, and also finds Finder's duplicates, such as Report copy.pdf beside Report.pdf. It skips hidden folders and the inside of apps, and stops after 100,000 files.
+- The section at the top of the panel for what Cool Head is slowing, limiting, pausing, or has turned off is now called Managed by Cool Head, in place of On hold, which could read as turned off. Open, each line now shows what it is and since when, without a click.
+- Opening a tool folds Managed by Cool Head, and opening Managed by Cool Head closes the tool, the way opening one tool closes another, so one thing is open at a time.
+- What you type in Report a problem is kept if the panel closes or you open a tool, until you send it or press Cancel. It's kept in memory only, so quitting Cool Head drops it.
+- In Trends, what each app's share of the energy means now shows under it, without a click.
+- Trends' Why it woke from sleep now shows every wake as one bar split by reason, then a row for each reason with its color, a symbol, a short name, the count, and its share, and what it means under it.
+
+### Fixed
+
+- About now opens in front of the panel; in 0.11.0 it still opened behind it. Choosing a folder to check for identical copies no longer closes the panel.
+
 ## [0.11.0] - 2026-11-18
 
 ### Changed
@@ -326,7 +341,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.8.0...v0.9.0
