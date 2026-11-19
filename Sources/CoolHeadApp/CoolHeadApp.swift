@@ -173,7 +173,8 @@ enum About {
         let italic = NSFontManager.shared.convert(NSFont.systemFont(ofSize: 12), toHaveTrait: .italicFontMask)
         let center = NSMutableParagraphStyle(); center.alignment = .center
         let credits = NSMutableAttributedString(string: "Let cooler heads prevail.\n\n", attributes: [.font: italic])
-        credits.append(NSAttributedString(string: "Why is my Mac running hot or slow? What's happening, gathered from across your Mac into one place, with clear options to act in one click.\n\n",
+        // the same sentence as the README's opening, the repository's description, and its social card
+        credits.append(NSAttributedString(string: "Is your Mac running hot or slow? Cool Head says why in one sentence, with options to act in one click, plus tools to test your network, check your battery and hardware, and clear space.\n\n",
                                           attributes: [.font: body]))
         credits.append(NSAttributedString(string: "github.com/ThePhilDiamond/CoolHead",
                                           attributes: [.font: body, .link: URL(string: "https://github.com/ThePhilDiamond/CoolHead")!]))

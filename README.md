@@ -2,7 +2,7 @@
 
 <h1 align="center">Cool Head</h1>
 
-<p align="center"><em>Let cooler heads prevail.</em><br>Why is my Mac running hot or slow? What's happening, gathered from across your Mac into one place, with clear options to act in one click.<br>A free, open-source menu bar app for macOS.</p>
+<p align="center"><em>Let cooler heads prevail.</em><br>Is your Mac running hot or slow? Cool Head says why in one sentence, with options to act in one click, plus tools to test your network, check your battery and hardware, and clear space.<br>A free, open-source menu bar app for macOS.</p>
 
 <p align="center">
   <picture>
@@ -32,7 +32,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 ## What it knows
 
 - **A warm Mac has a cause.** When your Mac warms up, each thing warming it gets a card with something to do, and the menu bar icon turns yellow.
-- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing, pausing, limiting, or has turned off is a frosted line in the **Managed by Cool Head** section at the top of the panel ("Chrome is limited to 4 GB"), which folds to one line with its count until you click it; open, each line says what it is and since when, with the button to undo it on the line itself (**Speed up**, **Resume**, **Remove limit**, **Turn on**).
+- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing, pausing, limiting, or has turned off is a frosted line in the **Managed by Cool Head** section at the top of the panel ("Chrome is limited to 4 GB"), which is open whenever nothing else is, and folds to one line with its count while a card or tool is open; open, each line says what it is and since when, with the button to undo it on the line itself (**Speed up**, **Resume**, **Remove limit**, **Turn on**).
 - **Chrome without quitting it.** It tells a busy tab, a busy extension, and Chrome's graphics work apart (also in Edge, Brave, and Arc), and offers what fits: run just that tab cooler, Energy Saver, turn off an extension, or close just that tab, before ever suggesting Quit. When memory is tight, **Limit Chrome** sets Chrome's own memory limit (Chrome then says it's "managed by your organization"; restore it from the top of the panel). **Restart Chrome, keeping your tabs** closes Chrome normally (so it can ask about downloads) and reopens it with the same windows and tabs, freeing the memory it has built up; Incognito windows, unsent form text, and downloads in progress don't come back (also for Edge, Brave, Vivaldi, and Chromium).
 - **The graphics chip counts.** An app keeping the graphics chip busy gets a card even when it uses little CPU, saying how much of the chip it uses.
 - **Games come first.** A game is never slowed down; other busy work is offered to run cooler instead, to leave the game more power.

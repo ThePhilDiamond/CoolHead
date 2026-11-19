@@ -1,0 +1,1 @@
+- Managed by Cool Head is open whenever nothing else is: each time the panel opens, and when a tool or Settings closes. It folds while a card or tool is open.

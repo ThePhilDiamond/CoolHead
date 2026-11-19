@@ -40,7 +40,7 @@ struct Split: View {
                             Text("Let cooler heads prevail.").font(.system(size: 26, weight: .medium).italic()).foregroundStyle(deep)
                         }
                     }
-                    Text("Why is your Mac running hot or slow? Cool\u{00A0}Head says why in one sentence, with options to act\u{00A0}in\u{00A0}one\u{00A0}click.")
+                    Text("Is your Mac running hot or slow? Cool\u{00A0}Head says why in one sentence, with options to act\u{00A0}in\u{00A0}one\u{00A0}click.")
                         .font(.system(size: 27, weight: .regular)).foregroundStyle(navy)
                         .lineSpacing(4).fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 26)

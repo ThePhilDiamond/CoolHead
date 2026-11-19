@@ -104,7 +104,9 @@ struct PanelView: View {
             }
             .frame(height: min(max(middleHeight, 40), PanelView.maxMiddle))
             .onPreferenceChange(MiddleHeight.self) { middleHeight = $0 }
-            .onChange(of: watcher.panelSession) { PanelFocus.shared.open = nil }
+            // with nothing else open, Managed by Cool Head is: each time the panel opens, and when the last tool closes
+            .onChange(of: watcher.panelSession) { PanelFocus.shared.open = PanelFocus.onHold }
+            .onChange(of: toolOpen) { if !toolOpen { PanelFocus.shared.openSection() } }
             Divider()
             // fixed at the bottom
             VStack(alignment: .leading, spacing: 10) {
@@ -124,6 +126,12 @@ struct PanelView: View {
     /// so a screenshot never shows the person's own processes.
     /// The header's level: the same rule, and the same cards, as the snowflake below it and the menu bar icon.
     var level: Watcher.Level { watcher.level(shownCards, thermal: RunningStrip.snapshotThermal) }
+
+    /// A tool, Settings, Report a problem, or Trends is open in the middle.
+    var toolOpen: Bool {
+        network.shown || tools.settings || tools.trusted || tools.battery || tools.hardware || tools.cleaner
+            || watcher.showReport || watcher.showHistory
+    }
 
     var shownCards: [LiveCard] {
         // COOLHEAD_SNAPSHOT_SAMPLES shows example cards (as `coolhead wording` names them, separated by |) in place of
@@ -176,8 +184,14 @@ struct GroupHeading: View {
 /// time"). Opening one closes the other, so the panel rarely needs to scroll.
 final class PanelFocus: ObservableObject {
     static let shared = PanelFocus()
-    /// The open card's id, or `onHold`; nil when everything is closed.
-    @Published var open: String? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONHOLD_OPEN"] != nil ? PanelFocus.onHold : nil
+    /// The open card's id, or `onHold`; nil when everything is closed. Managed by Cool Head starts open, and opens again
+    /// whenever nothing else is: each time the panel opens, and when the last tool or Settings closes (Phil, 19 November
+    /// 2026: "When there's nothing open (i.e., fresh panel open, or after closing a tool or settings) let's auto-expand
+    /// the "Managed by Cool Head" pane, because it's one less click for the user, more info, and "why not?""). Folding a
+    /// card doesn't open it, so the cards don't move from under the pointer just after a click. Screenshots that open
+    /// the first card (COOLHEAD_SNAPSHOT_OPEN) start with it folded, unless COOLHEAD_SNAPSHOT_ONHOLD_OPEN is set.
+    @Published var open: String? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONHOLD_OPEN"] != nil
+        || !PanelFocus.snapshotCard ? PanelFocus.onHold : nil
     static let onHold = "on-hold"
     /// Counts the panel's openings, so the frost is drawn fresh each time it opens.
     @Published var opened = 0
@@ -190,6 +204,8 @@ final class PanelFocus: ObservableObject {
     /// (Phil, 19 November 2026: "if someone opens the hold panel when on a tool screen, we might want them collapsed, or
     /// we might want to auto-close the tool", then "Build the "managed by..." edits as suggested").
     func foldSection() { if open == PanelFocus.onHold { open = nil } }
+    /// Opens Managed by Cool Head if nothing else is open: a card left open while a tool was shown stays open.
+    func openSection() { if open == nil { withAnimation(.easeOut(duration: 0.15)) { open = PanelFocus.onHold } } }
 }
 
 /// What's typed in Report a problem, and what's picked, kept while the form closes, the panel closes, or another tool
