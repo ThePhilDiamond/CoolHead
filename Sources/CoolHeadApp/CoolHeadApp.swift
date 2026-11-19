@@ -114,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationWillTerminate(_ notification: Notification) {
         Watcher.shared.resumeAllPaused(why: "Cool Head quit")
         // a running network test stops with Cool Head (macOS doesn't stop a program's children when it quits)
-        MainActor.assumeIsolated { NetworkTester.shared.close() }
+        MainActor.assumeIsolated { NetworkTester.shared.halt() }
     }
 
 
@@ -470,6 +470,8 @@ enum Snapshot {
                     : vpn?.carriesWebsites == true ? .seen(.init(address: "203.0.113.7", country: "NL"), around: .other(here))
                     : .seen(here, around: .notAsked)
                 NetworkTester.shared.show(phase, setup: setup, seen: seen)
+                // (COOLHEAD_SNAPSHOT_NETWORK_AWAY=1: the view closed, to show the Network tool's running or ready cue)
+                if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_NETWORK_AWAY"] != nil { NetworkTester.shared.showAway() }
             }
             // screenshots: run the card whose headline contains this phrase cooler first, to show the pinned row
             if let phrase = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_COOL"],
@@ -607,7 +609,7 @@ final class MenuPanel: NSPanel {
     override func close() {
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
         if isVisible { Watcher.shared.panelClosed() }
-        // every tool closes with the panel, so it always opens with none open; a network test never runs unseen
+        // every tool closes with the panel, so it always opens with none open; a network test started carries on
         MainActor.assumeIsolated { Tools.closeAll(Watcher.shared) }
         super.close()
     }

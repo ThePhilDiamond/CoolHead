@@ -21,7 +21,17 @@ struct ToolsBar: View {
     var body: some View {
         // eight tools fit the panel's width with their names when each is as narrow as its name allows
         HStack(spacing: labels ? 1 : 6) {
-            ToolButton(symbol: "network", name: "Network", tip: "Test my network", labels: labels, on: network.shown) {
+            // a test carries on out of sight: while it runs, dashes fly around the globe's equator like data; when it has finished
+            // unseen, the result's own mark from the view's top line (a green check when it's good) sits on the globe until
+            // it's opened (Phil, 19 November 2026: "I think the network testing should be a ring of dashes around the
+            // existing wire globe icon, maybe animated? And when it's got a result ready, maybe a green check mark?", then "I
+            // meant the ring circumnavigating the globe like data packets flying around it as in a single ring along the equator")
+            let away = network.running && !network.shown
+            ToolButton(symbol: "network", name: away ? "Testing" : "Network",
+                       tip: away ? "A network test is running; its results will wait here"
+                           : network.readyLevel != nil ? "Your network test results are ready" : "Test my network",
+                       labels: labels, on: network.shown, ring: away,
+                       badge: network.readyLevel.map { (NetworkView.mark($0), NetworkView.color($0)) }) {
                 let open = !network.shown
                 closeAll()
                 if open { network.open() }
@@ -108,7 +118,7 @@ final class Tools: ObservableObject {
 
     /// Closes every tool, in one place, so they all behave alike: opening one closes the others, and the panel always
     /// opens with none open (Phil, 16 November 2026: "We need consistency across the tools, and I think the panel should
-    /// always open with no tools selected"). A network test still running is stopped.
+    /// always open with no tools selected"). A network test still running carries on, and its results wait in Network.
     static func closeAll(_ watcher: Watcher) {
         NetworkTester.shared.close()
         shared.trusted = false
@@ -131,14 +141,29 @@ struct ToolButton: View {
     let tip: String
     let labels: Bool
     let on: Bool
+    /// Something of the tool's is under way: dashes fly around the icon's equator, in the accent color.
+    var ring = false
+    /// A small mark at the icon's corner, results ready to look at: their symbol, in their color.
+    var badge: (symbol: String, color: Color)? = nil
     let action: () -> Void
     @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var still
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: symbol).font(.system(size: 15))
                     .frame(height: 18)
+                    // the far half of the ring behind the globe, fainter; the near half in front of it
+                    .background { if ring { Orbit(near: false, still: still) } }
+                    .overlay { if ring { Orbit(near: true, still: still) } }
+                    .overlay(alignment: .topTrailing) {
+                        if let badge {
+                            Image(systemName: badge.symbol).font(.system(size: 9, weight: .bold)).foregroundStyle(badge.color)
+                                .background(Circle().fill(Color(nsColor: .windowBackgroundColor)).padding(-1.5))
+                                .offset(x: 6, y: -4)
+                        }
+                    }
                 if labels { Text(name).font(.caption2) }
             }
             .frame(minWidth: labels ? 44 : 30)
@@ -147,10 +172,35 @@ struct ToolButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(on ? Color.accentColor : hovering ? Ink.text : Ink.muted)
+        .foregroundStyle(on || ring ? Color.accentColor : hovering ? Ink.text : Ink.muted)
         .onHover { hovering = $0 }
         .help(tip)
         .accessibilityLabel(tip)
+    }
+}
+
+/// Half of a flat ring around an icon's equator, its dashes moving along it like data going around the world: the near
+/// half passes in front, the far half behind and fainter. With Reduce motion on, the dashes stay still.
+struct Orbit: View {
+    let near: Bool
+    let still: Bool
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: still)) { t in
+            // one dash length and its gap travel every 0.4 seconds
+            let phase = still ? 0 : -CGFloat(t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.4) / 0.4 * 5.5)
+            let half = Ellipse().trim(from: near ? 0 : 0.5, to: near ? 0.5 : 1)
+            ZStack {
+                // in front, each dash cuts a thin gap in the globe's lines, as the Battery icon's bolt does, so it reads
+                if near {
+                    half.stroke(Color(nsColor: .windowBackgroundColor),
+                                style: StrokeStyle(lineWidth: 3.9, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+                }
+                half.stroke(style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+            }
+            .opacity(near ? 1 : 0.4)
+        }
+        .frame(width: 27, height: 8)
+        .allowsHitTesting(false)
     }
 }
 
