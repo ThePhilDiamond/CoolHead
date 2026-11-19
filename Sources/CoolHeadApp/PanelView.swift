@@ -172,7 +172,7 @@ struct GroupHeading: View {
     }
 }
 
-/// One thing open at a time in the middle: a card, or On hold (Phil, 18 November 2026: "only have one expanded thing at a
+/// One thing open at a time in the middle: a card, or Managed by Cool Head (Phil, 18 November 2026: "only have one expanded thing at a
 /// time"). Opening one closes the other, so the panel rarely needs to scroll.
 final class PanelFocus: ObservableObject {
     static let shared = PanelFocus()
@@ -181,7 +181,7 @@ final class PanelFocus: ObservableObject {
     static let onHold = "on-hold"
     /// Counts the panel's openings, so the frost is drawn fresh each time it opens.
     @Published var opened = 0
-    /// Screenshots open the first card (COOLHEAD_SNAPSHOT_OPEN), unless On hold is shown open.
+    /// Screenshots open the first card (COOLHEAD_SNAPSHOT_OPEN), unless Managed by Cool Head is shown open.
     static let snapshotCard = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil
     /// Screenshots open the option groups too (COOLHEAD_SNAPSHOT_GROUPS=one-click or you).
     static let snapshotGroup = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_GROUPS"]
@@ -719,7 +719,7 @@ struct WhatsNewCard: View {
 enum WhatsNew {
     static let notes: [String: [String]] = [
         "0.11.0": [
-            "One thing opens at a time: a card, or On hold, which folds to one line with its count. An open card shows its recommended option, with the others folded below it.",
+            "One thing opens at a time: a card, or Managed by Cool Head, which folds to one line with its count. An open card shows its recommended option, with the others folded below it.",
             "The panel is a little wider, and tall enough for all of Test my network.",
             "Cleaner shows each item's size, checks Downloads for identical copies as part of Quick clean, and folds items under 20 MB into one line.",
             "About and the folder chooser open in front of the panel.",
@@ -735,7 +735,7 @@ enum WhatsNew {
             "The top of the panel shows how your Mac is running, with gauges for the chip, memory, and heat.",
             "Each card says why it recommends what it does, and what that costs, under Nerdy stuff.",
             "Test my network shows your VPN, who looks website names up, and the country websites see you in.",
-            "What Cool Head is holding back is one On hold section, with one Report a problem for all of it.",
+            "What Cool Head is holding back is one section, Managed by Cool Head, with one Report a problem for all of it.",
         ],
         "0.8.0": [
             "Cards for sleep and power: an app keeping your Mac awake, Low Power Mode left on while it's busy, and a battery that drained while asleep.",
@@ -1064,7 +1064,7 @@ struct FrozenList: View {
             .hoverHighlight(true)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
-            .accessibilityHint("Shows what Cool Head is holding back")
+            .accessibilityHint("Shows what Cool Head is slowing, limiting, pausing, or has turned off")
         } else {
         VStack(alignment: .leading, spacing: 10) {
             FrozenTitle(count: items.count, open: true).padding(.horizontal, 8).padding(.top, 4)
@@ -1089,7 +1089,9 @@ struct FrozenTitle: View {
     var open = true
     var body: some View {
         HStack(spacing: 6) {
-            Text("On hold").font(.callout.weight(.semibold))
+            // not "On hold", which could read as turned off when several are only slowed or limited (Phil, 19 November
+            // 2026: "i don't like "on hold" as a user could interpret that as disabled, rather than throttled/managed")
+            Text("Managed by Cool Head").font(.callout.weight(.semibold))
             // folded, the count is dark on white, to read at a glance over the frost
             Text("\(count)").font(.caption.weight(.bold)).monospacedDigit()
                 .foregroundStyle(open ? Ink.text : Color.black)
@@ -1104,18 +1106,18 @@ struct FrozenTitle: View {
     }
 }
 
-/// One line: its undo as a button on the line, one click, and a chevron that opens what it is and since when (another
-/// click closes it). Every undo puts things back as they were and can be redone from the card, so it asks nothing first.
+/// One line: its undo as a button on the line, one click, and what it is and since when, always shown: the section is
+/// the only thing open, so there's room (Phil, 19 November 2026: "As we only display one thing at a time, when the hold
+/// panel is open, we should expand them, no?"). Every undo puts things back as they were and can be redone from the
+/// card, so it asks nothing first.
 struct FrozenLine: View {
     let item: FrozenItem
     let watcher: Watcher
     /// How far the text sits in from the frost's sides.
     var inset: CGFloat = 30
-    /// Extra room above and below, inside the line's click area: the frame's own margin for the first and last line.
+    /// Extra room above and below: the frame's own margin for the first and last line.
     var top: CGFloat = 0
     var bottom: CGFloat = 0
-    /// Screenshots can show the lines open (COOLHEAD_SNAPSHOT_HELD_OPEN).
-    @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HELD_OPEN"] != nil
     @State private var failed: String?
 
     var body: some View {
@@ -1129,28 +1131,14 @@ struct FrozenLine: View {
                     .buttonStyle(IceButton()).font(.subheadline)
                     .fixedSize()
                     .help(item.undo.title)
-                Button { toggle() } label: {
-                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
-                        .frame(width: 18, height: 18).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(open ? "Show less" : "What this is")
-                .accessibilityLabel(open ? "Show less" : "What this is")
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
-            if open {
-                Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
-            }
+            Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
             if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
         .padding(.horizontal, inset).padding(.top, 8 + top).padding(.bottom, 8 + bottom)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture { toggle() }
-        .hoverHighlight(true)
     }
-
-    func toggle() { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
 
     func undo() {
         switch item {

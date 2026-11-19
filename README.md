@@ -32,7 +32,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 ## What it knows
 
 - **A warm Mac has a cause.** When your Mac warms up, each thing warming it gets a card with something to do, and the menu bar icon turns yellow.
-- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing, pausing, limiting, or has turned off is a frosted line in the **On hold** section at the top of the panel ("Chrome is limited to 4 GB"), which folds to one line with its count until you click it, with the button to undo it on the line itself (**Speed up**, **Resume**, **Remove limit**, **Turn on**).
+- **Slow it down, don't stop it.** **Run it cooler** moves a job to the efficiency cores: slower, cooler, and undoable. Anything Cool Head is slowing, pausing, limiting, or has turned off is a frosted line in the **Managed by Cool Head** section at the top of the panel ("Chrome is limited to 4 GB"), which folds to one line with its count until you click it; open, each line says what it is and since when, with the button to undo it on the line itself (**Speed up**, **Resume**, **Remove limit**, **Turn on**).
 - **Chrome without quitting it.** It tells a busy tab, a busy extension, and Chrome's graphics work apart (also in Edge, Brave, and Arc), and offers what fits: run just that tab cooler, Energy Saver, turn off an extension, or close just that tab, before ever suggesting Quit. When memory is tight, **Limit Chrome** sets Chrome's own memory limit (Chrome then says it's "managed by your organization"; restore it from the top of the panel). **Restart Chrome, keeping your tabs** closes Chrome normally (so it can ask about downloads) and reopens it with the same windows and tabs, freeing the memory it has built up; Incognito windows, unsent form text, and downloads in progress don't come back (also for Edge, Brave, Vivaldi, and Chromium).
 - **The graphics chip counts.** An app keeping the graphics chip busy gets a card even when it uses little CPU, saying how much of the chip it uses.
 - **Games come first.** A game is never slowed down; other busy work is offered to run cooler instead, to leave the game more power.
@@ -48,7 +48,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/pinned-dark.png">
-    <img src="docs/images/pinned-light.png" width="400" alt="The On hold section, opened, at the top of the panel: frosted lines saying Chrome is limited to 4 GB with Remove limit, GoogleUpdater's background helper is turned off with Turn on, and Time Machine skips DerivedData in Xcode with Back it up, then Report a problem with one of these, above a job's card">
+    <img src="docs/images/pinned-light.png" width="400" alt="The Managed by Cool Head section, opened, at the top of the panel: frosted lines saying Chrome is limited to 4 GB with Remove limit, GoogleUpdater's background helper is turned off with Turn on, and Time Machine skips DerivedData in Xcode with Back it up, then Report a problem with one of these, above a job's card">
   </picture>
 </p>
 
@@ -59,7 +59,7 @@ Everything runs on your Mac. No account, no analytics, and nothing stored about 
 - **Look it up** opens a web search for the process name.
 - **Share this case**, on cards Cool Head can't explain, shows you an anonymised report of that process.
 - **Start test**, in Test my network, runs Apple's own network test, which downloads and uploads test data with Apple's servers for up to 30 seconds.
-- **Report a problem**, along the bottom of the panel or under what Cool Head has on hold, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way.
+- **Report a problem**, along the bottom of the panel or under what Cool Head is managing, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way.
 
 Reports never hold file names, paths, or project names. You see every word first; then **Open in GitHub** opens it as an issue for you to submit (posted under your GitHub account, only if you press Submit), or **Copy** keeps it on your Mac to send however you like. Details: [SECURITY.md](SECURITY.md).
 

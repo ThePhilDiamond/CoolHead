@@ -102,7 +102,7 @@ final class Tools: ObservableObject {
     @Published var hardware = false
     @Published var settings = false
     @Published var cleaner = false
-    /// Report a problem is open in the On hold section, under what Cool Head is holding back.
+    /// Report a problem is open in the Managed by Cool Head section, under what Cool Head is holding back.
     @Published var reportAboutHeld = false
 
     /// Closes every tool, in one place, so they all behave alike: opening one closes the others, and the panel always

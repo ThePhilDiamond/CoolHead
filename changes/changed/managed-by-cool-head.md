@@ -1,0 +1,1 @@
+- The section at the top of the panel for what Cool Head is slowing, limiting, pausing, or has turned off is now called Managed by Cool Head, in place of On hold, which could read as turned off. Open, each line now shows what it is and since when, without a click.
