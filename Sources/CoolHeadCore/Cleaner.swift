@@ -368,32 +368,65 @@ public enum Cleaner {
 
     /// In a folder the person chose, anywhere (Phil, 19 November 2026: "word it more openly to check anywhere for
     /// duplicates, and then just default to the downloads folder"): identical copies ("Report (1).pdf" or "Report
-    /// copy.pdf" beside "Report.pdf"), which go in Quick clean because the original stays; and installers (.dmg, .pkg) not changed for 30 days and not open now, which
-    /// Cool Head can't tell are installed, so they're for the person to check.
-    public static func scanDownloads(_ folder: String, now: Date = Date(), mounted: Set<String>? = nil) -> [Find] {
+    /// copy.pdf" beside "Report.pdf"), which go in Quick clean because the original stays; and installers (.dmg, .pkg)
+    /// not changed for 30 days and not open now, which Cool Head can't tell are installed, so they're for the person to
+    /// check.
+    public static func scanDownloads(_ folder: String, now: Date = Date(), mounted: Set<String>? = nil, limit: Int = 100_000) -> [Find] {
+        scanFolder(folder, now: now, mounted: mounted, limit: limit).finds
+    }
+
+    /// The folder and every folder inside it (Phil, 19 November 2026: "Please add searching in child folders"), but not
+    /// hidden files, not inside apps and other packages, and not through a link to a folder elsewhere. A copy is only
+    /// ever matched with an original in its own folder. Stops after `limit` files, and says so, so choosing a huge folder
+    /// can't run for ever.
+    public static func scanFolder(_ folder: String, now: Date = Date(), mounted: Set<String>? = nil, limit: Int = 100_000) -> (finds: [Find], stopped: Bool) {
+        let folder = folder.count > 1 && folder.hasSuffix("/") ? String(folder.dropLast()) : folder
         let fm = FileManager.default
         let open = mounted ?? mountedImages()
-        let names = Set((try? fm.contentsOfDirectory(atPath: folder)) ?? [])
-        var out: [Find] = []
-        for name in names.sorted() {
-            let path = folder + "/" + name
-            guard let a = try? fm.attributesOfItem(atPath: path), a[.type] as? FileAttributeType == .typeRegular else { continue }
-            let size = (a[.size] as? NSNumber)?.uint64Value ?? 0
-            if let original = secondDownload(name), names.contains(original),
-               fm.contentsEqual(atPath: path, andPath: folder + "/" + original) {
-                out.append(Find(id: "copy:" + name, group: .quick, title: name,
-                                detail: "An identical copy of \(original), which stays.", bytes: size, paths: [path], folder: folder))
-                continue
-            }
-            let ext = (name as NSString).pathExtension.lowercased()
-            if ["dmg", "pkg", "mpkg"].contains(ext), !open.contains(path),
-               let d = a[.modificationDate] as? Date, now.timeIntervalSince(d) > 30 * 86_400 {
-                out.append(Find(id: "download:" + name, group: .check, title: name,
-                                detail: "An installer downloaded \(Int(now.timeIntervalSince(d) / 86_400)) days ago. You can download it again if you need it.",
-                                bytes: size, caution: true, paths: [path], folder: folder))
+        // each folder's file names, so a copy's original is looked for beside it; paths are built from the walk's own
+        // relative paths, so a folder reached through a link (/var is /private/var) still matches
+        var byFolder: [String: Set<String>] = [:]
+        var seen = 0, stopped = false
+        if let walk = fm.enumerator(atPath: folder) {
+            while let rel = walk.nextObject() as? String {
+                seen += 1
+                if seen > limit { stopped = true; break }
+                let name = (rel as NSString).lastPathComponent
+                if name.hasPrefix(".") { walk.skipDescendants(); continue }
+                let full = folder + "/" + rel
+                if walk.fileAttributes?[.type] as? FileAttributeType == .typeDirectory,
+                   (try? URL(fileURLWithPath: full).resourceValues(forKeys: [.isPackageKey]))?.isPackage == true {
+                    walk.skipDescendants(); continue
+                }
+                byFolder[(full as NSString).deletingLastPathComponent, default: []].insert(name)
             }
         }
-        return out
+        var out: [Find] = []
+        for dir in byFolder.keys.sorted() {
+            let names = byFolder[dir]!
+            let rel = dir == folder ? "" : String(dir.dropFirst(folder.count + 1))
+            let whereIn = rel.isEmpty ? "" : " It's in \(rel)."
+            for name in names.sorted() {
+                let path = dir + "/" + name
+                guard let a = try? fm.attributesOfItem(atPath: path), a[.type] as? FileAttributeType == .typeRegular else { continue }
+                let size = (a[.size] as? NSNumber)?.uint64Value ?? 0
+                let id = rel.isEmpty ? name : rel + "/" + name
+                if let original = secondDownload(name), names.contains(original),
+                   fm.contentsEqual(atPath: path, andPath: dir + "/" + original) {
+                    out.append(Find(id: "copy:" + id, group: .quick, title: name,
+                                    detail: "An identical copy of \(original), which stays.\(whereIn)", bytes: size, paths: [path], folder: folder))
+                    continue
+                }
+                let ext = (name as NSString).pathExtension.lowercased()
+                if ["dmg", "pkg", "mpkg"].contains(ext), !open.contains(path),
+                   let d = a[.modificationDate] as? Date, now.timeIntervalSince(d) > 30 * 86_400 {
+                    out.append(Find(id: "download:" + id, group: .check, title: name,
+                                    detail: "An installer downloaded \(Int(now.timeIntervalSince(d) / 86_400)) days ago. You can download it again if you need it.\(whereIn)",
+                                    bytes: size, caution: true, paths: [path], folder: folder))
+                }
+            }
+        }
+        return (out, stopped)
     }
 
     /// "Report (1).pdf" → "Report.pdf", the name a browser gives a second download, and "Report copy.pdf" or "Report copy
@@ -460,14 +493,15 @@ public enum Cleaner {
         return parent == real(applications) + "/" && (path as NSString).lastPathComponent.hasPrefix("Install macOS ")
     }
 
-    /// A file directly in the folder the person chose, wherever that is, but never in macOS's own folders or reached
-    /// through "..": what the folder check found may move from there and nowhere else.
+    /// A file in the folder the person chose or a folder inside it, wherever that is, but never in macOS's own folders,
+    /// reached through "..", or through a link that leads out of it: what the folder check found may move from there and
+    /// nowhere else.
     static func inChosen(_ path: String, _ folder: String?, library: String = "/Library") -> Bool {
         guard let folder, !path.contains("/../"), (try? FileManager.default.attributesOfItem(atPath: path)) != nil else { return false }
         func real(_ p: String) -> String { URL(fileURLWithPath: p).resolvingSymlinksInPath().path }
         let parent = real((path as NSString).deletingLastPathComponent) + "/"
         if parent.hasPrefix("/System/") || parent.hasPrefix(real(library) + "/Apple/") { return false }
-        return parent == real(folder) + "/"
+        return parent.hasPrefix(real(folder) + "/")
     }
 
     /// Moves a find's files to the Trash, after stopping its helper; what moved, for Put back, and what didn't. Items
@@ -563,7 +597,7 @@ public enum Cleaner {
             Find(id: "saved-state", group: .quick, title: "Saved windows of deleted apps",
                  detail: "Kept so an app reopens its windows, but these apps are gone.", bytes: 12_000_000),
             Find(id: "copy:Report (1).pdf", group: .quick, title: "Report (1).pdf",
-                 detail: "An identical second download of Report.pdf, which stays.", bytes: 2_400_000),
+                 detail: "An identical copy of Report.pdf, which stays.", bytes: 2_400_000),
             Find(id: "deriveddata", group: .rebuilds, title: "Xcode's build data",
                  detail: "Xcode rebuilds it, so each project's next build takes longer.", bytes: 6_100_000_000),
             Find(id: "homebrew", group: .rebuilds, title: "Homebrew's downloads",

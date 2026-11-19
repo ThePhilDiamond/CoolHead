@@ -1,1 +1,1 @@
-- Cleaner's check for identical copies works on any folder you choose, with Downloads chosen to start, and also finds Finder's duplicates, such as Report copy.pdf beside Report.pdf.
+- Cleaner's check for identical copies works on any folder you choose, with Downloads chosen to start, and the folders inside it, and also finds Finder's duplicates, such as Report copy.pdf beside Report.pdf. It skips hidden folders and the inside of apps, and stops after 100,000 files.

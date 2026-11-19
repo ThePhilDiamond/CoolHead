@@ -111,17 +111,30 @@ extension Fixture {
         file(dl + "/Old.dmg", bytes: 100, daysOld: 40); file(dl + "/Open.dmg", bytes: 100, daysOld: 40); file(dl + "/New.pkg", bytes: 100)
         // Finder's Duplicate names it "Budget copy.xlsx" (Phil, 19 November 2026: "check anywhere for duplicates")
         file(dl + "/Budget.xlsx", bytes: 3_000); file(dl + "/Budget copy.xlsx", bytes: 3_000)
+        // and the folders inside it (Phil, 19 November 2026: "Please add searching in child folders"): a copy beside its
+        // original in a child folder; not one whose original is in another folder; not in a hidden folder, nor through a
+        // link to a folder elsewhere
+        file(dl + "/Work/Plan.key", bytes: 700); file(dl + "/Work/Plan (1).key", bytes: 700)
+        file(dl + "/Sub/Report (1).pdf", bytes: 5_000)
+        file(dl + "/.cache/A.txt", bytes: 50); file(dl + "/.cache/A (1).txt", bytes: 50)
+        file(root + "/Outside/X.txt", bytes: 50); file(root + "/Outside/X (1).txt", bytes: 50)
+        try? fm.createSymbolicLink(atPath: dl + "/Linked", withDestinationPath: root + "/Outside")
         let downloads = Cleaner.scanDownloads(dl, now: now, mounted: [dl + "/Open.dmg"])
         let ids = Set(downloads.map(\.id))
-        // what it found may move from the chosen folder, wherever it is, and from nowhere else
-        let chosenOK = Cleaner.inChosen(dl + "/Report (1).pdf", dl) && !Cleaner.inChosen(dl + "/Report (1).pdf", root)
+        let stops = Cleaner.scanFolder(dl, now: now, mounted: [], limit: 2).stopped && !Cleaner.scanFolder(dl, now: now, mounted: []).stopped
+        // what it found may move from the chosen folder or a folder inside it, wherever it is, and from nowhere else
+        let chosenOK = Cleaner.inChosen(dl + "/Report (1).pdf", dl) && Cleaner.inChosen(dl + "/Work/Plan (1).key", dl)
+            && !Cleaner.inChosen(dl + "/Report (1).pdf", root + "/Outside")
+            && !Cleaner.inChosen(dl + "/Linked/X (1).txt", dl)
             && !Cleaner.inChosen(dl + "/../Downloads/Report (1).pdf", dl) && !Cleaner.inChosen(dl + "/Report (1).pdf", nil)
             && downloads.allSatisfy { $0.folder == dl }
-        review.append(("cleaner-downloads", ids == ["download:Old.dmg", "copy:Report (1).pdf", "copy:Budget copy.xlsx"] && chosenOK
+        review.append(("cleaner-downloads", ids == ["download:Old.dmg", "copy:Report (1).pdf", "copy:Budget copy.xlsx", "copy:Work/Plan (1).key"]
+                       && chosenOK && stops
+                       && downloads.first { $0.id == "copy:Work/Plan (1).key" }?.detail.hasSuffix("It's in Work.") == true
                        && downloads.first { $0.id.hasPrefix("copy:") }?.group == .quick && downloads.first { $0.id.hasPrefix("download:") }?.caution == true
                        && Cleaner.secondDownload("a (12).zip") == "a.zip" && Cleaner.secondDownload("a.zip") == nil
                        && Cleaner.secondDownload("a copy 2.zip") == "a.zip" && Cleaner.secondDownload("copy.zip") == nil,
-                       "\(downloads.map(\.id)); may move only from the chosen folder: \(chosenOK)"))
+                       "\(downloads.map(\.id)); may move only from the chosen folder: \(chosenOK); stops at the limit: \(stops)"))
 
         // for real: a throwaway file goes to the Trash and comes back; a link moves as a link, its target staying; a path
         // through a linked folder planted in a scanned folder is refused
