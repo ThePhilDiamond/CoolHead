@@ -43,11 +43,20 @@ extension Fixture {
         let game = Card.make(Evidence.sample(name: "BloonsTD6", path: "/Users/x/Library/Application Support/Steam/steamapps/common/BloonsTD6/BloonsTD6.app/Contents/MacOS/BloonsTD6",
                                              start: now.addingTimeInterval(-7200), cores: 0.6), now: now, busySince: now.addingTimeInterval(-7200), warm: true)
         let gameQuitRisky = game.fixes.first { $0.id == "quit" }?.caution == true
+        // from the catalogue: quitting Docker stops its containers; quitting DisplayLink Manager only darkens its screens until reopened
+        func catalogueQuit(_ path: String) -> Fix? {
+            Card.make(Evidence.sample(name: (path as NSString).lastPathComponent, path: path, start: now.addingTimeInterval(-7200), cores: 1.5),
+                      now: now, busySince: now.addingTimeInterval(-7200), warm: true).fixes.first { $0.id == "quit" }
+        }
+        let dockerQuit = catalogueQuit("/Applications/Docker.app/Contents/MacOS/com.docker.backend")
+        let displayQuit = catalogueQuit("/Applications/DisplayLink Manager.app/Contents/MacOS/DisplayLink Manager")
+        let catalogueOK = dockerQuit?.caution == true && displayQuit?.caution == false
         return [("option-labels", bad.isEmpty,
                  bad.isEmpty ? "\(samples.count) example cards: at most one corner label per option, one click first; \(labelled)" : bad.joined(separator: "; ")),
-                ("caution-only-when-risky", wrongCalm.isEmpty && wrongRisky.isEmpty && alwaysRisky.isEmpty && gameQuitRisky,
+                ("caution-only-when-risky", wrongCalm.isEmpty && wrongRisky.isEmpty && alwaysRisky.isEmpty && gameQuitRisky && catalogueOK,
                  "no Caution, recommended: \(calm.map(\.0).joined(separator: ", ")); Caution, not recommended: \(risky.map(\.0).joined(separator: ", ")); "
-                 + "wrong: \(wrongCalm + wrongRisky), kinds without Caution \(alwaysRisky.count), game quit Caution \(gameQuitRisky)")]
+                 + "wrong: \(wrongCalm + wrongRisky), kinds without Caution \(alwaysRisky.count), game quit Caution \(gameQuitRisky); "
+                 + "catalogue: Docker quit Caution \(dockerQuit?.caution.description ?? "not offered"), DisplayLink quit Caution \(displayQuit?.caution.description ?? "not offered")")]
             + [cautionSaysWhy(samples), textLeavesTheActionToItsOption(samples)]
     }
 

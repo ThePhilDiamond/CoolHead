@@ -32,6 +32,9 @@ public struct Pattern {
     /// True for work macOS starts again after each update (indexing, analysis, model downloads): expected for hours to
     /// days after one, so not "longer than usual" then (research rule 17; Apple 102321; Howard Oakley).
     public var afterUpdate = false
+    /// Quitting it, when `whenLong` says to, loses something reopening can't bring back (running containers), so that
+    /// option is Caution (see `Fix.caution`); quitting what only stops until reopened (DisplayLink's screens) isn't.
+    public var quitLosesWork = false
 
     /// A name counts only from the kernel (`name` is the kernel's, never the name a program gives itself) and only for
     /// macOS's own copy, in macOS's own folders. A missing path counts as macOS only for pid 0 (kernel_task, which has
@@ -121,7 +124,7 @@ extension Pattern {
                 usualHours: 1000, whenLong: "Quit Docker if no containers are running",
                 risk: "Quitting Docker stops every container.",
                 source: "Docker Desktop documentation: Resource Saver mode (on by default; stops the virtual machine 5 minutes after the last container stops)",
-                checked: true),
+                checked: true, quitLosesWork: true),
         // Entries from the research graph (16 November 2026), each with the macOS versions it was reported on. Those
         // resting on forum reports alone say "likely" where they name a cause. No fix was found for any of them in macOS 26
         // or 27, and the 27 release notes say nothing about sleep, sound, contacts or messages. The Aerial entry matches
