@@ -1,5 +1,6 @@
 import AppKit
 import CoolHeadCore
+import IOKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -45,22 +46,20 @@ struct ToolsBar: View {
             }
             // the hardware checks on one page, after Battery, the other part of the Mac itself (Phil, 16 November 2026:
             // "Yes build the hardware tool page")
-            // a drive: most of the page is about it (Phil, 16 November 2026: "maybe we should use a drive icon instead of a
-            // stethoscope?")
-            ToolButton(symbol: "internaldrive", name: "Hardware", tip: "Hardware checks", labels: labels, on: tools.hardware) {
+            // the Mac itself, line drawn as a laptop or a desktop, since the chip and memory have their own meanings in the
+            // panel (Phil, 19 November 2026: "Is there a different "hardware" icon we could use so we can use a drive icon for
+            // the cleaner tab?", then "open hard disk icon with larger sparklers, line drawing laptop/desktop")
+            ToolButton(symbol: MacOutline.name, name: "Hardware", tip: "Hardware checks", labels: labels, on: tools.hardware) {
                 let open = !tools.hardware
                 closeAll()
                 tools.hardware = open
             }
-            ToolButton(symbol: "checkmark.shield", name: "Trusted", tip: "Trusted apps and jobs", labels: labels, on: tools.trusted) {
-                let open = !tools.trusted
-                closeAll()
-                tools.trusted = open
-            }
             // leftovers to clear, beside the other tools for the Mac itself (Phil, 18 November 2026: "Can we add a broom
             // "cleaner" tool"); a drawn broom was hard to make out at this size, so macOS's bubbles and sparkles (Phil,
-            // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles")
-            ToolButton(symbol: "bubbles.and.sparkles", name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
+            // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles"); then
+            // an open hard disk with sparkles, line drawn: where it clears space, and that it cleans (Phil, 19 November 2026,
+            // as for Hardware above; macOS's own drive "is a bit ambiguous")
+            ToolButton(symbol: HardDisk.name, name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
                 let open = !tools.cleaner
                 closeAll()
                 tools.cleaner = open
@@ -70,15 +69,22 @@ struct ToolsBar: View {
             // in the right-click menu, so the bar has room for the tools' names (Phil, 17 November 2026: "if we're making
             // sure everything is in the pane, what about "quit"? That'd be even more crowded again...")
             Spacer(minLength: 4)
-            // Report and Settings are about Cool Head itself, not the Mac: a line sets them apart when the names show
+            // Report, Trusted, and Settings are about Cool Head itself, not the Mac: a line sets them apart when the names show
             // (Phil, 17 November 2026: "they are a separate category of button and should be visually distinguished").
             // No Update button: the version and Check Now are on the Settings page, and an update that's ready shows at
             // the top of the panel with Install (Phil, 17 November 2026, choosing between renders: "Update in Settings")
             if labels { Divider().frame(height: 34).padding(.horizontal, 4) }
+            // Trusted is Cool Head's own list, not a tool for the Mac, so it's with Report and Settings (Phil, 19 November
+            // 2026: "the trusted section isn't really a tool, so let's put it on the right, between the report button and settings")
             ToolButton(symbol: "exclamationmark.bubble", name: "Report", tip: "Report a problem", labels: labels, on: watcher.showReport) {
                 let open = !watcher.showReport
                 closeAll()
                 watcher.showReport = open
+            }
+            ToolButton(symbol: "checkmark.shield", name: "Trusted", tip: "Trusted apps and jobs", labels: labels, on: tools.trusted) {
+                let open = !tools.trusted
+                closeAll()
+                tools.trusted = open
             }
             // Settings at the right end (Phil, 17 November 2026: "The settings icon should be the right-most.")
             ToolButton(symbol: "gearshape", name: "Settings", tip: "Settings", labels: labels, on: tools.settings) {
@@ -123,6 +129,94 @@ final class Tools: ObservableObject {
     nonisolated static let labelsKey = "toolLabels"
 }
 
+/// A tool's icon at a size: a macOS symbol, or one of Cool Head's own drawings, named like symbols so a tool can use either.
+struct ToolIcon: View {
+    let symbol: String
+    var size: CGFloat = 15
+    var body: some View {
+        switch symbol {
+        case BatteryBolt.name: Image(nsImage: BatteryBolt.image(pointSize: size))
+        case MacOutline.name: MacOutline(size: size)
+        case HardDisk.name: Image(nsImage: HardDisk.image(size: size))
+        default: Image(systemName: symbol)
+        }
+    }
+}
+
+/// The Hardware tool's icon: this Mac, line drawn like the icons beside it (macOS's own laptop and desktop have filled
+/// screens): a laptop when it has a battery, a desktop when it doesn't (Phil, 19 November 2026: "line drawing
+/// laptop/desktop"; matching the model isn't needed, and a Mac mini or Studio drawn this small reads as a drive).
+struct MacOutline: View {
+    static let name = "coolhead.mac"
+    /// A battery means a laptop: every MacBook has one, and no desktop Mac does. In a screenshot, a laptop.
+    static let laptop = PanelView.sampleSnapshot || {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
+        defer { if service != 0 { IOObjectRelease(service) } }
+        return service != 0
+    }()
+    var size: CGFloat = 15
+    var body: some View {
+        let k = size / 15
+        Group {
+            if MacOutline.laptop {
+                VStack(spacing: 0.6 * k) {
+                    RoundedRectangle(cornerRadius: 1.8 * k).strokeBorder(lineWidth: 1.4 * k).frame(width: 15 * k, height: 10.5 * k)
+                    Capsule().frame(width: 20 * k, height: 1.6 * k)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    RoundedRectangle(cornerRadius: 1.8 * k).strokeBorder(lineWidth: 1.4 * k).frame(width: 18 * k, height: 12.5 * k)
+                    Rectangle().frame(width: 2.2 * k, height: 2 * k)
+                    Capsule().frame(width: 8 * k, height: 1.5 * k)
+                }
+            }
+        }
+        .frame(width: 20 * k, height: 16 * k)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The Cleaner tool's icon: an open hard disk, line drawn (its case, platter, and arm), with sparkles at its corner that
+/// cut a thin gap in the case, as the Battery icon's bolt does (Phil, 19 November 2026: "open hard disk icon with larger
+/// sparklers"). Universal where macOS's own drive "is a bit ambiguous", and not dated the way a floppy disk is. Drawn as a
+/// template image, like the bolt, so the cut is clean in light and dark and the image takes the tool's color.
+enum HardDisk {
+    static let name = "coolhead.harddisk"
+    static func image(size: CGFloat) -> NSImage {
+        let k = size / 15
+        // the disk sits in the middle, with room to the right and above for the sparkles
+        let canvas = NSSize(width: 26 * k, height: 22 * k)
+        let sparkles = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 10.5 * k, weight: .semibold))
+        let image = NSImage(size: canvas, flipped: false) { _ in
+            NSColor.black.set()
+            let disk = NSRect(x: 13 * k - 7 * k, y: 11 * k - 8.5 * k, width: 14 * k, height: 17 * k)
+            let body = NSBezierPath(roundedRect: disk.insetBy(dx: 0.7 * k, dy: 0.7 * k), xRadius: 1.8 * k, yRadius: 1.8 * k)
+            body.lineWidth = 1.4 * k; body.stroke()
+            let hub = NSPoint(x: disk.midX, y: disk.midY + 1.6 * k)
+            let platter = NSBezierPath(ovalIn: NSRect(x: hub.x - 3.85 * k, y: hub.y - 3.85 * k, width: 7.7 * k, height: 7.7 * k))
+            platter.lineWidth = 1.3 * k; platter.stroke()
+            NSBezierPath(ovalIn: NSRect(x: hub.x - k, y: hub.y - k, width: 2 * k, height: 2 * k)).fill()
+            // the arm, leaning in from the bottom right
+            let arm = NSBezierPath(), mid = NSPoint(x: disk.midX + 2.9 * k, y: disk.midY - 3.4 * k)
+            arm.move(to: NSPoint(x: mid.x - 1.72 * k, y: mid.y - 2.46 * k)); arm.line(to: NSPoint(x: mid.x + 1.72 * k, y: mid.y + 2.46 * k))
+            arm.lineWidth = 1.3 * k; arm.lineCapStyle = .round; arm.stroke()
+            if let sparkles {
+                let at = NSPoint(x: 19.5 * k - sparkles.size.width / 2, y: 16 * k - sparkles.size.height / 2)
+                let gap = max(1, 1.1 * k)
+                for dx in [-gap, 0, gap] { for dy in [-gap, 0, gap] {
+                    sparkles.draw(at: NSPoint(x: at.x + dx, y: at.y + dy), from: .zero, operation: .destinationOut, fraction: 1)
+                } }
+                sparkles.draw(at: at, from: .zero, operation: .sourceOver, fraction: 1)
+            }
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Cleaner"
+        return image
+    }
+}
+
 /// The Battery tool's icon: a battery a quarter full with a bolt through it, built from macOS's own symbols as it draws
 /// (no image file), since macOS has a bolt only on a full battery, which was hard to read (Phil, 19 November 2026: "It's
 /// harder to read when it's the full battery with the bolt. We want a less-full battery with the bolt", then "For the
@@ -159,7 +253,7 @@ struct ToolButton: View {
     let tip: String
     let labels: Bool
     let on: Bool
-    /// Something of the tool's is under way: dashes fly around the icon's equator, in the accent color.
+    /// Something of the tool's is under way: orange dashes fly around the icon's equator; the icon keeps its own color.
     var ring = false
     /// A small mark at the icon's corner, results ready to look at: their symbol, in their color.
     var badge: (symbol: String, color: Color)? = nil
@@ -170,9 +264,7 @@ struct ToolButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
-                Group {
-                    if symbol == BatteryBolt.name { Image(nsImage: BatteryBolt.image(pointSize: 15)) } else { Image(systemName: symbol) }
-                }
+                ToolIcon(symbol: symbol, size: 15)
                 .font(.system(size: 15))
                 .frame(height: 18)
                 // the far half of the ring behind the globe, fainter; the near half in front of it
@@ -193,7 +285,7 @@ struct ToolButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(on || ring ? Color.accentColor : hovering ? Ink.text : Ink.muted)
+        .foregroundStyle(on ? Color.accentColor : hovering ? Ink.text : Ink.muted)
         .onHover { hovering = $0 }
         .help(tip)
         .accessibilityLabel(tip)
@@ -201,14 +293,15 @@ struct ToolButton: View {
 }
 
 /// Half of a flat ring around an icon's equator, its dashes moving along it like data going around the world: the near
-/// half passes in front, the far half behind and fainter. With Reduce motion on, the dashes stay still.
+/// half passes in front, the far half behind and fainter. Orange, so the data stands apart from the icon (Phil, 19 November
+/// 2026: "the 'data' should be orange"), moving left to right across the front. With Reduce motion on, the dashes stay still.
 struct Orbit: View {
     let near: Bool
     let still: Bool
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: still)) { t in
-            // one dash length and its gap travel every 0.4 seconds
-            let phase = still ? 0 : -CGFloat(t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.4) / 0.4 * 5.5)
+            // one dash length and its gap travel every 0.4 seconds, left to right across the near half
+            let phase = still ? 0 : CGFloat(t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.4) / 0.4 * 5.5)
             let half = Ellipse().trim(from: near ? 0 : 0.5, to: near ? 0.5 : 1)
             ZStack {
                 // in front, each dash cuts a thin gap in the globe's lines, as the Battery icon's bolt does, so it reads
@@ -216,7 +309,7 @@ struct Orbit: View {
                     half.stroke(Color(nsColor: .windowBackgroundColor),
                                 style: StrokeStyle(lineWidth: 3.9, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
                 }
-                half.stroke(style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+                half.stroke(Color.orange, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
             }
             .opacity(near ? 1 : 0.4)
         }

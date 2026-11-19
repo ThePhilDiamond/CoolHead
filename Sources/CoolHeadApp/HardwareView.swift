@@ -25,7 +25,7 @@ struct HardwareView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Label("Hardware", systemImage: "internaldrive").font(.body.weight(.semibold))
+                Label { Text("Hardware") } icon: { ToolIcon(symbol: MacOutline.name, size: 13) }.font(.body.weight(.semibold))
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")

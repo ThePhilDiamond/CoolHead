@@ -36,7 +36,7 @@ struct CleanerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Label("Cleaner", systemImage: "bubbles.and.sparkles").font(.body.weight(.semibold))
+                Label { Text("Cleaner") } icon: { ToolIcon(symbol: HardDisk.name, size: 13) }.font(.body.weight(.semibold))
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
