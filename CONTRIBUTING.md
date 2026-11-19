@@ -64,6 +64,10 @@ Write for someone who has never opened Terminal. Every step names where it happe
 - **License-clean dependencies.** MIT, BSD, Apache-2.0, and similar only. No GPL, AGPL, or LGPL code linked into what ships, because it would stop Cool Head from being offered under a commercial license. The project has no dependencies today. Anything taken from another project, even a list or an approach, is credited in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) with its license.
 - **Comments explain why**, especially for kernel calls (`proc_pidinfo`, `proc_pid_rusage`) and IOKit keys.
 
+## Code of conduct
+
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md). To report a problem privately, use the repository's **Security** tab, **Report a vulnerability**, with a title starting "Conduct:"; only the maintainer can read it.
+
 ## Security problems
 
 See [SECURITY.md](SECURITY.md). Please don't open a public issue for those.
