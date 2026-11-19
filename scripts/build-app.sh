@@ -31,7 +31,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>${VERSION}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
-  <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Phil Diamond. Free and open source under the GNU AGPL v3.0.</string>
+  <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Phil Diamond. Free and open source under the GNU AGPL v3.0 only.</string>
 </dict>
 </plist>
 PLIST
