@@ -27,7 +27,7 @@ struct ToolsBar: View {
             // the battery's own page, beside Network, the other check (Phil, 16 November 2026: "the battery tool should be
             // next to the network tool"); a Mac with no battery has no Battery tool
             if hasBattery {
-                ToolButton(symbol: BatteryBolt.name, name: "Battery", tip: "Battery health and Battery Saver", labels: labels, on: tools.battery) {
+                ToolButton(symbol: BatteryBolt.name, name: "Battery", tip: "Battery health and energy use", labels: labels, on: tools.battery) {
                     let open = !tools.battery
                     closeAll()
                     tools.battery = open

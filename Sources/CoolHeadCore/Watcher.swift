@@ -583,7 +583,7 @@ public final class Watcher {
         let game = gathered.first { $0.2.gameBundle != nil }.flatMap { $0.2.gameBundle }
             .map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
         let front = NSWorkspace.shared.frontmostApplication?.bundleURL?.path
-        let battery = BatteryMode.enabled && !state.onPower ? state.batteryPercent : nil       // a desktop has no battery
+        let battery = !state.onPower ? state.batteryPercent : nil       // on battery, always (no switch); a desktop has none
         // processes writing lots to disk right now (over 100 KB a second), for a busy sync app: a build in a folder it
         // syncs makes it upload every file (see SyncFeed). Read only when a sync app is on the list.
         lazy var writers: [(cwd: String, who: String, bytes: UInt64)] = tracks.compactMap { pid, tr in

@@ -2,15 +2,14 @@ import AppKit
 import CoolHeadCore
 import SwiftUI
 
-/// The Battery tool's page: the battery's health and what it's doing now, Battery Saver's switch, and what else helps
-/// the battery last, all in one place (Phil, 16 November 2026: "that keeps it organized and tidy and succinct, rather
+/// The Battery tool's page: the battery's health and what it's doing now, what else helps the battery last, and the
+/// week's energy use, all in one place (Phil, 16 November 2026: "that keeps it organized and tidy and succinct, rather
 /// than having mixed data in mixed places"). A battery problem still gets its own card in the list as well.
 struct BatteryView: View {
     let watcher: Watcher
     /// Whether the past week's energy use can be shown: this Mac's power log can be read, or it's a screenshot.
     var energy = PowerHistory.available || PanelView.sampleSnapshot
     let close: () -> Void
-    @AppStorage(BatteryMode.key) private var batterySaver = true
 
     /// This Mac's battery, or in a screenshot a made-up one (never this Mac's own).
     var battery: BatteryHealth? {
@@ -67,17 +66,8 @@ struct BatteryView: View {
             // the week's energy use, here rather than in a Trends tool of its own (see EnergyWeek)
             if energy { EnergyWeek(sample: PanelView.sampleSnapshot ? .sample() : nil) }
             // no Nerdy stuff: every figure the hardware check reads is already in the sentences above (Phil, 16 November
-            // 2026: "does the nerdy stuff section add detail? ... Otherwise can remove it")
-            Divider()
-            // the switch that used to be a setting, last on the page (Phil, 16 November 2026: "Battery saver at the bottom")
-            Toggle(isOn: $batterySaver) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Battery Saver").font(.callout.weight(.semibold))
-                    Text("On battery, a really hungry job is flagged, and can be paused until you plug in. Nothing is lost.")
-                        .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .toggleStyle(PanelSwitch())
+            // 2026: "does the nerdy stuff section add detail? ... Otherwise can remove it"). No Battery Saver switch: a
+            // hungry job on battery gets its card instead (see Pauses.swift)
         }
         .font(.callout)
         .padding(12)
