@@ -430,7 +430,7 @@ extension PowerHistory {
     public static let source = "From macOS's own power log, which keeps about a week. Cool Head keeps no copy."
 
     public static let energyHeading = "Used the most energy"
-    public static let energyNote = "Each one's share of the energy the chip, graphics, and Neural Engine used while the Mac was awake. Click one for what it means."
+    public static let energyNote = "Each one's share of the energy the chip, graphics, and Neural Engine used while the Mac was awake."
     public static let wakesHeading = "Why it woke from sleep"
 
     /// Names for a list of users, told apart where two are alike, and what each is when it isn't an app.
@@ -472,6 +472,39 @@ extension PowerHistory {
     }
 
     static func times(_ n: Int) -> String { n == 1 ? "Once" : n == 2 ? "Twice" : "\(n) times" }
+
+    /// A cause's short name, for its row in the app, beside the count and a bar (Phil, 19 November 2026: "Can we also fix
+    /// the "Why it woke from sleep" section to be more visual? it's a wall of text now").
+    public static func label(_ cause: Cause) -> String {
+        switch cause {
+        case .lid: return "Lid opened"
+        case .button: return "Power button"
+        case .input: return "Keyboard, mouse, or trackpad"
+        case .plug: return "Something plugged in"
+        case .network: return "Network activity"
+        case .bluetooth: return "A Bluetooth device"
+        case .wireless: return "Wi-Fi or Bluetooth"
+        case .schedule: return "On a timer"
+        case .other: return "Other reasons"
+        }
+    }
+
+    /// What a cause means, shown when its row is clicked.
+    public static func detail(_ cause: Cause, _ wakes: [Wake]) -> String {
+        switch cause {
+        case .lid: return "Opening the lid wakes it. There's nothing to change."
+        case .button: return "Pressing the power button wakes it. There's nothing to change."
+        case .input: return "Using a keyboard, mouse, or trackpad wakes it. There's nothing to change."
+        case .plug: return "Plugging something in wakes it, most often the charger. There's nothing to change."
+        case .network: return "Network activity woke it, such as another device reaching this Mac."
+        case .bluetooth: return "A Bluetooth device woke it, such as a keyboard or headphones."
+        case .wireless: return "The chip that handles both Wi-Fi and Bluetooth woke it, for network activity or a Bluetooth device; macOS doesn't record which."
+        case .schedule: return "macOS sets timers to wake the Mac briefly while it sleeps, to do its own work. This is normal, and there's nothing to change."
+        case .other:
+            let reasons = Array(Set(wakes.map(\.reason))).sorted().prefix(2).map { "“\($0)”" }
+            return "macOS records \(reasons.count == 1 ? "the reason" : "the reasons") as \(reasons.joined(separator: " and ")), which Cool Head doesn't recognize."
+        }
+    }
 
     /// The whole history as text, for `coolhead history`.
     public var text: String {

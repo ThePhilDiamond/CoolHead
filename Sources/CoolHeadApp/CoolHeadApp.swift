@@ -101,6 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     @objc func openSettings() {
         showPanel()
         Tools.closeAll(Watcher.shared)
+        PanelFocus.shared.foldSection()
         Tools.shared.settings = true
     }
 
@@ -185,7 +186,11 @@ enum About {
                                                      .applicationVersion: "Version \(CoolHead.version)", .version: ""])
         // in front of the panel, which floats at the menus' level, when it's open (Phil, 18 November 2026: "the About
         // pane and the "select a folder" to check for duplicates spawn and sit behind the Cool Head pane")
-        if MenuPanel.isOpen { NSApp.orderedWindows.first { $0 is NSPanel && !($0 is MenuPanel) && $0.isVisible }?.level = .abovePanel }
+        // `NSApp.windows`, not `orderedWindows`, which is empty for an app without a Dock icon, so 0.11.0 found nothing
+        // to raise (Phil, 19 November 2026: "About panel still renders behind cool head pane"; tested in a throwaway app)
+        if MenuPanel.isOpen {
+            for w in NSApp.windows where w is NSPanel && !(w is MenuPanel) && w.isVisible && w.level < .abovePanel { w.level = .abovePanel }
+        }
     }
 }
 
@@ -201,10 +206,10 @@ enum LoginItem {
     }
 }
 
-/// The menu bar icon: a snowflake with a status badge at its top right. The badge's shape and colour both carry the
-/// meaning, for people who can't tell the colours apart: green circle, all well; yellow triangle, something needs a
-/// look; red octagon, a problem. The flake is drawn in the menu bar's text colour at draw time, so it follows light
-/// and dark menu bars even though the image isn't a template (templates can't hold colour).
+/// The menu bar icon: a snowflake with a status badge at its top right. The badge's shape and color both carry the
+/// meaning, for people who can't tell the colors apart: green circle, all well; yellow triangle, something needs a
+/// look; red octagon, a problem. The flake is drawn in the menu bar's text color at draw time, so it follows light
+/// and dark menu bars even though the image isn't a template (templates can't hold color).
 enum MenuIcon {
     /// Posted when the icon's style changes, so the menu bar redraws it.
     static let changed = Notification.Name("CoolHeadMenuIconChanged")
@@ -527,6 +532,10 @@ final class MenuPanel: NSPanel {
 
     /// Showing now, so a window opened from it goes in front (`.abovePanel`).
     static var isOpen: Bool { NSApp.windows.contains { $0 is MenuPanel && $0.isVisible } }
+    /// While a window opened from the panel is up (the folder chooser), clicks in it don't close the panel: macOS draws
+    /// the chooser in its own process, so they arrive as clicks elsewhere (Phil, 19 November 2026: "clicking to choose in
+    /// that window closes the Cool Head pane").
+    static var keepOpen = false
 
     init() {
         super.init(contentRect: NSRect(x: 0, y: 0, width: PanelView.width, height: 300), styleMask: [.borderless, .nonactivatingPanel],
@@ -577,7 +586,7 @@ final class MenuPanel: NSPanel {
         makeKeyAndOrderFront(nil)
         // close on a click anywhere else
         monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            Task { @MainActor in self?.close() }
+            Task { @MainActor in if !MenuPanel.keepOpen { self?.close() } }
         }
     }
 

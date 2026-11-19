@@ -172,7 +172,7 @@ struct GroupHeading: View {
     }
 }
 
-/// One thing open at a time in the middle: a card, or On hold (Phil, 18 November 2026: "only have one expanded thing at a
+/// One thing open at a time in the middle: a card, or Managed by Cool Head (Phil, 18 November 2026: "only have one expanded thing at a
 /// time"). Opening one closes the other, so the panel rarely needs to scroll.
 final class PanelFocus: ObservableObject {
     static let shared = PanelFocus()
@@ -181,11 +181,27 @@ final class PanelFocus: ObservableObject {
     static let onHold = "on-hold"
     /// Counts the panel's openings, so the frost is drawn fresh each time it opens.
     @Published var opened = 0
-    /// Screenshots open the first card (COOLHEAD_SNAPSHOT_OPEN), unless On hold is shown open.
+    /// Screenshots open the first card (COOLHEAD_SNAPSHOT_OPEN), unless Managed by Cool Head is shown open.
     static let snapshotCard = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_OPEN"] != nil
     /// Screenshots open the option groups too (COOLHEAD_SNAPSHOT_GROUPS=one-click or you).
     static let snapshotGroup = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_GROUPS"]
     func toggle(_ id: String) { withAnimation(.easeOut(duration: 0.15)) { open = open == id ? nil : id } }
+    /// A tool opening folds Managed by Cool Head, and opening the section closes the tool, as one tool closes another
+    /// (Phil, 19 November 2026: "if someone opens the hold panel when on a tool screen, we might want them collapsed, or
+    /// we might want to auto-close the tool", then "Build the "managed by..." edits as suggested").
+    func foldSection() { if open == PanelFocus.onHold { open = nil } }
+}
+
+/// What's typed in Report a problem, and what's picked, kept while the form closes, the panel closes, or another tool
+/// opens, until the report is sent or Cancel is pressed (Phil, 19 November 2026: "can we protect text entered in a
+/// report in case of accidental closes or clicking a tool?"). In memory only, like the activity it's sent with; quitting
+/// Cool Head drops it.
+final class ReportDraft: ObservableObject {
+    static let shared = ReportDraft()
+    @Published var kind = ProblemReport.kinds[0]
+    @Published var words = ""
+    @Published var about: String?
+    func clear() { kind = ProblemReport.kinds[0]; words = ""; about = nil }
 }
 
 /// A group of options folded to one line with how many it holds; a click opens it (Phil, 18 November 2026: "it would
@@ -595,8 +611,7 @@ struct ShareView: View {
 /// leaves. Open in GitHub sends it to GitHub in the link and opens the form there; Copy keeps it on the Mac.
 struct ProblemView: View {
     let watcher: Watcher
-    @State private var kind = ProblemReport.kinds[0]
-    @State private var words = ""
+    @ObservedObject private var draft = ReportDraft.shared
     @State private var copied = false
 
     /// Opened from Report a problem under what Cool Head is holding back: the form opens in that section, under the
@@ -606,23 +621,23 @@ struct ProblemView: View {
     /// Which of the things held back caused it: asked first whenever something is held back (Phil, 17 November 2026:
     /// "The report flow should START by asking which freeze caused it."). Opened from under them, the first is picked
     /// to start; opened from the tools, None of these is, so a report isn't pinned on a hold by default.
-    @State private var about: String?
     static let somethingElse = "None of these"
     var freezes: [String] { FrozenItem.all(watcher).map(\.line) }
     var pick: String {
-        if let about, about == ProblemView.somethingElse || freezes.contains(about) { return about }
+        if let about = draft.about, about == ProblemView.somethingElse || freezes.contains(about) { return about }
         return inline ? (freezes.first ?? ProblemView.somethingElse) : ProblemView.somethingElse
     }
-    func finish() { if let close { close() } else { watcher.showReport = false } }
+    /// Sent or cancelled: the draft goes, and the form closes.
+    func finish() { draft.clear(); if let close { close() } else { watcher.showReport = false } }
     /// Screenshots can show the first choice open (COOLHEAD_SNAPSHOT_CHOICE_OPEN).
     static let choiceOpen = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CHOICE_OPEN"] != nil
     /// The hold it's about, if one was picked; then a fix caused the trouble, so that isn't asked.
     var chosen: String? { freezes.isEmpty || pick == ProblemView.somethingElse ? nil : pick }
-    var problem: String { chosen == nil ? kind : ProblemReport.kinds[0] }
+    var problem: String { chosen == nil ? draft.kind : ProblemReport.kinds[0] }
     /// The picked hold as the report says it (see `FrozenItem.reportLine`).
     var chosenForReport: String? { chosen.flatMap { c in FrozenItem.all(watcher).first { $0.line == c }?.reportLine } }
 
-    var report: String { ProblemReport.make(kind: problem, words: words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac, about: chosenForReport) }
+    var report: String { ProblemReport.make(kind: problem, words: draft.words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac, about: chosenForReport) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -630,16 +645,16 @@ struct ProblemView: View {
             // each question on its own line, its choices in a field under it that opens in place
             if !freezes.isEmpty {
                 Text("Which of these caused it?").font(.callout.weight(.medium))
-                SelectField(options: freezes + [ProblemView.somethingElse], selection: Binding(get: { pick }, set: { about = $0 }),
+                SelectField(options: freezes + [ProblemView.somethingElse], selection: Binding(get: { pick }, set: { draft.about = $0 }),
                             open: ProblemView.choiceOpen)
             }
             if chosen == nil {
                 Text("What went wrong?").font(.callout.weight(.medium))
-                SelectField(options: ProblemReport.kinds, selection: $kind, open: ProblemView.choiceOpen && freezes.isEmpty)
+                SelectField(options: ProblemReport.kinds, selection: $draft.kind, open: ProblemView.choiceOpen && freezes.isEmpty)
             }
             Text("Tell us more (optional). It's public, so skip anything private.")
                 .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-            TextEditor(text: $words)
+            TextEditor(text: $draft.words)
                 .font(.callout)
                 .frame(height: 64)
                 .scrollContentBackground(.hidden)
@@ -661,13 +676,13 @@ struct ProblemView: View {
             HStack(spacing: 8) {
                 Button("Open in GitHub") {
                     watcher.log("Report a problem sent to GitHub")
-                    if let u = ProblemReport.issueURL(kind: problem, words: words, report: report) { NSWorkspace.shared.open(u) }
+                    if let u = ProblemReport.issueURL(kind: problem, words: draft.words, report: report) { NSWorkspace.shared.open(u) }
                     finish()
                 }
                 .buttonStyle(.borderedProminent).controlSize(.small)
                 Button(copied ? "Copied" : "Copy") {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString("Problem: \(problem)\n\n\(words)\n\n\(report)", forType: .string)
+                    NSPasteboard.general.setString("Problem: \(problem)\n\n\(draft.words)\n\n\(report)", forType: .string)
                     copied = true
                 }
                 .buttonStyle(.bordered).controlSize(.small)
@@ -719,7 +734,7 @@ struct WhatsNewCard: View {
 enum WhatsNew {
     static let notes: [String: [String]] = [
         "0.11.0": [
-            "One thing opens at a time: a card, or On hold, which folds to one line with its count. An open card shows its recommended option, with the others folded below it.",
+            "One thing opens at a time: a card, or Managed by Cool Head, which folds to one line with its count. An open card shows its recommended option, with the others folded below it.",
             "The panel is a little wider, and tall enough for all of Test my network.",
             "Cleaner shows each item's size, checks Downloads for identical copies as part of Quick clean, and folds items under 20 MB into one line.",
             "About and the folder chooser open in front of the panel.",
@@ -735,7 +750,7 @@ enum WhatsNew {
             "The top of the panel shows how your Mac is running, with gauges for the chip, memory, and heat.",
             "Each card says why it recommends what it does, and what that costs, under Nerdy stuff.",
             "Test my network shows your VPN, who looks website names up, and the country websites see you in.",
-            "What Cool Head is holding back is one On hold section, with one Report a problem for all of it.",
+            "What Cool Head is holding back is one section, Managed by Cool Head, with one Report a problem for all of it.",
         ],
         "0.8.0": [
             "Cards for sleep and power: an app keeping your Mac awake, Low Power Mode left on while it's busy, and a battery that drained while asleep.",
@@ -1060,11 +1075,11 @@ struct FrozenList: View {
             .padding(.horizontal, FrozenList.inset - 8).padding(.vertical, 16)
             .frozen()
             .contentShape(Rectangle())
-            .onTapGesture { focus.toggle(PanelFocus.onHold) }
+            .onTapGesture { Tools.closeAll(watcher); focus.toggle(PanelFocus.onHold) }
             .hoverHighlight(true)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
-            .accessibilityHint("Shows what Cool Head is holding back")
+            .accessibilityHint("Shows what Cool Head is slowing, limiting, pausing, or has turned off")
         } else {
         VStack(alignment: .leading, spacing: 10) {
             FrozenTitle(count: items.count, open: true).padding(.horizontal, 8).padding(.top, 4)
@@ -1075,7 +1090,7 @@ struct FrozenList: View {
             if tools.reportAboutHeld { ProblemView(watcher: watcher, inline: true) { tools.reportAboutHeld = false } }
         }
         .padding(6)
-        // the section takes the frost's colours at its edge, so the button and form read as part of it
+        // the section takes the frost's colors at its edge, so the button and form read as part of it
         .background(RoundedRectangle(cornerRadius: 13).fill(IceTint.color.opacity(0.12)))
         .background(RoundedRectangle(cornerRadius: 13).fill(Ink.card))
         .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Frozen.ice.opacity(0.55), lineWidth: 1))
@@ -1089,7 +1104,9 @@ struct FrozenTitle: View {
     var open = true
     var body: some View {
         HStack(spacing: 6) {
-            Text("On hold").font(.callout.weight(.semibold))
+            // not "On hold", which could read as turned off when several are only slowed or limited (Phil, 19 November
+            // 2026: "i don't like "on hold" as a user could interpret that as disabled, rather than throttled/managed")
+            Text("Managed by Cool Head").font(.callout.weight(.semibold))
             // folded, the count is dark on white, to read at a glance over the frost
             Text("\(count)").font(.caption.weight(.bold)).monospacedDigit()
                 .foregroundStyle(open ? Ink.text : Color.black)
@@ -1104,18 +1121,18 @@ struct FrozenTitle: View {
     }
 }
 
-/// One line: its undo as a button on the line, one click, and a chevron that opens what it is and since when (another
-/// click closes it). Every undo puts things back as they were and can be redone from the card, so it asks nothing first.
+/// One line: its undo as a button on the line, one click, and what it is and since when, always shown: the section is
+/// the only thing open, so there's room (Phil, 19 November 2026: "As we only display one thing at a time, when the hold
+/// panel is open, we should expand them, no?"). Every undo puts things back as they were and can be redone from the
+/// card, so it asks nothing first.
 struct FrozenLine: View {
     let item: FrozenItem
     let watcher: Watcher
     /// How far the text sits in from the frost's sides.
     var inset: CGFloat = 30
-    /// Extra room above and below, inside the line's click area: the frame's own margin for the first and last line.
+    /// Extra room above and below: the frame's own margin for the first and last line.
     var top: CGFloat = 0
     var bottom: CGFloat = 0
-    /// Screenshots can show the lines open (COOLHEAD_SNAPSHOT_HELD_OPEN).
-    @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HELD_OPEN"] != nil
     @State private var failed: String?
 
     var body: some View {
@@ -1129,28 +1146,14 @@ struct FrozenLine: View {
                     .buttonStyle(IceButton()).font(.subheadline)
                     .fixedSize()
                     .help(item.undo.title)
-                Button { toggle() } label: {
-                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
-                        .frame(width: 18, height: 18).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(open ? "Show less" : "What this is")
-                .accessibilityLabel(open ? "Show less" : "What this is")
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
-            if open {
-                Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
-            }
+            Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
             if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
         .padding(.horizontal, inset).padding(.top, 8 + top).padding(.bottom, 8 + bottom)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture { toggle() }
-        .hoverHighlight(true)
     }
-
-    func toggle() { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
 
     func undo() {
         switch item {
@@ -1743,7 +1746,7 @@ struct FixRow: View {
 }
 
 /// An option's tile: a filled, bordered, full-width button that lightens under the mouse (with the pointing hand) and
-/// darkens when pressed. The recommended one is filled with the accent colour, in white.
+/// darkens when pressed. The recommended one is filled with the accent color, in white.
 struct OptionStyle: ButtonStyle {
     let recommended: Bool
     /// A task for you (Cool Head opens the place or shows the steps): an outline with a dashed border and no fill.
@@ -1791,7 +1794,7 @@ struct OptionStyle: ButtonStyle {
     }
 }
 
-/// The recommended option: filled with the accent colour, white text, whether or not the panel is the active window
+/// The recommended option: filled with the accent color, white text, whether or not the panel is the active window
 /// (macOS greys its own prominent buttons in an inactive window).
 struct RecommendedButton: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
@@ -1805,7 +1808,7 @@ struct RecommendedButton: ButtonStyle {
     }
 }
 
-/// A small label in an option's bottom right corner, with a symbol, in its colour.
+/// A small label in an option's bottom right corner, with a symbol, in its color.
 struct OptionTag: View {
     let words: String
     let symbol: String
@@ -1888,7 +1891,7 @@ struct IconButton: View {
     }
 }
 
-/// Text and surface colours chosen for contrast in both light and dark, instead of macOS's paler secondary greys.
+/// Text and surface colors chosen for contrast in both light and dark, instead of macOS's paler secondary greys.
 enum Ink {
     /// Main text.
     static let text = Color.primary

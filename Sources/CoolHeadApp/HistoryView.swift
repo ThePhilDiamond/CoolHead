@@ -15,8 +15,6 @@ struct HistoryView: View {
     /// One section open at a time, the energy first; the other folds to its heading (Phil, 18 November 2026: "The trends
     /// page if we limit to one section showing at a time and the rest stay collapsed, it could control vertical space").
     @State private var openSection: String? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_WAKES"] != nil ? "wakes" : "energy"
-    /// One row open at a time.
-    @State private var openRow: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -34,21 +32,25 @@ struct HistoryView: View {
                     Section(heading: PowerHistory.energyHeading, note: PowerHistory.energyNote, open: openSection == "energy",
                             toggle: { fold("energy") }) {
                         ForEach(Array(energy.enumerated()), id: \.offset) { _, row in
-                            // a share, so the bar is out of 100%
-                            Row(row: row, sample: sample != nil, open: openRow == row.name) {
-                                withAnimation(.easeOut(duration: 0.15)) { openRow = openRow == row.name ? nil : row.name }
-                            }
+                            // a share, so the bar is out of 100%; what it means shows under it, with no click (Phil, 19
+                            // November 2026, of the wake rows' explanations: "It seems like a needless extra click
+                            // anyway", then of these: "Yes, same for energy")
+                            Row(row: row, sample: sample != nil)
                         }
                     }
                 }
                 Section(heading: PowerHistory.wakesHeading, note: nil, open: openSection == "wakes", toggle: { fold("wakes") }) {
                     Text(h.wakesSummary).font(.callout).foregroundStyle(Ink.text)
+                    // every wake as one thin bar, split by cause, so each reads as a share of the whole (Phil, 19 November
+                    // 2026: "maybe as a pie chart or something that illustrates "share of total" rather than arbitrary
+                    // bars?"); a bar, not a pie, so the rows' figures sit beside it and a small cause still shows
+                    if !h.wakes.isEmpty { WakeSplit(causes: h.wakesByCause, total: h.wakes.count).padding(.bottom, 2) }
+                    // then one row per cause: its color, a symbol, a short name, the count and its share, and what it
+                    // means under it, always shown (Phil, 19 November 2026: "Can we also fix the "Why it woke from sleep"
+                    // section to be more visual? it's a wall of text now", then "Remove the chevrons and include the text
+                    // persistently visible when that section is expanded. It seems like a needless extra click anyway")
                     ForEach(h.wakesByCause, id: \.0) { cause, wakes in
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text("·").foregroundStyle(Ink.muted)
-                            Text(PowerHistory.sentence(cause, wakes)).font(.callout).foregroundStyle(Ink.text)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                        WakeRow(cause: cause, wakes: wakes, total: h.wakes.count)
                     }
                 }
             } else {
@@ -100,13 +102,11 @@ struct HistoryView: View {
     }
 
     /// An app or program, or macOS itself: its icon, its name (and what it is, if not an app), its share and a bar out
-    /// of the whole. A click opens what the share means and whether to do anything (Phil, 17 November 2026: "clicking an
-    /// item in the trends tool tells the user more about it").
+    /// of the whole, with what the share means and whether to do anything under it (Phil, 17 November 2026: "clicking an
+    /// item in the trends tool tells the user more about it"; shown without a click since 19 November 2026).
     struct Row: View {
         let row: PowerHistory.EnergyRow
         let sample: Bool
-        let open: Bool
-        let toggle: () -> Void
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
@@ -118,7 +118,6 @@ struct HistoryView: View {
                             if let what = row.what { Text(what).font(.caption).foregroundStyle(Ink.muted).lineLimit(1) }
                             Spacer(minLength: 8)
                             Text(PowerHistory.share(row.share)).font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
-                            Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Ink.muted)
                         }
                         GeometryReader { g in
                             Capsule().fill(Color.accentColor.opacity(0.55))
@@ -127,16 +126,10 @@ struct HistoryView: View {
                         .frame(height: 4)
                     }
                 }
-                if open {
-                    Text(row.detail).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-                        .padding(.leading, 32)
-                }
+                Text(row.detail).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 32)
             }
-            .contentShape(Rectangle())
-            .onTapGesture { toggle() }
-            .hoverHighlight(true)
             .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isButton)
         }
 
         /// The app's own icon if it is installed (not in screenshots, which show no one's own apps), else macOS's plain
@@ -148,6 +141,86 @@ struct HistoryView: View {
                     .resizable().aspectRatio(contentMode: .fit)
             } else {
                 Image(systemName: row.user == nil ? "apple.logo" : "gearshape").font(.system(size: 14)).foregroundStyle(Ink.muted)
+            }
+        }
+    }
+
+    /// Every wake as one thin bar, 8 points tall with round ends, a part per cause in the rows' order, 2 points apart.
+    /// Each cause keeps its own color whatever its rank, from a palette checked for color blindness in light and dark
+    /// (the dataviz skill's validator: every check passes; in light, three colors are under 3:1 against the card, so
+    /// the rows beside the bar carry every name and figure).
+    struct WakeSplit: View {
+        let causes: [(PowerHistory.Cause, [PowerHistory.Wake])]
+        let total: Int
+        @Environment(\.colorScheme) private var scheme
+
+        var body: some View {
+            GeometryReader { g in
+                let gaps = CGFloat(max(0, causes.count - 1)) * 2
+                HStack(spacing: 2) {
+                    ForEach(causes, id: \.0) { cause, wakes in
+                        Rectangle().fill(WakeSplit.color(cause, scheme))
+                            .frame(width: max(2, (g.size.width - gaps) * CGFloat(wakes.count) / CGFloat(max(1, total))))
+                            .help("\(PowerHistory.label(cause)): \(wakes.count), \(PowerHistory.share(Double(wakes.count) / Double(max(1, total))))")
+                    }
+                }
+                .clipShape(Capsule())
+            }
+            .frame(height: 8)
+            .accessibilityElement()
+            .accessibilityLabel(causes.map { "\(PowerHistory.label($0.0)), \(PowerHistory.share(Double($0.1.count) / Double(max(1, total))))" }
+                .joined(separator: "; "))
+        }
+
+        /// A cause's color, fixed to the cause, never to its rank: the dataviz skill's eight categorical hues, stepped for
+        /// light and dark, and grey for reasons Cool Head doesn't recognize.
+        static func color(_ cause: PowerHistory.Cause, _ scheme: ColorScheme = .light) -> Color {
+            let light: [PowerHistory.Cause: UInt32] = [.schedule: 0x2a78d6, .lid: 0xeb6834, .wireless: 0x1baf7a, .plug: 0xeda100,
+                                                         .input: 0xe87ba4, .network: 0x008300, .bluetooth: 0x6250d6, .button: 0xe34948]
+            let dark: [PowerHistory.Cause: UInt32] = [.schedule: 0x3987e5, .lid: 0xd95926, .wireless: 0x199e70, .plug: 0xc98500,
+                                                        .input: 0xd55181, .network: 0x0ca30c, .bluetooth: 0x9085e9, .button: 0xe66767]
+            guard let hex = (scheme == .dark ? dark : light)[cause] else { return Color.gray }
+            return Color(red: Double(hex >> 16 & 0xff) / 255, green: Double(hex >> 8 & 0xff) / 255, blue: Double(hex & 0xff) / 255)
+        }
+    }
+
+    /// One reason the Mac woke: its color, symbol, short name, how many times, and its share, with what it means under it.
+    struct WakeRow: View {
+        let cause: PowerHistory.Cause
+        let wakes: [PowerHistory.Wake]
+        let total: Int
+        @Environment(\.colorScheme) private var scheme
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(alignment: .center, spacing: 8) {
+                    // its color in the bar above, so the row is the bar's legend
+                    RoundedRectangle(cornerRadius: 2).fill(WakeSplit.color(cause, scheme)).frame(width: 8, height: 8)
+                    Image(systemName: WakeRow.symbol(cause)).font(.system(size: 14)).foregroundStyle(Ink.muted)
+                        .frame(width: 22, height: 22)
+                    Text(PowerHistory.label(cause)).font(.callout).foregroundStyle(Ink.text).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text("\(wakes.count)").font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
+                    Text(PowerHistory.share(Double(wakes.count) / Double(max(1, total)))).font(.callout.monospacedDigit())
+                        .foregroundStyle(Ink.muted).frame(minWidth: 62, alignment: .trailing)
+                }
+                Text(PowerHistory.detail(cause, wakes)).font(.caption).foregroundStyle(Ink.muted)
+                    .fixedSize(horizontal: false, vertical: true).padding(.leading, 46)
+            }
+            .accessibilityElement(children: .combine)
+        }
+
+        static func symbol(_ cause: PowerHistory.Cause) -> String {
+            switch cause {
+            case .lid: return "laptopcomputer"
+            case .button: return "power"
+            case .input: return "keyboard"
+            case .plug: return "powerplug"
+            case .network: return "network"
+            case .bluetooth: return "dot.radiowaves.left.and.right"
+            case .wireless: return "wifi"
+            case .schedule: return "timer"
+            case .other: return "questionmark.circle"
             }
         }
     }

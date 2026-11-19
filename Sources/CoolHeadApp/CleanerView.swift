@@ -107,7 +107,7 @@ struct CleanerView: View {
     }
 
     /// Quick clean: each thing it moves, listed, and one button. Nothing in it is used, so there's nothing to choose.
-    /// The check for identical copies in Downloads is here too, since the original always stays (Phil, 18 November
+    /// The check for identical copies in a folder is here too, since the original always stays (Phil, 18 November
     /// 2026: "Check for duplicate files under deep clean should be under quick clean, as it's a quick zero-risk choice").
     var quickBox: some View {
         let bytes = quick.compactMap(\.bytes).reduce(0, +)
@@ -286,19 +286,23 @@ struct CleanerView: View {
         .padding(.horizontal, 12)
     }
 
-    /// Identical copies in Downloads, in Quick clean: only when the person chooses the folder, so macOS doesn't ask. A
-    /// copy is a second download ("Report (1).pdf") whose bytes match the original's, compared in full, never by name
-    /// or size alone. Old installers found in the same folder go under Deep clean.
+    /// Identical copies, in Quick clean, in any folder the person chooses, Downloads to start (Phil, 19 November 2026: "I
+    /// think we should word it more openly to check anywhere for duplicates, and then just default to the downloads
+    /// folder"). A copy is a second download ("Report (1).pdf") or a Finder duplicate ("Report copy.pdf") whose bytes
+    /// match the original's, compared in full, never by name or size alone. Old installers found in the same folder go
+    /// under Deep clean.
     var copiesRow: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "doc.on.doc").foregroundStyle(Ink.muted).frame(width: 18)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Identical copies in Downloads")
-                Text("A second download that matches its original byte for byte, such as Report (1).pdf beside Report.pdf. The original stays. Cool Head looks only when you choose the folder, and lists old installers it finds there under Deep clean.")
+                Text("Identical copies in a folder")
+                Text("A copy that matches its original byte for byte, such as Report (1).pdf or Report copy.pdf beside Report.pdf. The original stays. Cool Head looks in the folder you choose, Downloads to start, and the folders inside it, and lists old installers it finds there under Deep clean.")
                     .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Spacer()
-                    Button("Check Downloads…") { model.checkDownloads() }.buttonStyle(.bordered).controlSize(.small).fixedSize()
+                    if model.checking { ProgressView().controlSize(.small); Text("Checking…").font(.caption).foregroundStyle(Ink.muted) }
+                    Button("Choose a folder…") { model.checkFolder() }.buttonStyle(.bordered).controlSize(.small).fixedSize()
+                        .disabled(model.checking)
                 }
                 .padding(.top, 2)
             }
@@ -370,6 +374,8 @@ final class CleanerModel: ObservableObject {
     /// Found in a folder the person chose (Downloads), kept beside the scan's own finds.
     @Published var chosen: [Cleaner.Find] = []
     @Published var scanning = false
+    /// Checking a folder the person chose.
+    @Published var checking = false
     @Published var working = false
     @Published var message: String?
     @Published var moved: [Cleaner.Moved] = Cleaner.movedList()
@@ -429,31 +435,47 @@ final class CleanerModel: ObservableObject {
         scan(force: true)
     }
 
-    /// The person chooses the folder (Downloads to start), which is how macOS lets Cool Head read it without asking.
-    func checkDownloads() {
+    /// The person chooses the folder, anywhere, with Downloads chosen to start; choosing it is also how macOS lets Cool
+    /// Head read a private folder such as Downloads without asking.
+    func checkFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         panel.prompt = "Check"
-        panel.message = "Cool Head looks for old installers and identical second downloads in the folder you choose."
+        // the button asks for a folder, so the chooser matches it (Phil, 19 November 2026: "labeled as "Check Downloads"
+        // but then clicking it requires selecting a folder")
+        panel.message = "Choose a folder to check for identical copies and old installers. Downloads is chosen to start."
         NSApp.activate(ignoringOtherApps: true)
         // in front of Cool Head's panel: `begin`, not `runModal`, which puts it back at the level for dialogs, under the
         // panel (Phil, 18 November 2026: "the About pane and the "select a folder" to check for duplicates spawn and sit
         // behind the Cool Head pane")
         panel.level = .abovePanel
+        MenuPanel.keepOpen = true
         panel.begin { [weak self] answer in
+            MenuPanel.keepOpen = false
             guard answer == .OK, let url = panel.url else { return }
             MainActor.assumeIsolated { self?.chose(url) }
         }
     }
 
+    /// Checks the folder and the folders inside it away from the panel's own work, so a big folder doesn't freeze it.
     private func chose(_ url: URL) {
-        let found = Cleaner.scanDownloads(url.path)
-        Watcher.shared.log("Cleaner: checked a chosen folder, \(found.count) found")
-        chosen = found
-        let ids = Set(found.map(\.id))
-        finds = finds.filter { !ids.contains($0.id) } + found
-        message = found.isEmpty ? "Nothing to clear in that folder." : nil
+        checking = true
+        message = nil
+        Task.detached(priority: .userInitiated) {
+            let (found, stopped) = Cleaner.scanFolder(url.path)
+            await MainActor.run {
+                Watcher.shared.log("Cleaner: checked a chosen folder, \(found.count) found\(stopped ? ", stopped early" : "")")
+                // what an earlier folder found goes, so only this folder's finds are listed
+                let old = Set(self.chosen.map(\.id))
+                self.chosen = found
+                let ids = Set(found.map(\.id))
+                self.finds = self.finds.filter { !old.contains($0.id) && !ids.contains($0.id) } + found
+                self.message = stopped ? "That folder holds more than 100,000 files, so Cool Head stopped there. Choose a folder inside it to check the rest."
+                    : found.isEmpty ? "Nothing to clear in that folder or the folders inside it." : nil
+                self.checking = false
+            }
+        }
     }
 }
 

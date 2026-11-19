@@ -86,9 +86,16 @@ extension Fixture {
         ]
         let wrong = reasons.filter { PowerHistory.cause($0.0) != $0.1 }.map { "\($0.0) → \(PowerHistory.cause($0.0).rawValue)" }
         let sentences = PowerHistory.Cause.allCases.map { PowerHistory.sentence($0, [.init(at: now, reason: "X"), .init(at: now, reason: "X")]) }
-        let style = sentences.filter { $0.contains("—") || $0.contains("!") || !$0.hasSuffix(".") || !$0.hasPrefix("Twice") }
+        // the app's rows: a short name with no full stop, and an explanation that is a whole sentence
+        let wakeRows = PowerHistory.Cause.allCases.flatMap { c in [PowerHistory.label(c), PowerHistory.detail(c, [.init(at: now, reason: "X")])] }
+        let badRows = PowerHistory.Cause.allCases.filter { c in
+            let l = PowerHistory.label(c), d = PowerHistory.detail(c, [.init(at: now, reason: "X")])
+            return l.isEmpty || l.hasSuffix(".") || l.count > 30 || !d.hasSuffix(".") || d.contains("times")
+        }
+        let style = (sentences + wakeRows).filter { $0.contains("—") || $0.contains("!") }
+            + sentences.filter { !$0.hasSuffix(".") || !$0.hasPrefix("Twice") } + badRows.map(\.rawValue)
         out.append(("power-history-wake-reasons", wrong.isEmpty && style.isEmpty,
-                    wrong.isEmpty && style.isEmpty ? "\(reasons.count) recorded reasons read right; \(sentences.count) sentences" : "wrong: \(wrong); style: \(style)"))
+                    wrong.isEmpty && style.isEmpty ? "\(reasons.count) recorded reasons read right; \(sentences.count) sentences, \(wakeRows.count / 2) rows" : "wrong: \(wrong); style: \(style)"))
 
         // 5. This Mac's own power log, if it has one: read without error, quickly. Says only how much, never what.
         if PowerHistory.available {
