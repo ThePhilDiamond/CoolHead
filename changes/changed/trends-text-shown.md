@@ -1,0 +1,1 @@
+- In Trends, what each app's share of the energy means now shows under it, without a click.

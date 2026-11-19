@@ -430,7 +430,7 @@ extension PowerHistory {
     public static let source = "From macOS's own power log, which keeps about a week. Cool Head keeps no copy."
 
     public static let energyHeading = "Used the most energy"
-    public static let energyNote = "Each one's share of the energy the chip, graphics, and Neural Engine used while the Mac was awake. Click one for what it means."
+    public static let energyNote = "Each one's share of the energy the chip, graphics, and Neural Engine used while the Mac was awake."
     public static let wakesHeading = "Why it woke from sleep"
 
     /// Names for a list of users, told apart where two are alike, and what each is when it isn't an app.

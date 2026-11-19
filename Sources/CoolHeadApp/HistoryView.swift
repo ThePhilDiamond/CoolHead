@@ -15,8 +15,6 @@ struct HistoryView: View {
     /// One section open at a time, the energy first; the other folds to its heading (Phil, 18 November 2026: "The trends
     /// page if we limit to one section showing at a time and the rest stay collapsed, it could control vertical space").
     @State private var openSection: String? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_WAKES"] != nil ? "wakes" : "energy"
-    /// One row open at a time.
-    @State private var openRow: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -34,10 +32,10 @@ struct HistoryView: View {
                     Section(heading: PowerHistory.energyHeading, note: PowerHistory.energyNote, open: openSection == "energy",
                             toggle: { fold("energy") }) {
                         ForEach(Array(energy.enumerated()), id: \.offset) { _, row in
-                            // a share, so the bar is out of 100%
-                            Row(row: row, sample: sample != nil, open: openRow == row.name) {
-                                withAnimation(.easeOut(duration: 0.15)) { openRow = openRow == row.name ? nil : row.name }
-                            }
+                            // a share, so the bar is out of 100%; what it means shows under it, with no click (Phil, 19
+                            // November 2026, of the wake rows' explanations: "It seems like a needless extra click
+                            // anyway", then of these: "Yes, same for energy")
+                            Row(row: row, sample: sample != nil)
                         }
                     }
                 }
@@ -104,13 +102,11 @@ struct HistoryView: View {
     }
 
     /// An app or program, or macOS itself: its icon, its name (and what it is, if not an app), its share and a bar out
-    /// of the whole. A click opens what the share means and whether to do anything (Phil, 17 November 2026: "clicking an
-    /// item in the trends tool tells the user more about it").
+    /// of the whole, with what the share means and whether to do anything under it (Phil, 17 November 2026: "clicking an
+    /// item in the trends tool tells the user more about it"; shown without a click since 19 November 2026).
     struct Row: View {
         let row: PowerHistory.EnergyRow
         let sample: Bool
-        let open: Bool
-        let toggle: () -> Void
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
@@ -122,7 +118,6 @@ struct HistoryView: View {
                             if let what = row.what { Text(what).font(.caption).foregroundStyle(Ink.muted).lineLimit(1) }
                             Spacer(minLength: 8)
                             Text(PowerHistory.share(row.share)).font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
-                            Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Ink.muted)
                         }
                         GeometryReader { g in
                             Capsule().fill(Color.accentColor.opacity(0.55))
@@ -131,16 +126,10 @@ struct HistoryView: View {
                         .frame(height: 4)
                     }
                 }
-                if open {
-                    Text(row.detail).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-                        .padding(.leading, 32)
-                }
+                Text(row.detail).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 32)
             }
-            .contentShape(Rectangle())
-            .onTapGesture { toggle() }
-            .hoverHighlight(true)
             .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isButton)
         }
 
         /// The app's own icon if it is installed (not in screenshots, which show no one's own apps), else macOS's plain
