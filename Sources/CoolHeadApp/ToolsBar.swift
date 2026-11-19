@@ -29,7 +29,7 @@ struct ToolsBar: View {
             // the battery's own page, beside Network, the other check (Phil, 16 November 2026: "the battery tool should be
             // next to the network tool"); a Mac with no battery has no Battery tool
             if hasBattery {
-                ToolButton(symbol: "battery.75percent", name: "Battery", tip: "Battery health and Battery Saver", labels: labels, on: tools.battery) {
+                ToolButton(symbol: BatteryBolt.name, name: "Battery", tip: "Battery health and Battery Saver", labels: labels, on: tools.battery) {
                     let open = !tools.battery
                     closeAll()
                     tools.battery = open
@@ -124,6 +124,35 @@ final class Tools: ObservableObject {
     nonisolated static let labelsKey = "toolLabels"
 }
 
+/// The Battery tool's icon: a battery a quarter full with a bolt through it, built from macOS's own symbols as it draws
+/// (no image file), since macOS has a bolt only on a full battery, which was hard to read (Phil, 19 November 2026: "It's
+/// harder to read when it's the full battery with the bolt. We want a less-full battery with the bolt", then "For the
+/// battery icon, I like Option 3"). The bolt cuts a thin gap in what's under it, as macOS's own charging icon does, and the
+/// image is a template, so it takes the tool's color like the symbols beside it.
+enum BatteryBolt {
+    static let name = "coolhead.battery.bolt"
+    static func image(pointSize: CGFloat) -> NSImage {
+        guard let battery = NSImage(systemSymbolName: "battery.25percent", accessibilityDescription: "Battery")?
+                .withSymbolConfiguration(.init(pointSize: pointSize, weight: .regular)),
+              let bolt = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: pointSize * 0.62, weight: .heavy))
+        else { return NSImage(systemSymbolName: "battery.75percent", accessibilityDescription: "Battery") ?? NSImage() }
+        let image = NSImage(size: battery.size, flipped: false) { r in
+            battery.draw(in: r)
+            let at = NSPoint(x: r.width * 0.47 - bolt.size.width / 2, y: r.midY - bolt.size.height / 2)
+            let gap = max(1, pointSize / 13)
+            for dx in [-gap, 0, gap] { for dy in [-gap, 0, gap] {
+                bolt.draw(at: NSPoint(x: at.x + dx, y: at.y + dy), from: .zero, operation: .destinationOut, fraction: 1)
+            } }
+            bolt.draw(at: at, from: .zero, operation: .sourceOver, fraction: 1)
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Battery"
+        return image
+    }
+}
+
 /// A tool: its icon, with its name under it (or, with names hidden, as a tooltip), tinted while it's open.
 struct ToolButton: View {
     let symbol: String
@@ -137,8 +166,11 @@ struct ToolButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
-                Image(systemName: symbol).font(.system(size: 15))
-                    .frame(height: 18)
+                Group {
+                    if symbol == BatteryBolt.name { Image(nsImage: BatteryBolt.image(pointSize: 15)) } else { Image(systemName: symbol) }
+                }
+                .font(.system(size: 15))
+                .frame(height: 18)
                 if labels { Text(name).font(.caption2) }
             }
             .frame(minWidth: labels ? 44 : 30)

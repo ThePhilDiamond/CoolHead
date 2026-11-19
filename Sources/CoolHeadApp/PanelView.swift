@@ -227,8 +227,10 @@ final class ReportDraft: ObservableObject {
     static let shared = ReportDraft()
     @Published var kind = ProblemReport.kinds[0]
     @Published var words = ""
+    /// A few words for the issue's title (see ProblemReport.title).
+    @Published var summary = ""
     @Published var about: String?
-    func clear() { kind = ProblemReport.kinds[0]; words = ""; about = nil }
+    func clear() { kind = ProblemReport.kinds[0]; words = ""; summary = ""; about = nil }
 }
 
 /// A group of options folded to one line with how many it holds; a click opens it (Phil, 18 November 2026: "it would
@@ -666,6 +668,9 @@ struct ProblemView: View {
     /// The picked hold as the report says it (see `FrozenItem.reportLine`).
     var chosenForReport: String? { chosen.flatMap { c in FrozenItem.all(watcher).first { $0.line == c }?.reportLine } }
 
+    /// Nothing typed for the title yet: sending waits, so every report has its own title.
+    var noSummary: Bool { draft.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
     var report: String { ProblemReport.make(kind: problem, words: draft.words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac, about: chosenForReport) }
 
     var body: some View {
@@ -681,6 +686,25 @@ struct ProblemView: View {
                 Text("What went wrong?").font(.callout.weight(.medium))
                 SelectField(options: ProblemReport.kinds, selection: $draft.kind, open: ProblemView.choiceOpen && freezes.isEmpty)
             }
+            // the issue's title, so no two reports share one; sending waits for at least a word
+            // any number of words, up to the limit, with the count in the field's corner
+            Text("In a few words, what happened?").font(.callout.weight(.medium))
+            TextField("For example: Chrome's limit didn't lift", text: $draft.summary)
+                .textFieldStyle(.plain)
+                .font(.callout)
+                .padding(6).padding(.trailing, 44)
+                .background(Ink.card, in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Ink.edge, lineWidth: 1))
+                .overlay(alignment: .trailing) {
+                    let n = draft.summary.count, limit = ProblemReport.summaryLimit
+                    Text("\(n)/\(limit)").font(.caption2).monospacedDigit()
+                        .foregroundStyle(n >= limit ? Color.orange : Ink.muted)
+                        .padding(.trailing, 8)
+                        .accessibilityLabel("\(n) of \(limit) characters")
+                }
+                .onChange(of: draft.summary) {
+                    if draft.summary.count > ProblemReport.summaryLimit { draft.summary = String(draft.summary.prefix(ProblemReport.summaryLimit)) }
+                }
             Text("Tell us more (optional). It's public, so skip anything private.")
                 .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             TextEditor(text: $draft.words)
@@ -705,16 +729,18 @@ struct ProblemView: View {
             HStack(spacing: 8) {
                 Button("Open in GitHub") {
                     watcher.log("Report a problem sent to GitHub")
-                    if let u = ProblemReport.issueURL(kind: problem, words: draft.words, report: report) { NSWorkspace.shared.open(u) }
+                    if let u = ProblemReport.issueURL(kind: problem, summary: draft.summary, words: draft.words, report: report) { NSWorkspace.shared.open(u) }
                     finish()
                 }
                 .buttonStyle(.borderedProminent).controlSize(.small)
+                .disabled(noSummary)
                 Button(copied ? "Copied" : "Copy") {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString("Problem: \(problem)\n\n\(draft.words)\n\n\(report)", forType: .string)
+                    NSPasteboard.general.setString("\(ProblemReport.title(kind: problem, summary: draft.summary))\n\n\(draft.words)\n\n\(report)", forType: .string)
                     copied = true
                 }
                 .buttonStyle(.bordered).controlSize(.small)
+                .disabled(noSummary)
                 Button("Cancel") { finish() }.buttonStyle(.plain).font(.callout).foregroundStyle(Ink.muted)
             }
             Text("Nothing is posted until you press Submit on GitHub. No GitHub account? Use Copy.")

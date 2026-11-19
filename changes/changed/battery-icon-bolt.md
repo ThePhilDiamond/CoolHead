@@ -1,0 +1,1 @@
+- The Battery tool's icon is a battery a quarter full with a lightning bolt, so it reads as battery and power.

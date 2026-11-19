@@ -1,0 +1,1 @@
+- Report a problem asks what happened in a few words, up to 60 characters with a count in the corner, and uses them as the issue's title, so each report has its own.

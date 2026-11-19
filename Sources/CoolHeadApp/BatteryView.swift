@@ -20,7 +20,7 @@ struct BatteryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Label("Battery", systemImage: "battery.75percent").font(.body.weight(.semibold))
+                Label { Text("Battery") } icon: { Image(nsImage: BatteryBolt.image(pointSize: 13)) }.font(.body.weight(.semibold))
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")

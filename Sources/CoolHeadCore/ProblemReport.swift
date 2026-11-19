@@ -8,6 +8,9 @@ import Foundation
 /// the case report would name them). The person's own words are theirs; the form asks them to leave out anything
 /// private, because the issue will be public.
 public enum ProblemReport {
+    /// The most the title's few words can be, counted as they're typed, so titles stay readable in GitHub's list of
+    /// issues (Phil, 19 November 2026: "Maybe limit the summary to characters? Show a character limit in the corner").
+    public static let summaryLimit = 60
     public static let kinds = ["A fix caused trouble", "Cool Head isn't working right", "Something else"]
 
     /// `about`: what Cool Head is holding back that the problem is with, when the person picked one.
@@ -33,10 +36,20 @@ public enum ProblemReport {
         Date(timeIntervalSince1970: (d.timeIntervalSince1970 / 300).rounded() * 300)
     }
 
+    /// The issue's title: the person's few words, so reports don't all share one title (Phil, 19 November 2026: "Reporting
+    /// an issue maybe needs a "describe your issue in five words or less" to generate unique titles? Otherwise they'll all
+    /// be the same if there are multiple reports"). Spaces tidied, at most `summaryLimit` characters; the kind when
+    /// nothing was typed.
+    public static func title(kind: String, summary: String) -> String {
+        var s = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        if s.count > summaryLimit { s = String(s.prefix(summaryLimit)).trimmingCharacters(in: .whitespaces) }
+        return "Problem: " + (s.isEmpty ? kind : s)
+    }
+
     /// The GitHub "new issue" link for the problem form, with the person's words and the report filled in.
-    public static func issueURL(kind: String, words: String, report: String) -> URL? {
+    public static func issueURL(kind: String, summary: String = "", words: String, report: String) -> URL? {
         var u = URLComponents(string: "https://github.com/ThePhilDiamond/CoolHead/issues/new")!
-        u.queryItems = [URLQueryItem(name: "template", value: "problem.yml"), URLQueryItem(name: "title", value: "Problem: \(kind)"),
+        u.queryItems = [URLQueryItem(name: "template", value: "problem.yml"), URLQueryItem(name: "title", value: title(kind: kind, summary: summary)),
                         URLQueryItem(name: "words", value: words), URLQueryItem(name: "report", value: report)]
         return u.url
     }
