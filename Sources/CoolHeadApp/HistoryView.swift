@@ -47,14 +47,12 @@ struct HistoryView: View {
                     // 2026: "maybe as a pie chart or something that illustrates "share of total" rather than arbitrary
                     // bars?"); a bar, not a pie, so the rows' figures sit beside it and a small cause still shows
                     if !h.wakes.isEmpty { WakeSplit(causes: h.wakesByCause, total: h.wakes.count).padding(.bottom, 2) }
-                    // then one row per cause: its color, a symbol, a short name, the count and its share, with what it
-                    // means a click away (Phil, 19 November 2026: "Can we also fix the "Why it woke from sleep" section to
-                    // be more visual? it's a wall of text now")
+                    // then one row per cause: its color, a symbol, a short name, the count and its share, and what it
+                    // means under it, always shown (Phil, 19 November 2026: "Can we also fix the "Why it woke from sleep"
+                    // section to be more visual? it's a wall of text now", then "Remove the chevrons and include the text
+                    // persistently visible when that section is expanded. It seems like a needless extra click anyway")
                     ForEach(h.wakesByCause, id: \.0) { cause, wakes in
-                        let key = "wake-" + cause.rawValue
-                        WakeRow(cause: cause, wakes: wakes, total: h.wakes.count, open: openRow == key) {
-                            withAnimation(.easeOut(duration: 0.15)) { openRow = openRow == key ? nil : key }
-                        }
+                        WakeRow(cause: cause, wakes: wakes, total: h.wakes.count)
                     }
                 }
             } else {
@@ -197,18 +195,15 @@ struct HistoryView: View {
         }
     }
 
-    /// One reason the Mac woke: its symbol, its short name, how many times, and a bar out of every wake; a click opens
-    /// what it means.
+    /// One reason the Mac woke: its color, symbol, short name, how many times, and its share, with what it means under it.
     struct WakeRow: View {
         let cause: PowerHistory.Cause
         let wakes: [PowerHistory.Wake]
         let total: Int
-        let open: Bool
-        let toggle: () -> Void
         @Environment(\.colorScheme) private var scheme
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .center, spacing: 8) {
                     // its color in the bar above, so the row is the bar's legend
                     RoundedRectangle(cornerRadius: 2).fill(WakeSplit.color(cause, scheme)).frame(width: 8, height: 8)
@@ -219,18 +214,11 @@ struct HistoryView: View {
                     Text("\(wakes.count)").font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
                     Text(PowerHistory.share(Double(wakes.count) / Double(max(1, total)))).font(.callout.monospacedDigit())
                         .foregroundStyle(Ink.muted).frame(minWidth: 62, alignment: .trailing)
-                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Ink.muted)
                 }
-                if open {
-                    Text(PowerHistory.detail(cause, wakes)).font(.caption).foregroundStyle(Ink.muted)
-                        .fixedSize(horizontal: false, vertical: true).padding(.leading, 46)
-                }
+                Text(PowerHistory.detail(cause, wakes)).font(.caption).foregroundStyle(Ink.muted)
+                    .fixedSize(horizontal: false, vertical: true).padding(.leading, 46)
             }
-            .contentShape(Rectangle())
-            .onTapGesture { toggle() }
-            .hoverHighlight(true)
             .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isButton)
         }
 
         static func symbol(_ cause: PowerHistory.Cause) -> String {

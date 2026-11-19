@@ -1,1 +1,1 @@
-- Trends' Why it woke from sleep now shows every wake as one bar split by reason, then a row for each reason with its color, a symbol, a short name, the count, and its share; clicking a row says what it means.
+- Trends' Why it woke from sleep now shows every wake as one bar split by reason, then a row for each reason with its color, a symbol, a short name, the count, and its share, and what it means under it.
