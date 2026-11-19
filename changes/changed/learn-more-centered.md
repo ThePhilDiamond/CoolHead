@@ -1,1 +1,0 @@
-- Learn more and Show less are centered on the card, and Show less is in the same color as Learn more, below a line that sets it apart from Nerdy stuff.

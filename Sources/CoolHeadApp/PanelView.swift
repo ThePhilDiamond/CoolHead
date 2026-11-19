@@ -762,6 +762,13 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.13.0": [
+            "The gauges at the top are grouped under Usage and Temperature, and the temperature ring shows the battery or drive when one is nearer its own limit.",
+            "Test my network keeps its results for 30 minutes, with the time of the test beside Test again.",
+            "Managed by Cool Head is open whenever nothing else is: when the panel opens, and when you close a tool or Settings.",
+            "Options that open System Settings, such as Open Battery settings, go straight to the page.",
+            "Nerdy stuff opens as a small terminal, with its copy button in the title bar.",
+        ],
         "0.12.0": [
             "What Cool Head is slowing, limiting, pausing, or has turned off is now Managed by Cool Head, and each line says what it is without a click.",
             "Cleaner checks any folder you choose for identical copies, and the folders inside it, starting with Downloads.",

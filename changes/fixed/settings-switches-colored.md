@@ -1,1 +1,0 @@
-- The switches in Settings show their color when on, whichever app is in front, like the panel's other switches.

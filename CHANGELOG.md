@@ -6,6 +6,31 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.13.0] - 2026-11-19
+
+### Added
+
+- Test my network keeps its results for 30 minutes after you close it or the panel, with the time and date of the test, so you can read them out on a call to your internet provider.
+
+### Changed
+
+- About says what Cool Head is in the same words as the README: "Is your Mac running hot or slow? Cool Head says why in one sentence, with options to act in one click, plus tools to test your network, check your battery and hardware, and clear space." Its license line now says GNU AGPL v3.0 only, as the license does.
+- Managed by Cool Head is open whenever nothing else is: each time the panel opens, and when a tool or Settings closes. It folds while a card or tool is open.
+- Learn more and Show less are centered on the card, and Show less is in the same color as Learn more, below a line that sets it apart from Nerdy stuff.
+- Nerdy stuff opens as a small terminal, green on black, with its copy button in the title bar; folded, it has no copy button.
+- Settings says "Cool Head version" before the number, and the day that version was released.
+- Every tool closes with the same ✕ at the top right, Trends included, and with a tool open, clicking the top of the panel goes back to the cards.
+- The gauges at the top are grouped under Usage and Temperature, each with its part's icon. The temperature ring shows the chip, or the battery or drive when one is nearer its own limit, named under the ring.
+- A battery or drive warmer than its own limit gets a card that needs a look, so the status, the panel's color, and the menu bar icon agree with the temperature ring. A battery too warm to charge says so on that card.
+
+### Fixed
+
+- Quitting DisplayLink Manager is no longer marked Caution: its screens only go dark until it's running again. Quitting Docker still is, because its containers stop.
+- The battery-lost-while-asleep card no longer counts a day of use as sleep: opening the lid now ends a sleep, as it should. Its sentence also says what macOS's own wakes are for.
+- Options that open a page of System Settings, such as Open Battery settings, open it directly, instead of asking you to paste an address System Settings has no place for.
+- Hardware's chip temperature is the same reading as the temperature ring at the top, taken every 3 seconds, and says so. It had shown a reading up to 10 minutes old.
+- The switches in Settings show their color when on, whichever app is in front, like the panel's other switches.
+
 ## [0.12.0] - 2026-11-19
 
 ### Changed
@@ -341,7 +366,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.9.0...v0.10.0

@@ -1,1 +1,0 @@
-- Every tool closes with the same ✕ at the top right, Trends included, and with a tool open, clicking the top of the panel goes back to the cards.

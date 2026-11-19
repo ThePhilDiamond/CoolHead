@@ -1,1 +1,0 @@
-- Quitting DisplayLink Manager is no longer marked Caution: its screens only go dark until it's running again. Quitting Docker still is, because its containers stop.

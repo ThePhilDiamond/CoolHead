@@ -1,1 +1,0 @@
-- Hardware's chip temperature is the same reading as the Heat ring at the top, taken every 3 seconds, and says so. It had shown a reading up to 10 minutes old.
