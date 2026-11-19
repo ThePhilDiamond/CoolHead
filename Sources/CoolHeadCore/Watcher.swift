@@ -63,11 +63,9 @@ public final class Watcher {
     public struct LogEntry { public let t: Date; public let text: String }
     /// Set to open the "Report a problem" form (from the tools along the bottom, or after a fix).
     public var showReport = false
-    /// Set to show the past week from macOS's power log (the Trends tool along the bottom).
-    public var showHistory = false
     /// Changes each time the panel closes, so it reopens clean: nothing left expanded, no form left open.
     public private(set) var panelSession = 0
-    public func panelClosed() { showReport = false; showHistory = false; panelSession += 1; notices = [] }
+    public func panelClosed() { showReport = false; panelSession += 1; notices = [] }
     /// Short notes about something Cool Head noticed on its own (an app put a slowed process back to full speed),
     /// shown at the top of the panel until it next closes.
     public private(set) var notices: [String] = []

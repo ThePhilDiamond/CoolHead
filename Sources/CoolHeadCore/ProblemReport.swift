@@ -11,14 +11,35 @@ public enum ProblemReport {
     /// The most the title's few words can be, counted as they're typed, so titles stay readable in GitHub's list of
     /// issues (Phil, 19 November 2026: "Maybe limit the summary to characters? Show a character limit in the corner").
     public static let summaryLimit = 60
+    /// What went wrong with something Cool Head was managing, each finishing the title's sentence after what Cool Head
+    /// did: "Chrome's memory limit caused an app to crash or quit" (Phil, 19 November 2026: "We can't word the report
+    /// title exactly as it's worded, because that makes what we're doing the problem rather than explaining what issue
+    /// occurred while doing that ... "[card type] caused [problem]" ... Might require more options for the type of issue
+    /// so it's clearer and more useful for troubleshooting"). The last asks for a few words instead.
+    public static let heldProblems = ["Caused an app to crash or quit", "Stopped something from working", "Caused lost work or data",
+                                      "Didn't help", "Made my Mac slower", "Something else"]
+    /// The title of a report about something Cool Head was managing: what it did, then what went wrong, in full; with
+    /// Something else, what it did and the person's few words.
+    public static func heldTitle(doing: String, problem: String, summary: String) -> String {
+        if problem == heldProblems.last {
+            let s = tidy(summary)
+            return "Problem: " + (s.isEmpty ? doing : "\(doing): \(s)")
+        }
+        return "Problem: \(doing) " + problem.prefix(1).lowercased() + problem.dropFirst()
+    }
+    static func tidy(_ summary: String) -> String {
+        let s = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        return s.count > summaryLimit ? String(s.prefix(summaryLimit)).trimmingCharacters(in: .whitespaces) : s
+    }
     public static let kinds = ["A fix caused trouble", "Cool Head isn't working right", "Something else"]
 
     /// `about`: what Cool Head is holding back that the problem is with, when the person picked one.
     public static func make(kind: String, words: String, activity: [Watcher.LogEntry], cards: [LiveCard], mac: MacState,
-                            about: String? = nil, now: Date = Date()) -> String {
+                            about: String? = nil, problem: String? = nil, now: Date = Date()) -> String {
         var lines: [String] = []
         lines.append("**What happened:** \(kind)")
         if let about { lines.append("**With:** \(about)") }
+        if let problem { lines.append("**What went wrong:** \(problem)") }
         lines.append("")
         lines.append("**Cool Head's activity in the last 6 hours** (times to the nearest 5 minutes):")
         let recent = activity.filter { now.timeIntervalSince($0.t) <= 6 * 3600 }.suffix(40)
@@ -41,15 +62,14 @@ public enum ProblemReport {
     /// be the same if there are multiple reports"). Spaces tidied, at most `summaryLimit` characters; the kind when
     /// nothing was typed.
     public static func title(kind: String, summary: String) -> String {
-        var s = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        if s.count > summaryLimit { s = String(s.prefix(summaryLimit)).trimmingCharacters(in: .whitespaces) }
+        let s = tidy(summary)
         return "Problem: " + (s.isEmpty ? kind : s)
     }
 
     /// The GitHub "new issue" link for the problem form, with the person's words and the report filled in.
-    public static func issueURL(kind: String, summary: String = "", words: String, report: String) -> URL? {
+    public static func issueURL(title: String, words: String, report: String) -> URL? {
         var u = URLComponents(string: "https://github.com/ThePhilDiamond/CoolHead/issues/new")!
-        u.queryItems = [URLQueryItem(name: "template", value: "problem.yml"), URLQueryItem(name: "title", value: title(kind: kind, summary: summary)),
+        u.queryItems = [URLQueryItem(name: "template", value: "problem.yml"), URLQueryItem(name: "title", value: title),
                         URLQueryItem(name: "words", value: words), URLQueryItem(name: "report", value: report)]
         return u.url
     }

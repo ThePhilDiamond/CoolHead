@@ -15,11 +15,9 @@ struct ToolsBar: View {
     var hasBattery: Bool {
         watcher.mac.batteryPercent != nil || HardwareWatch.shared.report?.battery != nil || PanelView.sampleSnapshot
     }
-    /// Trends (the power log's charts) appears when that tool is in the app: whether it's open, and how to toggle it.
-    var trends: (shown: Bool, toggle: () -> Void)? = nil
 
     var body: some View {
-        // eight tools fit the panel's width with their names when each is as narrow as its name allows
+        // seven tools fit the panel's width with their names when each is as narrow as its name allows
         HStack(spacing: labels ? 1 : 6) {
             ToolButton(symbol: "network", name: "Network", tip: "Test my network", labels: labels, on: network.shown) {
                 let open = !network.shown
@@ -43,14 +41,6 @@ struct ToolsBar: View {
                 let open = !tools.hardware
                 closeAll()
                 tools.hardware = open
-            }
-            if let trends {
-                // a chart, not a clock: it's for spotting patterns, not looking back (Phil, 16 November 2026)
-                ToolButton(symbol: "chart.xyaxis.line", name: "Trends", tip: "Trends this week", labels: labels, on: trends.shown) {
-                    let open = !trends.shown
-                    closeAll()
-                    if open { trends.toggle() }
-                }
             }
             ToolButton(symbol: "checkmark.shield", name: "Trusted", tip: "Trusted apps and jobs", labels: labels, on: tools.trusted) {
                 let open = !tools.trusted
@@ -118,7 +108,6 @@ final class Tools: ObservableObject {
         shared.cleaner = false
         shared.reportAboutHeld = false
         watcher.showReport = false
-        watcher.showHistory = false
     }
     /// Show each tool's name under its icon (on by default; Show tool names on the Settings page).
     nonisolated static let labelsKey = "toolLabels"

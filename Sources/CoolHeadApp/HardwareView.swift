@@ -195,7 +195,9 @@ struct RunningStrip: View {
             Image(nsImage: Snowflake.image(icon: r.icon, scale: 2.2))
                 .accessibilityLabel(level == .good ? "All good" : level == .warning ? "Worth watching" : "Problem")
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                // each part kept whole, so a line breaks only at the "·": "Running hot ·" over "1 to watch", never "1" over "to watch"
+                Text(title.components(separatedBy: " · ").map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: " · "))
+                    .font(.headline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 Text(meaning(r)).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 6)

@@ -21,8 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)          // menu bar only, no Dock icon
-        // COOLHEAD_SNAPSHOT_HISTORY: draws the history view with made-up history and quits, before watching starts
-        if let path = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HISTORY"] { HistoryView.snapshot(to: path); NSApp.terminate(nil); return }
         if Bundle.main.bundleIdentifier != nil { UNUserNotificationCenter.current().delegate = self }  // crashes outside an app bundle
         let watcher = Watcher.shared
         watcher.onAlert = { card in Alerts.send(card) }

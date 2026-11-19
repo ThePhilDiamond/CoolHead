@@ -49,7 +49,7 @@ public struct PowerHistory: Equatable {
     public var totalEnergy: Double { users.reduce(0) { $0 + $1.energy } }
 
 
-    /// What used the most energy, as Trends shows it (Phil, 17 November 2026: "The goal is useful data that a lay
+    /// What used the most energy, as the Battery page shows it (Phil, 17 November 2026: "The goal is useful data that a lay
     /// person can act on. If it's just data for data's sake because we can access it, we should drop it."): apps and
     /// programs one by one, since something can be done about them, and macOS's own parts together as one line, since
     /// there's nothing to change there. Each says, when clicked, what its share means and whether to do anything. "What woke the

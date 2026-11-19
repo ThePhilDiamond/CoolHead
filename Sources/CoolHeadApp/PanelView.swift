@@ -84,18 +84,13 @@ struct PanelView: View {
                     } else if tools.trusted {
                         TrustedView(watcher: watcher)
                     } else if tools.battery {
-                        BatteryView(watcher: watcher,
-                                    openTrends: PowerHistory.available || HistoryView.snapshotSample != nil
-                                        ? { tools.battery = false; watcher.showHistory = true } : nil,
-                                    close: { tools.battery = false })
+                        BatteryView(watcher: watcher, close: { tools.battery = false })
                     } else if tools.hardware {
                         HardwareView(close: { tools.hardware = false })
                     } else if tools.cleaner {
                         CleanerView(close: { tools.cleaner = false })
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
-                    } else if watcher.showHistory {
-                        HistoryView(sample: HistoryView.snapshotSample) { watcher.showHistory = false }
                     } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
                         Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
                             .foregroundStyle(Ink.muted)
@@ -117,10 +112,7 @@ struct PanelView: View {
             // fixed at the bottom
             VStack(alignment: .leading, spacing: 10) {
                 // the battery's health is on the Battery tool's page now, not a line here (Phil, 16 November 2026)
-                // Trends: the past week from macOS's power log, where this Mac's log can be read (or in a screenshot)
-                ToolsBar(watcher: watcher,
-                         trends: PowerHistory.available || HistoryView.snapshotSample != nil
-                             ? (watcher.showHistory, { watcher.showHistory.toggle() }) : nil)
+                ToolsBar(watcher: watcher)
             }
             .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
             .padding(.trailing, extra)           // the tools stay where they were while the panel is wider
@@ -133,10 +125,10 @@ struct PanelView: View {
     /// The header's level: the same rule, and the same cards, as the snowflake below it and the menu bar icon.
     var level: Watcher.Level { watcher.level(shownCards, thermal: RunningStrip.snapshotThermal) }
 
-    /// A tool, Settings, Report a problem, or Trends is open in the middle.
+    /// A tool, Settings, or Report a problem is open in the middle.
     var toolOpen: Bool {
         network.shown || tools.settings || tools.trusted || tools.battery || tools.hardware || tools.cleaner
-            || watcher.showReport || watcher.showHistory
+            || watcher.showReport
     }
 
     var shownCards: [LiveCard] {
@@ -229,8 +221,10 @@ final class ReportDraft: ObservableObject {
     @Published var words = ""
     /// A few words for the issue's title (see ProblemReport.title).
     @Published var summary = ""
+    /// What went wrong with a managed item the report is about (see ProblemReport.heldProblems).
+    @Published var heldProblem = ProblemReport.heldProblems[0]
     @Published var about: String?
-    func clear() { kind = ProblemReport.kinds[0]; words = ""; summary = ""; about = nil }
+    func clear() { kind = ProblemReport.kinds[0]; words = ""; summary = ""; heldProblem = ProblemReport.heldProblems[0]; about = nil }
 }
 
 /// A group of options folded to one line with how many it holds; a click opens it (Phil, 18 November 2026: "it would
@@ -666,16 +660,22 @@ struct ProblemView: View {
     var chosen: String? { freezes.isEmpty || pick == ProblemView.somethingElse ? nil : pick }
     var problem: String { chosen == nil ? draft.kind : ProblemReport.kinds[0] }
     /// The picked hold as the report says it (see `FrozenItem.reportLine`).
-    var chosenForReport: String? { chosen.flatMap { c in FrozenItem.all(watcher).first { $0.line == c }?.reportLine } }
+    var chosenForReport: String? { chosenItem?.reportLine }
+    var chosenItem: FrozenItem? { chosen.flatMap { c in FrozenItem.all(watcher).first { $0.line == c } } }
+    /// About a managed item, the few words are asked only for Something else.
+    var asksSummary: Bool { chosen == nil || draft.heldProblem == ProblemReport.heldProblems.last }
 
-    /// The issue's title words: the managed item a report is about, as the report says it, or else what was typed
-    /// (Phil, 19 November 2026: "The report button linked to a managed task can generate the title by including the task
-    /// that was being managed so we keep that one less field").
-    var titleWords: String { chosenForReport ?? draft.summary }
+    /// The issue's title: about a managed item, what Cool Head did and what went wrong ("Problem: Chrome's memory
+    /// limit caused an app to crash or quit"); otherwise the person's few words.
+    var issueTitle: String {
+        if let item = chosenItem { return ProblemReport.heldTitle(doing: item.reportDoing, problem: draft.heldProblem, summary: draft.summary) }
+        return ProblemReport.title(kind: problem, summary: draft.summary)
+    }
     /// Nothing for the title yet: sending waits, so every report has its own title.
-    var noSummary: Bool { titleWords.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var noSummary: Bool { asksSummary && draft.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
-    var report: String { ProblemReport.make(kind: problem, words: draft.words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac, about: chosenForReport) }
+    var report: String { ProblemReport.make(kind: problem, words: draft.words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac, about: chosenForReport,
+                                                problem: chosen == nil ? nil : draft.heldProblem) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -689,10 +689,13 @@ struct ProblemView: View {
             if chosen == nil {
                 Text("What went wrong?").font(.callout.weight(.medium))
                 SelectField(options: ProblemReport.kinds, selection: $draft.kind, open: ProblemView.choiceOpen && freezes.isEmpty)
+            } else {
+                Text("What went wrong?").font(.callout.weight(.medium))
+                SelectField(options: ProblemReport.heldProblems, selection: $draft.heldProblem, open: false)
             }
             // the issue's title, so no two reports share one; sending waits for at least a word. Any number of words, up
-            // to the limit, with the count in the field's corner; not asked when the report is about a managed item
-            if chosen == nil {
+            // to the limit, with the count in the field's corner; about a managed item, only for Something else
+            if asksSummary {
             Text("In a few words, what happened?").font(.callout.weight(.medium))
             TextField("For example: Chrome's limit didn't lift", text: $draft.summary)
                 .textFieldStyle(.plain)
@@ -735,14 +738,14 @@ struct ProblemView: View {
             HStack(spacing: 8) {
                 Button("Open in GitHub") {
                     watcher.log("Report a problem sent to GitHub")
-                    if let u = ProblemReport.issueURL(kind: problem, summary: titleWords, words: draft.words, report: report) { NSWorkspace.shared.open(u) }
+                    if let u = ProblemReport.issueURL(title: issueTitle, words: draft.words, report: report) { NSWorkspace.shared.open(u) }
                     finish()
                 }
                 .buttonStyle(.borderedProminent).controlSize(.small)
                 .disabled(noSummary)
                 Button(copied ? "Copied" : "Copy") {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString("\(ProblemReport.title(kind: problem, summary: titleWords))\n\n\(draft.words)\n\n\(report)", forType: .string)
+                    NSPasteboard.general.setString("\(issueTitle)\n\n\(draft.words)\n\n\(report)", forType: .string)
                     copied = true
                 }
                 .buttonStyle(.bordered).controlSize(.small)
@@ -1054,6 +1057,18 @@ enum FrozenItem: Identifiable {
     }
     /// The line as a problem report says it: anonymised as the activity log is, with no file, folder or project names
     /// (the README's promise for reports); the person sees it before anything leaves.
+    /// What Cool Head did, as the start of a report's title, anonymised as `reportLine` is: "Chrome's memory limit"
+    /// caused an app to crash or quit (see ProblemReport.heldTitle).
+    var reportDoing: String {
+        switch self {
+        case .cooled(let c): return "Running \(c.reportSubject) cooler"
+        case .paused(let p): return "Pausing \(p.reportSubject) until plugged in"
+        case .sync(let s): return "Pausing \(s.name) syncing"
+        case .chrome: return "Chrome's memory limit"
+        case .agent(let a): return a.owner == a.label ? "Turning off a background helper" : "Turning off \(a.owner)'s background helper"
+        case .backup: return "Skipping a build folder in Time Machine"
+        }
+    }
     var reportLine: String {
         switch self {
         case .cooled(let c): return "Slowing \(c.reportSubject)"

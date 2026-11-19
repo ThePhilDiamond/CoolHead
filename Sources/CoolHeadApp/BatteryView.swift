@@ -7,8 +7,8 @@ import SwiftUI
 /// than having mixed data in mixed places"). A battery problem still gets its own card in the list as well.
 struct BatteryView: View {
     let watcher: Watcher
-    /// Opens Trends, where the past week's energy use is, when this Mac's power log can be read.
-    var openTrends: (() -> Void)? = nil
+    /// Whether the past week's energy use can be shown: this Mac's power log can be read, or it's a screenshot.
+    var energy = PowerHistory.available || PanelView.sampleSnapshot
     let close: () -> Void
     @AppStorage(BatteryMode.key) private var batterySaver = true
 
@@ -64,12 +64,8 @@ struct BatteryView: View {
                 .buttonStyle(.bordered).controlSize(.small)
                 .help("Low Power Mode slows the Mac a little and dims the screen so the battery lasts longer. Switching it needs your password, so Cool Head opens Battery settings.")
             }
-            if let openTrends {
-                HStack(spacing: 8) {
-                    Image(systemName: "chart.xyaxis.line")
-                    Button("What used the most energy this week", action: openTrends).buttonStyle(.link)
-                }
-            }
+            // the week's energy use, here rather than in a Trends tool of its own (see EnergyWeek)
+            if energy { EnergyWeek(sample: PanelView.sampleSnapshot ? .sample() : nil) }
             // no Nerdy stuff: every figure the hardware check reads is already in the sentences above (Phil, 16 November
             // 2026: "does the nerdy stuff section add detail? ... Otherwise can remove it")
             Divider()

@@ -59,7 +59,11 @@ public struct Fixture {
                        ("problem-report-title", ProblemReport.title(kind: "Something else", summary: "  Chrome's limit\ndidn't lift ") == "Problem: Chrome's limit didn't lift"
                             && ProblemReport.title(kind: "Something else", summary: "") == "Problem: Something else"
                             && ProblemReport.title(kind: "x", summary: String(repeating: "word ", count: 20)).count <= "Problem: ".count + ProblemReport.summaryLimit
-                            && ProblemReport.issueURL(kind: "x", summary: "Menu icon stuck", words: "", report: "")?.absoluteString.contains("title=Problem:%20Menu%20icon%20stuck") == true,
+                            && ProblemReport.issueURL(title: ProblemReport.title(kind: "x", summary: "Menu icon stuck"), words: "", report: "")?.absoluteString.contains("title=Problem:%20Menu%20icon%20stuck") == true
+                            // about a managed item: what Cool Head did, then what went wrong; Something else takes the few words
+                            && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: ProblemReport.heldProblems[0], summary: "") == "Problem: Chrome's memory limit caused an app to crash or quit"
+                            && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: "Didn't help", summary: "") == "Problem: Chrome's memory limit didn't help"
+                            && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: "Something else", summary: "tabs blank") == "Problem: Chrome's memory limit: tabs blank",
                         ProblemReport.title(kind: "Something else", summary: "  Chrome's limit\ndidn't lift "))]
         // review of 15 November 2026: each finding that was fixed keeps a check here
         var review: [(String, Bool, String)] = []
