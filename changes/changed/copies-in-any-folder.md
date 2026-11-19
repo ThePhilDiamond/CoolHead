@@ -1,0 +1,1 @@
+- Cleaner's check for identical copies works on any folder you choose, with Downloads chosen to start, and also finds Finder's duplicates, such as Report copy.pdf beside Report.pdf.

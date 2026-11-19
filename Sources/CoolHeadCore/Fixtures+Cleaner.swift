@@ -109,11 +109,19 @@ extension Fixture {
         // same name pattern and same size, one byte different: compared byte for byte, so not offered
         fm.createFile(atPath: dl + "/Photo.jpg", contents: Data("abcdefgh".utf8)); fm.createFile(atPath: dl + "/Photo (1).jpg", contents: Data("abcdefgX".utf8))
         file(dl + "/Old.dmg", bytes: 100, daysOld: 40); file(dl + "/Open.dmg", bytes: 100, daysOld: 40); file(dl + "/New.pkg", bytes: 100)
+        // Finder's Duplicate names it "Budget copy.xlsx" (Phil, 19 November 2026: "check anywhere for duplicates")
+        file(dl + "/Budget.xlsx", bytes: 3_000); file(dl + "/Budget copy.xlsx", bytes: 3_000)
         let downloads = Cleaner.scanDownloads(dl, now: now, mounted: [dl + "/Open.dmg"])
         let ids = Set(downloads.map(\.id))
-        review.append(("cleaner-downloads", ids == ["download:Old.dmg", "copy:Report (1).pdf"]
+        // what it found may move from the chosen folder, wherever it is, and from nowhere else
+        let chosenOK = Cleaner.inChosen(dl + "/Report (1).pdf", dl) && !Cleaner.inChosen(dl + "/Report (1).pdf", root)
+            && !Cleaner.inChosen(dl + "/../Downloads/Report (1).pdf", dl) && !Cleaner.inChosen(dl + "/Report (1).pdf", nil)
+            && downloads.allSatisfy { $0.folder == dl }
+        review.append(("cleaner-downloads", ids == ["download:Old.dmg", "copy:Report (1).pdf", "copy:Budget copy.xlsx"] && chosenOK
                        && downloads.first { $0.id.hasPrefix("copy:") }?.group == .quick && downloads.first { $0.id.hasPrefix("download:") }?.caution == true
-                       && Cleaner.secondDownload("a (12).zip") == "a.zip" && Cleaner.secondDownload("a.zip") == nil, "\(downloads.map(\.id))"))
+                       && Cleaner.secondDownload("a (12).zip") == "a.zip" && Cleaner.secondDownload("a.zip") == nil
+                       && Cleaner.secondDownload("a copy 2.zip") == "a.zip" && Cleaner.secondDownload("copy.zip") == nil,
+                       "\(downloads.map(\.id)); may move only from the chosen folder: \(chosenOK)"))
 
         // for real: a throwaway file goes to the Trash and comes back; a link moves as a link, its target staying; a path
         // through a linked folder planted in a scanned folder is refused
