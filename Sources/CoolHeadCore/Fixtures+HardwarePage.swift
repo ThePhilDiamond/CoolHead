@@ -102,6 +102,17 @@ extension Fixture {
                  HardwarePage.memory(freePercent: 8, pressure: "critical")]
         let g1 = g.map(\.level) == [0, 1, 2, 0, 1, 2] && g.map(\.percent) == [20, 60, 90, 42, 78, 92]
         review.append(("hardware-page-gauges", g1, g.map { "\($0.name) \($0.percent)%" }.joined(separator: ", ")))
+        // the heat ring: the part nearest its own limit, the chip on a tie; a battery warm while charging is expected
+        let h = [HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 31, driveC: 34),          // all calm: chip
+                 HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 46, driveC: 34),          // hot battery
+                 HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 42, charging: true),      // warm, charging: chip
+                 HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 42),                      // warm, not charging
+                 HardwarePage.heat(chipC: 90, thermal: "serious", batteryC: 42),                      // a tie: chip
+                 HardwarePage.heat(chipC: 55, thermal: "nominal", driveC: 72),                        // warm drive
+                 HardwarePage.heat(chipC: nil, thermal: "nominal", batteryC: 31)]                     // no chip reading
+        let h1 = h.map { $0?.name ?? "none" } == ["Chip heat", "Battery heat", "Chip heat", "Battery heat", "Chip heat", "Drive heat", "Battery heat"]
+            && h.map { $0?.level ?? -1 } == [0, 2, 0, 1, 1, 1, 0]
+        review.append(("heat-ring-part", h1, h.map { "\($0?.name ?? "none") \($0?.text ?? "") level \($0?.level ?? -1)" }.joined(separator: ", ")))
         return review
     }
 

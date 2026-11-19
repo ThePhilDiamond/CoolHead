@@ -162,7 +162,13 @@ struct RunningStrip: View {
         case .some: 55
         case nil: PanelView.limitedSnapshot ? 55 : load.chipC
         }
-        let heat = HardwarePage.heat(chipC: chipC, thermal: thermal).map { [$0] } ?? []
+        // the battery's and drive's from the hardware report (they change slowly); made up in a screenshot, where
+        // COOLHEAD_SNAPSHOT_RUNNING=battery shows a hot battery beside a calm chip
+        let report = PanelView.limitedSnapshot || snapshot != nil ? nil : HardwareWatch.shared.report
+        let batteryC: Double? = snapshot == "battery" ? 46 : snapshot != nil || PanelView.limitedSnapshot ? 31 : report?.battery?.temperatureC
+        let driveC: Double? = snapshot != nil || PanelView.limitedSnapshot ? 34 : report?.drive?.temperatureC.map(Double.init)
+        let heat = HardwarePage.heat(chipC: chipC, thermal: thermal, batteryC: batteryC, charging: report?.battery?.charging ?? false,
+                                     driveC: driveC).map { [$0] } ?? []
         switch snapshot {
         case "hot": return [HardwarePage.chip(busy: 0.62), memory ?? HardwarePage.memory(freePercent: 22, pressure: "warning")] + heat
         case "fire": return [HardwarePage.chip(busy: 0.93), memory ?? HardwarePage.memory(freePercent: 8, pressure: "critical")] + heat
@@ -173,6 +179,16 @@ struct RunningStrip: View {
         }
     }
 
+    /// The sentence under the status. When the heat ring shows the battery or the drive, it names that part first, so the
+    /// line beside a warm ring never says only "a normal temperature" (that sentence is the chip's).
+    func meaning(_ r: HardwarePage.Running) -> String {
+        guard let g = gauges.last, g.level > 0, g.name == "Battery heat" || g.name == "Drive heat" else { return r.meaning }
+        let part = g.name == "Battery heat" ? "The battery" : "The drive"
+        let thermal = RunningStrip.snapshotThermal ?? watcher.mac.thermal
+        let chip = thermal == "serious" || thermal == "critical" ? "and macOS is slowing the chip to cool it." : "and the chip is at full speed."
+        return "\(part) is \(g.level >= 2 ? "hot" : "warm"), \(chip)"
+    }
+
     var body: some View {
         let r = running
         HStack(spacing: 12) {
@@ -180,10 +196,18 @@ struct RunningStrip: View {
                 .accessibilityLabel(level == .good ? "All good" : level == .warning ? "Worth watching" : "Problem")
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                Text(r.meaning).font(.caption).foregroundStyle(Ink.muted).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                Text(meaning(r)).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 6)
-            ForEach(gauges, id: \.name) { gauge($0) }
+            // two groups, each titled, with a line between: how busy the chip and memory are, then whose heat (Phil,
+            // 19 November 2026: "Should we add a "usage" and "heat" title above the gauges with a vertical divider between
+            // the usage and heat? Might be cleaner and more clear")
+            let all = gauges
+            gaugeGroup("Usage", all.filter { !$0.isHeat })
+            if all.contains(where: \.isHeat) {
+                Divider().frame(height: 64)
+                gaugeGroup("Heat", all.filter(\.isHeat))
+            }
         }
         .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
         .padding(.trailing, extra)
@@ -193,6 +217,15 @@ struct RunningStrip: View {
         .background(Color(nsColor: Badge.color(level)).opacity(0.10))
         .onAppear { load.start() }
         .onDisappear { load.stop() }
+    }
+
+    /// A titled group of gauges in the top strip.
+    func gaugeGroup(_ title: String, _ gs: [HardwarePage.Gauge]) -> some View {
+        VStack(spacing: 4) {
+            Text(title).font(.caption2.weight(.semibold)).foregroundStyle(Ink.muted).textCase(.uppercase)
+                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 12) { ForEach(gs, id: \.name) { gauge($0) } }
+        }
     }
 
     /// A gauge: a ring filled to its share in its level's colour, the percentage inside and the name under it, larger
@@ -210,11 +243,17 @@ struct RunningStrip: View {
             .tint(NetworkView.color(g.level))
             // macOS draws this gauge at a fixed size; smaller, so the title beside it keeps its room
             .scaleEffect(0.8).frame(width: 46, height: 46)
-            Text(g.name).font(.caption).foregroundStyle(Ink.muted).fixedSize()
+            // the part's icon beside its name, so the heat ring says whose heat it is
+            HStack(spacing: 3) {
+                if let s = g.symbol { Image(systemName: s).font(.system(size: 9, weight: .semibold)) }
+                // under the Heat title, only the part: "Battery", not "Battery heat"
+                Text(g.isHeat ? String(g.name.dropLast(" heat".count)) : g.name)
+            }
+            .font(.caption).foregroundStyle(Ink.muted).fixedSize()           // grey, like every label: the ring's color carries the level
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(g.text.map { "\(g.name) \($0)" } ?? "\(g.name) \(g.percent) percent")
-        .help(g.name == "Heat" ? "The hottest of the chip's sensors, read every 3 seconds. Hardware shows it with the battery's and the drive's." : "")
+        .help(HardwarePage.heatHelp(g.name))
     }
 }
 

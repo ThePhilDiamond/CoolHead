@@ -1,0 +1,1 @@
+- The gauges at the top are grouped under Usage and Heat, each with its part's icon. The heat ring shows the chip, or the battery or drive when one is nearer its own limit, named under the ring.
