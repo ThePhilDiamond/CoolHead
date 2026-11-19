@@ -47,7 +47,7 @@ struct HistoryView: View {
                     // 2026: "maybe as a pie chart or something that illustrates "share of total" rather than arbitrary
                     // bars?"); a bar, not a pie, so the rows' figures sit beside it and a small cause still shows
                     if !h.wakes.isEmpty { WakeSplit(causes: h.wakesByCause, total: h.wakes.count).padding(.bottom, 2) }
-                    // then one row per cause: its colour, a symbol, a short name, the count and its share, with what it
+                    // then one row per cause: its color, a symbol, a short name, the count and its share, with what it
                     // means a click away (Phil, 19 November 2026: "Can we also fix the "Why it woke from sleep" section to
                     // be more visual? it's a wall of text now")
                     ForEach(h.wakesByCause, id: \.0) { cause, wakes in
@@ -159,8 +159,8 @@ struct HistoryView: View {
     }
 
     /// Every wake as one thin bar, 8 points tall with round ends, a part per cause in the rows' order, 2 points apart.
-    /// Each cause keeps its own colour whatever its rank, from a palette checked for colour blindness in light and dark
-    /// (the dataviz skill's validator: every check passes; in light, three colours are under 3:1 against the card, so
+    /// Each cause keeps its own color whatever its rank, from a palette checked for color blindness in light and dark
+    /// (the dataviz skill's validator: every check passes; in light, three colors are under 3:1 against the card, so
     /// the rows beside the bar carry every name and figure).
     struct WakeSplit: View {
         let causes: [(PowerHistory.Cause, [PowerHistory.Wake])]
@@ -185,7 +185,7 @@ struct HistoryView: View {
                 .joined(separator: "; "))
         }
 
-        /// A cause's colour, fixed to the cause, never to its rank: the dataviz skill's eight categorical hues, stepped for
+        /// A cause's color, fixed to the cause, never to its rank: the dataviz skill's eight categorical hues, stepped for
         /// light and dark, and grey for reasons Cool Head doesn't recognize.
         static func color(_ cause: PowerHistory.Cause, _ scheme: ColorScheme = .light) -> Color {
             let light: [PowerHistory.Cause: UInt32] = [.schedule: 0x2a78d6, .lid: 0xeb6834, .wireless: 0x1baf7a, .plug: 0xeda100,
@@ -210,7 +210,7 @@ struct HistoryView: View {
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .center, spacing: 8) {
-                    // its colour in the bar above, so the row is the bar's legend
+                    // its color in the bar above, so the row is the bar's legend
                     RoundedRectangle(cornerRadius: 2).fill(WakeSplit.color(cause, scheme)).frame(width: 8, height: 8)
                     Image(systemName: WakeRow.symbol(cause)).font(.system(size: 14)).foregroundStyle(Ink.muted)
                         .frame(width: 22, height: 22)

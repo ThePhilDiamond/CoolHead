@@ -206,10 +206,10 @@ enum LoginItem {
     }
 }
 
-/// The menu bar icon: a snowflake with a status badge at its top right. The badge's shape and colour both carry the
-/// meaning, for people who can't tell the colours apart: green circle, all well; yellow triangle, something needs a
-/// look; red octagon, a problem. The flake is drawn in the menu bar's text colour at draw time, so it follows light
-/// and dark menu bars even though the image isn't a template (templates can't hold colour).
+/// The menu bar icon: a snowflake with a status badge at its top right. The badge's shape and color both carry the
+/// meaning, for people who can't tell the colors apart: green circle, all well; yellow triangle, something needs a
+/// look; red octagon, a problem. The flake is drawn in the menu bar's text color at draw time, so it follows light
+/// and dark menu bars even though the image isn't a template (templates can't hold color).
 enum MenuIcon {
     /// Posted when the icon's style changes, so the menu bar redraws it.
     static let changed = Notification.Name("CoolHeadMenuIconChanged")

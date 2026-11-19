@@ -1090,7 +1090,7 @@ struct FrozenList: View {
             if tools.reportAboutHeld { ProblemView(watcher: watcher, inline: true) { tools.reportAboutHeld = false } }
         }
         .padding(6)
-        // the section takes the frost's colours at its edge, so the button and form read as part of it
+        // the section takes the frost's colors at its edge, so the button and form read as part of it
         .background(RoundedRectangle(cornerRadius: 13).fill(IceTint.color.opacity(0.12)))
         .background(RoundedRectangle(cornerRadius: 13).fill(Ink.card))
         .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Frozen.ice.opacity(0.55), lineWidth: 1))
@@ -1746,7 +1746,7 @@ struct FixRow: View {
 }
 
 /// An option's tile: a filled, bordered, full-width button that lightens under the mouse (with the pointing hand) and
-/// darkens when pressed. The recommended one is filled with the accent colour, in white.
+/// darkens when pressed. The recommended one is filled with the accent color, in white.
 struct OptionStyle: ButtonStyle {
     let recommended: Bool
     /// A task for you (Cool Head opens the place or shows the steps): an outline with a dashed border and no fill.
@@ -1794,7 +1794,7 @@ struct OptionStyle: ButtonStyle {
     }
 }
 
-/// The recommended option: filled with the accent colour, white text, whether or not the panel is the active window
+/// The recommended option: filled with the accent color, white text, whether or not the panel is the active window
 /// (macOS greys its own prominent buttons in an inactive window).
 struct RecommendedButton: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
@@ -1808,7 +1808,7 @@ struct RecommendedButton: ButtonStyle {
     }
 }
 
-/// A small label in an option's bottom right corner, with a symbol, in its colour.
+/// A small label in an option's bottom right corner, with a symbol, in its color.
 struct OptionTag: View {
     let words: String
     let symbol: String
@@ -1891,7 +1891,7 @@ struct IconButton: View {
     }
 }
 
-/// Text and surface colours chosen for contrast in both light and dark, instead of macOS's paler secondary greys.
+/// Text and surface colors chosen for contrast in both light and dark, instead of macOS's paler secondary greys.
 enum Ink {
     /// Main text.
     static let text = Color.primary
