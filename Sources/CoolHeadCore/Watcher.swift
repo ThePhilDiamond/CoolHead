@@ -63,11 +63,9 @@ public final class Watcher {
     public struct LogEntry { public let t: Date; public let text: String }
     /// Set to open the "Report a problem" form (from the tools along the bottom, or after a fix).
     public var showReport = false
-    /// Set to show the past week from macOS's power log (the Trends tool along the bottom).
-    public var showHistory = false
     /// Changes each time the panel closes, so it reopens clean: nothing left expanded, no form left open.
     public private(set) var panelSession = 0
-    public func panelClosed() { showReport = false; showHistory = false; panelSession += 1; notices = [] }
+    public func panelClosed() { showReport = false; panelSession += 1; notices = [] }
     /// Short notes about something Cool Head noticed on its own (an app put a slowed process back to full speed),
     /// shown at the top of the panel until it next closes.
     public private(set) var notices: [String] = []
@@ -585,7 +583,7 @@ public final class Watcher {
         let game = gathered.first { $0.2.gameBundle != nil }.flatMap { $0.2.gameBundle }
             .map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
         let front = NSWorkspace.shared.frontmostApplication?.bundleURL?.path
-        let battery = BatteryMode.enabled && !state.onPower ? state.batteryPercent : nil       // a desktop has no battery
+        let battery = !state.onPower ? state.batteryPercent : nil       // on battery, always (no switch); a desktop has none
         // processes writing lots to disk right now (over 100 KB a second), for a busy sync app: a build in a folder it
         // syncs makes it upload every file (see SyncFeed). Read only when a sync app is on the list.
         lazy var writers: [(cwd: String, who: String, bytes: UInt64)] = tracks.compactMap { pid, tr in

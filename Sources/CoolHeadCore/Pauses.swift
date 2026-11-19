@@ -36,13 +36,7 @@ enum PauseStore {
     }
 }
 
-/// "Save Battery When Unplugged" (Phil, 15 November 2026: "Battery aware could be a toggle"): on by default. When on
-/// and the Mac is on battery, a heavy job is flagged even when the Mac is cool, with Pause until you plug in.
-public enum BatteryMode {
-    /// Shown as Battery Saver, a tool along the bottom of the panel; the stored name is the setting's first one.
-    public static let key = "saveBatteryUnplugged"
-    public static var enabled: Bool {
-        get { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: key) }
-    }
-}
+// Battery Saver was a switch (stored as "saveBatteryUnplugged", now unread); since 19 November 2026 there's none: on
+// battery a heavy job always gets its card, with Pause until you plug in, and Trust quiets a job that's meant to run
+// (Phil: "Maybe our battery saver option should be dropped from the power tool and instead display as a card for when
+// we see the issue?", then "Yes, drop the switch").

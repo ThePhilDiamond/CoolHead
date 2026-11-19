@@ -1,0 +1,1 @@
+- Trends is gone from the tools. What used the most energy this week is on the Battery page, folded to one line until you open it. Why the Mac woke from sleep almost never led to anything to do, so it's no longer shown; when wakes cost battery overnight, the sleep card says so and what to do. `coolhead history` still prints both.

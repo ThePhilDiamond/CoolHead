@@ -54,7 +54,17 @@ public struct Fixture {
         let problemFound = ["alice", "Secret", "payroll", "payslips", "abc123", "go.sh", "4242", ".venv", "/Users"].filter { problem.contains($0) }
         let privacy = [("problem-report-leaks-nothing", problemFound.isEmpty, problemFound.isEmpty ? "no private detail in the problem report" : "leaked: \(problemFound)"),
                        ("case-report-leaks-nothing", found.isEmpty, found.isEmpty ? "no private detail in the report" : "leaked: \(found)"),
-                       ("case-report-names-macos", mdsReport.contains("mds_stores (part of macOS)"), "macOS processes keep their name")]
+                       ("case-report-names-macos", mdsReport.contains("mds_stores (part of macOS)"), "macOS processes keep their name"),
+                       // the issue's title is the person's few words, tidied and kept short; the kind only when none were typed
+                       ("problem-report-title", ProblemReport.title(kind: "Something else", summary: "  Chrome's limit\ndidn't lift ") == "Problem: Chrome's limit didn't lift"
+                            && ProblemReport.title(kind: "Something else", summary: "") == "Problem: Something else"
+                            && ProblemReport.title(kind: "x", summary: String(repeating: "word ", count: 20)).count <= "Problem: ".count + ProblemReport.summaryLimit
+                            && ProblemReport.issueURL(title: ProblemReport.title(kind: "x", summary: "Menu icon stuck"), words: "", report: "")?.absoluteString.contains("title=Problem:%20Menu%20icon%20stuck") == true
+                            // about a managed item: what Cool Head did, then what went wrong; Something else takes the few words
+                            && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: ProblemReport.heldProblems[0], summary: "") == "Problem: Chrome's memory limit caused an app to crash or quit"
+                            && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: "Didn't help", summary: "") == "Problem: Chrome's memory limit didn't help"
+                            && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: "Something else", summary: "tabs blank") == "Problem: Chrome's memory limit: tabs blank",
+                        ProblemReport.title(kind: "Something else", summary: "  Chrome's limit\ndidn't lift "))]
         // review of 15 November 2026: each finding that was fixed keeps a check here
         var review: [(String, Bool, String)] = []
         // F2: a job whose progress line is old but which is writing now is working, not stuck
