@@ -1,1 +1,1 @@
-- Report a problem asks what happened in a few words, up to 60 characters with a count in the corner, and uses them as the issue's title, so each report has its own.
+- Report a problem asks what happened in a few words, up to 60 characters with a count in the corner, and uses them as the issue's title, so each report has its own. A report about something Cool Head is managing takes that as its title instead, with no words to type.
