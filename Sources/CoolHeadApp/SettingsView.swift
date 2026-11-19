@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage("notifications") private var notifications = true
     @AppStorage(Tools.labelsKey) private var labels = true
     @AppStorage("iconStyle") private var iconStyle = "badge"
+    @AppStorage(RunningStrip.gaugesKey) private var gauges = false
     @State private var login = LoginItem.on
     @State private var automatic = Updater.shared.automatic
     let updater = Updater.shared
@@ -29,7 +30,9 @@ struct SettingsView: View {
                 Divider()
                 SettingSwitch(title: "Open at login", detail: nil, on: Binding(get: { login }, set: { LoginItem.set($0); login = LoginItem.on }))
                 Divider()
-                SettingSwitch(title: "Check for updates automatically", detail: nil,
+                // when it checks (Phil, 19 November 2026: "add a subtitle that "check for updates automatically" checks upon
+                // opening the app and once daily"); Updater.schedule: a minute after launch, then every 24 hours
+                SettingSwitch(title: "Check for updates automatically", detail: "A minute after Cool Head opens, then once a day. You choose when to install.",
                               on: Binding(get: { automatic }, set: { updater.automatic = $0; automatic = $0 }))
                 Divider()
                 // the version, and checking now, here rather than in the toolbar (Phil, 17 November 2026: "the "Update"
@@ -60,6 +63,11 @@ struct SettingsView: View {
                 IconStylePicker(style: $iconStyle)
                 Divider()
                 SettingSwitch(title: "Show tool names", detail: "Off: point at a tool to see its name.", on: $labels)
+                Divider()
+                // off to start, for less to read at the top (Phil, 19 November 2026: "make the gauges in the top pane
+                // optional as a setting for users who don't know what it means or care ... By default it should be off")
+                SettingSwitch(title: "Show usage and temperature",
+                              detail: "Gauges at the top for how busy the chip and memory are, and how hot the Mac is.", on: $gauges)
             }
             HStack {
                 Button("About Cool Head") { About.show() }.buttonStyle(.link).font(.callout)
@@ -122,7 +130,10 @@ struct SettingSwitch: View {
 struct IconStylePicker: View {
     @Binding var style: String
     static let levels: [(Watcher.Level, String)] = [(.good, "All good"), (.warning, "Worth watching"), (.issue, "Problem")]
-    static let styles: [(String, String)] = [("badge", "Status badge"), ("melting", "Melting snowflake")]
+    /// Each style's name, and how it shows the level besides color: both work without it (Phil, 19 November 2026: "add a
+    /// subtitle that the melting snowflake icon is also color-blind friendly"; the badge's shapes do the same).
+    static let styles: [(String, String, String)] = [("badge", "Status badge", "A shape for each: circle, triangle, octagon."),
+                                                    ("melting", "Melting snowflake", "Color-blind friendly: it melts, then burns.")]
 
     var body: some View {
         VStack(spacing: 2) {
@@ -132,13 +143,16 @@ struct IconStylePicker: View {
                     Text(meaning).font(.caption2).foregroundStyle(Ink.muted).frame(width: 66)
                 }
             }
-            ForEach(IconStylePicker.styles, id: \.0) { key, name in
+            ForEach(IconStylePicker.styles, id: \.0) { key, name, how in
                 let on = style == key
                 HStack(spacing: 0) {
                     HStack(spacing: 6) {
                         Image(systemName: on ? "largecircle.fill.circle" : "circle")
                             .foregroundStyle(on ? Color.accentColor : Ink.muted)
-                        Text(name).font(.callout)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(name).font(.callout)
+                            Text(how).font(.caption2).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     ForEach(IconStylePicker.levels, id: \.1) { level, _ in
@@ -150,7 +164,7 @@ struct IconStylePicker: View {
                 .contentShape(Rectangle())
                 .onTapGesture { style = key }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Menu bar icon: \(name)")
+                .accessibilityLabel("Menu bar icon: \(name). \(how)")
                 .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
             }
         }

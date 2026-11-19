@@ -129,6 +129,11 @@ struct RunningStrip: View {
     /// The scroll bar's room while the panel is wider, so the row's words and gauges stay where they were.
     var extra: CGFloat = 0
     @ObservedObject private var load = ChipLoad.shared
+    /// The gauges are a setting, off to start: the snowflake and its words say how the Mac is without them (Phil, 19
+    /// November 2026: "make the gauges in the top pane optional as a setting for users who don't know what it means or
+    /// care, it just gives them less data/clutter. By default it should be off").
+    nonisolated static let gaugesKey = "showGauges"
+    @AppStorage(RunningStrip.gaugesKey) private var showGauges = false
 
     var snapshot: String? { ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_RUNNING"] }
     /// In a screenshot, made-up heat (never this Mac's own); nil means this Mac's.
@@ -204,11 +209,13 @@ struct RunningStrip: View {
             // two groups, each titled, with a line between: how busy the chip and memory are, then whose heat (Phil,
             // 19 November 2026: "Should we add a "usage" and "heat" title above the gauges with a vertical divider between
             // the usage and heat? Might be cleaner and more clear")
-            let all = gauges
-            gaugeGroup("Usage", all.filter { !$0.isTemperature })
-            if all.contains(where: \.isTemperature) {
-                Divider().frame(height: 64)
-                gaugeGroup("Temperature", all.filter(\.isTemperature))
+            if showGauges {
+                let all = gauges
+                gaugeGroup("Usage", all.filter { !$0.isTemperature })
+                if all.contains(where: \.isTemperature) {
+                    Divider().frame(height: 64)
+                    gaugeGroup("Temperature", all.filter(\.isTemperature))
+                }
             }
         }
         .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)

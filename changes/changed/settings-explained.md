@@ -1,0 +1,1 @@
+- Settings says more about what each choice does: when automatic update checks happen (a minute after Cool Head opens, then once a day, and you choose when to install), and how each menu bar icon shows the level without color.
