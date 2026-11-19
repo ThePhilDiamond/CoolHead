@@ -186,6 +186,22 @@ final class PanelFocus: ObservableObject {
     /// Screenshots open the option groups too (COOLHEAD_SNAPSHOT_GROUPS=one-click or you).
     static let snapshotGroup = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_GROUPS"]
     func toggle(_ id: String) { withAnimation(.easeOut(duration: 0.15)) { open = open == id ? nil : id } }
+    /// A tool opening folds Managed by Cool Head, and opening the section closes the tool, as one tool closes another
+    /// (Phil, 19 November 2026: "if someone opens the hold panel when on a tool screen, we might want them collapsed, or
+    /// we might want to auto-close the tool", then "Build the "managed by..." edits as suggested").
+    func foldSection() { if open == PanelFocus.onHold { open = nil } }
+}
+
+/// What's typed in Report a problem, and what's picked, kept while the form closes, the panel closes, or another tool
+/// opens, until the report is sent or Cancel is pressed (Phil, 19 November 2026: "can we protect text entered in a
+/// report in case of accidental closes or clicking a tool?"). In memory only, like the activity it's sent with; quitting
+/// Cool Head drops it.
+final class ReportDraft: ObservableObject {
+    static let shared = ReportDraft()
+    @Published var kind = ProblemReport.kinds[0]
+    @Published var words = ""
+    @Published var about: String?
+    func clear() { kind = ProblemReport.kinds[0]; words = ""; about = nil }
 }
 
 /// A group of options folded to one line with how many it holds; a click opens it (Phil, 18 November 2026: "it would
@@ -595,8 +611,7 @@ struct ShareView: View {
 /// leaves. Open in GitHub sends it to GitHub in the link and opens the form there; Copy keeps it on the Mac.
 struct ProblemView: View {
     let watcher: Watcher
-    @State private var kind = ProblemReport.kinds[0]
-    @State private var words = ""
+    @ObservedObject private var draft = ReportDraft.shared
     @State private var copied = false
 
     /// Opened from Report a problem under what Cool Head is holding back: the form opens in that section, under the
@@ -606,23 +621,23 @@ struct ProblemView: View {
     /// Which of the things held back caused it: asked first whenever something is held back (Phil, 17 November 2026:
     /// "The report flow should START by asking which freeze caused it."). Opened from under them, the first is picked
     /// to start; opened from the tools, None of these is, so a report isn't pinned on a hold by default.
-    @State private var about: String?
     static let somethingElse = "None of these"
     var freezes: [String] { FrozenItem.all(watcher).map(\.line) }
     var pick: String {
-        if let about, about == ProblemView.somethingElse || freezes.contains(about) { return about }
+        if let about = draft.about, about == ProblemView.somethingElse || freezes.contains(about) { return about }
         return inline ? (freezes.first ?? ProblemView.somethingElse) : ProblemView.somethingElse
     }
-    func finish() { if let close { close() } else { watcher.showReport = false } }
+    /// Sent or cancelled: the draft goes, and the form closes.
+    func finish() { draft.clear(); if let close { close() } else { watcher.showReport = false } }
     /// Screenshots can show the first choice open (COOLHEAD_SNAPSHOT_CHOICE_OPEN).
     static let choiceOpen = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CHOICE_OPEN"] != nil
     /// The hold it's about, if one was picked; then a fix caused the trouble, so that isn't asked.
     var chosen: String? { freezes.isEmpty || pick == ProblemView.somethingElse ? nil : pick }
-    var problem: String { chosen == nil ? kind : ProblemReport.kinds[0] }
+    var problem: String { chosen == nil ? draft.kind : ProblemReport.kinds[0] }
     /// The picked hold as the report says it (see `FrozenItem.reportLine`).
     var chosenForReport: String? { chosen.flatMap { c in FrozenItem.all(watcher).first { $0.line == c }?.reportLine } }
 
-    var report: String { ProblemReport.make(kind: problem, words: words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac, about: chosenForReport) }
+    var report: String { ProblemReport.make(kind: problem, words: draft.words, activity: watcher.activity, cards: watcher.cards, mac: watcher.mac, about: chosenForReport) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -630,16 +645,16 @@ struct ProblemView: View {
             // each question on its own line, its choices in a field under it that opens in place
             if !freezes.isEmpty {
                 Text("Which of these caused it?").font(.callout.weight(.medium))
-                SelectField(options: freezes + [ProblemView.somethingElse], selection: Binding(get: { pick }, set: { about = $0 }),
+                SelectField(options: freezes + [ProblemView.somethingElse], selection: Binding(get: { pick }, set: { draft.about = $0 }),
                             open: ProblemView.choiceOpen)
             }
             if chosen == nil {
                 Text("What went wrong?").font(.callout.weight(.medium))
-                SelectField(options: ProblemReport.kinds, selection: $kind, open: ProblemView.choiceOpen && freezes.isEmpty)
+                SelectField(options: ProblemReport.kinds, selection: $draft.kind, open: ProblemView.choiceOpen && freezes.isEmpty)
             }
             Text("Tell us more (optional). It's public, so skip anything private.")
                 .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-            TextEditor(text: $words)
+            TextEditor(text: $draft.words)
                 .font(.callout)
                 .frame(height: 64)
                 .scrollContentBackground(.hidden)
@@ -661,13 +676,13 @@ struct ProblemView: View {
             HStack(spacing: 8) {
                 Button("Open in GitHub") {
                     watcher.log("Report a problem sent to GitHub")
-                    if let u = ProblemReport.issueURL(kind: problem, words: words, report: report) { NSWorkspace.shared.open(u) }
+                    if let u = ProblemReport.issueURL(kind: problem, words: draft.words, report: report) { NSWorkspace.shared.open(u) }
                     finish()
                 }
                 .buttonStyle(.borderedProminent).controlSize(.small)
                 Button(copied ? "Copied" : "Copy") {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString("Problem: \(problem)\n\n\(words)\n\n\(report)", forType: .string)
+                    NSPasteboard.general.setString("Problem: \(problem)\n\n\(draft.words)\n\n\(report)", forType: .string)
                     copied = true
                 }
                 .buttonStyle(.bordered).controlSize(.small)
@@ -1060,7 +1075,7 @@ struct FrozenList: View {
             .padding(.horizontal, FrozenList.inset - 8).padding(.vertical, 16)
             .frozen()
             .contentShape(Rectangle())
-            .onTapGesture { focus.toggle(PanelFocus.onHold) }
+            .onTapGesture { Tools.closeAll(watcher); focus.toggle(PanelFocus.onHold) }
             .hoverHighlight(true)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)

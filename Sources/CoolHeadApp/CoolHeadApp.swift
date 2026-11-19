@@ -101,6 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     @objc func openSettings() {
         showPanel()
         Tools.closeAll(Watcher.shared)
+        PanelFocus.shared.foldSection()
         Tools.shared.settings = true
     }
 

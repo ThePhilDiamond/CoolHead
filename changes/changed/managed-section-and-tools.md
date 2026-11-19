@@ -1,0 +1,1 @@
+- Opening a tool folds Managed by Cool Head, and opening Managed by Cool Head closes the tool, the way opening one tool closes another, so one thing is open at a time.

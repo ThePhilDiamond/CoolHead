@@ -89,7 +89,8 @@ struct ToolsBar: View {
         }
     }
 
-    func closeAll() { Tools.closeAll(watcher) }
+    /// Before a tool opens: the others close, and Managed by Cool Head folds, so one thing is open at a time.
+    func closeAll() { Tools.closeAll(watcher); PanelFocus.shared.foldSection() }
 }
 
 /// Which of the panel's own tools is open (Report a problem's flag lives in the watcher, as before), and the setting
