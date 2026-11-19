@@ -4,7 +4,9 @@ import SwiftUI
 
 /// "Test my network", one of the tools along the bottom of the panel, shown in the panel's middle. Opening it reads
 /// what the Mac can say about its connection (no prompt, about a second); Apple's test runs only when Start test is
-/// pressed, and stops if the view is closed.
+/// pressed. A test that's started carries on when another tool opens or the panel closes, and its results wait here
+/// (Phil, 19 November 2026: "the network test should continue, complete, and store the results in the background.
+/// Otherwise the work is wasted"); only Stop, or Cool Head quitting, stops it.
 @MainActor
 final class NetworkTester: ObservableObject {
     static let shared = NetworkTester()
@@ -21,6 +23,9 @@ final class NetworkTester: ObservableObject {
     /// the network test results persist for 30 minutes and add a date-timestamp, even if the user closes the Cool Head pane").
     @Published private(set) var finished: Date?
     static let keep: TimeInterval = 30 * 60
+    /// A test finished while the view was closed, and its results haven't been looked at yet: the Network tool shows a
+    /// dot in the result's color until they are (Phil, 19 November 2026: "Yes, render it").
+    @Published private(set) var unseen = false
     private var work: Task<Void, Never>?
 
     /// A finished test's results, still within `keep`.
@@ -29,10 +34,21 @@ final class NetworkTester: ObservableObject {
         return Date().timeIntervalSince(f) < NetworkTester.keep
     }
 
-    /// Opens the view: the last results if they're under 30 minutes old, otherwise reads the connection; nothing is sent.
+    /// A test is running, seen or not.
+    var running: Bool { if case .testing = phase { return true }; return false }
+
+    /// The level of results that finished out of sight and are still kept (0 good, 1 fair, 2 poor), for the tool's dot.
+    var readyLevel: Int? {
+        guard unseen, resultsKept, case .done(let outcome) = phase else { return nil }
+        return NetworkCheck.verdict(outcome).level
+    }
+
+    /// Opens the view: a test still running, or the last results if they're under 30 minutes old; otherwise reads the
+    /// connection, and nothing is sent.
     func open() {
         shown = true
-        if resultsKept { return }
+        unseen = false
+        if running || resultsKept { return }
         finished = nil
         phase = .reading
         seen = nil
@@ -63,6 +79,7 @@ final class NetworkTester: ObservableObject {
             guard !Task.isCancelled else { return }
             phase = .done(outcome)
             finished = Date()
+            unseen = !shown
         }
     }
 
@@ -73,15 +90,21 @@ final class NetworkTester: ObservableObject {
         if setup == nil { open() }
     }
 
-    /// Closes the view; a test still running is stopped. Finished results are kept for `keep`.
+    /// Closes the view. A test still running carries on and keeps its results; finished results are kept for `keep`.
     func close() {
+        shown = false
+        if running || resultsKept { return }
         work?.cancel()
         work = nil
-        shown = false
-        if resultsKept { return }
         seen = nil
         finished = nil
         phase = .reading
+    }
+
+    /// Stops whatever is running, for when Cool Head quits (macOS doesn't stop a program's children when it quits).
+    func halt() {
+        work?.cancel()
+        work = nil
     }
 
     /// For renders: show a given state without reading or testing.
@@ -92,6 +115,12 @@ final class NetworkTester: ObservableObject {
         self.phase = phase
         if case .done = phase { finished = Date() } else { finished = nil }
         shown = true
+    }
+
+    /// For renders: the view closed with the test still running, or with its results not yet looked at.
+    func showAway() {
+        shown = false
+        if case .done = phase { unseen = true }
     }
 }
 
@@ -146,6 +175,8 @@ struct NetworkView: View {
     // MARK: pieces
 
     static func color(_ level: Int) -> Color { [Color.green, .yellow, .orange][min(max(level, 0), 2)] }
+    /// A result's mark, in the top line and on the Network tool when results wait: good, fair, or poor.
+    static func mark(_ level: Int) -> String { ["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(max(level, 0), 2)] }
 
     var testing: Bool { if case .testing = tester.phase { return true }; return false }
 
@@ -178,7 +209,7 @@ struct NetworkView: View {
                     return NetworkCheck.summary(r, s.link) + (v.level == 0 ? " If the Mac feels slow, look at the Mac." : "")
                 }()
                 // when, with the date, so it can be read out on a call later (kept 30 minutes)
-                statusText(["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(v.level, 2)], NetworkView.color(v.level), v.title, meaning)
+                statusText(NetworkView.mark(v.level), NetworkView.color(v.level), v.title, meaning)
             }
         }
         .frame(minHeight: 50, alignment: .top)      // room for a two-line explanation, so every state is the same height
@@ -307,7 +338,7 @@ struct NetworkView: View {
                 }
             case .testing:
                 Button("Stop") { tester.stop() }.buttonStyle(.bordered)
-                Text("Stops the test; nothing is lost.").foregroundStyle(Ink.muted)
+                Text("Stops the test. Or look elsewhere: it carries on, and its results wait here.").foregroundStyle(Ink.muted)
             case .done:
                 Button("Test again") { note = nil; allFixes = false; tester.start() }.buttonStyle(.bordered)
                 // when, beside the button and in bold, to read out on a call later; results are kept 30 minutes (Phil,
