@@ -1,0 +1,1 @@
+- Trends' Why it woke from sleep is now a row for each reason, with a symbol, a short name, the count, and a bar, like the energy list; clicking a row says what it means.

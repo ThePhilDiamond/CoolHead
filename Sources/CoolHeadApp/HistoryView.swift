@@ -43,11 +43,13 @@ struct HistoryView: View {
                 }
                 Section(heading: PowerHistory.wakesHeading, note: nil, open: openSection == "wakes", toggle: { fold("wakes") }) {
                     Text(h.wakesSummary).font(.callout).foregroundStyle(Ink.text)
+                    // one row per cause, like the energy: a symbol, a short name, the count, and a bar out of every wake,
+                    // with what it means a click away (Phil, 19 November 2026: "Can we also fix the "Why it woke from
+                    // sleep" section to be more visual? it's a wall of text now")
                     ForEach(h.wakesByCause, id: \.0) { cause, wakes in
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text("·").foregroundStyle(Ink.muted)
-                            Text(PowerHistory.sentence(cause, wakes)).font(.callout).foregroundStyle(Ink.text)
-                                .fixedSize(horizontal: false, vertical: true)
+                        let key = "wake-" + cause.rawValue
+                        WakeRow(cause: cause, wakes: wakes, total: h.wakes.count, open: openRow == key) {
+                            withAnimation(.easeOut(duration: 0.15)) { openRow = openRow == key ? nil : key }
                         }
                     }
                 }
@@ -148,6 +150,61 @@ struct HistoryView: View {
                     .resizable().aspectRatio(contentMode: .fit)
             } else {
                 Image(systemName: row.user == nil ? "apple.logo" : "gearshape").font(.system(size: 14)).foregroundStyle(Ink.muted)
+            }
+        }
+    }
+
+    /// One reason the Mac woke: its symbol, its short name, how many times, and a bar out of every wake; a click opens
+    /// what it means.
+    struct WakeRow: View {
+        let cause: PowerHistory.Cause
+        let wakes: [PowerHistory.Wake]
+        let total: Int
+        let open: Bool
+        let toggle: () -> Void
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center, spacing: 10) {
+                    Image(systemName: WakeRow.symbol(cause)).font(.system(size: 14)).foregroundStyle(Ink.muted)
+                        .frame(width: 22, height: 22)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(PowerHistory.label(cause)).font(.callout).foregroundStyle(Ink.text).lineLimit(1)
+                            Spacer(minLength: 8)
+                            Text("\(wakes.count)").font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
+                            Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Ink.muted)
+                        }
+                        GeometryReader { g in
+                            Capsule().fill(Color.accentColor.opacity(0.55))
+                                .frame(width: max(3, g.size.width * Double(wakes.count) / Double(max(1, total))), height: 4)
+                        }
+                        .frame(height: 4)
+                    }
+                }
+                if open {
+                    Text(PowerHistory.detail(cause, wakes)).font(.caption).foregroundStyle(Ink.muted)
+                        .fixedSize(horizontal: false, vertical: true).padding(.leading, 32)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { toggle() }
+            .hoverHighlight(true)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+        }
+
+        static func symbol(_ cause: PowerHistory.Cause) -> String {
+            switch cause {
+            case .lid: return "laptopcomputer"
+            case .button: return "power"
+            case .input: return "keyboard"
+            case .plug: return "powerplug"
+            case .network: return "network"
+            case .bluetooth: return "dot.radiowaves.left.and.right"
+            case .wireless: return "wifi"
+            case .schedule: return "timer"
+            case .other: return "questionmark.circle"
             }
         }
     }
