@@ -88,6 +88,17 @@ public enum PowerState {
         return "other things"
     }
 
+    /// What each class of wake is, for the card's sentence. Upkeep is macOS's own timer ("rtc/SleepService" and
+    /// "rtc/Maintenance"); on Phil's Mac (19 November 2026) the tasks that asked for it were Spotlight, Calendar's travel
+    /// times, widgets, and keeping the network address.
+    static let whyWoke: [String: String] = [
+        "macOS's own upkeep": "Most wakes were macOS waking itself for background tasks, such as indexing files, refreshing widgets, and checking calendars for travel time. Each is short, but they add up.",
+        "the network": "Most wakes were for the network, which lets it receive messages and Find My while asleep, at a cost in battery.",
+        "Bluetooth devices": "Most wakes were Bluetooth devices, such as a mouse, keyboard, or headphones, asking it to wake.",
+        "something plugged in": "Most wakes were something plugged in, such as a drive or hub, asking it to wake.",
+        "notifications": "Most wakes were for notifications, which macOS wakes to deliver.",
+    ]
+
     static let logDate: DateFormatter = {
         let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd HH:mm:ss Z"; return f
     }()
@@ -109,8 +120,10 @@ public enum PowerState {
             } else if rest.hasPrefix("DarkWake "), night != nil {
                 night!.wakes[wakeClass(line), default: 0] += 1
                 if !charge(line).1 { night!.onBattery = false }
-            } else if rest.hasPrefix("Wake "), var n = night,
-                      line.contains("FullWake") || line.contains("UserActivity") || line.contains("Lid") || line.contains("PowerButton") {
+            // every "Wake" line is the Mac fully awake (dark wakes are "DarkWake"; "Wake Requests" only schedules one).
+            // Opening the lid reads "due to smc.sysState.Wake ... lid ... HID Activity", with no "UserActivity", so a
+            // test for particular reasons merged a day of use into one long sleep (Phil's Mac, 19 November 2026)
+            } else if rest.hasPrefix("Wake "), !rest.hasPrefix("Wake Requests"), var n = night {
                 let (c, batt) = charge(line)
                 n.to = date; n.chargeTo = c
                 if !batt { n.onBattery = false }
@@ -200,8 +213,8 @@ public enum PowerState {
             var lc = LiveCard(id: "night-wakes", pid: nil, card: Card(
                 state: .quiet,
                 headline: "Your Mac lost \(drop)% of its battery while asleep, waking \(n.total) times.",
-                explanation: "It slept from \(Fmt.time(n.from)) to \(Fmt.time(n.to)). Most wakes were for \(top.key)"
-                    + (network ? ", which lets it receive messages and Find My while asleep, at a cost in battery." : ".")
+                // what woke it most, in words that say what it is (Phil, 19 November 2026: "the explanation about wakes isn't clear")
+                explanation: "It slept from \(Fmt.time(n.from)) to \(Fmt.time(n.to)). " + (whyWoke[top.key] ?? "Most wakes were for \(top.key).")
                     + " A sleeping Mac usually loses only a few percent overnight.",
                 fixes: [Fix(id: "battery-options", title: "Open Battery settings",
                             consequence: network ? "Under Options, Wake for network access can be set to Only on Power Adapter." : "Under Options, Power Nap and waking for the network can be turned down.",

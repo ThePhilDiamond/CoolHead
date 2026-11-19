@@ -1,0 +1,1 @@
+- Settings says "Cool Head version" before the number, and the day that version was released.

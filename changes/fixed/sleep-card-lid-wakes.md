@@ -1,0 +1,1 @@
+- The battery-lost-while-asleep card no longer counts a day of use as sleep: opening the lid now ends a sleep, as it should. Its sentence also says what macOS's own wakes are for.

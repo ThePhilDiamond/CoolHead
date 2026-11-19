@@ -24,11 +24,12 @@ extension Fixture {
        pid 341(powerd): [0x0001b1b200018cc1] 03:04:04 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"
     No kernel assertions.
     """
-    /// A night on battery, 11:40pm to 7:15am: 85% to 66%, 23 wakes for the network and 7 for upkeep.
-    static func logText() -> String {
+    /// A night on battery, 11:40pm to 7:15am: 85% to 66%, 23 wakes for the network and 7 for upkeep (or the reverse).
+    static func logText(upkeepMost: Bool = false) -> String {
         var lines = ["2026-11-15 23:40:02 -0500 Sleep               \tEntering Sleep state due to 'Clamshell Sleep': Using Batt (Charge:85%) 900 secs"]
         for i in 0..<30 {
-            let reason = i % 4 == 3 ? "NUB.SPMI0.SW3 nub-spmi0.0x02 rtc/Maintenance" : "wifibt"
+            let upkeep = "NUB.SPMI0.SW3 nub-spmi0.0x02 rtc/Maintenance"
+            let reason = (i % 4 == 3) != upkeepMost ? upkeep : "wifibt"
             lines.append(String(format: "2026-11-16 %02d:%02d:10 -0500 DarkWake            \tDarkWake from Deep Idle [CDNPB] : due to %@ Using BATT (Charge:%d%%) 45 secs", 0 + i / 5, (i * 11) % 60, reason, 84 - i / 2))
         }
         lines.append("2026-11-16 07:15:40 -0500 Wake                \tDarkWake to FullWake from Deep Idle [CDNVA] : due to UserActivity Assertion Using BATT (Charge:66%) 4 secs")
@@ -57,6 +58,19 @@ extension Fixture {
             && night?.chargeFrom == 85 && night?.chargeTo == 66 && night?.drop == 19 && night?.onBattery == true
             && night?.wakes["the network"] == 23 && night?.wakes["macOS's own upkeep"] == 7
         review.append(("power-reads", r1, "Low Power Mode \(lp.map { "\($0)" } ?? "none"); holds \(holds.map { "\($0.name) \($0.seconds)s" }); night \(night.map { "\($0.total) wakes, \($0.drop ?? 0)%" } ?? "none")"))
+        // opening the lid ends a sleep, though its line names no "UserActivity" (made-up times, the shape macOS 26 writes):
+        // a night that lost nothing, a day of use, then a short sleep, read as the short sleep only
+        let lidLog = [
+            "2026-11-17 23:01:57 -0500 Sleep               \tEntering Sleep state due to 'Clamshell Sleep':TCPKeepAlive=active Using Batt (Charge:100%) 940 secs",
+            "2026-11-18 03:02:10 -0500 DarkWake            \tDarkWake from Deep Idle [CDNPB] : due to NUB.SPMI0.SW3 nub-spmi0.0x02 rtc/SleepService Using BATT (Charge:100%) 45 secs",
+            "2026-11-18 09:05:24 -0500 Wake Requests       \t[*process=dasd request=SleepService deltaSecs=922 wakeAt=2026-11-18 09:20:36]",
+            "2026-11-18 09:05:24 -0500 Wake                \tWake from Deep Idle [CDNVA] : due to smc.sysState.Wake(0x70070000) lid SMC.OutboxNotEmpty RTP.multi-touch/HID Activity Using BATT (Charge:100%) 961 secs",
+            "2026-11-18 12:50:41 -0500 Sleep               \tEntering Sleep state due to 'Clamshell Sleep':TCPKeepAlive=active Using Batt (Charge:49%) 305 secs",
+            "2026-11-18 13:29:26 -0500 Wake                \tWake from Deep Idle [CDNVA] : due to smc.sysState.Wake(0x70070000) lid SMC.OutboxNotEmpty RTP.multi-touch/HID Activity Using BATT (Charge:49%) 961 secs",
+        ].joined(separator: "\n")
+        let lid = PowerState.parseLog(lidLog)
+        review.append(("power-lid-ends-sleep", lid?.chargeFrom == 49 && lid?.chargeTo == 49 && lid?.total == 0,
+                       lid.map { "last sleep \($0.chargeFrom ?? 0)% to \($0.chargeTo ?? 0)%, \($0.total) wakes" } ?? "none"))
 
         // Low Power Mode on the adapter: only plugged in, busy, and set for the adapter
         func cards(onPower: Bool = true, busy: Bool = true, lowPower: PowerState.LowPower? = lp, holds h: [PowerState.Hold] = [],
@@ -121,6 +135,7 @@ extension Fixture {
             ("power-held-awake", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: true, busy: false, holds: [holds[0]], who: who, idleFor: { _ in 2.75 * 3600 }, night: nil, now: morning))),
             ("power-held-awake-sound", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: false, busy: false, holds: [holds[1]], who: who, idleFor: { _ in 2.75 * 3600 }, night: nil, now: morning))),
             ("power-night-wakes", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: false, busy: false, holds: [], who: who, night: PowerState.parseLog(logText()), now: morning))),
+            ("power-night-upkeep", one(PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: false, busy: false, holds: [], who: who, night: PowerState.parseLog(logText(upkeepMost: true)), now: morning))),
         ].compactMap { k, c in c.map { (k, $0) } }
     }
 }

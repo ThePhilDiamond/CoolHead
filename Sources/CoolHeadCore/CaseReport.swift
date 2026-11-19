@@ -4,6 +4,15 @@ import Security
 public enum CoolHead {
     /// Kept in step with the VERSION file; scripts/build-app.sh checks they match.
     public static let version = "0.12.0"
+    /// The day this version was released, as CHANGELOG.md dates it (scripts/check-version.sh checks they match); shown
+    /// in Settings beside the version (Phil, 19 November 2026: "Cool Head version: 0.12.0 (released: DATE OF 0.12.0 release)").
+    public static let released = "2026-11-19"
+    /// `released` in words, such as "19 November 2026".
+    public static var releasedWords: String {
+        let read = DateFormatter(); read.locale = Locale(identifier: "en_US_POSIX"); read.dateFormat = "yyyy-MM-dd"
+        let say = DateFormatter(); say.locale = Locale(identifier: "en_US_POSIX"); say.dateFormat = "d MMMM yyyy"
+        return read.date(from: released).map(say.string) ?? released
+    }
 }
 
 /// The anonymised report behind "Share this case": what Cool Head saw about a process it couldn't explain, with

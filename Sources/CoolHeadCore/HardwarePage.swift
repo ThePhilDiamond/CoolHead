@@ -121,7 +121,9 @@ public enum HardwarePage {
         if !temps.isEmpty {
             let worst = temps.map(\.level).max() ?? 0
             out.insert(Part(kind: .temps, symbol: "thermometer.medium", name: "Temperatures", value: ["Normal", "Warm", "Hot"][worst],
-                            level: worst, lines: ["macOS slows the chip when it gets too hot, and pauses charging while the battery is warm."],
+                            level: worst, lines: ["macOS slows the chip when it gets too hot, and pauses charging while the battery is warm.",
+                                    // the same readings as the temperature ring, said so (Phil, 19 November 2026: "This needs to be clear to the user and to me")
+                                    "The chip's is its hottest sensor, read every 3 seconds. The temperature ring at the top shows the chip's, or the battery's or drive's when one is nearer its own limit."],
                             tiles: temps), at: 0)            // first: heat is what slows a Mac (Phil, 17 November 2026)
         }
         return out
@@ -162,7 +164,7 @@ public enum HardwarePage {
     public static func running(thermal: String, signs: Signs = Signs(), fans: Fans?) -> Running {
         let fanText: String? = {
             switch fans {
-            case .none?: return "No fans: it slows itself down to stay cool, silently."
+            case .none?: return "No fans: your Mac slows itself down to stay cool, silently."
             case .rpm(let r)?:
                 let fast = r.max() ?? 0
                 let speeds = r.map { Hardware.count(UInt64($0)) + " rpm" }.joined(separator: " and ")
@@ -171,15 +173,17 @@ public enum HardwarePage {
             }
         }()
         let speed = thermal == "fair" ? "Warm, but at full speed" : "A normal temperature, at full speed"
+        // each sentence names what it's about: "your Mac", never a bare "it" (Phil, 19 November 2026: "What does
+        // "macOS is slowing it hard to..." refer to? Slowing your Mac? The language should be more clear.")
         // severe first: in flames
         let (icon, meaning): (Int, String) = {
-            if thermal == "critical" { return (2, "macOS is slowing it hard to cool it down. Give it a break on a hard surface, out of the sun.") }
+            if thermal == "critical" { return (2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun.") }
             if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower. The card below says what's using it.") }
-            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "It isn't making progress. Its card below says what to try." : "They aren't making progress. Their cards below say what to try.") }
+            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program isn't making progress. Its card below says what to try." : "\(signs.stuck) programs aren't making progress. Their cards below say what to try.") }
             // moderate: melting
-            if thermal == "serious" { return (1, "macOS is slowing it a little to cool it down.") }
-            if signs.memoryTight { return (1, "Memory is tight, so it's slower than it could be.") }
-            if signs.addingHeat { return (1, "It's warm, and something below is adding to it.") }
+            if thermal == "serious" { return (1, "macOS is slowing your Mac a little to cool it.") }
+            if signs.memoryTight { return (1, "Memory is tight, so your Mac is slower than it could be.") }
+            if signs.addingHeat { return (1, "Your Mac is warm, and something below is adding to the heat.") }
             if signs.toWatch > 0 { return (1, speed + (signs.toWatch == 1 ? ". The card below needs a look." : ". The cards below need a look.")) }
             if signs.resumeSync { return (1, "It's time to resume syncing.") }
             // nothing slowing it and nothing to act on: whole, even when it's warm
@@ -197,22 +201,60 @@ public enum HardwarePage {
         public let name: String; public let percent: Int; public let level: Int
         /// What's written inside, when it isn't the percentage.
         public var text: String? = nil
+        /// The part it's about, drawn beside its name (Phil, 19 November 2026: "if we are showing the icon for the temp
+        /// gauge maybe we should for the usage as well?").
+        public var symbol: String? = nil
+        /// The temperature ring, under the Temperature title; the others are under Usage.
+        public var isTemperature: Bool { name.hasSuffix(" temperature") }
     }
     /// The chip's heat, beside the chip and memory (Phil, 17 November 2026: "include temperature in the top bar for temps
     /// that impact speed/performance"): its temperature written inside, the ring filled by macOS's own four steps, since
     /// those, not the number, decide when it's slowed. Nil when the chip's temperature isn't known.
-    public static func heat(chipC: Double?, thermal: String) -> Gauge? {
-        guard let c = chipC else { return nil }
+    ///
+    /// The part furthest toward its own limit, named with its icon, the chip on a tie (Phil, 19 November 2026: "Maybe the
+    /// top bar should always show the hottest reading we have, as it's the most worrisome, though there may be cases where
+    /// a hot battery that's charging after being emptied is expected", then "most worrying part plus a clear label and/or
+    /// icon"). Not the highest number: a chip runs at 40 to 100°C, so it would nearly always win, while a battery is warm at
+    /// 40°C and hot at 45°C. Each part on its own scale: the chip by macOS's four steps; the battery as the Battery page
+    /// judges it, its warmth while charging expected until 45°C; the drive warm at 70°C, as the Hardware page judges it.
+    /// Memory is inside the chip on Apple silicon, so the chip's reading covers it.
+    public static func heat(chipC: Double?, thermal: String, batteryC: Double? = nil, charging: Bool = false, driveC: Double? = nil) -> Gauge? {
         let step = ["nominal": 0, "fair": 1, "serious": 2, "critical": 3][thermal] ?? 0
-        return Gauge(name: "Heat", percent: (step + 1) * 25, level: [0, 0, 1, 2][step], text: Fmt.temperature(c))
+        let chipLevel = chipC == nil ? -1 : [0, 0, 1, 2][step]
+        let batteryLevel = batteryC.map { batteryHeatLevel($0, charging: charging) } ?? -1
+        let driveLevel = driveC.map(driveHeatLevel) ?? -1
+        if let b = batteryC, batteryLevel > chipLevel, batteryLevel >= driveLevel, batteryLevel > 0 || chipC == nil {
+            return Gauge(name: "Battery temperature", percent: [25, 75, 100][batteryLevel], level: batteryLevel, text: Fmt.temperature(b), symbol: "battery.75percent")
+        }
+        if let d = driveC, driveLevel > chipLevel, driveLevel > 0 {
+            return Gauge(name: "Drive temperature", percent: 75, level: driveLevel, text: Fmt.temperature(d), symbol: "internaldrive")
+        }
+        guard let c = chipC else { return nil }
+        return Gauge(name: "Chip temperature", percent: (step + 1) * 25, level: chipLevel, text: Fmt.temperature(c), symbol: "cpu")
+    }
+    /// How warm the battery is on its own scale: 0 normal, 1 warm, 2 hot. Warm from 40°C (where macOS starts pausing
+    /// charging, see BatteryHealth.notCharging), except while it charges, when warmth is expected; hot from 45°C always.
+    /// The temperature ring and the battery temperature card both use it, so they never disagree.
+    public static func batteryHeatLevel(_ c: Double, charging: Bool) -> Int { c >= 45 ? 2 : c >= 40 && !charging ? 1 : 0 }
+    /// The drive's: warm from 70°C (Cool Head's own line, as on the Hardware page); never "hot", with no source for one.
+    public static func driveHeatLevel(_ c: Double) -> Int { c >= 70 ? 1 : 0 }
+
+    /// What the temperature ring is showing, when pointed at.
+    public static func heatHelp(_ name: String) -> String {
+        switch name {
+        case "Chip temperature": return "The hottest of the chip's sensors, read every 3 seconds. The battery's or the drive's shows here instead when one is nearer its own limit."
+        case "Battery temperature": return "The battery is nearer its limit than the chip: a battery is warm from \(Fmt.temperature(40)) and hot from \(Fmt.temperature(45)). Warmth while it charges is expected."
+        case "Drive temperature": return "The drive is nearer its limit than the chip: it's warm from \(Fmt.temperature(70))."
+        default: return ""
+        }
     }
     public static func chip(busy: Double) -> Gauge {
         let b = min(max(busy, 0), 1)
-        return Gauge(name: "Chip", percent: Int((b * 100).rounded()), level: b >= 0.8 ? 2 : b >= 0.5 ? 1 : 0)
+        return Gauge(name: "Chip", percent: Int((b * 100).rounded()), level: b >= 0.8 ? 2 : b >= 0.5 ? 1 : 0, symbol: "cpu")
     }
     public static func memory(freePercent: Int, pressure: String) -> Gauge {
         Gauge(name: "Memory", percent: min(max(100 - freePercent, 0), 100),
-              level: pressure == "critical" ? 2 : pressure == "warning" ? 1 : 0)
+              level: pressure == "critical" ? 2 : pressure == "warning" ? 1 : 0, symbol: "memorychip")
     }
 
     /// For screenshots: made-up hardware, never this Mac's. "issue" shows a worn drive and one crash restart.

@@ -1,0 +1,1 @@
+- A battery or drive warmer than its own limit gets a card that needs a look, so the status, the panel's color, and the menu bar icon agree with the temperature ring. A battery too warm to charge says so on that card.

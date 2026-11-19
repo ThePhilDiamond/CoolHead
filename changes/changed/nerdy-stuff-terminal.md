@@ -1,0 +1,1 @@
+- Nerdy stuff opens as a small terminal, green on black, with its copy button in the title bar; folded, it has no copy button.

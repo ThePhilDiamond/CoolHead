@@ -77,22 +77,22 @@ extension Fixture {
         let cases2: [(String, S, Int, String)] = [
             ("nominal", S(), 0, "A normal temperature, at full speed."),
             ("fair", S(), 0, "Warm, but at full speed."),
-            ("nominal", S(memoryTight: true), 1, "Memory is tight, so it's slower than it could be."),
+            ("nominal", S(memoryTight: true), 1, "Memory is tight, so your Mac is slower than it could be."),
             ("nominal", S(toWatch: 1), 1, "A normal temperature, at full speed. The card below needs a look."),
             ("fair", S(toWatch: 3), 1, "Warm, but at full speed. The cards below need a look."),
-            ("fair", S(addingHeat: true), 1, "It's warm, and something below is adding to it."),
-            ("serious", S(toWatch: 2), 1, "macOS is slowing it a little to cool it down."),
+            ("fair", S(addingHeat: true), 1, "Your Mac is warm, and something below is adding to the heat."),
+            ("serious", S(toWatch: 2), 1, "macOS is slowing your Mac a little to cool it."),
             ("nominal", S(resumeSync: true), 1, "It's time to resume syncing."),
-            ("nominal", S(stuck: 1, memoryTight: true), 2, "It isn't making progress. Its card below says what to try."),
+            ("nominal", S(stuck: 1, memoryTight: true), 2, "A program isn't making progress. Its card below says what to try."),
             ("serious", S(memoryCritical: true), 2, "Memory is very tight, so everything is slower. The card below says what's using it."),
-            ("critical", S(), 2, "macOS is slowing it hard to cool it down. Give it a break on a hard surface, out of the sun."),
+            ("critical", S(), 2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun."),
         ]
         let states = cases2.map { HardwarePage.running(thermal: $0.0, signs: $0.1, fans: .rpm([1_200, 1_250])) }
         let icons: [Int] = cases2.map { $0.2 }, meanings: [String] = cases2.map { $0.3 }
         var r1 = states.map(\.icon) == icons && states.map(\.meaning) == meanings
         r1 = r1 && states[0].fans == "Fans at 1,200 rpm and 1,250 rpm, barely audible."
             && HardwarePage.running(thermal: "nominal", fans: .rpm([4_800])).fans == "Fan at 4,800 rpm, working hard."
-            && HardwarePage.running(thermal: "nominal", fans: HardwarePage.Fans.none).fans == "No fans: it slows itself down to stay cool, silently."
+            && HardwarePage.running(thermal: "nominal", fans: HardwarePage.Fans.none).fans == "No fans: your Mac slows itself down to stay cool, silently."
             && HardwarePage.running(thermal: "nominal", fans: nil).fans == nil
         review.append(("hardware-page-running", r1, zip(cases2, states).map { "\($0.0.0) \($0.1.icon): \($0.1.meaning)" }.joined(separator: " | ")))
 
@@ -102,6 +102,17 @@ extension Fixture {
                  HardwarePage.memory(freePercent: 8, pressure: "critical")]
         let g1 = g.map(\.level) == [0, 1, 2, 0, 1, 2] && g.map(\.percent) == [20, 60, 90, 42, 78, 92]
         review.append(("hardware-page-gauges", g1, g.map { "\($0.name) \($0.percent)%" }.joined(separator: ", ")))
+        // the temperature ring: the part nearest its own limit, the chip on a tie; a battery warm while charging is expected
+        let h = [HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 31, driveC: 34),          // all calm: chip
+                 HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 46, driveC: 34),          // hot battery
+                 HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 42, charging: true),      // warm, charging: chip
+                 HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 42),                      // warm, not charging
+                 HardwarePage.heat(chipC: 90, thermal: "serious", batteryC: 42),                      // a tie: chip
+                 HardwarePage.heat(chipC: 55, thermal: "nominal", driveC: 72),                        // warm drive
+                 HardwarePage.heat(chipC: nil, thermal: "nominal", batteryC: 31)]                     // no chip reading
+        let h1 = h.map { $0?.name ?? "none" } == ["Chip temperature", "Battery temperature", "Chip temperature", "Battery temperature", "Chip temperature", "Drive temperature", "Battery temperature"]
+            && h.map { $0?.level ?? -1 } == [0, 2, 0, 1, 1, 1, 0]
+        review.append(("heat-ring-part", h1, h.map { "\($0?.name ?? "none") \($0?.text ?? "") level \($0?.level ?? -1)" }.joined(separator: ", ")))
         return review
     }
 
