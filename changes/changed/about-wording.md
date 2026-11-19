@@ -1,1 +1,0 @@
-- About says what Cool Head is in the same words as the README: "Is your Mac running hot or slow? Cool Head says why in one sentence, with options to act in one click, plus tools to test your network, check your battery and hardware, and clear space." Its license line now says GNU AGPL v3.0 only, as the license does.

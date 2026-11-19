@@ -6,6 +6,17 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.13.0] - 2026-11-19
+
+### Changed
+
+- About says what Cool Head is in the same words as the README: "Is your Mac running hot or slow? Cool Head says why in one sentence, with options to act in one click, plus tools to test your network, check your battery and hardware, and clear space." Its license line now says GNU AGPL v3.0 only, as the license does.
+- Managed by Cool Head is open whenever nothing else is: each time the panel opens, and when a tool or Settings closes. It folds while a card or tool is open.
+
+### Fixed
+
+- Quitting DisplayLink Manager is no longer marked Caution: its screens only go dark until it's running again. Quitting Docker still is, because its containers stop.
+
 ## [0.12.0] - 2026-11-19
 
 ### Changed
@@ -341,7 +352,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.9.0...v0.10.0

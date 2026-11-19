@@ -749,6 +749,11 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.13.0": [
+            "Managed by Cool Head is open whenever nothing else is: when the panel opens, and when you close a tool or Settings.",
+            "About says what Cool Head is in the same words as its page on GitHub.",
+            "Quitting DisplayLink Manager is no longer marked Caution, since its screens come back when it's running again.",
+        ],
         "0.12.0": [
             "What Cool Head is slowing, limiting, pausing, or has turned off is now Managed by Cool Head, and each line says what it is without a click.",
             "Cleaner checks any folder you choose for identical copies, and the folders inside it, starting with Downloads.",
