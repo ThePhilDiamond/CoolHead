@@ -1,0 +1,1 @@
+- Options that open a page of System Settings, such as Open Battery settings, open it directly, instead of asking you to paste an address System Settings has no place for.

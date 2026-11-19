@@ -24,6 +24,9 @@ for f in $(find changes -type f ! -path changes/README.md | sort); do
 done
 grep -Eq "^## \[$VERSION\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md || fail "CHANGELOG.md has no dated ## [$VERSION] section"
 grep -q "^\[$VERSION\]: " CHANGELOG.md || fail "CHANGELOG.md has no [$VERSION] link at the bottom"
+# the release date Settings shows is the changelog's
+DATE=$(grep -E "^## \[$VERSION\] - " CHANGELOG.md | head -1 | sed -E 's/.* - //')
+grep -q "released = \"$DATE\"" Sources/CoolHeadCore/CaseReport.swift || fail "CoolHead.released in CaseReport.swift isn't $DATE, the date CHANGELOG.md gives $VERSION"
 
 if [ -n "$1" ]; then
   [ "$1" = "v$VERSION" ] || fail "tag $1 doesn't match VERSION ($VERSION); the tag must be v$VERSION"

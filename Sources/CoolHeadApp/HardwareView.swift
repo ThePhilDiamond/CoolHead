@@ -8,13 +8,18 @@ import SwiftUI
 struct HardwareView: View {
     let close: () -> Void
     @State private var showDiagnostics = false
+    @ObservedObject private var load = ChipLoad.shared
 
     /// This Mac's hardware report, or in a screenshot made-up hardware (never this Mac's own).
     var report: HardwareReport? {
         if let kind = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"], PanelView.sampleSnapshot || kind == "issue" {
             return HardwarePage.sample(kind)
         }
-        return PanelView.sampleSnapshot ? HardwarePage.sample() : HardwareWatch.shared.report
+        if PanelView.sampleSnapshot { return HardwarePage.sample() }
+        // the chip's temperature is the Heat ring's live one, not the report's (read up to 10 minutes ago)
+        var r = HardwareWatch.shared.report
+        if let c = load.chipC { r?.chipC = c }
+        return r
     }
 
     var body: some View {
@@ -123,7 +128,7 @@ struct RunningStrip: View {
     let level: Watcher.Level
     /// The scroll bar's room while the panel is wider, so the row's words and gauges stay where they were.
     var extra: CGFloat = 0
-    @StateObject private var load = ChipLoad()
+    @ObservedObject private var load = ChipLoad.shared
 
     var snapshot: String? { ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_RUNNING"] }
     /// In a screenshot, made-up heat (never this Mac's own); nil means this Mac's.
@@ -209,6 +214,7 @@ struct RunningStrip: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(g.text.map { "\(g.name) \($0)" } ?? "\(g.name) \(g.percent) percent")
+        .help(g.name == "Heat" ? "The hottest of the chip's sensors, read every 3 seconds. Hardware shows it with the battery's and the drive's." : "")
     }
 }
 
@@ -217,6 +223,10 @@ struct RunningStrip: View {
 /// panel is open and not at all while it's closed.
 @MainActor
 final class ChipLoad: ObservableObject {
+    /// One reading for the Heat ring and the Hardware page's chip tile, so the two always agree (Phil, 19 November 2026:
+    /// "the temp in the top bar doesn't match any of the temps in the hardware scan": the page showed the reading from its
+    /// report, up to 10 minutes old, and the hottest sensor moves several degrees in seconds).
+    static let shared = ChipLoad()
     @Published var busy = 0.0
     @Published var memoryFree = 100
     /// The hottest chip sensor, for the Heat ring (see ChipTemperature); nil where it can't be read.

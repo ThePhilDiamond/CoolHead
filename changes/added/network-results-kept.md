@@ -1,0 +1,1 @@
+- Test my network keeps its results for 30 minutes after you close it or the panel, with the time and date of the test, so you can read them out on a call to your internet provider.

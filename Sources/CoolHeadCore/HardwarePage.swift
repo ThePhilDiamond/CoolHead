@@ -121,7 +121,9 @@ public enum HardwarePage {
         if !temps.isEmpty {
             let worst = temps.map(\.level).max() ?? 0
             out.insert(Part(kind: .temps, symbol: "thermometer.medium", name: "Temperatures", value: ["Normal", "Warm", "Hot"][worst],
-                            level: worst, lines: ["macOS slows the chip when it gets too hot, and pauses charging while the battery is warm."],
+                            level: worst, lines: ["macOS slows the chip when it gets too hot, and pauses charging while the battery is warm.",
+                                    // the same reading as the Heat ring, said so (Phil, 19 November 2026: "This needs to be clear to the user and to me")
+                                    "The chip's figure is the Heat ring's at the top: its hottest sensor, read every 3 seconds."],
                             tiles: temps), at: 0)            // first: heat is what slows a Mac (Phil, 17 November 2026)
         }
         return out

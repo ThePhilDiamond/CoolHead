@@ -46,6 +46,7 @@ enum GoldenRanking {
     power-held-awake · - · quiet · → none · quit
     power-held-awake-sound · - · working · → none · quit
     power-night-wakes · - · quiet · → battery-options · battery-options
+    power-night-upkeep · - · quiet · → battery-options · battery-options
     virtual-machine · job · unknown · → lookup · lookup, stop, cooler, share
     web-page-in-app · web-page-in-app · unknown · → quit · quit, lookup
     macos-service-for-app · served · unknown · → quit · quit, lookup

@@ -52,6 +52,12 @@ struct PanelView: View {
             // status is its title (Phil, 17 November 2026: "remove the top bar so the top is just the large icon, what's
             // happening, and the chip and memory data"). The version is in the toolbar along the bottom.
             RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level, extra: extra)
+                // with a tool open, clicking the top goes back to the cards (Phil, 19 November 2026: "We can also make the
+                // top bar click to return to the main screen - if there's an issue it lists, that flow makes sense")
+                .contentShape(Rectangle())
+                .onTapGesture { if toolOpen { withAnimation(.easeOut(duration: 0.15)) { Tools.closeAll(watcher) } } }
+                .help(toolOpen ? "Back to the cards" : "")
+                .accessibilityAddTraits(toolOpen ? .isButton : [])
             Divider()
             // scrolls once it is taller than the limit
             ScrollView {
@@ -139,7 +145,12 @@ struct PanelView: View {
         if let names = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"] {
             let wanted = names.split(separator: "|").map(String.init)
             let samples = Wording.samples()
-            return wanted.compactMap { w in samples.first { $0.0 == w }.map { LiveCard.sample($0.0, $0.1) } }
+            return wanted.compactMap { w in samples.first { $0.0 == w }.map { s in
+                // the night card's Nerdy stuff, made up to match its sample, so a screenshot shows the terminal filled
+                guard s.0 == "power-night-upkeep" else { return LiveCard.sample(s.0, s.1) }
+                return LiveCard.sample(s.0, s.1, details: ["Slept: 11:40pm on 15 November to 7:15am on 16 November",
+                    "Charge: 85% to 66%", "Woke for macOS's own upkeep: 23", "Woke for the network: 7"])
+            } }
         }
         guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards + CardSources.all.flatMap { $0.cards(for: watcher) } }
         let phrases = only.split(separator: "|").map(String.init)      // several phrases, separated by |
@@ -348,42 +359,37 @@ struct CardView: View {
                     }
                 }
                 if sharing, let r = live.report { ShareView(title: r.title, report: r.body) { sharing = false } }
-                // the whole line opens it, not just the arrow; the copy button at the end copies the details
+                // the whole line opens it, not just the arrow
                 HStack(spacing: 6) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "chevron.right")
-                            .font(.caption2.weight(.semibold))
-                            .rotationEffect(.degrees(facts ? 90 : 0))
-                        Text("Nerdy stuff (detailed info)").font(.caption)
-                        Spacer(minLength: 0)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { facts.toggle() } }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityLabel(facts ? "Hide the nerdy stuff" : "Show the nerdy stuff")
-                    Button {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .rotationEffect(.degrees(facts ? 90 : 0))
+                    Text("Nerdy stuff (detailed info)").font(.caption)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Ink.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { facts.toggle() } }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel(facts ? "Hide the nerdy stuff" : "Show the nerdy stuff")
+                // open, the details are a little terminal with its copy button in the title bar; folded, no copy button
+                // (Phil, 19 November 2026: "the nerdy stuff section shouldn't show the copy icon until it's expanded")
+                if facts {
+                    TerminalPane(lines: live.details, copied: copiedFacts) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(live.details.joined(separator: "\n"), forType: .string)
                         copiedFacts = true
-                    } label: { Image(systemName: copiedFacts ? "checkmark" : "square.on.square").font(.caption) }
-                    .buttonStyle(.plain)
-                    .help(copiedFacts ? "Copied" : "Copy the details")
-                    .accessibilityLabel("Copy the details")
-                }
-                .foregroundStyle(Ink.text)
-                if facts {
-                    VStack(alignment: .leading, spacing: 3) {
-                        ForEach(live.details, id: \.self) { Text($0) }
                     }
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Ink.muted)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
                     .onTapGesture {}              // selecting text here doesn't close the card
                 }
-                Disclosure(title: "Show less", open: open, tint: Ink.muted) { toggle() }
+                // the same color as the label that opened it, apart from Nerdy stuff by a line and space, so the two
+                // aren't mistaken for each other (Phil, 19 November 2026: "the spacing between the nerdy stuff and the show
+                // less button and the matching styling makes it hard to click the right spot")
+                let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
+                Divider().padding(.top, 4)
+                Disclosure(title: "Show less", open: open, tint: watch ? .orange : .accentColor) { toggle() }
             }
         }
         .padding(12)
@@ -537,6 +543,13 @@ struct CardView: View {
         case .share:
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
+        case .openPage(_, let address) where address.hasPrefix("x-apple.systempreferences:"):
+            // System Settings opens its own pages from another app; it has no address bar to paste into (Phil, 19 November
+            // 2026: "Cmd-L did nothing")
+            let ok = URL(string: address).map { NSWorkspace.shared.open($0) } ?? false
+            note = ok ? "Opened System Settings." : "That didn't work: System Settings didn't open."
+            noteFailed = !ok; acted = ok
+            watcher.log("Opened a System Settings page for \(live.reportSubject): " + (ok ? "opened" : "failed"))
         case .openPage(let bundle, let address):
             // Chrome refuses chrome:// addresses opened from another app (Chromium's url_util.cc allows only one), so the
             // address is copied and the browser brought forward, with the keys to press. Nothing changes until the
@@ -929,6 +942,7 @@ struct Disclosure: View {
         }
         .buttonStyle(.plain)
         .accessibilityValue(open ? "Open" : "Closed")
+        .frame(maxWidth: .infinity)          // centered under the card's text (Phil, 19 November 2026)
     }
 }
 
@@ -1118,6 +1132,68 @@ struct FrozenList: View {
         .background(RoundedRectangle(cornerRadius: 13).fill(Ink.card))
         .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Frozen.ice.opacity(0.55), lineWidth: 1))
         }
+    }
+}
+
+/// Nerdy stuff, open: the details in a small terminal, green on near-black in light and dark mode alike, with scan lines
+/// and a blinking cursor, and the copy button in its title bar (Phil, 19 November 2026: "maybe we should add a fun Matrix
+/// or terminal-style background or design flair to the nerdy stuff section to make it fun the way the Managed by Cool Head
+/// section is frozen"). The dots are dim, so they don't pass for a window's buttons.
+struct TerminalPane: View {
+    let lines: [String]
+    let copied: Bool
+    let copy: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var still
+    static let screen = Color(red: 0.035, green: 0.065, blue: 0.045)
+    static let phosphor = Color(red: 0.45, green: 0.95, blue: 0.56)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { _ in Circle().fill(Color.white.opacity(0.16)).frame(width: 7, height: 7) }
+                Text("nerdy stuff").font(.system(size: 10, design: .monospaced)).foregroundStyle(Color.white.opacity(0.45)).padding(.leading, 4)
+                Spacer(minLength: 0)
+                Button(action: copy) {
+                    Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "square.on.square")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(TerminalPane.phosphor.opacity(0.85))
+                .help(copied ? "Copied" : "Copy the details")
+                .accessibilityLabel("Copy the details")
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5)
+            .background(Color.white.opacity(0.06))
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(lines, id: \.self) { Text($0) }
+                // a cursor that blinks, or stays lit with Reduce Motion on
+                TimelineView(.periodic(from: .now, by: 0.55)) { t in
+                    let lit = still || Int(t.date.timeIntervalSinceReferenceDate / 0.55) % 2 == 0
+                    Rectangle().fill(TerminalPane.phosphor).frame(width: 6, height: 11).opacity(lit ? 0.9 : 0)
+                }
+                .accessibilityHidden(true)
+            }
+            .font(.system(.caption, design: .monospaced))
+            .foregroundStyle(TerminalPane.phosphor)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                // faint scan lines, every third point
+                Canvas { ctx, size in
+                    var y: CGFloat = 0
+                    while y < size.height {
+                        ctx.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)), with: .color(.white.opacity(0.035)))
+                        y += 3
+                    }
+                }
+            )
+        }
+        .background(TerminalPane.screen)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(TerminalPane.phosphor.opacity(0.22), lineWidth: 1))
+        .environment(\.colorScheme, .dark)
     }
 }
 
