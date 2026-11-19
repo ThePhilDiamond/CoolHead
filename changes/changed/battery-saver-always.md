@@ -1,1 +1,0 @@
-- Battery Saver is no longer a switch on the Battery page: on battery, a really hungry job always gets its card offering to pause it until you plug in. A job you mean to run on battery can be trusted from its card. If you had switched Battery Saver off, those cards show again.

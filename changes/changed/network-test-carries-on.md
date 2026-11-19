@@ -1,1 +1,0 @@
-- A network test you start carries on when you open another tool or close the panel, and its results wait in Test my network. While it runs out of sight, dashes circle the Network globe; when it's done, the globe shows the result's mark (a green check when it's good) until you look. Only Stop, or quitting Cool Head, ends a test.
