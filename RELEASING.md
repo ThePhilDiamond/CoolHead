@@ -40,7 +40,7 @@ Every change, the maintainer's included, goes through a pull request: `main` acc
 2. **Choose the number** by the rules above: MINOR if anything is in `changes/added` or `changes/changed`, PATCH if it's all in `changes/fixed`.
 3. **Prepare the release** in one pull request named `Release X.Y.Z`:
    - Run `scripts/gather-changes.sh X.Y.Z`: it moves every entry in `changes/` into a new `## [X.Y.Z] - YYYY-MM-DD` section of CHANGELOG.md, oldest first, under Added, Changed, and Fixed, updates the links at the bottom (`[Unreleased]` compares `vX.Y.Z...HEAD`; `[X.Y.Z]` compares the previous tag with `vX.Y.Z`), and removes the entry files. Read the section through before committing.
-   - Set `VERSION` and `CoolHead.version` to X.Y.Z.
+   - Set `VERSION` and `CoolHead.version` to X.Y.Z, and `CoolHead.released` to the date of the new CHANGELOG.md section (Settings shows it beside the version).
    - If the version changes something a user sees, add its short note for the app's What's new (`WhatsNew` in `Sources/CoolHeadApp/PanelView.swift`).
    - Run `scripts/check-version.sh vX.Y.Z`, `swift build -c release`, and `.build/release/coolhead selftest`.
 4. **Merge, then tag**: once `build` passes, squash-merge the pull request, pull `main`, and tag the merged commit: `git tag -a vX.Y.Z -m "Cool Head X.Y.Z"`, then push the tag. The release workflow checks the numbers, builds, runs the selftest, signs the zip, and publishes the release with its title, notes, and downloads.

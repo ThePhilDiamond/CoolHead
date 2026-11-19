@@ -16,11 +16,24 @@ final class NetworkTester: ObservableObject {
     @Published private(set) var setup: NetworkCheck.Setup?
     /// Where websites see the Mac, asked of Cloudflare as part of the test; nil before.
     @Published private(set) var seen: NetworkCheck.Where?
+    /// When the last test finished. Its results stay for `keep` after the panel or the view closes, so someone on the
+    /// phone with their internet provider can look elsewhere and come back to them (Phil, 19 November 2026: "let's have
+    /// the network test results persist for 30 minutes and add a date-timestamp, even if the user closes the Cool Head pane").
+    @Published private(set) var finished: Date?
+    static let keep: TimeInterval = 30 * 60
     private var work: Task<Void, Never>?
 
-    /// Opens the view and reads the connection; nothing is sent.
+    /// A finished test's results, still within `keep`.
+    var resultsKept: Bool {
+        guard case .done = phase, let f = finished else { return false }
+        return Date().timeIntervalSince(f) < NetworkTester.keep
+    }
+
+    /// Opens the view: the last results if they're under 30 minutes old, otherwise reads the connection; nothing is sent.
     func open() {
         shown = true
+        if resultsKept { return }
+        finished = nil
         phase = .reading
         seen = nil
         work?.cancel()
@@ -38,6 +51,7 @@ final class NetworkTester: ObservableObject {
         work?.cancel()
         phase = .testing(started: Date())
         seen = nil
+        finished = nil
         work = Task {
             let s = await Task.detached { NetworkCheck.readSetup() }.value
             guard !Task.isCancelled else { return }
@@ -48,6 +62,7 @@ final class NetworkTester: ObservableObject {
             seen = await place
             guard !Task.isCancelled else { return }
             phase = .done(outcome)
+            finished = Date()
         }
     }
 
@@ -58,12 +73,14 @@ final class NetworkTester: ObservableObject {
         if setup == nil { open() }
     }
 
-    /// Closes the view; a test still running is stopped.
+    /// Closes the view; a test still running is stopped. Finished results are kept for `keep`.
     func close() {
         work?.cancel()
         work = nil
-        seen = nil
         shown = false
+        if resultsKept { return }
+        seen = nil
+        finished = nil
         phase = .reading
     }
 
@@ -73,6 +90,7 @@ final class NetworkTester: ObservableObject {
         self.setup = setup
         self.seen = seen
         self.phase = phase
+        if case .done = phase { finished = Date() } else { finished = nil }
         shown = true
     }
 }
@@ -159,10 +177,19 @@ struct NetworkView: View {
                     guard case .done(let r) = outcome, let s = tester.setup else { return v.meaning }
                     return NetworkCheck.summary(r, s.link) + (v.level == 0 ? " If the Mac feels slow, look at the Mac." : "")
                 }()
+                // when, with the date, so it can be read out on a call later (kept 30 minutes)
                 statusText(["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(v.level, 2)], NetworkView.color(v.level), v.title, meaning)
             }
         }
         .frame(minHeight: 50, alignment: .top)      // room for a two-line explanation, so every state is the same height
+    }
+
+    /// "2:41pm on 19 November 2026": always with the date.
+    static func stamp(_ d: Date) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = Calendar.current.component(.minute, from: d) == 0 ? "ha" : "h:mma"
+        let day = DateFormatter(); day.locale = Locale(identifier: "en_US_POSIX"); day.dateFormat = "d MMMM yyyy"
+        return "\(f.string(from: d).lowercased()) on \(day.string(from: d))"
     }
 
     func statusText(_ symbol: String, _ tint: Color, _ title: String, _ meaning: String) -> some View {
@@ -283,7 +310,15 @@ struct NetworkView: View {
                 Text("Stops the test; nothing is lost.").foregroundStyle(Ink.muted)
             case .done:
                 Button("Test again") { note = nil; allFixes = false; tester.start() }.buttonStyle(.bordered)
-                Text(NetworkCheck.dataNote).foregroundStyle(Ink.muted)
+                // when, beside the button and in bold, to read out on a call later; results are kept 30 minutes (Phil,
+                // 19 November 2026: "The test time should be along the top or beside the button so it's extremely visible
+                // to the user, not merged into explainer text")
+                VStack(alignment: .leading, spacing: 2) {
+                    if let f = tester.finished {
+                        Text("Tested at \(NetworkView.stamp(f))").font(.callout.weight(.semibold)).foregroundStyle(Ink.text)
+                    }
+                    Text(NetworkCheck.dataNote).foregroundStyle(Ink.muted)
+                }
             }
             Spacer(minLength: 0)
         }

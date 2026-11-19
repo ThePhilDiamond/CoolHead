@@ -36,7 +36,12 @@ struct SettingsView: View {
                 // label should say "update" not the version number, and maybe put the version number inside the update
                 // icon? Or somewhere else?"; then, choosing between renders: "Update in Settings")
                 HStack {
-                    Text("Cool Head \(CoolHead.version)").font(.callout)
+                    // what the number is, and how old (Phil, 19 November 2026: "Right now it just says the name and a number,
+                    // which might not be clear to everyone")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Cool Head version \(CoolHead.version)").font(.callout)
+                        Text("Released \(CoolHead.releasedWords)").font(.caption).foregroundStyle(Ink.muted)
+                    }
                     Spacer()
                     Text(updateWord).font(.caption).foregroundStyle(Ink.muted)
                     Button("Check Now") {
@@ -105,8 +110,10 @@ struct SettingSwitch: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .toggleStyle(.switch)
-        .controlSize(.mini)
+        // Cool Head's own switch, filled when on whether or not Cool Head is the app in front, like every other switch
+        // in the panel (Phil, 19 November 2026: "when it's not the focus pane, they're grey, but when focused, it should
+        // be colored")
+        .toggleStyle(PanelSwitch())
     }
 }
 

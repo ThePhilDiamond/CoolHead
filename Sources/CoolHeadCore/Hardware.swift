@@ -487,10 +487,12 @@ extension HardwareReport {
                          "That's most likely on purpose: Optimized Battery Charging, or a Charge Limit you set, holds the charge to slow battery wear and charges to full before you usually unplug.",
                          [Fix.guide("full", "Charge to full now", "Charges to 100% this time; it goes back to normal afterwards.", steps: ["Click the battery in the menu bar.", "Choose \(Fmt.ui("Charge to Full Now")). If it isn't there, the hold is a Charge Limit: change it in \(Fmt.path("System Settings", "Battery"))."])],
                          b.lines, subject: "charging")
-                case .tooWarm(let t):
+                case .tooWarm(let t) where HardwarePage.batteryHeatLevel(t, charging: b.charging) == 0:
                     card("charging", .quiet, "The battery is too warm to charge.",
                          "It's at \(Fmt.temperature(t)), and a Mac pauses charging while its battery is warm. It starts again as it cools: use it on a hard surface, out of the sun, and give it a break from heavy work.",
                          [], b.lines, subject: "charging")
+                case .tooWarm:
+                    break                       // the battery temperature card below says it, and that charging has paused
                 case .chargerTooWeak(let w):
                     card("charging", .quiet, "The charger isn't keeping up.",
                          "The Mac is using more power than " + (w.map { "the \($0) W charger" } ?? "the charger") + " gives, so the battery is draining even plugged in. Use a charger with more watts, plug it straight into the Mac rather than through a hub or display, or ease the load.",
@@ -502,6 +504,22 @@ extension HardwareReport {
                          [diagnostics], b.lines, subject: "charging")
                 }
             }
+        }
+
+        // heat beyond the battery's or drive's own line needs a look, as the temperature ring shows it (Phil, 19 November 2026:
+        // "Yes, warn on it"); the battery's says when it has paused charging, in place of that card
+        if let b = battery, let t = b.temperatureC, HardwarePage.batteryHeatLevel(t, charging: b.charging) > 0 {
+            let hot = HardwarePage.batteryHeatLevel(t, charging: b.charging) == 2
+            let paused = b.notCharging.map { if case .tooWarm = $0 { return true }; return false } ?? false
+            card("battery-heat", .unknown, hot ? "The battery is hot." : "The battery is warm.",
+                 "It's at \(Fmt.temperature(t)): a battery is warm from \(Fmt.temperature(40)) and hot from \(Fmt.temperature(45)), and heat wears it faster"
+                    + (paused ? ", so macOS has paused charging until it cools" : "") + ". Let it cool: use the Mac on a hard surface, out of the sun, and give it a break from heavy work.",
+                 [], b.lines, subject: "the battery's temperature")
+        }
+        if let d = drive, let t = d.temperatureC, HardwarePage.driveHeatLevel(Double(t)) > 0 {
+            card("drive-heat", .unknown, "The internal drive is warm.",
+                 "It's at \(Fmt.temperature(Double(t))), warmer than drives usually run (Cool Head's line is \(Fmt.temperature(70))). Long copies and a hot Mac warm it, and heat wears it faster. Give the Mac a break, out of the sun.",
+                 [], d.lines, subject: "the drive's temperature")
         }
 
         // crash restarts: one after a crash is worth a look; several in a week more so

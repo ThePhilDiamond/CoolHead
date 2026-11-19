@@ -70,6 +70,20 @@ extension Fixture {
             && HardwareReport(battery: plugged(60), appleSilicon: false).cards(now: now).first?.card.explanation.contains("SMC") == false
         review.append(("hardware-not-charging", chargeOK, why.map { "\($0.map { "\($0)" } ?? "none")" }.joined(separator: ", ")))
 
+        // heat: the battery's and drive's own lines, the same as the heat ring's; warm while charging is expected, and a
+        // battery too warm to charge gets the heat card, not a second one about charging
+        var hotBattery = good; hotBattery.temperatureC = 46
+        var warmCharging = plugged(50, temp: 42); warmCharging.charging = true
+        var warmDrive = DriveHealth(); warmDrive.temperatureC = 72
+        let heatOK = headlines(HardwareReport(battery: hotBattery)) == ["The battery is hot."]
+            && HardwareReport(battery: hotBattery).cards(now: now).first?.needsLook == true
+            && headlines(HardwareReport(battery: warmCharging)).isEmpty
+            && headlines(HardwareReport(battery: plugged(60, temp: 42))) == ["The battery is warm."]
+            && HardwareReport(battery: plugged(60, temp: 42)).cards(now: now).first?.card.explanation.contains("paused charging") == true
+            && headlines(HardwareReport(drive: warmDrive)) == ["The internal drive is warm."]
+        review.append(("hardware-heat-cards", heatOK, [HardwareReport(battery: hotBattery), HardwareReport(battery: plugged(60, temp: 42)), HardwareReport(drive: warmDrive)]
+            .map { headlines($0).joined(separator: "; ") }.joined(separator: " | ")))
+
         // crash restarts: what the report says, read the way Howard Oakley reads them
         let watchdog = "panic(cpu 3 caller 0xfffffe004c620574): userspace watchdog timeout: no successful checkins from WindowServer (2 induced crashes) in 120 seconds\nservice: logd"
         let driver = "panic(cpu 0 caller 0x1): Kernel data abort.\nKernel Extensions in backtrace:\n         com.example.dockdriver(1.2)[ABC]@0xfffffe0012345678\n"

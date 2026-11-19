@@ -23,7 +23,12 @@ struct HistoryView: View {
                     HStack(alignment: .firstTextBaseline) {
                         Text(h.title).font(.body.weight(.semibold))
                         Spacer()
-                        if let close { Button("Done", action: close).buttonStyle(.link).font(.callout) }
+                        // the same close as every other tool (Phil, 19 November 2026: "The Trends tool also has a "Done"
+                        // close option in the top right, while others have an "X"")
+                        if let close {
+                            Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
+                                .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
+                        }
                     }
                     Text(PowerHistory.source).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 }
