@@ -82,7 +82,8 @@ enum CatalogueCard: ProcessCard {
             fixes.append(Card.wait(until: nil, now: s.now, recommended: true))
         }
         if let bundle = e.quittableBundle, let app = e.quittableApp, k.risk != nil, k.whenLong.hasPrefix("Quit") {
-            fixes.append(Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(bundle)).losingWork())
+            let quit = Fix(id: "quit", title: "Quit \(app)", consequence: k.risk!, kind: .quitApp(bundle))
+            fixes.append(k.quitLosesWork ? quit.losingWork() : quit)
         }
         let head = !s.active ? "\(k.doing). It's quiet now."
             : long ? "\(k.doing). It's been \(Fmt.duration(s.busyFor)), longer than usual."

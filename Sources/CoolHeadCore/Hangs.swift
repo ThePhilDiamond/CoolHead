@@ -40,7 +40,7 @@ public enum Hang {
     private typealias IsUnresponsive = @convention(c) (Int32, UnsafePointer<ProcessSerialNumber>) -> Bool
     /// macOS keeps no public way to ask whether an app is Not Responding; this is the window server's own check, the one
     /// Activity Monitor and Force Quit use. Looked up when Cool Head starts, so a macOS that drops it only loses this
-    /// one kind of card. Tested on macOS 26 (16 November 2026): a test app whose main thread slept was marked after
+    /// one kind of card. Tested on macOS 26 (15 November 2026): a test app whose main thread slept was marked after
     /// about 25 seconds, with no prompt.
     private static let check: (PSNForPID, Int32, IsUnresponsive)? = {
         guard let sky = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY),
