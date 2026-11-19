@@ -30,9 +30,11 @@ struct SettingsView: View {
                 Divider()
                 SettingSwitch(title: "Open at login", detail: nil, on: Binding(get: { login }, set: { LoginItem.set($0); login = LoginItem.on }))
                 Divider()
+                // each line under a setting is short, one line (Phil, 19 November 2026: "I don't like the many lines of text in
+                // the settings pane explaining things. Can we do the same with less words?")
                 // when it checks (Phil, 19 November 2026: "add a subtitle that "check for updates automatically" checks upon
                 // opening the app and once daily"); Updater.schedule: a minute after launch, then every 24 hours
-                SettingSwitch(title: "Check for updates automatically", detail: "A minute after Cool Head opens, then once a day. You choose when to install.",
+                SettingSwitch(title: "Check for updates automatically", detail: "When Cool Head opens, then daily.",
                               on: Binding(get: { automatic }, set: { updater.automatic = $0; automatic = $0 }))
                 Divider()
                 // the version, and checking now, here rather than in the toolbar (Phil, 17 November 2026: "the "Update"
@@ -67,7 +69,7 @@ struct SettingsView: View {
                 // off to start, for less to read at the top (Phil, 19 November 2026: "make the gauges in the top pane
                 // optional as a setting for users who don't know what it means or care ... By default it should be off")
                 SettingSwitch(title: "Show usage and temperature",
-                              detail: "Gauges at the top for how busy the chip and memory are, and how hot the Mac is.", on: $gauges)
+                              detail: "Gauges at the top of the panel.", on: $gauges)
             }
             HStack {
                 Button("About Cool Head") { About.show() }.buttonStyle(.link).font(.callout)
@@ -132,8 +134,8 @@ struct IconStylePicker: View {
     static let levels: [(Watcher.Level, String)] = [(.good, "All good"), (.warning, "Worth watching"), (.issue, "Problem")]
     /// Each style's name, and how it shows the level besides color: both work without it (Phil, 19 November 2026: "add a
     /// subtitle that the melting snowflake icon is also color-blind friendly"; the badge's shapes do the same).
-    static let styles: [(String, String, String)] = [("badge", "Status badge", "A shape for each: circle, triangle, octagon."),
-                                                    ("melting", "Melting snowflake", "Color-blind friendly: it melts, then burns.")]
+    static let styles: [(String, String, String)] = [("badge", "Status badge", "Shapes and colors"),
+                                                    ("melting", "Melting snowflake", "Color-blind friendly")]
 
     var body: some View {
         VStack(spacing: 2) {
