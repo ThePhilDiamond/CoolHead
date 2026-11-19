@@ -797,6 +797,13 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.14.0": [
+            "The gauges at the top are off to start, for less to read. To see them, turn on Show usage and temperature in Settings.",
+            "A network test keeps running when you open another tool or close the panel. Dashes circle the Network globe until it's done, then it shows the result's mark.",
+            "Trends is gone: what used the most energy this week is on the Battery page.",
+            "Battery Saver isn't a switch any more: on battery, a really hungry job always gets its card.",
+            "Report a problem titles each report from a few words of yours, or from what went wrong with something Cool Head is managing.",
+        ],
         "0.13.0": [
             "The gauges at the top are grouped under Usage and Temperature, and the temperature ring shows the battery or drive when one is nearer its own limit.",
             "Test my network keeps its results for 30 minutes, with the time of the test beside Test again.",

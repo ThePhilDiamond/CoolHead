@@ -1,1 +1,0 @@
-- The gauges at the top of the panel are off to start, for less to read: turn on Show usage and temperature in Settings to see how busy the chip and memory are and how hot the Mac is. The snowflake and its words still say how the Mac is running.

@@ -6,6 +6,18 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.14.0] - 2026-11-19
+
+### Changed
+
+- The Battery tool's icon is a battery a quarter full with a lightning bolt, so it reads as battery and power.
+- Battery Saver is no longer a switch on the Battery page: on battery, a really hungry job always gets its card offering to pause it until you plug in. A job you mean to run on battery can be trusted from its card. If you had switched Battery Saver off, those cards show again.
+- Report a problem asks what happened in a few words, up to 60 characters with a count in the corner, and uses them as the issue's title, so each report has its own. A report about something Cool Head is managing asks what went wrong with it instead, such as "Caused an app to crash or quit" or "Didn't help", and titles the issue with both: "Chrome's memory limit caused an app to crash or quit".
+- Trends is gone from the tools. What used the most energy this week is on the Battery page, folded to one line until you open it. Why the Mac woke from sleep almost never led to anything to do, so it's no longer shown; when wakes cost battery overnight, the sleep card says so and what to do. `coolhead history` still prints both.
+- The gauges at the top of the panel are off to start, for less to read: turn on Show usage and temperature in Settings to see how busy the chip and memory are and how hot the Mac is. The snowflake and its words still say how the Mac is running.
+- A network test you start carries on when you open another tool or close the panel, and its results wait in Test my network. While it runs out of sight, dashes circle the Network globe; when it's done, the globe shows the result's mark (a green check when it's good) until you look. Only Stop, or quitting Cool Head, ends a test.
+- Settings has a short line under more of its choices: when automatic update checks happen (when Cool Head opens, then once a day), and which menu bar icon is color-blind friendly.
+
 ## [0.13.0] - 2026-11-19
 
 ### Added
@@ -366,7 +378,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.10.0...v0.11.0
