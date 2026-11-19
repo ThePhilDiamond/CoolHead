@@ -1,0 +1,1 @@
+- About now opens in front of the panel; in 0.11.0 it still opened behind it. Choosing the folder for Check Downloads no longer closes the panel, and the chooser says why it asks.

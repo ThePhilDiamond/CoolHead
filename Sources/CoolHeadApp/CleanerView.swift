@@ -435,13 +435,17 @@ final class CleanerModel: ObservableObject {
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         panel.prompt = "Check"
-        panel.message = "Cool Head looks for old installers and identical second downloads in the folder you choose."
+        // says why it asks for a folder when the button said Downloads (Phil, 19 November 2026: "labeled as "Check
+        // Downloads" but then clicking it requires selecting a folder")
+        panel.message = "macOS keeps your Downloads folder private from apps until you choose it here. It is already chosen, so click Check to look for old installers and identical copies."
         NSApp.activate(ignoringOtherApps: true)
         // in front of Cool Head's panel: `begin`, not `runModal`, which puts it back at the level for dialogs, under the
         // panel (Phil, 18 November 2026: "the About pane and the "select a folder" to check for duplicates spawn and sit
         // behind the Cool Head pane")
         panel.level = .abovePanel
+        MenuPanel.keepOpen = true
         panel.begin { [weak self] answer in
+            MenuPanel.keepOpen = false
             guard answer == .OK, let url = panel.url else { return }
             MainActor.assumeIsolated { self?.chose(url) }
         }
