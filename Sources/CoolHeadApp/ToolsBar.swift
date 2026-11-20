@@ -20,20 +20,29 @@ struct ToolsBar: View {
     var body: some View {
         // seven tools fit the panel's width with their names when each is as narrow as its name allows
         HStack(spacing: labels ? 1 : 6) {
-            // a test carries on out of sight: while it runs, dashes fly around the globe's equator like data; when it has finished
-            // unseen, the result's own mark from the view's top line (a green check when it's good) sits on the globe until
-            // it's opened (Phil, 19 November 2026: "I think the network testing should be a ring of dashes around the
-            // existing wire globe icon, maybe animated? And when it's got a result ready, maybe a green check mark?", then "I
-            // meant the ring circumnavigating the globe like data packets flying around it as in a single ring along the equator")
-            let away = network.running && !network.shown
-            ToolButton(symbol: "network", name: away ? "Testing" : "Network",
-                       tip: away ? "A network test is running; its results will wait here"
-                           : network.readyLevel != nil ? "Your network test results are ready" : "Test my network",
-                       labels: labels, on: network.shown, ring: away,
-                       badge: network.readyLevel.map { (NetworkView.mark($0), NetworkView.color($0)) }) {
-                let open = !network.shown
+            // the order: This Mac, Cleaner, Power, Network (Phil, 20 November 2026: "Let's reorder the toolbar as part of this
+            // release", then "I think this order is intuitive and likely to match usage frequency"): the Mac itself first,
+            // the Cleaner beside it since This Mac's Clean up opens it, then Power, still beside Network (16 November 2026)
+            // the hardware checks on one page (Phil, 16 November 2026: "Yes build the hardware tool page")
+            // the Mac itself, line drawn as a laptop or a desktop, since the chip and memory have their own meanings in the
+            // panel (Phil, 19 November 2026: "Is there a different "hardware" icon we could use so we can use a drive icon for
+            // the cleaner tab?", then "open hard disk icon with larger sparklers, line drawing laptop/desktop")
+            // called This Mac (Phil, 20 November 2026: "if "This Mac" fits in the bar nicely, we can use that, but if it's
+            // tight, let's use "My Mac""); it's as wide as "Hardware" was
+            ToolButton(symbol: MacOutline.name, name: "This Mac", tip: "This Mac's hardware, serial number, and storage", labels: labels, on: tools.hardware) {
+                let open = !tools.hardware
                 closeAll()
-                if open { network.open() }
+                tools.hardware = open
+            }
+            // leftovers to clear, beside This Mac (Phil, 18 November 2026: "Can we add a broom
+            // "cleaner" tool"); a drawn broom was hard to make out at this size, so macOS's bubbles and sparkles (Phil,
+            // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles"); then
+            // an open hard disk with sparkles, line drawn: where it clears space, and that it cleans (Phil, 19 November 2026,
+            // as for Hardware above; macOS's own drive "is a bit ambiguous")
+            ToolButton(symbol: HardDisk.name, name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
+                let open = !tools.cleaner
+                closeAll()
+                tools.cleaner = open
             }
             // the Power page, beside Network, the other check (Phil, 16 November 2026: "the battery tool should be next to
             // the network tool"). Called Power, with a plug on a Mac with no battery (Phil, 20 November 2026: "Let's rename
@@ -48,27 +57,20 @@ struct ToolsBar: View {
                     tools.battery = open
                 }
             }
-            // the hardware checks on one page, after Battery, the other part of the Mac itself (Phil, 16 November 2026:
-            // "Yes build the hardware tool page")
-            // the Mac itself, line drawn as a laptop or a desktop, since the chip and memory have their own meanings in the
-            // panel (Phil, 19 November 2026: "Is there a different "hardware" icon we could use so we can use a drive icon for
-            // the cleaner tab?", then "open hard disk icon with larger sparklers, line drawing laptop/desktop")
-            // called This Mac (Phil, 20 November 2026: "if "This Mac" fits in the bar nicely, we can use that, but if it's
-            // tight, let's use "My Mac""); it's as wide as "Hardware" was
-            ToolButton(symbol: MacOutline.name, name: "This Mac", tip: "This Mac's hardware, serial number, and storage", labels: labels, on: tools.hardware) {
-                let open = !tools.hardware
+            // a test carries on out of sight: while it runs, dashes fly around the globe's equator like data; when it has finished
+            // unseen, the result's own mark from the view's top line (a green check when it's good) sits on the globe until
+            // it's opened (Phil, 19 November 2026: "I think the network testing should be a ring of dashes around the
+            // existing wire globe icon, maybe animated? And when it's got a result ready, maybe a green check mark?", then "I
+            // meant the ring circumnavigating the globe like data packets flying around it as in a single ring along the equator")
+            let away = network.running && !network.shown
+            ToolButton(symbol: "network", name: away ? "Testing" : "Network",
+                       tip: away ? "A network test is running; its results will wait here"
+                           : network.readyLevel != nil ? "Your network test results are ready" : "Test my network",
+                       labels: labels, on: network.shown, ring: away,
+                       badge: network.readyLevel.map { (NetworkView.mark($0), NetworkView.color($0)) }) {
+                let open = !network.shown
                 closeAll()
-                tools.hardware = open
-            }
-            // leftovers to clear, beside the other tools for the Mac itself (Phil, 18 November 2026: "Can we add a broom
-            // "cleaner" tool"); a drawn broom was hard to make out at this size, so macOS's bubbles and sparkles (Phil,
-            // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles"); then
-            // an open hard disk with sparkles, line drawn: where it clears space, and that it cleans (Phil, 19 November 2026,
-            // as for Hardware above; macOS's own drive "is a bit ambiguous")
-            ToolButton(symbol: HardDisk.name, name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
-                let open = !tools.cleaner
-                closeAll()
-                tools.cleaner = open
+                if open { network.open() }
             }
             // no Activity Monitor button: it's not Cool Head's tool, and anyone who wants it knows where it is (Phil,
             // 16 November 2026: "It's not our tool so we should drop it."); no Quit either: it's on the Settings page and
