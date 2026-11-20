@@ -161,7 +161,7 @@ struct NetworkView: View {
                 // (Phil, 16 November 2026: "if any of it is useful it can show when the tests run")
                 if case .none = tester.setup?.dns {
                     Label("No server is set to look up website names, so sites won't load by name.", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true)
+                        .font(.caption).foregroundStyle(Color.red).fixedSize(horizontal: false, vertical: true)
                 }
                 fixList(r)
             }
@@ -174,7 +174,9 @@ struct NetworkView: View {
 
     // MARK: pieces
 
-    static func color(_ level: Int) -> Color { [Color.green, .yellow, .orange][min(max(level, 0), 2)] }
+    // poor is red, as at the menu bar's worst level, and apart from the orange dashes of a test running (Phil, 19 November
+    // 2026: "The network poor connection color can be red instead of orange, no?")
+    static func color(_ level: Int) -> Color { [Color.green, .yellow, .red][min(max(level, 0), 2)] }
     /// A result's mark, in the top line and on the Network tool when results wait: good, fair, or poor.
     static func mark(_ level: Int) -> String { ["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(max(level, 0), 2)] }
 
@@ -188,7 +190,7 @@ struct NetworkView: View {
                 statusText("ellipsis.circle", Ink.muted, "Checking your connection…", "Nothing is sent until you start the test.")
             case .ready where tester.setup?.selfAssigned == true:
                 // the one reading that means the Mac can't go online at all, so it takes the top line
-                statusText("exclamationmark.triangle.fill", Color.orange, "The router didn't give this Mac an address",
+                statusText("exclamationmark.triangle.fill", Color.red, "The router didn't give this Mac an address",
                            "So it can't go online. Turn Wi-Fi off and on, or restart the router.")
             case .ready:
                 let busy = tester.setup?.talkers.filter { $0.bytesPerSecond >= NetworkCheck.talkerFloor }.prefix(2) ?? []
