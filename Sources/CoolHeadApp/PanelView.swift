@@ -51,7 +51,8 @@ struct PanelView: View {
             // fixed at the top: the snowflake, what's happening and how busy the chip and memory are, in one row; the
             // status is its title (Phil, 17 November 2026: "remove the top bar so the top is just the large icon, what's
             // happening, and the chip and memory data"). The version is in the toolbar along the bottom.
-            RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level, extra: extra)
+            RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level, extra: extra,
+                         back: Proto.back == 1 && toolOpen && !shownCards.isEmpty ? shownCards.count : nil)
                 // with a tool open, clicking the top goes back to the cards (Phil, 19 November 2026: "We can also make the
                 // top bar click to return to the main screen - if there's an issue it lists, that flow makes sense")
                 .contentShape(Rectangle())
@@ -75,6 +76,14 @@ struct PanelView: View {
                     if !FrozenItem.all(watcher).isEmpty {
                         FrozenList(watcher: watcher)
                         Divider()
+                    }
+                    // Proto.back 2: a line back to the cards at the top of every tool's page
+                    if Proto.back == 2 && toolOpen && !shownCards.isEmpty {
+                        Button { withAnimation(.easeOut(duration: 0.15)) { Tools.closeAll(watcher) } } label: {
+                            Label("Back to \(shownCards.count == 1 ? "1 card" : "\(shownCards.count) cards")", systemImage: "chevron.left")
+                                .font(.callout.weight(.semibold)).foregroundStyle(Ink.text)
+                        }
+                        .buttonStyle(.plain)
                     }
                     // the tools along the bottom open here, one at a time
                     if network.shown {
@@ -112,10 +121,11 @@ struct PanelView: View {
             // fixed at the bottom
             VStack(alignment: .leading, spacing: 10) {
                 // the battery's health is on the Battery tool's page now, not a line here (Phil, 16 November 2026)
-                ToolsBar(watcher: watcher)
+                ToolsBar(watcher: watcher, cards: Proto.back == 3 ? shownCards.count : nil)
             }
             .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
             .padding(.trailing, extra)           // the tools stay where they were while the panel is wider
+            .background(Proto.bar == 1 ? Color(nsColor: Badge.color(level)).opacity(0.10) : Proto.bar == 2 ? Proto.neutral : .clear)
         }
         .frame(width: PanelView.width + extra)
     }
@@ -2075,4 +2085,14 @@ enum Ink {
 struct MiddleHeight: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Choices still to be made, drawn side by side for Phil (20 November 2026; PLAN.md backlog items 4 and 5): set by
+/// COOLHEAD_PROTO_BAR (1: the bottom bar takes the top's level wash; 2: both bars one neutral wash) and COOLHEAD_PROTO_BACK
+/// (1: a pill in the top bar; 2: a line at the top of each tool's page; 3: a Cards button in the tools bar). Unset, the
+/// panel is as before. The versions not chosen are removed once Phil picks.
+enum Proto {
+    static let bar = Int(ProcessInfo.processInfo.environment["COOLHEAD_PROTO_BAR"] ?? "") ?? 0
+    static let back = Int(ProcessInfo.processInfo.environment["COOLHEAD_PROTO_BACK"] ?? "") ?? 0
+    static let neutral = Color.primary.opacity(0.04)
 }
