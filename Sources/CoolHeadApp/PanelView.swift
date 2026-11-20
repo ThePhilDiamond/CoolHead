@@ -797,6 +797,11 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.14.1": [
+            "Trusted is now at the right of the bar, with Report and Settings, since it's Cool Head's own list.",
+            "Hardware shows your Mac, drawn as a laptop or a desktop, and Cleaner shows a hard disk with sparkles.",
+            "While a network test runs out of sight, orange dashes circle the globe. A poor result is now red.",
+        ],
         "0.14.0": [
             "The gauges at the top are off to start, for less to read. To see them, turn on Show usage and temperature in Settings.",
             "A network test keeps running when you open another tool or close the panel. Dashes circle the Network globe until it's done, then it shows the result's mark.",

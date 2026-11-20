@@ -6,6 +6,12 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.14.1] - 2026-11-19
+
+### Changed
+
+- Trusted moves to the right of the tools bar, between Report a problem and Settings, since it's Cool Head's own list rather than a tool for the Mac. Hardware's icon is now your Mac, drawn as a laptop or a desktop, and Cleaner's is an open hard disk with sparkles. While a network test runs out of sight, its dashes are orange and travel the other way, and the globe keeps its usual color. A poor network result is now red rather than orange.
+
 ## [0.14.0] - 2026-11-19
 
 ### Changed
@@ -378,7 +384,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.11.0...v0.12.0
