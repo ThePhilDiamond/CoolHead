@@ -58,6 +58,15 @@ extension Fixture {
             && causes == "schedule 4 lid 2 wireless 2"
             && !shownNames.contains("WindowServer (Part of macOS)") && shownNames.contains("syncd (A background program)")
             && h?.days == 2 && h?.title == "The past 2 days"
+        // the Power page's list: three without a click, the others at 5% or more behind one line, every one in Nerdy stuff
+        let few = h?.energySplit()
+        let sample = PowerHistory.sample().energySplit()
+        out.append(("power-page-top-three",
+                    few?.top.map(\.name) == ["Browser", "macOS itself", "Chat"] && few?.more.isEmpty == true && few?.all.count == 4
+                        && sample.top.map(\.name) == ["Google Chrome", "macOS itself", "Docker"] && sample.more.map(\.name) == ["Google Drive"]
+                        && sample.all.count == 15 && sample.all.map(\.share) == sample.all.map(\.share).sorted(by: >),
+                    "few: \(few?.top.map(\.name) ?? []) + \(few?.more.map(\.name) ?? []) of \(few?.all.count ?? 0); "
+                    + "sample: \(sample.top.map(\.name)) + \(sample.more.map(\.name)) of \(sample.all.count)"))
         out.append(("power-history-adds-up", addsUp,
                     "energy: \(energy); wakes: \(causes); names: \(shownNames); \(h?.title ?? "no history")"))
 

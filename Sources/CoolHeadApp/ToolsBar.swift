@@ -14,7 +14,7 @@ struct ToolsBar: View {
     @AppStorage(Tools.labelsKey) private var labels = true
     /// A battery to show: this Mac's, or in a screenshot a made-up one.
     var hasBattery: Bool {
-        watcher.mac.batteryPercent != nil || HardwareWatch.shared.report?.battery != nil || PanelView.sampleSnapshot
+        MacOutline.laptop && (watcher.mac.batteryPercent != nil || HardwareWatch.shared.report?.battery != nil || PanelView.sampleSnapshot)
     }
 
     var body: some View {
@@ -35,10 +35,14 @@ struct ToolsBar: View {
                 closeAll()
                 if open { network.open() }
             }
-            // the battery's own page, beside Network, the other check (Phil, 16 November 2026: "the battery tool should be
-            // next to the network tool"); a Mac with no battery has no Battery tool
-            if hasBattery {
-                ToolButton(symbol: BatteryBolt.name, name: "Battery", tip: "Battery health and energy use", labels: labels, on: tools.battery) {
+            // the Power page, beside Network, the other check (Phil, 16 November 2026: "the battery tool should be next to
+            // the network tool"). Called Power, with a plug on a Mac with no battery (Phil, 20 November 2026: "Let's rename
+            // "Battery" as "Power" and if it's a desktop show a power plug instead of a battery icon?"); a desktop's page is
+            // the week's energy use, so it's there when the power log can be read
+            if hasBattery || (!MacOutline.laptop && (PowerHistory.available || PanelView.sampleSnapshot)) {
+                ToolButton(symbol: PowerIcon.name, name: "Power",
+                           tip: hasBattery ? "Battery health and energy use" : "What used the most energy this week",
+                           labels: labels, on: tools.battery) {
                     let open = !tools.battery
                     closeAll()
                     tools.battery = open
@@ -149,11 +153,12 @@ struct ToolIcon: View {
 struct MacOutline: View {
     static let name = "coolhead.mac"
     /// A battery means a laptop: every MacBook has one, and no desktop Mac does. In a screenshot, a laptop.
-    static let laptop = PanelView.sampleSnapshot || {
+    /// COOLHEAD_SNAPSHOT_DESKTOP draws a desktop in a screenshot.
+    static let laptop = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_DESKTOP"] == nil && (PanelView.sampleSnapshot || {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
         defer { if service != 0 { IOObjectRelease(service) } }
         return service != 0
-    }()
+    }())
     var size: CGFloat = 15
     var body: some View {
         let k = size / 15
@@ -217,7 +222,12 @@ enum HardDisk {
     }
 }
 
-/// The Battery tool's icon: a battery a quarter full with a bolt through it, built from macOS's own symbols as it draws
+/// The Power tool's icon: the battery with a bolt on a laptop, a plug on a Mac with no battery (Phil, 20 November 2026).
+enum PowerIcon {
+    static var name: String { MacOutline.laptop ? BatteryBolt.name : "powerplug" }
+}
+
+/// The Power tool's icon on a laptop: a battery a quarter full with a bolt through it, built from macOS's own symbols as it draws
 /// (no image file), since macOS has a bolt only on a full battery, which was hard to read (Phil, 19 November 2026: "It's
 /// harder to read when it's the full battery with the bolt. We want a less-full battery with the bolt", then "For the
 /// battery icon, I like Option 3"). The bolt cuts a thin gap in what's under it, as macOS's own charging icon does, and the

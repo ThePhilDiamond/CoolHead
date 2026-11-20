@@ -64,6 +64,17 @@ public struct PowerHistory: Equatable {
         public let user: User?
     }
     public static let macOSItself = "macOS itself"
+    /// The Power page's list: the top three, shown without a click; the others at 5% or more, behind one line; and every
+    /// one, for Nerdy stuff (Phil, 20 November 2026: "just show the top three and it can be expanded", then ""more" should
+    /// cover everything using 5% or more, as anything less isn't as significant, and if they want more detail we can
+    /// include the full log in the "Nerdy stuff" section"). 5% as shown: a share that reads "5%" counts.
+    public func energySplit() -> (top: [EnergyRow], more: [EnergyRow], all: [EnergyRow]) {
+        let all = energyRows(Int.max)
+        return (Array(all.prefix(3)), all.dropFirst(3).filter { ($0.share * 100).rounded() >= PowerHistory.moreFloor }, all)
+    }
+    /// The share, in whole percent as shown, that earns a place behind "Show everything".
+    public static let moreFloor = 5.0
+
     public func energyRows(_ n: Int = 5) -> [EnergyRow] {
         let total = totalEnergy
         guard total > 0 else { return [] }
