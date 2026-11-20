@@ -121,6 +121,7 @@ struct PanelView: View {
             // "match the bottom bar background to the top bar so they both match as design elements outside the active
             // items in the middle panel of the app", then "Bottom bar: I think version 1 is the way to go, though we can just render the red version to see how it looks and decide.")
             .background(Color(nsColor: Badge.color(level)).opacity(0.10))
+            .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(0.10))
         }
         .frame(width: PanelView.width + extra)
     }

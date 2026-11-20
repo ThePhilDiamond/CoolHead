@@ -53,10 +53,11 @@ struct ToolsBar: View {
             // existing wire globe icon, maybe animated? And when it's got a result ready, maybe a green check mark?", then "I
             // meant the ring circumnavigating the globe like data packets flying around it as in a single ring along the equator")
             let away = network.running && !network.shown
+            // the dashes show while it runs, open or not, colors swapped when it's open (Phil, 20 November 2026: "Let's also make the network scan animation appear even when the tab is selected, not just in the background - because it looks cool. But invert the colors when it's selected (colored globe with the data packets in the grey or black or white or whatever)")
             ToolButton(symbol: "network", name: away ? "Testing" : "Network",
                        tip: away ? "A network test is running; its results will wait here"
                            : network.readyLevel != nil ? "Your network test results are ready" : "Test my network",
-                       labels: labels, on: network.shown, ring: away,
+                       labels: labels, on: network.shown, ring: network.running,
                        badge: network.readyLevel.map { (NetworkView.mark($0), NetworkView.color($0)) }) {
                 let open = !network.shown
                 closeAll()
@@ -267,7 +268,8 @@ struct ToolButton: View {
     let tip: String
     let labels: Bool
     let on: Bool
-    /// Something of the tool's is under way: orange dashes fly around the icon's equator; the icon keeps its own color.
+    /// Something of the tool's is under way: dashes fly around the icon's equator, orange while the tool is closed and gray
+    /// while it's open, when the icon itself takes the accent color.
     var ring = false
     /// A small mark at the icon's corner, results ready to look at: their symbol, in their color.
     var badge: (symbol: String, color: Color)? = nil
@@ -282,8 +284,8 @@ struct ToolButton: View {
                 .font(.system(size: 15))
                 .frame(height: 18)
                 // the far half of the ring behind the globe, fainter; the near half in front of it
-                .background { if ring { Orbit(near: false, still: still) } }
-                .overlay { if ring { Orbit(near: true, still: still) } }
+                .background { if ring { Orbit(near: false, still: still, on: on, hovering: hovering) } }
+                .overlay { if ring { Orbit(near: true, still: still, on: on, hovering: hovering) } }
                 .overlay(alignment: .topTrailing) {
                     if let badge {
                         Image(systemName: badge.symbol).font(.system(size: 9, weight: .bold)).foregroundStyle(badge.color)
@@ -312,6 +314,10 @@ struct ToolButton: View {
 struct Orbit: View {
     let near: Bool
     let still: Bool
+    /// The tool is open: the globe takes the accent color, so the dashes take the gray the icon has when closed.
+    var on = false
+    var hovering = false
+    @Environment(\.barWash) private var wash
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: still)) { t in
             // one dash length and its gap travel every 0.4 seconds, left to right across the near half
@@ -319,11 +325,16 @@ struct Orbit: View {
             let half = Ellipse().trim(from: near ? 0 : 0.5, to: near ? 0.5 : 1)
             ZStack {
                 // in front, each dash cuts a thin gap in the globe's lines, as the Battery icon's bolt does, so it reads
+                // the gap is drawn in what's behind the button, layer by layer: the window, the bar's tint, and the
+                // button's own highlight when it's open or under the mouse
                 if near {
-                    half.stroke(Color(nsColor: .windowBackgroundColor),
-                                style: StrokeStyle(lineWidth: 3.9, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+                    let gap = StrokeStyle(lineWidth: 3.9, lineCap: .round, dash: [2.5, 3], dashPhase: phase)
+                    half.stroke(Color(nsColor: .windowBackgroundColor), style: gap)
+                    half.stroke(wash, style: gap)
+                    if on { half.stroke(Color.accentColor.opacity(0.16), style: gap) }
+                    else if hovering { half.stroke(Color.primary.opacity(0.07), style: gap) }
                 }
-                half.stroke(Color.orange, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+                half.stroke(on ? Ink.muted : Color.orange, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
             }
             .opacity(near ? 1 : 0.4)
         }
@@ -466,5 +477,14 @@ struct TrustedView: View {
         } else {
             note = "macOS's own apps can't be trusted: Cool Head explains them instead."
         }
+    }
+}
+
+/// The tools bar's tint (the level's color, as the top row has), so a gap cut in an icon matches what's behind it.
+private struct BarWashKey: EnvironmentKey { static let defaultValue = Color.clear }
+extension EnvironmentValues {
+    var barWash: Color {
+        get { self[BarWashKey.self] }
+        set { self[BarWashKey.self] = newValue }
     }
 }
