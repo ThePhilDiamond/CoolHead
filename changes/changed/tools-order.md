@@ -1,1 +1,1 @@
-- The tools along the bottom are now in the order This Mac, Cleaner, Power, and Network.
+- The tools along the bottom are now in the order This Mac, Power, Cleaner, and Network: the two that show how your Mac is, then the two that do something.

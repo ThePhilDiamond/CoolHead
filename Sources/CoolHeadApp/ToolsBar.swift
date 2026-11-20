@@ -20,9 +20,8 @@ struct ToolsBar: View {
     var body: some View {
         // seven tools fit the panel's width with their names when each is as narrow as its name allows
         HStack(spacing: labels ? 1 : 6) {
-            // the order: This Mac, Cleaner, Power, Network (Phil, 20 November 2026: "Let's reorder the toolbar as part of this
-            // release", then "I think this order is intuitive and likely to match usage frequency"): the Mac itself first,
-            // the Cleaner beside it since This Mac's Clean up opens it, then Power, still beside Network (16 November 2026)
+            // the order: This Mac, Power, Cleaner, Network (Phil, 20 November 2026: "Let's reorder the toolbar as part of this
+            // release", then "I think power and cleaner should swap, as this mac and power are info panes, whereas cleaner and network are active tools."): the panes that show, then the tools that act, with no line between them ("We could arguably add another divider given that they're a different category of tool, but I think the intuitive ordering will achieve the same.")
             // the hardware checks on one page (Phil, 16 November 2026: "Yes build the hardware tool page")
             // the Mac itself, line drawn as a laptop or a desktop, since the chip and memory have their own meanings in the
             // panel (Phil, 19 November 2026: "Is there a different "hardware" icon we could use so we can use a drive icon for
@@ -34,18 +33,9 @@ struct ToolsBar: View {
                 closeAll()
                 tools.hardware = open
             }
-            // leftovers to clear, beside This Mac (Phil, 18 November 2026: "Can we add a broom
-            // "cleaner" tool"); a drawn broom was hard to make out at this size, so macOS's bubbles and sparkles (Phil,
-            // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles"); then
-            // an open hard disk with sparkles, line drawn: where it clears space, and that it cleans (Phil, 19 November 2026,
-            // as for Hardware above; macOS's own drive "is a bit ambiguous")
-            ToolButton(symbol: HardDisk.name, name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
-                let open = !tools.cleaner
-                closeAll()
-                tools.cleaner = open
-            }
-            // the Power page, beside Network, the other check (Phil, 16 November 2026: "the battery tool should be next to
-            // the network tool"). Called Power, with a plug on a Mac with no battery (Phil, 20 November 2026: "Let's rename
+            // the Power page, after This Mac: the two panes that show how the Mac is, before the two tools that act (Phil, 20
+            // November 2026: "I think power and cleaner should swap, as this mac and power are info panes, whereas cleaner and network are active tools."; this replaces 16 November 2026's "the battery tool should be next to the network
+            // tool"). Called Power, with a plug on a Mac with no battery (Phil, 20 November 2026: "Let's rename
             // "Battery" as "Power" and if it's a desktop show a power plug instead of a battery icon?"); a desktop's page is
             // the week's energy use, so it's there when the power log can be read
             if hasBattery || (!MacOutline.laptop && (PowerHistory.available || PanelView.sampleSnapshot)) {
@@ -56,6 +46,16 @@ struct ToolsBar: View {
                     closeAll()
                     tools.battery = open
                 }
+            }
+            // leftovers to clear, the first of the two tools that act, before Network (Phil, 18 November 2026: "Can we add a broom
+            // "cleaner" tool"); a drawn broom was hard to make out at this size, so macOS's bubbles and sparkles (Phil,
+            // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles"); then
+            // an open hard disk with sparkles, line drawn: where it clears space, and that it cleans (Phil, 19 November 2026,
+            // as for Hardware above; macOS's own drive "is a bit ambiguous")
+            ToolButton(symbol: HardDisk.name, name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
+                let open = !tools.cleaner
+                closeAll()
+                tools.cleaner = open
             }
             // a test carries on out of sight: while it runs, dashes fly around the globe's equator like data; when it has finished
             // unseen, the result's own mark from the view's top line (a green check when it's good) sits on the globe until
