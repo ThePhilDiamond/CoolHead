@@ -186,7 +186,9 @@ public enum HardwarePage {
             if thermal == "serious" { return (1, "macOS is slowing your Mac a little to cool it.") }
             if signs.memoryTight { return (1, "Memory is tight, so your Mac is slower than it could be.") }
             if signs.addingHeat { return (1, "Your Mac is warm, and something below is adding to the heat.") }
-            if signs.toWatch > 0 { return (1, speed + (signs.toWatch == 1 ? ". The card below needs a look." : ". The cards below need a look.")) }
+            // cards to watch melt the snowflake, but the row doesn't point at them: the title already counts them, and with
+            // a tool open the pill goes back to them (Phil, 20 November 2026: "Way back: pill, but remove the "The cards below need attention" text because that's the whole point, and change the pill text to reflect that, e.g., "2 fixes recommended" or something more intuitive and clear.")
+            if signs.toWatch > 0 { return (1, speed + ".") }
             if signs.resumeSync { return (1, "It's time to resume syncing.") }
             // nothing slowing it and nothing to act on: whole, even when it's warm
             return (0, speed + ".")

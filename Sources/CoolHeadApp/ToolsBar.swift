@@ -9,8 +9,6 @@ import UniformTypeIdentifiers
 /// 17 November 2026: "The settings icon should be the right-most.").
 struct ToolsBar: View {
     let watcher: Watcher
-    /// How many cards there are, for a Cards button at the left (Proto.back 3); nil, no button.
-    var cards: Int? = nil
     @ObservedObject var network = NetworkTester.shared
     @ObservedObject var tools = Tools.shared
     @AppStorage(Tools.labelsKey) private var labels = true
@@ -22,11 +20,6 @@ struct ToolsBar: View {
     var body: some View {
         // seven tools fit the panel's width with their names when each is as narrow as its name allows
         HStack(spacing: labels ? 1 : 6) {
-            if let cards {
-                ToolButton(symbol: "rectangle.stack", name: "Cards", tip: "Back to the cards", labels: labels,
-                           on: !(tools.trusted || tools.battery || tools.hardware || tools.settings || tools.cleaner || network.shown || watcher.showReport),
-                           badge: cards > 0 ? (symbol: "\(min(cards, 50)).circle.fill", color: .orange) : nil) { closeAll() }
-            }
             // a test carries on out of sight: while it runs, dashes fly around the globe's equator like data; when it has finished
             // unseen, the result's own mark from the view's top line (a green check when it's good) sits on the globe until
             // it's opened (Phil, 19 November 2026: "I think the network testing should be a ring of dashes around the

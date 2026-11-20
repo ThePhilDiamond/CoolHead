@@ -200,8 +200,8 @@ struct RunningStrip: View {
     let level: Watcher.Level
     /// The scroll bar's room while the panel is wider, so the row's words and gauges stay where they were.
     var extra: CGFloat = 0
-    /// With a tool open, how many cards are waiting (Proto.back 1); nil hides the pill.
-    var back: Int? = nil
+    /// With a tool open, the way back to the cards in a few words (PanelView.backTo); nil hides the pill.
+    var back: String? = nil
     @ObservedObject private var load = ChipLoad.shared
     /// The gauges are a setting, off to start: the snowflake and its words say how the Mac is without them (Phil, 19
     /// November 2026: "make the gauges in the top pane optional as a setting for users who don't know what it means or
@@ -278,9 +278,10 @@ struct RunningStrip: View {
                 Text(title.components(separatedBy: " · ").map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: " · "))
                     .font(.headline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 Text(meaning(r)).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-                // Proto.back 1: a pill back to the cards, tinted with their level; the whole row already goes back on a click
+                // a pill back to the cards, tinted with their level, with dark text so it reads on yellow; the whole row
+                // already goes back on a click (Phil, 20 November 2026: "Way back: pill")
                 if let back {
-                    Label(back == 1 ? "Back to 1 card" : "Back to \(back) cards", systemImage: "chevron.left")
+                    Label(back, systemImage: "chevron.left")
                         .font(.caption.weight(.semibold)).foregroundStyle(Ink.text)
                         .padding(.horizontal, 9).padding(.vertical, 4)
                         .background(Capsule().fill(Color(nsColor: Badge.color(level)).opacity(0.3)))
@@ -306,7 +307,7 @@ struct RunningStrip: View {
         // a gentle wash of the level's colour, never the only sign: the snowflake's shape (whole, melting, in flames)
         // and the title's words say the same (Phil, 17 November 2026: "a gentle background tint to the top bar for
         // green / yellow / red")
-        .background(Proto.bar == 2 ? Proto.neutral : Color(nsColor: Badge.color(level)).opacity(0.10))
+        .background(Color(nsColor: Badge.color(level)).opacity(0.10))
         .onAppear { load.start() }
         .onDisappear { load.stop() }
     }

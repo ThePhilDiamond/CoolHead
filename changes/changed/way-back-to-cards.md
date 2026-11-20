@@ -1,0 +1,1 @@
+- With a tool open, a pill in the top row says what the cards hold, such as "2 fixes recommended", and goes back to them. The top row no longer says "The cards below need a look", and the tools bar along the bottom takes the same green, yellow, or red tint as the top row.
