@@ -80,11 +80,11 @@ extension Fixture {
             ("nominal", S(memoryTight: true), 1, "Memory is tight, so your Mac is slower than it could be."),
             ("nominal", S(toWatch: 1), 1, "A normal temperature, at full speed."),
             ("fair", S(toWatch: 3), 1, "Warm, but at full speed."),
-            ("fair", S(addingHeat: true), 1, "Your Mac is warm, and something below is adding to the heat."),
+            ("fair", S(addingHeat: true), 1, "Your Mac is warm, and something running is adding to the heat."),
             ("serious", S(toWatch: 2), 1, "macOS is slowing your Mac a little to cool it."),
             ("nominal", S(resumeSync: true), 1, "It's time to resume syncing."),
-            ("nominal", S(stuck: 1, memoryTight: true), 2, "A program isn't making progress. Its card below says what to try."),
-            ("serious", S(memoryCritical: true), 2, "Memory is very tight, so everything is slower. The card below says what's using it."),
+            ("nominal", S(stuck: 1, memoryTight: true), 2, "A program isn't making progress."),
+            ("serious", S(memoryCritical: true), 2, "Memory is very tight, so everything is slower."),
             ("critical", S(), 2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun."),
         ]
         let states = cases2.map { HardwarePage.running(thermal: $0.0, signs: $0.1, fans: .rpm([1_200, 1_250])) }

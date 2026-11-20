@@ -177,15 +177,16 @@ public enum HardwarePage {
         let speed = thermal == "fair" ? "Warm, but at full speed" : "A normal temperature, at full speed"
         // each sentence names what it's about: "your Mac", never a bare "it" (Phil, 19 November 2026: "What does
         // "macOS is slowing it hard to..." refer to? Slowing your Mac? The language should be more clear.")
-        // severe first: in flames
+        // severe first: in flames. Each says the cause, never where the cards are: the title counts them, and with a
+        // tool open the pill goes back to them (Phil, 20 November 2026: "Yes, drop the pointer keep the cause.")
         let (icon, meaning): (Int, String) = {
             if thermal == "critical" { return (2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun.") }
-            if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower. The card below says what's using it.") }
-            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program isn't making progress. Its card below says what to try." : "\(signs.stuck) programs aren't making progress. Their cards below say what to try.") }
+            if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower.") }
+            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program isn't making progress." : "\(signs.stuck) programs aren't making progress.") }
             // moderate: melting
             if thermal == "serious" { return (1, "macOS is slowing your Mac a little to cool it.") }
             if signs.memoryTight { return (1, "Memory is tight, so your Mac is slower than it could be.") }
-            if signs.addingHeat { return (1, "Your Mac is warm, and something below is adding to the heat.") }
+            if signs.addingHeat { return (1, "Your Mac is warm, and something running is adding to the heat.") }
             // cards to watch melt the snowflake, but the row doesn't point at them: the title already counts them, and with
             // a tool open the pill goes back to them (Phil, 20 November 2026: "Way back: pill, but remove the "The cards below need attention" text because that's the whole point, and change the pill text to reflect that, e.g., "2 fixes recommended" or something more intuitive and clear.")
             if signs.toWatch > 0 { return (1, speed + ".") }
