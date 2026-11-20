@@ -45,7 +45,7 @@ extension Fixture {
         p1 = p1 && calm[0].value == "Healthy" && calm[0].lines.isEmpty && calm[0].backup == "Time Machine is set up to back it up."
         p1 = p1 && tiles == ["3% life used", "18 TB written", "2,140 hours on"]
         let temps: [String] = calmAll[0].tiles.map { $0.value + " " + $0.unit }
-        p1 = p1 && temps == ["\(Fmt.temperature(55)) chip", "\(Fmt.temperature(31)) battery", "\(Fmt.temperature(34)) drive"] && calmAll[0].value == "Normal"
+        p1 = p1 && temps == ["\(Fmt.temperature(55)) chip", "\(Fmt.temperature(31)) battery", "\(Fmt.temperature(34)) drive"] && calmAll[0].value == "Normal" && calmAll[0].lines.isEmpty
         var hot = HardwarePage.sample(now: now); hot.battery?.temperatureC = 46; hot.chipC = nil
         let hotTemps = HardwarePage.parts(hot, now: now).first
         p1 = p1 && hotTemps?.value == "Hot" && hotTemps?.tiles.map(\.unit) == ["battery", "drive"]

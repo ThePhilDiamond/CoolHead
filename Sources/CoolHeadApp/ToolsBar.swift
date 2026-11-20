@@ -53,7 +53,9 @@ struct ToolsBar: View {
             // the Mac itself, line drawn as a laptop or a desktop, since the chip and memory have their own meanings in the
             // panel (Phil, 19 November 2026: "Is there a different "hardware" icon we could use so we can use a drive icon for
             // the cleaner tab?", then "open hard disk icon with larger sparklers, line drawing laptop/desktop")
-            ToolButton(symbol: MacOutline.name, name: "Hardware", tip: "Hardware checks", labels: labels, on: tools.hardware) {
+            // called This Mac (Phil, 20 November 2026: "if "This Mac" fits in the bar nicely, we can use that, but if it's
+            // tight, let's use "My Mac""); it's as wide as "Hardware" was
+            ToolButton(symbol: MacOutline.name, name: "This Mac", tip: "This Mac's hardware, serial number, and storage", labels: labels, on: tools.hardware) {
                 let open = !tools.hardware
                 closeAll()
                 tools.hardware = open
