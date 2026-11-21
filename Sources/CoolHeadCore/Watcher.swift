@@ -43,7 +43,8 @@ public struct LiveCard: Identifiable {
 }
 
 /// Samples every process on a timer and turns sustained load into cards.
-/// Nothing is written to disk: what it needs while running stays in memory and is gone when it quits.
+/// Nothing is written to disk but spells of tight memory (see PressureHistory): what else it needs while running stays in
+/// memory and is gone when it quits.
 @Observable
 public final class Watcher {
     public static let shared = Watcher()
@@ -105,6 +106,17 @@ public final class Watcher {
     @ObservationIgnored private var timer: DispatchSourceTimer?
     /// The running count of swap-outs over about the last 2 minutes, for `MacState.swappedOutMB`.
     @ObservationIgnored private var swapSamples: [(at: Date, pages: UInt64)] = []
+    /// Since when macOS has said memory is tight (warning or critical), for MemoryGate.
+    @ObservationIgnored private var tightSince: Date?
+    /// Spells of tight memory, kept 30 days (see PressureHistory); saved when a spell starts, changes, ends, and every
+    /// 5 minutes while it lasts.
+    @ObservationIgnored private var pressure: [PressureHistory.Episode] = {
+        var l = PressureHistory.load(); PressureHistory.closeOpen(&l); return l
+    }()
+    /// Ends a spell left open, at quit (it's also closed at the next launch, if Cool Head didn't get to quit).
+    public func closePressureSpell() {
+        queue.sync { PressureHistory.closeOpen(&pressure); PressureHistory.save(pressure) }
+    }
 
     struct Track {
         var cpu: Double            // CPU seconds at the last tick
@@ -570,6 +582,7 @@ public final class Watcher {
                 state.swappedOutMB = Double(pages - first.pages) * Double(getpagesize()) / 1_048_576
             }
         }
+        tightSince = state.memoryPressure == "warning" || state.memoryPressure == "critical" ? (tightSince ?? now) : nil
         guard dt > 0 else { publish(state, [], own: 0); return }
 
         let warm = state.thermal != "nominal"
@@ -745,7 +758,12 @@ public final class Watcher {
                 if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, measured: (tracks[p]?.cores ?? 0, 0), gpu: tracks[p].flatMap { $0.gpuTime != nil ? $0.gpu : nil }) }
             }
             let models = groups.prefix(3).contains(where: MemoryAdvice.isOllama) ? Leftovers.loadedRecently(now: now) : nil
-            let card = MemoryAdvice.card(groups, mac: s, now: now, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
+            // whether memory is what slows the Mac now, kept with this spell; and how often it has this week
+            let slowed = MemoryGate.slowed(s, tightSince: tightSince, now: now)
+            if PressureHistory.note(&pressure, tight: PressureHistory.Episode.Level(s), slowed: slowed, top: groups.first.map(PressureHistory.Episode.Top.init),
+                                    swapOutPages: s.swapOutPages, now: now) { PressureHistory.save(pressure, now: now) }
+            let context = MemoryContext(slowed: slowed, week: PressureHistory.week(pressure, now: now))
+            let card = MemoryAdvice.card(groups, mac: s, now: now, context: context, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
                                          buildData: MemoryAdvice.lowDisk(s) ? Leftovers.buildDataSize(now: now) : nil)
             let top = groups.first
             let subject = top.map { g -> String in
@@ -767,6 +785,8 @@ public final class Watcher {
                 }
             }
             out.append(mc)
+        } else if PressureHistory.note(&pressure, tight: nil, slowed: false, top: nil, swapOutPages: s.swapOutPages, now: now) {
+            PressureHistory.save(pressure, now: now)
         }
         return out
     }

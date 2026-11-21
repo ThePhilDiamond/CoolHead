@@ -140,7 +140,7 @@ public enum MemoryAdvice {
     /// `leak`: the biggest app's memory has kept growing with the same windows open (see Leaks). `models`: what Ollama
     /// has loaded, when it is among the biggest (see Leftovers); `buildData`: the size of Xcode's build data, when the
     /// startup disk is nearly full.
-    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(),
+    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), context: MemoryContext = MemoryContext(),
                             leak: Leaks.Leak? = nil, models: [Leftovers.Model]? = nil, buildData: UInt64? = nil, tabMemoryOn: Bool? = nil) -> Card {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
@@ -149,6 +149,22 @@ public enum MemoryAdvice {
                             + (lowDisk(s) ? [Leftovers.buildDataFix(bytes: buildData).map { var f = $0; f.recommended = false; return f }, freeDisk].compactMap { $0 } : []))
         }
         let size = Fmt.bytes(top.bytes)
+        // Chrome using the most while the Mac copes: macOS says warning, but nothing is being moved to disk, so nothing waits
+        // on memory yet, and closing tabs would cost something for nothing (see MemoryGate). A calm card says so, and Cool
+        // Head says if it changes (Phil, 21 November 2026, the calm card offered for his look). At critical, the full card.
+        if top.name == "Google Chrome", top.kind == .browser, context.slowed == false, s.memoryPressure == "warning",
+           let moved = s.swappedOutMB, moved < MemoryGate.writingMB {
+            var calm = Card(state: .working, headline: "Memory is busy, but your Mac is keeping up.",
+                            explanation: "Google Chrome is using the most (\(size)), and your Mac isn't moving memory to its disk, so nothing is slowed down yet. We'll say if that changes.",
+                            fixes: [])
+            calm.names = ["Google Chrome"]
+            return calm
+        }
+        // how often memory has slowed this Mac this week (see PressureHistory): a pattern is a reason to act now rather than wait
+        var weekNote: String? = nil
+        if top.name == "Google Chrome", let w = context.week, w.count >= 2 {
+            weekNote = "It's slowed your Mac \(w.count) times this week, about \(Fmt.duration(Double(w.minutes) * 60)) in all, so it's likely to happen again while Chrome holds this much."
+        }
         // the three biggest, named so they can be told apart (see Naming)
         let shown = Array(groups.prefix(3))
         let names = Naming.distinct(shown.map(\.named))
@@ -246,7 +262,7 @@ public enum MemoryAdvice {
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
         var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
-                        explanation: leaking?.sentence ?? expl, fixes: fixes)
+                        explanation: leaking?.sentence ?? (expl + (weekNote.map { " " + $0 } ?? "")), fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
         card.facts = also
         return card

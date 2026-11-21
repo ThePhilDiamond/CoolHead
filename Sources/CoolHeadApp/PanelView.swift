@@ -169,7 +169,8 @@ struct PanelView: View {
         let n = shownCards.filter { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }.count
             + watcher.syncPauses.filter { $0.until <= Date() }.count                    // syncing to resume
         let stuck = shownCards.filter { $0.card.state == .stalled }.count
-        let jobs = shownCards.filter { $0.card.state == .working || $0.card.state == .starting }.count
+        // the calm memory card is no job (see MemoryAdvice: Chrome using the most while the Mac keeps up)
+        let jobs = shownCards.filter { ($0.card.state == .working || $0.card.state == .starting) && !$0.id.hasPrefix("memory") }.count
         var watch: String?
         if stuck > 0 { watch = "\(stuck) looks stuck" + (n > stuck ? ", \(n - stuck) to watch" : "") }
         else if n > 0 { watch = "\(n) to watch" }
