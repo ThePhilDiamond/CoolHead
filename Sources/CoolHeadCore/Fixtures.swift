@@ -106,53 +106,39 @@ public struct Fixture {
         review.append(("memory-groups", chromeHelper?.key == "/Applications/Google Chrome.app" && chromeHelper?.kind == .browser && pyJob?.kind == .job,
                        "Chrome's helpers count as Chrome; a Python script counts as a job"))
         var tight = MacState(); tight.memoryPressure = "warning"; tight.swapUsedMB = 1500; tight.swapTotalMB = 3000
-        let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, chrome: .available(4096), tabMemoryOn: false)
-        // One Click First (Phil, 16 November 2026): Limit Chrome is recommended; closing the heaviest tabs fixes the cause
-        review.append(("memory-browser", browserCard.recommended?.id == "chromelimit"
-                       && browserCard.betterThanRecommended.map(\.id) == ["tabs"]
+        let browserCard = MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, tabMemoryOn: false)
+        // closing the heaviest tabs is recommended: with Limit Chrome retired (it did nothing, see ChromeLimit) there's no
+        // one-click option for Chrome's memory that keeps the tabs, and Restart is never recommended (see BrowserRestart)
+        review.append(("memory-browser", browserCard.recommended?.id == "tabs"
+                       && browserCard.betterThanRecommended.isEmpty
                        && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("Closes all tabs") }
                        && browserCard.headline.contains("Google Chrome is using the most"), browserCard.headline))
-        // Chrome's memory limit (Phil, 15 November 2026: "Yes, with the warning"): offered with the "managed" notice,
-        // undoable, and recommended under One Click First (Phil, 16 November 2026: "What's the downside to Chrome saying
-        // it's managed by your organization? Seems immaterial to me... I think one click first is right"); not offered when Chrome already has those settings, or for other browsers. Set and
-        // removed for real on a scratch settings domain, never on Chrome's.
-        let gbs: [UInt64] = [4, 8, 16, 64].map { $0 * 1_073_741_824 }
-        // a quarter of memory or Chrome's use now, whichever is lower, whole GB rounded down, at least 2 GB
-        let capMBs = [ChromeLimit.limitMB(memory: gbs[0], chromeUse: 3_000_000_000), ChromeLimit.limitMB(memory: gbs[1], chromeUse: 1_500_000_000),
-                      ChromeLimit.limitMB(memory: gbs[2], chromeUse: 3_700_000_000), ChromeLimit.limitMB(memory: gbs[2], chromeUse: 6_000_000_000),
-                      ChromeLimit.limitMB(memory: gbs[3], chromeUse: 10_000_000_000)]
-        let offered = browserCard.fixes.first { $0.id == "chromelimit" }
+        // Chrome's memory limit, retired (Phil, 21 November 2026: "Do it all"): Chrome only applies it when an organization
+        // manages the Mac (see ChromeLimit), so it's no longer offered, for Chrome first or second, and what an earlier
+        // Cool Head wrote is removed, only when Cool Head wrote it. Written and removed for real on a scratch settings domain,
+        // never on Chrome's.
         let chromeGroup = [MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)]
-        let limitedCard = MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .set(4096), tabMemoryOn: false)
-        let noRemove = !limitedCard.fixes.contains { $0.id == "chromelimit" } && limitedCard.explanation.contains("over its 4 GB limit")
         let driveFirst = MemoryAdvice.card([MemGroup(key: "g", name: "Google Drive", kind: .app, bundle: "/Applications/Google Drive.app", bytes: 4_700_000_000, count: 3)]
-                                           + chromeGroup, mac: tight, now: now, chrome: .available(4096), tabMemoryOn: false)
-        let secondOffered = driveFirst.fixes.contains { $0.id == "chromelimit" }
-        let notOffered = !MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .unavailable, tabMemoryOn: false).fixes.contains { $0.id == "chromelimit" }
-            && !MemoryAdvice.card([MemGroup(key: "e", name: "Microsoft Edge", kind: .browser, bundle: "/Applications/Microsoft Edge.app", bytes: 5_500_000_000, count: 41)],
-                                  mac: tight, now: now, chrome: .available(4096), tabMemoryOn: false).fixes.contains { $0.id == "chromelimit" }
+                                           + chromeGroup, mac: tight, now: now, tabMemoryOn: false)
+        let noLimit = ![browserCard, driveFirst].contains { $0.fixes.contains { $0.title.hasPrefix("Limit Chrome") } }
+            && !browserCard.explanation.contains("limit")
         let scratch = "io.github.thephildiamond.coolhead.selftest-chrome", scratchMark = "selftestChromeLimitMB"
-        let sixteen = gbs[2]
         _ = ChromeLimit.remove(domain: scratch, marker: scratchMark)
-        let didSet = ChromeLimit.set(ChromeLimit.limitMB(memory: sixteen, chromeUse: 5_000_000_000), domain: scratch, marker: scratchMark)
-        let wrote = (ChromeLimit.value("TotalMemoryLimitMb", scratch) as? Int) == 4096 && (ChromeLimit.value("MemorySaverModeSavings", scratch) as? Int) == 2
-            && (ChromeLimit.value("HighEfficiencyModeEnabled", scratch) as? Bool) == true
+        let earlier = ChromeLimit.writeAsEarlierVersions(4096, domain: scratch, marker: scratchMark)
         let didRemove = ChromeLimit.remove(domain: scratch, marker: scratchMark)
-        // someone else's setting: not offered, not touched
+        let gone = ChromeLimit.keys.allSatisfy { ChromeLimit.value($0, scratch) == nil } && UserDefaults.standard.integer(forKey: scratchMark) == 0
+        // someone else's setting: not Cool Head's, so never removed
         CFPreferencesSetAppValue("MemorySaverModeSavings" as CFString, 1 as CFNumber, scratch as CFString); CFPreferencesAppSynchronize(scratch as CFString)
-        let leftAlone = ChromeLimit.status(domain: scratch, marker: scratchMark) == .unavailable && !ChromeLimit.set(4096, domain: scratch, marker: scratchMark)
-            && (ChromeLimit.value("MemorySaverModeSavings", scratch) as? Int) == 1 && ChromeLimit.value("TotalMemoryLimitMb", scratch) == nil
+        let leftAlone = ChromeLimit.status(domain: scratch, marker: scratchMark) == .notSet && !ChromeLimit.remove(domain: scratch, marker: scratchMark)
+            && (ChromeLimit.value("MemorySaverModeSavings", scratch) as? Int) == 1
         CFPreferencesSetAppValue("MemorySaverModeSavings" as CFString, nil, scratch as CFString); CFPreferencesAppSynchronize(scratch as CFString)
-        review.append(("chrome-memory-limit", capMBs == [2048, 2048, 3072, 4096, 9216]
-                       && offered?.title == "Limit Chrome to 4 GB" && offered?.consequence.contains("managed by your organization") == true
-                       && offered?.recommended == true && browserCard.fixes.firstIndex { $0.id == "chromelimit" } == 0
-                       && noRemove && secondOffered && notOffered && didSet && wrote && didRemove && leftAlone,
-                       "limits \(capMBs); offered \(offered?.title ?? "no"), also when Chrome is second \(secondOffered); once on, no Remove option and the card explains it \(noRemove); set \(didSet) wrote \(wrote) removed \(didRemove); others' settings left alone \(leftAlone)"))
+        review.append(("chrome-limit-retired", noLimit && earlier && didRemove && gone && leftAlone,
+                       "not offered \(noLimit); an earlier version's settings written \(earlier), removed \(didRemove), all gone \(gone); others' settings left alone \(leftAlone)"))
         // Show each tab's memory: offered on Chrome's card until Chrome's own setting is on, read from Local State
         func hover(_ json: String) -> Bool? { ChromeHoverMemory.isOn(Data(json.utf8)) }
         let reads = [hover(#"{"browser":{"hovercard":{"memory_usage_enabled":true}}}"#), hover(#"{"browser":{"hovercard":{"memory_usage_enabled":false}}}"#),
                      hover(#"{"browser":{}}"#), hover("not json")]
-        let tabMemory = { (on: Bool) in MemoryAdvice.card(chromeGroup, mac: tight, now: now, chrome: .available(4096), tabMemoryOn: on).fixes.first { $0.id == "tabmemory" } }
+        let tabMemory = { (on: Bool) in MemoryAdvice.card(chromeGroup, mac: tight, now: now, tabMemoryOn: on).fixes.first { $0.id == "tabmemory" } }
         let edgeTabMemory = card("Microsoft Edge").fixes.contains { $0.id == "tabmemory" }
         review.append(("chrome-tab-memory", reads == [true, false, true, nil] && tabMemory(false)?.kind == .openPage("/Applications/Google Chrome.app", "chrome://settings/appearance")
                        && tabMemory(true) == nil && !edgeTabMemory && ChromeHoverMemory.read(path: "/nonexistent/Local State") == nil,
@@ -171,14 +157,14 @@ public struct Fixture {
         let browserOrder = browserCard.fixes.map(\.id).joined(separator: " ")
         let driveOrder = driveFirst.fixes.map(\.id).joined(separator: " ")
         func card(_ name: String) -> Card {
-            MemoryAdvice.card([MemGroup(key: name, name: name, kind: .browser, bundle: "/Applications/\(name).app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, chrome: .unavailable, tabMemoryOn: false)
+            MemoryAdvice.card([MemGroup(key: name, name: name, kind: .browser, bundle: "/Applications/\(name).app", bytes: 5_500_000_000, count: 41)], mac: tight, now: now, tabMemoryOn: false)
         }
         let edgeRestart = card("Microsoft Edge").fixes.first { $0.id == "restart" }
         let notChromium = ["Safari", "Firefox", "Arc", "Opera"].filter { card($0).fixes.contains { $0.id == "restart" } }
         let restartCard = restartFix?.title == "Restart Google Chrome, keeping your tabs"
             && restartFix?.kind == .restartBrowser("/Applications/Google Chrome.app") && restartFix?.recommended == false
             && restartFix?.consequence == "Closes and reopens Google Chrome, freeing memory it built up. Your tabs come back; Incognito windows, unsent form text, and downloads in progress don't."
-            && browserOrder == "chromelimit tabs restart quit saver tabmemory" && driveOrder == "quit restart quit2 chromelimit pause"
+            && browserOrder == "tabs restart quit saver tabmemory" && driveOrder == "quit restart quit2 pause"
             && edgeRestart?.consequence.contains("InPrivate windows") == true && notChromium.isEmpty
             && BrowserRestart.note(.stillOpen, name: "Google Chrome").text.contains("so it wasn't reopened") && BrowserRestart.note(.stillOpen, name: "Google Chrome").failed
             && !BrowserRestart.note(.restarted(seconds: 3), name: "Google Chrome").failed

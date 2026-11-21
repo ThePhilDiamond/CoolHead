@@ -124,11 +124,19 @@ public final class Watcher {
 
     public private(set) var pausedJobs: [PausedJob] = PauseStore.load("pausedJobs")
     public private(set) var syncPauses: [SyncPause] = PauseStore.load("syncPauses")
-    /// Chrome's memory limit in MB, while the one Cool Head set is in place: listed at the top of the panel with its
-    /// undo. Chrome's settings are read only when Cool Head has set one.
+    /// The memory limit an earlier Cool Head set for Chrome, in MB, while it's still in place. It did nothing on a Mac no
+    /// organization manages (see ChromeLimit), so it's removed once per launch, and listed at the top of the panel, with
+    /// Remove, only if that failed. Chrome's settings are read only when Cool Head has set one.
     public private(set) var chromeLimitMB: Int? = nil
+    private var triedRetiringChromeLimit = false
     public func refreshChromeLimit() {
         guard UserDefaults.standard.integer(forKey: ChromeLimit.marker) > 0, case .set(let mb) = ChromeLimit.status() else { chromeLimitMB = nil; return }
+        if !triedRetiringChromeLimit {
+            triedRetiringChromeLimit = true
+            let ok = ChromeLimit.remove()
+            log("Removed the Chrome memory limit an earlier Cool Head set: " + (ok ? "done" : "failed"))
+            if ok { chromeLimitMB = nil; return }
+        }
         chromeLimitMB = mb
     }
     @discardableResult public func removeChromeLimit() -> Bool {

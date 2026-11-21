@@ -571,23 +571,6 @@ struct CardView: View {
             let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
             note = "Copied the address and opened \(app). There, press ⌘L, then ⌘V, then Return."; noteFailed = false; acted = true
             watcher.log("Copied a settings address for \(live.reportSubject)")
-        case .chromeLimit(let mb):
-            // Chrome's own settings, written the way `defaults write` would; only what Cool Head set is ever removed
-            if let mb {
-                let ok = ChromeLimit.set(mb)
-                watcher.refreshChromeLimit()
-                acted = ok
-                note = ok ? "Chrome is now limited to \(ChromeLimit.gb(mb)). It applies within 15 minutes, or when you reopen Chrome. Remove it from the top of this panel."
-                          : "That didn't work: Chrome's settings didn't change."
-                noteFailed = !ok
-                watcher.log("Limit Chrome pressed: " + (ok ? "set" : "failed"))
-            } else {
-                let ok = watcher.removeChromeLimit()
-                acted = ok
-                note = ok ? "Removed. Chrome goes back to its own settings within 15 minutes, or when you reopen it."
-                          : "That didn't work: Chrome's settings didn't change."
-                noteFailed = !ok
-            }
         case .openApp(let bundle, let steps):
             // what Cool Head can't do itself: it opens the app where it's done, and says how
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
@@ -1046,7 +1029,7 @@ enum FrozenItem: Identifiable {
     static func all(_ w: Watcher) -> [FrozenItem] {
         // a screenshot shows nothing of this Mac's own: with example cards, only made-up lines; limited to some of this
         // Mac's cards, only what Cool Head is doing to those (see COOLHEAD_SNAPSHOT_COOL and _PAUSE)
-        if PanelView.sampleSnapshot { return heldBackSamples ? [.chrome(4096), .agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
+        if PanelView.sampleSnapshot { return heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
         if let pids = PanelView.onlyPIDs(w) {
             return w.cooledList.filter { pids.contains($0.pid) }.map { .cooled($0) } + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) }
         }
@@ -1090,7 +1073,7 @@ enum FrozenItem: Identifiable {
         case .cooled(let c): return "Slowing \(c.name) to keep your Mac cool"
         case .paused(let p): return "\(p.name) is paused until you plug in"
         case .sync(let s): return due ? "Time to resume \(s.name) syncing" : "\(s.name) syncing is paused"
-        case .chrome(let mb): return "Chrome is limited to \(ChromeLimit.gb(mb))"
+        case .chrome(let mb): return "Cool Head's \(ChromeLimit.gb(mb)) limit for Chrome is still set"
         case .agent(let a): return a.owner == a.label ? "A background helper is turned off" : "\(a.owner)'s background helper is turned off"
         case .backup(let p): return "Time Machine skips \(FrozenItem.name(p)) in \(FrozenItem.project(p))"
         }
@@ -1123,7 +1106,7 @@ enum FrozenItem: Identifiable {
         case .paused(let p): return "Paused since \(Fmt.time(p.since)). Nothing is lost, and it carries on by itself when you plug in."
         case .sync(let s): return due ? "Resume it from its menu bar icon, then press Resumed."
                                       : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
-        case .chrome(let mb): return "Past \(ChromeLimit.gb(mb)), Chrome unloads tabs you aren't using. While it's on, Chrome says it's \u{201C}managed by your organization\u{201D}."
+        case .chrome: return "Chrome only applies it when an organization manages this Mac, so it does nothing here, and it makes Chrome say it's \u{201C}managed by your organization\u{201D}. Removing it changes nothing else."
         case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
         case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
         }
@@ -1789,7 +1772,6 @@ struct FixRow: View {
         case .openPage: return "gearshape"
         case .pauseJob: return "pause.circle"
         case .pauseSync: return "pause.circle"
-        case .chromeLimit: return "memorychip"
         case .resume: return "play.circle"
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"

@@ -54,11 +54,10 @@ enum GoldenRanking {
     macos-unknown-normal-priority · unknown-service · unknown · → none · lookup
     background-helper · job · unknown · → cooler · cooler, agent, lookup, share
     time-machine-build · catalogue · working · → backup · backup
-    memory-chrome · - · unknown · → chromelimit · chromelimit, tabs, restart, quit, saver, tabmemory
-    memory-chrome-limited · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory
+    memory-chrome · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory
     memory-safari · - · unknown · → tabs · tabs, quit
     memory-edge · - · unknown · → tabs · tabs, restart, quit, saver
-    memory-sync-app · - · unknown · → quit · quit, restart, quit2, chromelimit, pause
+    memory-sync-app · - · unknown · → quit · quit, restart, quit2, pause
     memory-app-and-program-alike · - · unknown · → none · quit
     memory-program-first · - · unknown · → none · quit2, lookup
     memory-low-disk · - · unknown · → quit · quit, disk

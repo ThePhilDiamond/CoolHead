@@ -140,7 +140,7 @@ public enum MemoryAdvice {
     /// `leak`: the biggest app's memory has kept growing with the same windows open (see Leaks). `models`: what Ollama
     /// has loaded, when it is among the biggest (see Leftovers); `buildData`: the size of Xcode's build data, when the
     /// startup disk is nearly full.
-    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil,
+    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(),
                             leak: Leaks.Leak? = nil, models: [Leftovers.Model]? = nil, buildData: UInt64? = nil, tabMemoryOn: Bool? = nil) -> Card {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
@@ -161,7 +161,6 @@ public enum MemoryAdvice {
         let expl = pressure(s)
         let also = next.isEmpty ? [] : ["Also using a lot: \(Fmt.list(next))"]
         var fixes: [Fix] = []
-        var limitNote: String? = nil
         // the biggest app has been leaking: quitting and reopening it gives the memory back, so that's the advice
         var leaking: (headline: String, sentence: String, fix: Fix)? = nil
         if let l = leak, top.kind == .app, let b = top.bundle {
@@ -181,9 +180,6 @@ public enum MemoryAdvice {
                          ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "In \(top.name), find the tabs using the most memory and close the ones you don't need.",
                                       steps: ["Open \(top.name)."] + steps, recommended: true)).fixingTheCause())
             if top.name == "Google Chrome" {
-                let st = chrome ?? ChromeLimit.status(chromeUse: top.bytes)
-                if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
-                limitNote = ChromeLimit.note(st, using: top.bytes)
                 if let b = top.bundle {
                     fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
                     // Chrome names each tab and its memory, which Cool Head can't (Phil, 18 November 2026: "A user doesn't know
@@ -223,13 +219,6 @@ public enum MemoryAdvice {
         case .macOS, .other:
             fixes.append(Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(top.name)\u{201D}.", kind: .lookUp(top.name)))
         }
-        // Chrome among the biggest, but not the biggest: limiting it is a way to free memory that closes nothing
-        // (found in the live test, 15 November 2026: Google Drive 4.7 GB, Chrome 4.6 GB, and only Quit was offered)
-        if top.name != "Google Chrome", let c = groups.prefix(3).first(where: { $0.name == "Google Chrome" && $0.kind == .browser }) {
-            let st = chrome ?? ChromeLimit.status(chromeUse: c.bytes)
-            if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
-            limitNote = ChromeLimit.note(st, using: c.bytes)
-        }
         // a Chromium browser among the biggest: restarting it frees the memory it has built up, and its tabs come back
         // (see BrowserRestart); before Quit, since it loses less, and never recommended, since it closes the browser
         // you may be using and doesn't bring back private windows, unsent form text or downloads
@@ -257,7 +246,7 @@ public enum MemoryAdvice {
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
         var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
-                        explanation: leaking?.sentence ?? expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
+                        explanation: leaking?.sentence ?? expl, fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
         card.facts = also
         return card

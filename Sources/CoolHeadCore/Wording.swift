@@ -23,11 +23,10 @@ public enum Wording {
             MemGroup(key: name, name: name, kind: kind, bundle: bundle, bytes: UInt64(gb * 1_000_000_000), count: n)
         }
         let chrome = group("Google Chrome", .browser, "/Applications/Google Chrome.app", 5.5, 41)
-        out.append(("memory-chrome", MemoryAdvice.card([chrome], mac: tight, now: now, chrome: .available(4096), tabMemoryOn: false)))
-        out.append(("memory-chrome-limited", MemoryAdvice.card([chrome], mac: tight, now: now, chrome: .set(4096), tabMemoryOn: false)))
+        out.append(("memory-chrome", MemoryAdvice.card([chrome], mac: tight, now: now, tabMemoryOn: false)))
         out.append(("memory-safari", MemoryAdvice.card([group("Safari", .browser, "/Applications/Safari.app", 4, 20)], mac: tight, now: now)))
-        out.append(("memory-edge", MemoryAdvice.card([group("Microsoft Edge", .browser, "/Applications/Microsoft Edge.app", 4, 20)], mac: tight, now: now, chrome: .unavailable)))
-        out.append(("memory-sync-app", MemoryAdvice.card([group("Google Drive", .app, "/Applications/Google Drive.app", 6, 3), chrome], mac: tight, now: now, chrome: .available(4096))))
+        out.append(("memory-edge", MemoryAdvice.card([group("Microsoft Edge", .browser, "/Applications/Microsoft Edge.app", 4, 20)], mac: tight, now: now)))
+        out.append(("memory-sync-app", MemoryAdvice.card([group("Google Drive", .app, "/Applications/Google Drive.app", 6, 3), chrome], mac: tight, now: now)))
         // names that look alike: an app and a command-line program of the same name, told apart (see Naming)
         var claudeCLI = MemGroup(key: "other-claude", name: "claude", kind: .other, bundle: nil, bytes: 1_600_000_000, count: 1)
         claudeCLI.what = .commandLine
