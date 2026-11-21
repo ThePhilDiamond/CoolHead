@@ -67,7 +67,15 @@ swift scripts/make-icon.swift build/icon app
 iconutil -c icns build/icon/AppIcon.iconset -o Resources/AppIcon.icns
 ```
 
-The menu bar icon, a snowflake, is drawn in `Sources/CoolHeadApp/CoolHeadApp.swift` (`MenuIcon`). The logo ideas that weren't chosen can still be drawn: `sheet`, `linesheet`, `facesheet`, and `facesheet2`.
+The README's logo is the same drawing at 512 pixels:
+
+```bash
+sips -z 512 512 build/icon/logo.png --out docs/images/logo.png
+```
+
+Then redraw the social card, which uses it: `swift scripts/social-card.swift`.
+
+The menu bar icon, a snowflake, is drawn in `Sources/CoolHeadApp/CoolHeadApp.swift` (`MenuIcon`). The logo ideas that weren't chosen can still be drawn: `sheet`, `linesheet`, `facesheet`, and `facesheet2`, and the logo before the melting snowflake, the smiling face, with `face`.
 
 ## Layout
 
