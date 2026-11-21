@@ -297,8 +297,31 @@ public enum MemoryAdvice {
         // a leak: the verdict leads, with its evidence and advice alone, and a plain quit of the same app isn't offered too,
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
+        // Cool Head for Chrome connected: Chrome's steps become one click (Phil, 21 November 2026: "The "close chrome's
+        // heaviest tabs" recommendation could also be one-click if they have the extension and "safe list.""). An
+        // extension can't see each tab's memory, so "heaviest" becomes the tabs you aren't looking at; Cool Head's own
+        // figure says how much that is. Not connected, and memory has slowed the Mac twice this week: it's offered.
+        if top.name == "Google Chrome", top.bundle != nil {
+            if context.companion == .connected {
+                let hidden = context.chrome.flatMap { $0.markWorks ? $0.hiddenBytes : nil }
+                let swaps: [String: Fix] = [
+                    "tabs": Fix(id: "sleep", title: "Sleep tabs you aren't looking at",
+                                consequence: (hidden.map { "Frees about \(Fmt.bytes($0)). " } ?? "") + "They stay in the tab bar and reload when clicked. Your safe list, calls, sound, and unsent typing stay awake.",
+                                kind: .chromeCompanion("sleepHidden"), recommended: true),
+                    "extensions": Fix(id: "extensions", title: "Turn off extensions you don't use",
+                                      consequence: "Opens Cool Head for Chrome's list of your extensions, each with a switch.", kind: .chromeCompanion("openExtensionsList")),
+                    "groups": Fix(id: "groups", title: "Hide tab groups you aren't using",
+                                  consequence: "Chrome keeps each group under Tab groups in its menu, so you can open it again.", kind: .chromeCompanion("hideUnusedGroups"))]
+                fixes = fixes.map { f in swaps[f.id].map { var n = $0; n.recommended = f.recommended; return n } ?? f }
+                fixes.append(Fix(id: "duplicates", title: "Close duplicate tabs", consequence: "Keeps the one you used last of each.", kind: .chromeCompanion("closeDuplicates")))
+            } else if context.companion == .notInstalled, (context.week?.count ?? 0) >= 2 {
+                fixes.append(Fix(id: "companion", title: "Get \(ChromeCompanion.name)",
+                                 consequence: ChromeCompanion.pitch + " Free. Sets up the link and opens how to add it to Chrome.",
+                                 kind: .chromeCompanion("setup")))
+            }
+        }
         var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
-                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" ? context.chrome?.hiddenSentence : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
+                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" ? (context.companion == .connected ? context.chrome?.hiddenSentence?.replacingOccurrences(of: "closing those", with: "sleeping those") : context.chrome?.hiddenSentence) : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
                         fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
         card.facts = also + (context.chrome?.facts ?? [])

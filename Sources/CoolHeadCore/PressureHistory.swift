@@ -182,8 +182,10 @@ public struct MemoryContext: Equatable {
     public var chrome: ChromeParts? = nil             // Chrome's memory by part, when Chrome is among the biggest
     public var memorySaver: ChromeMemorySaver.State? = nil
     public var offerSaverMaximum = false              // ChromeMemorySaver.shouldOffer
+    public var companion: ChromeCompanion.Status? = nil
     public init(slowed: Bool? = nil, week: PressureHistory.Week? = nil, chrome: ChromeParts? = nil,
-                memorySaver: ChromeMemorySaver.State? = nil, offerSaverMaximum: Bool = false) {
+                memorySaver: ChromeMemorySaver.State? = nil, offerSaverMaximum: Bool = false, companion: ChromeCompanion.Status? = nil) {
         self.slowed = slowed; self.week = week; self.chrome = chrome; self.memorySaver = memorySaver; self.offerSaverMaximum = offerSaverMaximum
+        self.companion = companion
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import CoolHeadChromeLink
 import CoolHeadCore
 import ServiceManagement
 import SwiftUI
@@ -55,6 +56,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             MainActor.assumeIsolated { self?.item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel) }
         }
         watcher.start()
+        // the link with Cool Head for Chrome, not while taking screenshots (see ChromeLinkServer)
+        if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] == nil {
+            ChromeLinkServer.shared.start()
+            // a Cool Head that moved since Set up: the file names the old place, so it's written again for this copy
+            if FileManager.default.fileExists(atPath: ChromeCompanion.hostsFolder + "/" + ChromeLink.hostName + ".json"), !ChromeCompanion.hostFileInstalled() {
+                ChromeCompanion.installHostFile()
+            }
+        }
         HardwareWatch.shared.onAlert = { Alerts.remind($0) }
         for source in CardSources.all { source.start(watcher) }    // see CardSources.swift
         Updater.shared.schedule()
