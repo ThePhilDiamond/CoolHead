@@ -35,6 +35,8 @@ enum GoldenRanking {
     catalogue-displaylink-long · catalogue · unknown · → advice · advice, quit, lookup, share
     catalogue-local-ai-model · catalogue · working · → none · no options
     catalogue-local-ai-model-long · catalogue · unknown · → advice · advice, lookup, share
+    memory-chrome-hidden-tabs · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory, groups
+    memory-chrome-grown · - · unknown · → restart · restart, tabs, quit, saver, tabmemory
     crash-loop · - · unknown · → lookup · lookup, console
     disguise-macos-name · disguise · unknown · → remove · remove, share
     disguise-apple-label · disguise · unknown · → remove · remove, share

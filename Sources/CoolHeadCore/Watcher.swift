@@ -762,7 +762,19 @@ public final class Watcher {
             let slowed = MemoryGate.slowed(s, tightSince: tightSince, now: now)
             if PressureHistory.note(&pressure, tight: PressureHistory.Episode.Level(s), slowed: slowed, top: groups.first.map(PressureHistory.Episode.Top.init),
                                     swapOutPages: s.swapOutPages, now: now) { PressureHistory.save(pressure, now: now) }
-            let context = MemoryContext(slowed: slowed, week: PressureHistory.week(pressure, now: now))
+            // Chrome among the biggest: its memory by part, from each process's priority (see ChromeParts). A tab Cool Head
+            // is running cooler sits in the same band and would count as hidden; that's rare while memory is the problem.
+            var chromeParts: ChromeParts? = nil
+            if let c = groups.prefix(3).first(where: { $0.name == "Google Chrome" && $0.kind == .browser }), let b = c.bundle {
+                chromeParts = ChromeParts.read(tracks.compactMap { pid, tr in
+                    guard let path = Proc.path(pid), path.hasPrefix(b + "/") else { return nil }
+                    let args = Proc.args(pid)
+                    let main = !args.contains { $0.hasPrefix("--type=") }
+                    return ChromeParts.Process(path: path, args: args, footprint: tr.footprint, priority: Proc.schedulingPriority(pid),
+                                               start: main ? Proc.bsd(pid)?.start : nil)
+                }, bundle: b)
+            }
+            let context = MemoryContext(slowed: slowed, week: PressureHistory.week(pressure, now: now), chrome: chromeParts)
             let card = MemoryAdvice.card(groups, mac: s, now: now, context: context, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
                                          buildData: MemoryAdvice.lowDisk(s) ? Leftovers.buildDataSize(now: now) : nil)
             let top = groups.first

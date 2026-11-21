@@ -204,6 +204,13 @@ public enum MemoryAdvice {
                     if (tabMemoryOn ?? ChromeHoverMemory.read()) != true {
                         fixes.append(Fix(id: "tabmemory", title: "Show each tab's memory", consequence: "Takes you to Chrome's Appearance settings. Turn on \(Fmt.ui("Show memory usage on tab hover preview card")), then point at any tab to see how much it's using.", kind: .openPage(b, "chrome://settings/appearance")))
                     }
+                    // tab groups hold whole projects of hidden tabs: hiding a group gives their memory back and keeps the group
+                    // to open again (Chrome 158's menu: "Hide group"; "Close group" and "Delete group" are beside it)
+                    if let parts = context.chrome, parts.markWorks, parts.hiddenBytes >= ChromeParts.worthGroups {
+                        fixes.append(Fix.guide("groups", "Hide tab groups you aren't using",
+                                               "Their tabs close and give their memory back. Chrome keeps each group under Tab groups in its menu, so you can open it again; its tabs reload when you do.",
+                                               steps: ["In Chrome, right-click the name of a tab group you aren't using.", "Choose Hide group."]))
+                    }
                 }
             } else if top.name == "Microsoft Edge" {
                 if let b = top.bundle {
@@ -238,10 +245,25 @@ public enum MemoryAdvice {
         // a Chromium browser among the biggest: restarting it frees the memory it has built up, and its tabs come back
         // (see BrowserRestart); before Quit, since it loses less, and never recommended, since it closes the browser
         // you may be using and doesn't bring back private windows, unsent form text or downloads
+        // For Chrome, what Cool Head reads of its parts (see ChromeParts): when its own program or graphics process has grown,
+        // only a restart gives that back, so it's recommended; when it has been open for days, the option says so.
+        var partsNote: String? = nil
         if let r = groups.prefix(3).first(where: { $0.kind == .browser && BrowserRestart.browsers.contains($0.name) && $0.bundle != nil }), let b = r.bundle {
-            fixes.append(Fix(id: "restart", title: "Restart \(r.name), keeping your tabs",
-                             consequence: "Closes and reopens \(r.name), freeing memory it built up. Your tabs come back; \(BrowserRestart.privateWindows(r.name)), unsent form text, and downloads in progress don't.",
-                             kind: .restartBrowser(b)))
+            let parts = r.name == "Google Chrome" ? context.chrome : nil
+            let days = parts?.openFor(now: now).flatMap { $0 >= ChromeParts.openLong ? Int($0 / 86400) : nil }
+            let builtUp = days.map { "freeing memory it built up over \($0) days" } ?? "freeing memory it built up"
+            var restart = Fix(id: "restart", title: "Restart \(r.name), keeping your tabs",
+                              consequence: "Closes and reopens \(r.name), \(builtUp). Your tabs come back; \(BrowserRestart.privateWindows(r.name)), unsent form text, and downloads in progress don't.",
+                              kind: .restartBrowser(b))
+            if let g = parts?.grownPart {
+                restart.recommended = true
+                // closing tabs still fixes the cause, so it stays, shown as that rather than recommended
+                if let i = fixes.firstIndex(where: { $0.id == "tabs" }) { fixes[i].recommended = false }
+                partsNote = "\(g.name) has grown to \(Fmt.bytes(g.bytes)), and only a restart gives that back; closing tabs can't."
+            } else if let d = days {
+                partsNote = "Chrome has been open for \(d) days, and memory it builds up over days comes back only when it restarts."
+            }
+            fixes.append(restart)
         }
         // the next largest app that can be quit, as a second way to free memory
         if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
@@ -262,9 +284,10 @@ public enum MemoryAdvice {
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
         var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
-                        explanation: leaking?.sentence ?? (expl + (weekNote.map { " " + $0 } ?? "")), fixes: fixes)
+                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" ? context.chrome?.hiddenSentence : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
+                        fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
-        card.facts = also
+        card.facts = also + (context.chrome?.facts ?? [])
         return card
     }
 
