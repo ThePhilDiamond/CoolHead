@@ -296,6 +296,9 @@ struct ToolButton: View {
                 if labels { Text(name).font(.caption2) }
             }
             .frame(minWidth: labels ? 44 : 30)
+            // room each side of the name, so an open tool's highlight doesn't sit tight on it (Phil, 21 November 2026:
+            // "I also don't like how tight the margin is on the selected item. Please add some space on either side so it's not so tight (I guess increase the fixed width of each button on the left?), or decrease font size. Thoughts?"); the names keep their size
+            .padding(.horizontal, labels ? 5 : 2)
             .padding(.vertical, labels ? 5 : 6)
             .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.accentColor.opacity(0.16) : hovering ? Color.primary.opacity(0.07) : .clear))
             .contentShape(Rectangle())
