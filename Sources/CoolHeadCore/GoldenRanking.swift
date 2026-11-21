@@ -36,7 +36,7 @@ enum GoldenRanking {
     catalogue-local-ai-model · catalogue · working · → none · no options
     catalogue-local-ai-model-long · catalogue · unknown · → advice · advice, lookup, share
     memory-chrome-saver-max · - · unknown · → tabs · tabs, saver-max, restart, quit, tabmemory
-    memory-chrome-hidden-tabs · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory, groups
+    memory-chrome-hidden-tabs · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory, extensions, groups
     memory-chrome-grown · - · unknown · → restart · restart, tabs, quit, saver, tabmemory
     crash-loop · - · unknown · → lookup · lookup, console
     disguise-macos-name · disguise · unknown · → remove · remove, share

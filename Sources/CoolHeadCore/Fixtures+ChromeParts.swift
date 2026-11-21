@@ -10,9 +10,9 @@ extension Fixture {
         if ext { args.append("--extension-process") }
         return ChromeParts.Process(path: path, args: args, footprint: UInt64(gb * 1_073_741_824), priority: pri, start: start)
     }
-    static func chromeParts(_ now: Date, hiddenGB: Double = 2.1, browserGB: Double = 0.6, gpuGB: Double = 0.4, openDays: Double = 1) -> ChromeParts {
+    static func chromeParts(_ now: Date, hiddenGB: Double = 2.1, browserGB: Double = 0.6, gpuGB: Double = 0.4, openDays: Double = 1, extGB: Double = 0.3) -> ChromeParts {
         var procs = [chromeProc(nil, browserGB, start: now.addingTimeInterval(-openDays * 86400)), chromeProc("gpu-process", gpuGB),
-                     chromeProc("renderer", 0.7, pri: 97), chromeProc("renderer", 0.7, pri: 47), chromeProc("renderer", 0.3, pri: 4, ext: true)]
+                     chromeProc("renderer", 0.7, pri: 97), chromeProc("renderer", 0.7, pri: 47), chromeProc("renderer", extGB, pri: 4, ext: true)]
         for _ in 0..<7 { procs.append(chromeProc("renderer", hiddenGB / 7, pri: 4)) }
         return ChromeParts.read(procs, bundle: chromeApp)
     }
@@ -56,6 +56,12 @@ extension Fixture {
         let groupsFix = big.fixes.first { $0.id == "groups" }
         review.append(("chrome-groups-option", groupsFix?.title == "Hide tab groups you aren't using" && !card(chromeParts(now, hiddenGB: 0.6)).fixes.contains { $0.id == "groups" }
                        && !edge.fixes.contains { $0.id == "groups" } && !card(nil).fixes.contains { $0.id == "groups" }, groupsFix?.consequence ?? "not offered"))
+        // extensions: said from 500 MB, with where to see which, since unloading tabs never reaches them
+        let exts = card(chromeParts(now, extGB: 1.6)), fewExts = card(chromeParts(now))
+        let extFix = exts.fixes.first { $0.id == "extensions" }
+        review.append(("chrome-extensions-line", exts.explanation.contains("Chrome's extensions are using 1.6 GB, which unloading tabs doesn't touch")
+                       && extFix?.title == "Turn off extensions you don't use" && exts.facts.contains { $0.hasPrefix("Chrome's extensions: 1.6 GB in 1 process") }
+                       && !fewExts.fixes.contains { $0.id == "extensions" } && !fewExts.explanation.contains("extensions are using"), exts.explanation))
         return review
     }
 
@@ -63,7 +69,7 @@ extension Fixture {
         func card(_ parts: ChromeParts) -> Card {
             MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 600), now: now, context: MemoryContext(slowed: true, chrome: parts), tabMemoryOn: false)
         }
-        return [("memory-chrome-hidden-tabs", card(chromeParts(now, openDays: 6.2))),
+        return [("memory-chrome-hidden-tabs", card(chromeParts(now, openDays: 6.2, extGB: 1.6))),
                 ("memory-chrome-grown", card(chromeParts(now, hiddenGB: 0.3, browserGB: 3.2)))]
     }
 }

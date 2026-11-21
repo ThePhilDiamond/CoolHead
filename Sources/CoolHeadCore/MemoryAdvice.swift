@@ -216,6 +216,12 @@ public enum MemoryAdvice {
                     }
                     // tab groups hold whole projects of hidden tabs: hiding a group gives their memory back and keeps the group
                     // to open again (Chrome 158's menu: "Hide group"; "Close group" and "Delete group" are beside it)
+                    // extensions hold memory that unloading tabs never reaches (see ChromeParts): Chrome's Task Manager names each
+                    if let parts = context.chrome, parts.extensionBytes >= ChromeParts.extensionsWorthSaying {
+                        fixes.append(Fix.openApp("extensions", "Turn off extensions you don't use", bundle: b,
+                                                 steps: [TaskManager.open("Google Chrome"), TaskManager.sort(by: "Memory", so: "what uses the most"),
+                                                         "Extensions are the rows that start with \(Fmt.ui("Extension:")). Turn off the ones you don't use in Chrome's Extensions settings (type \(Fmt.ui("chrome://extensions")) in the address bar)."].joined(separator: " ")))
+                    }
                     if let parts = context.chrome, parts.markWorks, parts.hiddenBytes >= ChromeParts.worthGroups {
                         fixes.append(Fix.guide("groups", "Hide tab groups you aren't using",
                                                "Their tabs close and give their memory back. Chrome keeps each group under Tab groups in its menu, so you can open it again; its tabs reload when you do.",
@@ -294,7 +300,7 @@ public enum MemoryAdvice {
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
         var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
-                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" ? context.chrome?.hiddenSentence : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
+                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" ? context.chrome?.hiddenSentence : nil, top.name == "Google Chrome" ? context.chrome?.extensionSentence : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
                         fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
         card.facts = also + (context.chrome?.facts ?? [])

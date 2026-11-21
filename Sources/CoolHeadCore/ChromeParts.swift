@@ -15,6 +15,8 @@ public struct ChromeParts: Equatable {
     public var hiddenCount = 0
     public var shownBytes: UInt64 = 0
     public var shownCount = 0
+    public var extensionBytes: UInt64 = 0        // Chrome's extensions, each in its own process
+    public var extensionCount = 0
     public var browserBytes: UInt64 = 0          // Chrome's own program, the process with no --type
     public var gpuBytes: UInt64 = 0
     public var openSince: Date?                  // when Chrome's own program started
@@ -56,7 +58,9 @@ public struct ChromeParts: Equatable {
                 p.openSince = pr.start
             case "--type=gpu-process":
                 p.gpuBytes += pr.footprint
-            case "--type=renderer" where !pr.args.contains("--extension-process") && !pr.args.contains("--pdf-renderer"):
+            case "--type=renderer" where pr.args.contains("--extension-process"):
+                p.extensionBytes += pr.footprint; p.extensionCount += 1
+            case "--type=renderer" where !pr.args.contains("--pdf-renderer"):
                 if let pri = pr.priority, pri <= hiddenPriority, !pr.cooled { p.hiddenBytes += pr.footprint; p.hiddenCount += 1 }
                 else { p.shownBytes += pr.footprint; p.shownCount += 1 }
             default: break
@@ -71,10 +75,21 @@ public struct ChromeParts: Equatable {
         return "About \(Fmt.bytes(hiddenBytes)) of Chrome's memory is in tabs you aren't looking at, so closing those gives it back without touching the tab you're on."
     }
 
+    /// Extensions hold memory unloading tabs never reaches: on Phil's Mac, 21 November 2026, 19 extension processes held
+    /// 1.6 GB of Chrome's 5.6 GB (29%), against 54% in tabs (Phil: "I want to make sure we're not just dealing with one
+    /// tiny subsection of the problem"). Cool Head can't tell which extension is which from outside; Chrome's Task
+    /// Manager names each, with its memory.
+    public static let extensionsWorthSaying: UInt64 = 500_000_000
+    public var extensionSentence: String? {
+        guard extensionBytes >= ChromeParts.extensionsWorthSaying else { return nil }
+        return "Chrome's extensions are using \(Fmt.bytes(extensionBytes)), which unloading tabs doesn't touch; turning off ones you don't use gives it back."
+    }
+
     /// For Nerdy stuff: the evidence, and its known errors.
     public var facts: [String] {
-        guard markWorks else { return [] }
-        return ["Chrome's tabs: \(Fmt.bytes(hiddenBytes)) in \(hiddenCount) processes Chrome marks as hidden, \(Fmt.bytes(shownBytes)) in \(shownCount) on screen or busy. A hidden tab playing sound or using the camera counts as on screen, and tabs of one site can share a process."]
+        let ext = extensionCount > 0 ? ["Chrome's extensions: \(Fmt.bytes(extensionBytes)) in \(extensionCount) \(extensionCount == 1 ? "process" : "processes")."] : []
+        guard markWorks else { return ext }
+        return ext + ["Chrome's tabs: \(Fmt.bytes(hiddenBytes)) in \(hiddenCount) processes Chrome marks as hidden, \(Fmt.bytes(shownBytes)) in \(shownCount) on screen or busy. A hidden tab playing sound or using the camera counts as on screen, and tabs of one site can share a process."]
     }
 
     /// Chrome's own program or graphics process has grown: the one kind of memory only a restart gives back.
