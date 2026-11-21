@@ -52,7 +52,7 @@ extension Fixture {
         let opened = until(10) { lines().count == 1 } && until(5) { !running().isEmpty }
         let firstPID = running().first?.processIdentifier
         var steps: [String] = []
-        let restarted = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 10, activate: false) { steps.append($0) } }
+        let restarted = offMain { BrowserRestart.restartBlocking(bundle: app, wait: 10, activate: false, log: { steps.append($0) }) }
         let back = until(10) { lines().count == 2 } && until(5) { running().contains { $0.processIdentifier != firstPID } }
         let l = lines()
         let args = l.count == 2 && !l[0].contains(BrowserRestart.argument) && l[1] == BrowserRestart.argument
