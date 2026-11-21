@@ -528,10 +528,21 @@ struct CardView: View {
             // last session; the waiting happens off the main thread, and the note says how it went
             let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
             note = "Asked \(name) to quit. It reopens with your tabs once it has closed."; noteFailed = false; acted = true
+            // Set Memory Saver to Maximum: written while Chrome is closed (see ChromeMemorySaver)
+            let saver = fix.id == "saver-max"
+            let wrote = SaverResult()
+            var whileClosed: (@Sendable () -> Void)? = nil
+            if saver { whileClosed = { SaverResult.write(into: wrote) } }
             Task {
                 let w = watcher
-                let o = await BrowserRestart.restart(bundle: bundle) { step in w.log("Restart \(name) pressed: \(step)") }
-                let n = BrowserRestart.note(o, name: name)
+                let o = await BrowserRestart.restart(bundle: bundle, whileClosed: whileClosed) { step in w.log("Restart \(name) pressed: \(step)") }
+                var n = BrowserRestart.note(o, name: name)
+                if saver, !n.failed {
+                    if wrote.value == .set { n.text += " Memory Saver is now at Maximum; change it any time in Chrome's Performance settings." }
+                    else { n.text += " Memory Saver didn't change, since Chrome's settings couldn't be written safely; set it in Chrome's Performance settings."; n.failed = true }
+                    let result = wrote.value.map { "\($0)" } ?? "not run"
+                    w.log("Memory Saver at Maximum: " + result)
+                }
                 note = n.text; noteFailed = n.failed; acted = !n.failed
                 // the panel may have closed while the browser came to the front: a failure is also a notification
                 if n.failed { Alerts.remind(n.text) }
@@ -2079,4 +2090,14 @@ enum Ink {
 struct MiddleHeight: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// What the Memory Saver write returned, from the restart's background thread.
+final class SaverResult: @unchecked Sendable {
+    var value: ChromeMemorySaver.Write?
+    /// Sets Maximum, and notes when, so a person who lowers it again isn't asked for 30 days.
+    static func write(into r: SaverResult) {
+        r.value = ChromeMemorySaver.setMaximum()
+        if r.value == .set { UserDefaults.standard.set(Date(), forKey: ChromeMemorySaver.setKey) }
+    }
 }

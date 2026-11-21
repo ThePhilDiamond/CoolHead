@@ -87,3 +87,81 @@ public enum ChromeHoverMemory {
         return on
     }
 }
+
+/// Chrome's Memory Saver, read from Chrome's Local State file, and set to Maximum there while Chrome is closed, as the
+/// person's own setting (the Chrome plan's second stage; Phil, 21 November 2026: "Do it all"). Chrome keeps it as
+/// `performance_tuning.high_efficiency_mode.state` (0 off, 2 on) and `.aggressiveness` (0 Moderate, 1 Balanced, 2
+/// Maximum) (components/performance_manager/public/user_tuning/prefs.h). Written that way it is the person's own choice:
+/// no "managed by your organization", and they can change it in Chrome's Performance settings. Tested on Google Chrome
+/// 158 in a separate test profile, 21 November 2026: it took, survived two relaunches, replaced an earlier Moderate, and
+/// nothing else holds a copy or checksum of the two values. Maximum unloads a tab hidden for 2 hours and keeps tabs
+/// revisited often; it doesn't help a Chrome that's dragging right now, so it's offered only under `shouldOffer`.
+public enum ChromeMemorySaver {
+    public struct State: Equatable {
+        public let on: Bool
+        public let level: Int       // 0 Moderate, 1 Balanced, 2 Maximum
+        public var atMaximum: Bool { on && level == 2 }
+        public init(on: Bool, level: Int) { self.on = on; self.level = level }
+    }
+
+    /// From Local State's contents; nil when they aren't Chrome's JSON. Missing values read as off.
+    public static func state(_ data: Data) -> State? {
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        let mode = (json["performance_tuning"] as? [String: Any])?["high_efficiency_mode"] as? [String: Any]
+        return State(on: (mode?["state"] as? Int ?? 0) != 0, level: mode?["aggressiveness"] as? Int ?? 0)
+    }
+
+    public static func read(path: String = ChromeHoverMemory.localState) -> State? {
+        FileManager.default.contents(atPath: path).flatMap(state)
+    }
+
+    /// When Cool Head last set it, so a person who lowered it again isn't asked for 30 days.
+    public static let setKey = "memorySaverSetByCoolHead"
+
+    /// Offered when Chrome is using a lot of memory and it isn't at Maximum, and any of: this Mac has 8 GB of memory or
+    /// less (pressure arrives sooner there); memory has slowed the Mac at least twice this week; or once, and Memory Saver
+    /// is off (research synthesis, "When Cool Head recommends Memory Saver at Maximum"). Not within 30 days of Cool Head
+    /// setting it, if the person has since lowered it: that was their choice.
+    public static func shouldOffer(_ s: State?, week: PressureHistory.Week?, memoryGB: Double, setAt: Date?, now: Date) -> Bool {
+        if s?.atMaximum == true { return false }
+        if let t = setAt, now.timeIntervalSince(t) < 30 * 24 * 3600 { return false }
+        let count = week?.count ?? 0
+        return memoryGB <= 8.5 || count >= 2 || (count >= 1 && s?.on != true)
+    }
+
+    public enum Write: Equatable { case set, chromeOpen, unreadable, failed(String) }
+
+    /// Sets Maximum in Local State. Only while Chrome is closed (its SingletonLock gone, or left by a process that has
+    /// ended on this Mac); only the two values change, checked by reading the result back; the file keeps its mode (600),
+    /// and is replaced in one step, so Chrome never sees half a file.
+    public static func setMaximum(path: String = ChromeHoverMemory.localState) -> Write {
+        let dir = (path as NSString).deletingLastPathComponent
+        if profileInUse(dir) { return .chromeOpen }
+        guard let data = FileManager.default.contents(atPath: path),
+              var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return .unreadable }
+        var tuning = json["performance_tuning"] as? [String: Any] ?? [:]
+        var mode = tuning["high_efficiency_mode"] as? [String: Any] ?? [:]
+        mode["state"] = 2; mode["aggressiveness"] = 2
+        tuning["high_efficiency_mode"] = mode; json["performance_tuning"] = tuning
+        guard let out = try? JSONSerialization.data(withJSONObject: json),
+              let back = (try? JSONSerialization.jsonObject(with: out)) as? [String: Any],
+              (back as NSDictionary).isEqual(to: json) else { return .failed("its settings file couldn't be written exactly") }
+        let mode600 = (try? FileManager.default.attributesOfItem(atPath: path))?[.posixPermissions] as? NSNumber ?? 0o600
+        let temp = dir + "/.Local State.coolhead-\(UUID().uuidString)"
+        guard FileManager.default.createFile(atPath: temp, contents: out, attributes: [.posixPermissions: mode600]) else { return .failed("couldn't write next to its settings file") }
+        guard rename(temp, path) == 0 else { try? FileManager.default.removeItem(atPath: temp); return .failed("couldn't replace its settings file") }
+        return read(path: path)?.atMaximum == true ? .set : .failed("the new setting didn't read back")
+    }
+
+    /// Whether a Chrome is using this data folder: its SingletonLock names `<host>-<pid>`. A lock left by a process that
+    /// has ended on this Mac is stale (a quit by signal leaves it); a lock from another host, or a live process, isn't.
+    static func profileInUse(_ dir: String) -> Bool {
+        guard let target = try? FileManager.default.destinationOfSymbolicLink(atPath: dir + "/SingletonLock") else { return false }
+        guard let dash = target.lastIndex(of: "-"), let pid = pid_t(target[target.index(after: dash)...]) else { return true }
+        let host = String(target[..<dash])
+        var buf = [CChar](repeating: 0, count: 256)
+        let here = gethostname(&buf, buf.count) == 0 ? String(cString: buf) : ""
+        let sameHost = host == here || here.hasPrefix(host + ".") || host.hasPrefix(here + ".")
+        return !sameHost || Proc.bsd(pid) != nil
+    }
+}

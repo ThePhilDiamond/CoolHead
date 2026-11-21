@@ -37,8 +37,10 @@ public enum BrowserRestart {
     /// then reopens it with `--restore-last-session`. Blocks the calling thread: call it off the main thread (see
     /// `restart`). `log` gets each step in words that name nothing private.
     /// `arguments`: what it is reopened with; none for an app that isn't a Chromium browser (see Leaks).
+    /// `whileClosed`: run after the browser has closed and before it reopens (Memory Saver is set then; see
+    /// ChromeMemorySaver).
     public static func restartBlocking(bundle: String, wait: TimeInterval = wait, activate: Bool = true, arguments: [String] = [argument],
-                                       log: (String) -> Void = { _ in }) -> Outcome {
+                                       whileClosed: (() -> Void)? = nil, log: (String) -> Void = { _ in }) -> Outcome {
         let url = URL(fileURLWithPath: bundle)
         // found by where the app is installed, not by its display name (which can differ, or be shared)
         let id = Bundle(url: url)?.bundleIdentifier
@@ -67,6 +69,7 @@ public enum BrowserRestart {
         let took = Int(Date().timeIntervalSince(started).rounded())
         log("closed after \(took) seconds")
         Thread.sleep(forTimeInterval: 1)        // let its helper processes finish closing too
+        whileClosed?()
         let config = NSWorkspace.OpenConfiguration()
         config.arguments = arguments
         config.activates = activate
@@ -84,10 +87,10 @@ public enum BrowserRestart {
 
     /// The same, without blocking the caller: the work runs on a background thread.
     public static func restart(bundle: String, wait: TimeInterval = wait, activate: Bool = true, arguments: [String] = [argument],
-                               log: @escaping (String) -> Void) async -> Outcome {
+                               whileClosed: (@Sendable () -> Void)? = nil, log: @escaping (String) -> Void) async -> Outcome {
         await withCheckedContinuation { c in
             DispatchQueue.global(qos: .userInitiated).async {
-                c.resume(returning: restartBlocking(bundle: bundle, wait: wait, activate: activate, arguments: arguments, log: log))
+                c.resume(returning: restartBlocking(bundle: bundle, wait: wait, activate: activate, arguments: arguments, whileClosed: whileClosed, log: log))
             }
         }
     }

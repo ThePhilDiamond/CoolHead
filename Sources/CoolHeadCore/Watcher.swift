@@ -774,7 +774,11 @@ public final class Watcher {
                                                start: main ? Proc.bsd(pid)?.start : nil)
                 }, bundle: b)
             }
-            let context = MemoryContext(slowed: slowed, week: PressureHistory.week(pressure, now: now), chrome: chromeParts)
+            let week = PressureHistory.week(pressure, now: now)
+            let saver = chromeParts != nil ? ChromeMemorySaver.read() : nil
+            let offerSaver = chromeParts != nil && ChromeMemorySaver.shouldOffer(saver, week: week, memoryGB: s.memoryGB,
+                                                                                 setAt: UserDefaults.standard.object(forKey: ChromeMemorySaver.setKey) as? Date, now: now)
+            let context = MemoryContext(slowed: slowed, week: week, chrome: chromeParts, memorySaver: saver, offerSaverMaximum: offerSaver)
             let card = MemoryAdvice.card(groups, mac: s, now: now, context: context, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
                                          buildData: MemoryAdvice.lowDisk(s) ? Leftovers.buildDataSize(now: now) : nil)
             let top = groups.first

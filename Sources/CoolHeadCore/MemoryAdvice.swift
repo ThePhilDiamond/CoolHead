@@ -197,7 +197,17 @@ public enum MemoryAdvice {
                                       steps: ["Open \(top.name)."] + steps, recommended: true)).fixingTheCause())
             if top.name == "Google Chrome" {
                 if let b = top.bundle {
-                    fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
+                    // Memory Saver: nothing once it's at Maximum; Cool Head sets Maximum itself when it's worth it (see
+                    // ChromeMemorySaver.shouldOffer), as part of a restart, since Chrome must be closed to change it;
+                    // otherwise Chrome's own settings, as before
+                    if context.memorySaver?.atMaximum == true {
+                    } else if context.offerSaverMaximum {
+                        fixes.append(Fix(id: "saver-max", title: "Set Memory Saver to Maximum",
+                                         consequence: "Restarts Chrome, keeping your tabs, and makes it your own setting: tabs unused for 2 hours unload, and reload when clicked. It won't help right now. Incognito windows, unsent form text, and downloads don't come back.",
+                                         kind: .restartBrowser(b)))
+                    } else {
+                        fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
+                    }
                     // Chrome names each tab and its memory, which Cool Head can't (Phil, 18 November 2026: "A user doesn't know
                     // which tasks in Chrome are big ... Can we get the different tabs to flag specific big ones?"); not offered once
                     // it's on (see ChromeHoverMemory)
