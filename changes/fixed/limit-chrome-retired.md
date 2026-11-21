@@ -1,1 +1,0 @@
-- Limit Chrome is gone, and Cool Head removes the settings it wrote for it. Chrome only applies that memory limit on a Mac an organization manages, so it never unloaded a tab, while Chrome said it was "managed by your organization". That notice goes within 15 minutes, or when Chrome is reopened.

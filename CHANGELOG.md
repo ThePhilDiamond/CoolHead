@@ -6,6 +6,22 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.16.0] - 2026-11-21
+
+### Added
+
+- When Chrome uses a lot of memory, its card says how much is in tabs you aren't looking at (Chrome marks them itself, so no permission is needed) and how much in its extensions, which unloading tabs never reaches, with where to see each extension's memory. It offers to hide tab groups you aren't using, which Chrome keeps to open again. When Chrome's own program has grown past 2 GB, restarting Chrome is recommended, since only a restart gives that memory back; when Chrome has been open for days, the card says so.
+- Cool Head now keeps when memory was tight on this Mac, for 30 days and on this Mac only, to tell whether memory is what slows it. The This Mac page says how often this week ("Memory slowed your Mac 3 times this week, about 40 minutes in all"), and Chrome's memory card says so from the second time. When Chrome uses the most memory but your Mac isn't moving memory to its disk, a calm card says your Mac is keeping up, instead of asking you to close tabs.
+- When memory keeps slowing your Mac with Chrome using the most (twice this week, or on a Mac with 8 GB of memory or less), Chrome's memory card offers Set Memory Saver to Maximum. It restarts Chrome, keeping your tabs, and sets Memory Saver as your own setting, with no "managed by your organization": tabs you haven't looked at for 2 hours unload, and reload when you click them. Change it any time in Chrome's Performance settings.
+
+### Changed
+
+- Cool Head now has a color of its own, Cool Head blue, the same on every Mac, in place of your Mac's accent color. The recommended option, switches, and links read clearly in light and dark (white text on the blue measures 5.3:1), and the blue keeps "do this" apart from the yellow, orange, and red that say "watch out".
+
+### Fixed
+
+- Limit Chrome is gone, and Cool Head removes the settings it wrote for it. Chrome only applies that memory limit on a Mac an organization manages, so it never unloaded a tab, while Chrome said it was "managed by your organization". That notice goes within 15 minutes, or when Chrome is reopened.
+
 ## [0.15.0] - 2026-11-21
 
 ### Changed
@@ -394,7 +410,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.13.0...v0.14.0
