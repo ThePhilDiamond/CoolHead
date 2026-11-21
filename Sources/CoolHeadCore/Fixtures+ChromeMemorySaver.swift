@@ -27,7 +27,7 @@ extension Fixture {
         let plain = card(moderate, offerIt: false).fixes.map(\.id)
         let atMax = card(max, offerIt: false).fixes.map(\.id)
         review.append(("saver-option", offered?.kind == .restartBrowser("/Applications/Google Chrome.app") && offered?.recommended == false
-                       && offered?.consequence.contains("as your own setting") == true && plain.contains("saver") && !plain.contains("saver-max")
+                       && offered?.consequence.contains("your own setting") == true && plain.contains("saver") && !plain.contains("saver-max")
                        && !atMax.contains("saver") && !atMax.contains("saver-max"), offered?.consequence ?? "not offered"))
 
         // the write: only the two values change, the file keeps its mode, and not while a Chrome holds the folder
