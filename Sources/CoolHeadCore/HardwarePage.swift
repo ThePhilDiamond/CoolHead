@@ -121,9 +121,11 @@ public enum HardwarePage {
         if !temps.isEmpty {
             let worst = temps.map(\.level).max() ?? 0
             out.insert(Part(kind: .temps, symbol: "thermometer.medium", name: "Temperatures", value: ["Normal", "Warm", "Hot"][worst],
-                            level: worst, lines: ["macOS slows the chip when it gets too hot, and pauses charging while the battery is warm.",
-                                    // the same readings as the temperature ring, said so (Phil, 19 November 2026: "This needs to be clear to the user and to me")
-                                    "The chip's is its hottest sensor, read every 3 seconds. The temperature ring at the top shows the chip's, or the battery's or drive's when one is nearer its own limit."],
+                            level: worst, lines: [],
+                            // no lines under the tiles: the ring at the top names its part, the ring and the chip tile share
+                            // one reading, and a heat card says what heat means when it matters (Phil, 20 November 2026:
+                            // "There's also a lot of text below the temperatures section of that tool, which I think we can
+                            // remove", then "we don't need the explanation anymore, right?")
                             tiles: temps), at: 0)            // first: heat is what slows a Mac (Phil, 17 November 2026)
         }
         return out
@@ -175,16 +177,19 @@ public enum HardwarePage {
         let speed = thermal == "fair" ? "Warm, but at full speed" : "A normal temperature, at full speed"
         // each sentence names what it's about: "your Mac", never a bare "it" (Phil, 19 November 2026: "What does
         // "macOS is slowing it hard to..." refer to? Slowing your Mac? The language should be more clear.")
-        // severe first: in flames
+        // severe first: in flames. Each says the cause, never where the cards are: the title counts them, and with a
+        // tool open the pill goes back to them (Phil, 20 November 2026: "Yes, drop the pointer keep the cause.")
         let (icon, meaning): (Int, String) = {
             if thermal == "critical" { return (2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun.") }
-            if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower. The card below says what's using it.") }
-            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program isn't making progress. Its card below says what to try." : "\(signs.stuck) programs aren't making progress. Their cards below say what to try.") }
+            if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower.") }
+            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program isn't making progress." : "\(signs.stuck) programs aren't making progress.") }
             // moderate: melting
             if thermal == "serious" { return (1, "macOS is slowing your Mac a little to cool it.") }
             if signs.memoryTight { return (1, "Memory is tight, so your Mac is slower than it could be.") }
-            if signs.addingHeat { return (1, "Your Mac is warm, and something below is adding to the heat.") }
-            if signs.toWatch > 0 { return (1, speed + (signs.toWatch == 1 ? ". The card below needs a look." : ". The cards below need a look.")) }
+            if signs.addingHeat { return (1, "Your Mac is warm, and something running is adding to the heat.") }
+            // cards to watch melt the snowflake, but the row doesn't point at them: the title already counts them, and with
+            // a tool open the pill goes back to them (Phil, 20 November 2026: "Way back: pill, but remove the "The cards below need attention" text because that's the whole point, and change the pill text to reflect that, e.g., "2 fixes recommended" or something more intuitive and clear.")
+            if signs.toWatch > 0 { return (1, speed + ".") }
             if signs.resumeSync { return (1, "It's time to resume syncing.") }
             // nothing slowing it and nothing to act on: whole, even when it's warm
             return (0, speed + ".")

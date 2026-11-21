@@ -2,7 +2,7 @@ import AppKit
 import CoolHeadCore
 import SwiftUI
 
-/// The Battery tool's page: the battery's health and what it's doing now, what else helps the battery last, and the
+/// The Power tool's page (Battery until 20 November 2026): the battery's health and what it's doing now, what else helps the battery last, and the
 /// week's energy use, all in one place (Phil, 16 November 2026: "that keeps it organized and tidy and succinct, rather
 /// than having mixed data in mixed places"). A battery problem still gets its own card in the list as well.
 struct BatteryView: View {
@@ -13,13 +13,13 @@ struct BatteryView: View {
 
     /// This Mac's battery, or in a screenshot a made-up one (never this Mac's own).
     var battery: BatteryHealth? {
-        PanelView.sampleSnapshot ? BatteryPage.sample : BatteryPage.merge(report: HardwareWatch.shared.report?.battery, mac: watcher.mac)
+        PanelView.sampleSnapshot ? (MacOutline.laptop ? BatteryPage.sample : nil) : BatteryPage.merge(report: HardwareWatch.shared.report?.battery, mac: watcher.mac)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Label { Text("Battery") } icon: { Image(nsImage: BatteryBolt.image(pointSize: 13)) }.font(.body.weight(.semibold))
+                Label { Text("Power") } icon: { ToolIcon(symbol: PowerIcon.name, size: 13) }.font(.body.weight(.semibold))
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
@@ -46,22 +46,27 @@ struct BatteryView: View {
                     Spacer()
                     if let d = s.detail { Text(d).font(.caption).foregroundStyle(Ink.muted).multilineTextAlignment(.trailing) }
                 }
-            } else {
+            } else if MacOutline.laptop {
                 Text("Cool Head can't read the battery right now.").foregroundStyle(Ink.muted)
+            } else {
+                // a desktop: nothing to say about a battery, so the page is the week's energy use
+                Text("This Mac has no battery.").foregroundStyle(Ink.muted)
             }
-            Divider()
-            // more battery life: Low Power Mode needs a password to switch, so it opens Battery settings
+            // more battery life: Low Power Mode needs a password to switch, so it opens Battery settings (laptops only)
             let low = !PanelView.sampleSnapshot && ProcessInfo.processInfo.isLowPowerModeEnabled   // a screenshot shows "off"
-            HStack(spacing: 8) {
-                Image(systemName: "leaf")
-                Text("Low Power Mode")
-                Text(low ? "On" : "Off").foregroundStyle(Ink.muted)
-                Spacer()
-                Button("Battery settings") {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Battery-Settings.extension")!)
+            if MacOutline.laptop {
+                Divider()
+                HStack(spacing: 8) {
+                    Image(systemName: "leaf")
+                    Text("Low Power Mode")
+                    Text(low ? "On" : "Off").foregroundStyle(Ink.muted)
+                    Spacer()
+                    Button("Battery settings") {
+                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Battery-Settings.extension")!)
+                    }
+                    .buttonStyle(.bordered).controlSize(.small)
+                    .help("Low Power Mode slows the Mac a little and dims the screen so the battery lasts longer. Switching it needs your password, so Cool Head opens Battery settings.")
                 }
-                .buttonStyle(.bordered).controlSize(.small)
-                .help("Low Power Mode slows the Mac a little and dims the screen so the battery lasts longer. Switching it needs your password, so Cool Head opens Battery settings.")
             }
             // the week's energy use, here rather than in a Trends tool of its own (see EnergyWeek)
             if energy { EnergyWeek(sample: PanelView.sampleSnapshot ? .sample() : nil) }

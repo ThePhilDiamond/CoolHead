@@ -2,53 +2,86 @@ import AppKit
 import CoolHeadCore
 import SwiftUI
 
-/// The past week's energy use, from macOS's own power log, on the Battery page, folded to one line until opened (Phil,
-/// 19 November 2026: "The energy usage can move into the power/battery tool", then, of the Trends tool and its wake
-/// history, "Yes, drop Trends"). Read when first opened, off the main thread, never on the refresh loop; nothing is
-/// kept but the totals. Every sentence comes from PowerHistory, so `coolhead history` prints the same words, and the
-/// wake history is still there for anyone who wants it.
+/// The past week's energy use, from macOS's own power log, on the Power page (Phil, 19 November 2026: "The energy usage
+/// can move into the power/battery tool", then, of the Trends tool and its wake history, "Yes, drop Trends"). The three
+/// that used the most show without a click; one line opens the others at 5% or more in place; Nerdy stuff lists every
+/// one (Phil, 20 November 2026; see PowerHistory.energySplit). Read when the page opens, off the main thread, never on
+/// the refresh loop; nothing is kept but the totals. Every sentence comes from PowerHistory, so `coolhead history`
+/// prints the same words, and the wake history is still there for anyone who wants it.
 struct EnergyWeek: View {
     /// Made-up history for screenshots; nil reads this Mac's power log.
     var sample: PowerHistory? = nil
-    @State private var open = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ENERGY"] != nil
+    @State private var more = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ENERGY_MORE"] != nil
+    @State private var facts = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ENERGY_ALL"] != nil
+    @State private var copied = false
     @State private var history: PowerHistory?
     @State private var loaded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "chart.bar.xaxis").foregroundStyle(Ink.muted)
-                    Text("What used the most energy this week").foregroundStyle(Ink.text)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Ink.muted)
-                        .rotationEffect(.degrees(open ? 90 : 0))
-                }
-                .contentShape(Rectangle())
+            // a title, not a button: the top three are already under it
+            HStack(spacing: 8) {
+                Image(systemName: "chart.bar.xaxis").foregroundStyle(Ink.muted)
+                Text("What used the most energy this week").foregroundStyle(Ink.text)
             }
-            .buttonStyle(.plain)
-            .accessibilityValue(open ? "shown" : "hidden")
-            if open {
-                if let h = sample ?? history, !h.energyRows().isEmpty {
-                    VStack(alignment: .leading, spacing: 9) {
-                        ForEach(Array(h.energyRows().enumerated()), id: \.offset) { _, row in Row(row: row, sample: sample != nil) }
+            if let h = sample ?? history, !h.energySplit().all.isEmpty {
+                let split = h.energySplit()
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(Array((split.top + (more ? split.more : [])).enumerated()), id: \.offset) { _, row in
+                        Row(row: row, sample: sample != nil)
                     }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
-                    Text(PowerHistory.energyNote + " " + PowerHistory.source)
-                        .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text(loaded || sample != nil ? "No energy history to show: this Mac's power log couldn't be read." : "Reading macOS's power log…")
-                        .font(.caption).foregroundStyle(Ink.muted)
+                    // the line says what it opens (Phil, 20 November 2026: "Wording 1 can stay"); none when nothing else
+                    // reached 5%
+                    if !split.more.isEmpty {
+                        Divider()
+                        Disclosure(title: more ? "Show only the top three"
+                                               : "Show everything that used 5% or more this week (\(split.more.count) more)",
+                                   open: more, tint: .accentColor) { withAnimation(.easeOut(duration: 0.15)) { more.toggle() } }
+                    }
                 }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Ink.card, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
+                Text(PowerHistory.energyNote + " " + PowerHistory.source)
+                    .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                // every one, with its share, as the cards' Nerdy stuff shows details: closed until clicked
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).rotationEffect(.degrees(facts ? 90 : 0))
+                    Text("Nerdy stuff (everything, with its share)").font(.caption)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Ink.text)
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { facts.toggle() } }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel(facts ? "Hide the nerdy stuff" : "Show the nerdy stuff")
+                if facts {
+                    let lines = EnergyWeek.lines(split.all)
+                    TerminalPane(lines: lines, copied: copied) {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+                        copied = true
+                    }
+                }
+            } else {
+                Text(loaded || sample != nil ? "No energy history to show: this Mac's power log couldn't be read." : "Reading macOS's power log…")
+                    .font(.caption).foregroundStyle(Ink.muted)
             }
         }
-        .task(id: open) {
-            guard open, sample == nil, !loaded else { return }
+        .task {
+            guard sample == nil, !loaded else { return }
             history = await Task.detached(priority: .utility) { PowerHistory.read() }.value
             loaded = true
+        }
+    }
+
+    /// Nerdy stuff's lines: the share, right-aligned, then the name and what it is.
+    static func lines(_ rows: [PowerHistory.EnergyRow]) -> [String] {
+        rows.map { r in
+            let share = PowerHistory.share(r.share)
+            return String(repeating: " ", count: max(0, 9 - share.count)) + share + "  " + r.name + (r.what.map { " (\($0))" } ?? "")
         }
     }
 

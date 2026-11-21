@@ -14,47 +14,56 @@ struct ToolsBar: View {
     @AppStorage(Tools.labelsKey) private var labels = true
     /// A battery to show: this Mac's, or in a screenshot a made-up one.
     var hasBattery: Bool {
-        watcher.mac.batteryPercent != nil || HardwareWatch.shared.report?.battery != nil || PanelView.sampleSnapshot
+        MacOutline.laptop && (watcher.mac.batteryPercent != nil || HardwareWatch.shared.report?.battery != nil || PanelView.sampleSnapshot)
     }
 
     var body: some View {
         // seven tools fit the panel's width with their names when each is as narrow as its name allows
         HStack(spacing: labels ? 1 : 6) {
+            // the order: This Mac, Power, Network, Cleaner (Phil, 20 November 2026: "Okay let's swap network and cleaner, as network has an action but still provides info, whereas cleaner is much more active. This feels like the left three are more info-oriented and the fourth is more action-oriented."), with no line between
+            // them ("We could arguably add another divider given that they're a different category of tool, but I think the intuitive ordering will achieve the same.")
+            // the hardware checks on one page (Phil, 16 November 2026: "Yes build the hardware tool page")
+            // the Mac itself, line drawn as a laptop or a desktop, since the chip and memory have their own meanings in the
+            // panel (Phil, 19 November 2026: "Is there a different "hardware" icon we could use so we can use a drive icon for
+            // the cleaner tab?", then "open hard disk icon with larger sparklers, line drawing laptop/desktop")
+            // called This Mac (Phil, 20 November 2026: "if "This Mac" fits in the bar nicely, we can use that, but if it's
+            // tight, let's use "My Mac""); it's as wide as "Hardware" was
+            ToolButton(symbol: MacOutline.name, name: "This Mac", tip: "This Mac's hardware, serial number, and storage", labels: labels, on: tools.hardware) {
+                let open = !tools.hardware
+                closeAll()
+                tools.hardware = open
+            }
+            // the Power page, after This Mac: a pane that shows how the Mac is (Phil, 20 November 2026: "this mac and power are
+            // info panes"; this replaces 16 November 2026's "the battery tool should be next to the network tool"). Called
+            // Power, with a plug on a Mac with no battery (Phil, 20 November 2026: "Let's rename
+            // "Battery" as "Power" and if it's a desktop show a power plug instead of a battery icon?"); a desktop's page is
+            // the week's energy use, so it's there when the power log can be read
+            if hasBattery || (!MacOutline.laptop && (PowerHistory.available || PanelView.sampleSnapshot)) {
+                ToolButton(symbol: PowerIcon.name, name: "Power",
+                           tip: hasBattery ? "Battery health and energy use" : "What used the most energy this week",
+                           labels: labels, on: tools.battery) {
+                    let open = !tools.battery
+                    closeAll()
+                    tools.battery = open
+                }
+            }
             // a test carries on out of sight: while it runs, dashes fly around the globe's equator like data; when it has finished
             // unseen, the result's own mark from the view's top line (a green check when it's good) sits on the globe until
             // it's opened (Phil, 19 November 2026: "I think the network testing should be a ring of dashes around the
             // existing wire globe icon, maybe animated? And when it's got a result ready, maybe a green check mark?", then "I
             // meant the ring circumnavigating the globe like data packets flying around it as in a single ring along the equator")
             let away = network.running && !network.shown
+            // the dashes show while it runs, open or not, colors swapped when it's open (Phil, 20 November 2026: "Let's also make the network scan animation appear even when the tab is selected, not just in the background - because it looks cool. But invert the colors when it's selected (colored globe with the data packets in the grey or black or white or whatever)")
             ToolButton(symbol: "network", name: away ? "Testing" : "Network",
                        tip: away ? "A network test is running; its results will wait here"
                            : network.readyLevel != nil ? "Your network test results are ready" : "Test my network",
-                       labels: labels, on: network.shown, ring: away,
+                       labels: labels, on: network.shown, ring: network.running,
                        badge: network.readyLevel.map { (NetworkView.mark($0), NetworkView.color($0)) }) {
                 let open = !network.shown
                 closeAll()
                 if open { network.open() }
             }
-            // the battery's own page, beside Network, the other check (Phil, 16 November 2026: "the battery tool should be
-            // next to the network tool"); a Mac with no battery has no Battery tool
-            if hasBattery {
-                ToolButton(symbol: BatteryBolt.name, name: "Battery", tip: "Battery health and energy use", labels: labels, on: tools.battery) {
-                    let open = !tools.battery
-                    closeAll()
-                    tools.battery = open
-                }
-            }
-            // the hardware checks on one page, after Battery, the other part of the Mac itself (Phil, 16 November 2026:
-            // "Yes build the hardware tool page")
-            // the Mac itself, line drawn as a laptop or a desktop, since the chip and memory have their own meanings in the
-            // panel (Phil, 19 November 2026: "Is there a different "hardware" icon we could use so we can use a drive icon for
-            // the cleaner tab?", then "open hard disk icon with larger sparklers, line drawing laptop/desktop")
-            ToolButton(symbol: MacOutline.name, name: "Hardware", tip: "Hardware checks", labels: labels, on: tools.hardware) {
-                let open = !tools.hardware
-                closeAll()
-                tools.hardware = open
-            }
-            // leftovers to clear, beside the other tools for the Mac itself (Phil, 18 November 2026: "Can we add a broom
+            // leftovers to clear, last: the one tool that changes things on the Mac (Phil, 18 November 2026: "Can we add a broom
             // "cleaner" tool"); a drawn broom was hard to make out at this size, so macOS's bubbles and sparkles (Phil,
             // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles"); then
             // an open hard disk with sparkles, line drawn: where it clears space, and that it cleans (Phil, 19 November 2026,
@@ -149,11 +158,12 @@ struct ToolIcon: View {
 struct MacOutline: View {
     static let name = "coolhead.mac"
     /// A battery means a laptop: every MacBook has one, and no desktop Mac does. In a screenshot, a laptop.
-    static let laptop = PanelView.sampleSnapshot || {
+    /// COOLHEAD_SNAPSHOT_DESKTOP draws a desktop in a screenshot.
+    static let laptop = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_DESKTOP"] == nil && (PanelView.sampleSnapshot || {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
         defer { if service != 0 { IOObjectRelease(service) } }
         return service != 0
-    }()
+    }())
     var size: CGFloat = 15
     var body: some View {
         let k = size / 15
@@ -217,7 +227,12 @@ enum HardDisk {
     }
 }
 
-/// The Battery tool's icon: a battery a quarter full with a bolt through it, built from macOS's own symbols as it draws
+/// The Power tool's icon: the battery with a bolt on a laptop, a plug on a Mac with no battery (Phil, 20 November 2026).
+enum PowerIcon {
+    static var name: String { MacOutline.laptop ? BatteryBolt.name : "powerplug" }
+}
+
+/// The Power tool's icon on a laptop: a battery a quarter full with a bolt through it, built from macOS's own symbols as it draws
 /// (no image file), since macOS has a bolt only on a full battery, which was hard to read (Phil, 19 November 2026: "It's
 /// harder to read when it's the full battery with the bolt. We want a less-full battery with the bolt", then "For the
 /// battery icon, I like Option 3"). The bolt cuts a thin gap in what's under it, as macOS's own charging icon does, and the
@@ -253,7 +268,8 @@ struct ToolButton: View {
     let tip: String
     let labels: Bool
     let on: Bool
-    /// Something of the tool's is under way: orange dashes fly around the icon's equator; the icon keeps its own color.
+    /// Something of the tool's is under way: dashes fly around the icon's equator, orange while the tool is closed and gray
+    /// while it's open, when the icon itself takes the accent color.
     var ring = false
     /// A small mark at the icon's corner, results ready to look at: their symbol, in their color.
     var badge: (symbol: String, color: Color)? = nil
@@ -268,8 +284,8 @@ struct ToolButton: View {
                 .font(.system(size: 15))
                 .frame(height: 18)
                 // the far half of the ring behind the globe, fainter; the near half in front of it
-                .background { if ring { Orbit(near: false, still: still) } }
-                .overlay { if ring { Orbit(near: true, still: still) } }
+                .background { if ring { Orbit(near: false, still: still, on: on, hovering: hovering) } }
+                .overlay { if ring { Orbit(near: true, still: still, on: on, hovering: hovering) } }
                 .overlay(alignment: .topTrailing) {
                     if let badge {
                         Image(systemName: badge.symbol).font(.system(size: 9, weight: .bold)).foregroundStyle(badge.color)
@@ -280,6 +296,9 @@ struct ToolButton: View {
                 if labels { Text(name).font(.caption2) }
             }
             .frame(minWidth: labels ? 44 : 30)
+            // room each side of the name, so an open tool's highlight doesn't sit tight on it (Phil, 21 November 2026:
+            // "I also don't like how tight the margin is on the selected item. Please add some space on either side so it's not so tight (I guess increase the fixed width of each button on the left?), or decrease font size. Thoughts?"); the names keep their size
+            .padding(.horizontal, labels ? 5 : 2)
             .padding(.vertical, labels ? 5 : 6)
             .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.accentColor.opacity(0.16) : hovering ? Color.primary.opacity(0.07) : .clear))
             .contentShape(Rectangle())
@@ -298,6 +317,10 @@ struct ToolButton: View {
 struct Orbit: View {
     let near: Bool
     let still: Bool
+    /// The tool is open: the globe takes the accent color, so the dashes take the gray the icon has when closed.
+    var on = false
+    var hovering = false
+    @Environment(\.barWash) private var wash
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: still)) { t in
             // one dash length and its gap travel every 0.4 seconds, left to right across the near half
@@ -305,11 +328,16 @@ struct Orbit: View {
             let half = Ellipse().trim(from: near ? 0 : 0.5, to: near ? 0.5 : 1)
             ZStack {
                 // in front, each dash cuts a thin gap in the globe's lines, as the Battery icon's bolt does, so it reads
+                // the gap is drawn in what's behind the button, layer by layer: the window, the bar's tint, and the
+                // button's own highlight when it's open or under the mouse
                 if near {
-                    half.stroke(Color(nsColor: .windowBackgroundColor),
-                                style: StrokeStyle(lineWidth: 3.9, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+                    let gap = StrokeStyle(lineWidth: 3.9, lineCap: .round, dash: [2.5, 3], dashPhase: phase)
+                    half.stroke(Color(nsColor: .windowBackgroundColor), style: gap)
+                    half.stroke(wash, style: gap)
+                    if on { half.stroke(Color.accentColor.opacity(0.16), style: gap) }
+                    else if hovering { half.stroke(Color.primary.opacity(0.07), style: gap) }
                 }
-                half.stroke(Color.orange, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+                half.stroke(on ? Ink.muted : Color.orange, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
             }
             .opacity(near ? 1 : 0.4)
         }
@@ -452,5 +480,14 @@ struct TrustedView: View {
         } else {
             note = "macOS's own apps can't be trusted: Cool Head explains them instead."
         }
+    }
+}
+
+/// The tools bar's tint (the level's color, as the top row has), so a gap cut in an icon matches what's behind it.
+private struct BarWashKey: EnvironmentKey { static let defaultValue = Color.clear }
+extension EnvironmentValues {
+    var barWash: Color {
+        get { self[BarWashKey.self] }
+        set { self[BarWashKey.self] = newValue }
     }
 }

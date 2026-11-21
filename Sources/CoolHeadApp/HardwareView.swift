@@ -2,7 +2,7 @@ import AppKit
 import CoolHeadCore
 import SwiftUI
 
-/// The Hardware tool's page: a verdict, then the drive, crash restarts, the ports and the temperatures, each with everything about it
+/// The This Mac tool's page (Hardware until 20 November 2026): a verdict, then the drive, crash restarts, the ports and the temperatures, each with everything about it
 /// together, then what Cool Head can't check (the memory among it) and how Apple's own test does. The battery has its
 /// own page, and how the Mac is running is at the top of the panel. A problem still gets its own card in the list.
 struct HardwareView: View {
@@ -13,22 +13,49 @@ struct HardwareView: View {
     /// This Mac's hardware report, or in a screenshot made-up hardware (never this Mac's own).
     var report: HardwareReport? {
         if let kind = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_HARDWARE"], PanelView.sampleSnapshot || kind == "issue" {
-            return HardwarePage.sample(kind)
+            var r = HardwarePage.sample(kind); if !MacOutline.laptop { r.battery = nil }; return r
         }
-        if PanelView.sampleSnapshot { return HardwarePage.sample() }
+        if PanelView.sampleSnapshot { var r = HardwarePage.sample(); if !MacOutline.laptop { r.battery = nil }; return r }
         // the chip's temperature is the Temperature ring's live one, not the report's (read up to 10 minutes ago)
         var r = HardwareWatch.shared.report
         if let c = load.chipC { r?.chipC = c }
         return r
     }
 
+    /// Made up in a screenshot, never this Mac's own.
+    private let model: String? = PanelView.sampleSnapshot ? (MacOutline.laptop ? "MacBook Air (M2, 2022)" : "Mac mini (M2, 2023)") : ThisMac.modelName()
+    private let serial: String? = PanelView.sampleSnapshot ? "SAMPLE12345" : ThisMac.serial()
+    private let space: ThisMac.Space? = PanelView.sampleSnapshot
+        ? (ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_LOWDISK"] != nil ? ThisMac.Space(free: 12_400_000_000, total: 245_110_000_000)
+                                                                                  : ThisMac.Space(free: 164_000_000_000, total: 494_380_000_000))
+        : ThisMac.space()
+    @State private var copiedSerial = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Label { Text("Hardware") } icon: { ToolIcon(symbol: MacOutline.name, size: 13) }.font(.body.weight(.semibold))
+                Label { Text("This Mac") } icon: { ToolIcon(symbol: MacOutline.name, size: 13) }.font(.body.weight(.semibold))
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
+            }
+            // which Mac, and its serial number with a copy button (Phil, 20 November 2026); on the page only
+            if model != nil || serial != nil {
+                HStack(spacing: 6) {
+                    Text([model, serial.map { "Serial \($0)" }].compactMap { $0 }.joined(separator: " · "))
+                        .foregroundStyle(Ink.muted).textSelection(.enabled)
+                    if let serial {
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(serial, forType: .string)
+                            copiedSerial = true
+                        } label: { Image(systemName: copiedSerial ? "checkmark" : "doc.on.doc").font(.caption) }
+                        .buttonStyle(.plain).foregroundStyle(Ink.muted)
+                        .help(copiedSerial ? "Copied" : "Copy the serial number")
+                        .accessibilityLabel("Copy the serial number")
+                    }
+                }
+                .font(.caption)
             }
             if let r = report {
                 let v = HardwarePage.verdict(r)
@@ -40,9 +67,11 @@ struct HardwareView: View {
                         Text(v.meaning).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                storage
                 VStack(spacing: 10) { ForEach(HardwarePage.parts(r), id: \.kind) { part($0) } }
             } else {
                 Text("Checking the hardware…").foregroundStyle(Ink.muted)
+                storage
             }
             Divider()
             // what can't be read from inside macOS, the memory among it, and Apple's own test for it
@@ -76,6 +105,49 @@ struct HardwareView: View {
     /// them; whether the drive is backed up is its own row, the words at the left and the button to act at the right, as
     /// elsewhere on the page (Phil, 17 November 2026: "text on the left, button to act on the right"; "improve the
     /// spacing so it doesn't look so cramped").
+    /// How full the startup disk is, under the verdict.
+    @ViewBuilder var storage: some View {
+        if let space {
+            // how full the startup disk is, and macOS's own breakdown one click away (Phil, 20 November 2026: "In the
+            // short term, show free / total and a button to the macOS storage settings"); low space points to the Cleaner
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "internaldrive").foregroundStyle(space.low ? NetworkView.color(1) : Ink.text).frame(width: 18)
+                    Text("Storage").font(.callout.weight(.semibold))
+                    Spacer()
+                    Text(space.text)
+                }
+                GeometryReader { g in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.primary.opacity(0.1))
+                        Capsule().fill(space.low ? NetworkView.color(1) : Color.accentColor.opacity(0.7))
+                            .frame(width: max(6, g.size.width * space.used))
+                    }
+                }
+                .frame(height: 6)
+                .accessibilityHidden(true)
+                HStack(spacing: 8) {
+                    if space.low {
+                        Text("Under 20 GB free can slow the Mac.").font(.caption).foregroundStyle(Ink.muted)
+                    }
+                    Spacer(minLength: 0)
+                    if space.low {
+                        Button("Clean up") { Tools.shared.hardware = false; Tools.shared.cleaner = true }
+                            .buttonStyle(.bordered).controlSize(.small)
+                            .help("Opens the Cleaner, which finds leftovers that are safe to delete.")
+                    }
+                    Button("Storage settings") { NSWorkspace.shared.open(URL(string: ThisMac.storageSettings)!) }
+                        .buttonStyle(.bordered).controlSize(.small)
+                        .help("macOS's own Storage page shows what's using the space, by kind, with its suggestions.")
+                }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        
+        }
+    }
+
     func part(_ p: HardwarePage.Part) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -128,6 +200,8 @@ struct RunningStrip: View {
     let level: Watcher.Level
     /// The scroll bar's room while the panel is wider, so the row's words and gauges stay where they were.
     var extra: CGFloat = 0
+    /// With a tool open, the way back to the cards in a few words (PanelView.backTo); nil hides the pill.
+    var back: String? = nil
     @ObservedObject private var load = ChipLoad.shared
     /// The gauges are a setting, off to start: the snowflake and its words say how the Mac is without them (Phil, 19
     /// November 2026: "make the gauges in the top pane optional as a setting for users who don't know what it means or
@@ -204,6 +278,16 @@ struct RunningStrip: View {
                 Text(title.components(separatedBy: " · ").map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: " · "))
                     .font(.headline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 Text(meaning(r)).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                // a pill back to the cards, tinted with their level, with dark text so it reads on yellow; the whole row
+                // already goes back on a click (Phil, 20 November 2026: "Way back: pill")
+                if let back {
+                    Label(back, systemImage: "chevron.left")
+                        .font(.caption.weight(.semibold)).foregroundStyle(Ink.text)
+                        .padding(.horizontal, 9).padding(.vertical, 4)
+                        .background(Capsule().fill(Color(nsColor: Badge.color(level)).opacity(0.3)))
+                        .fixedSize()
+                        .padding(.top, 4)
+                }
             }
             Spacer(minLength: 6)
             // two groups, each titled, with a line between: how busy the chip and memory are, then whose heat (Phil,
