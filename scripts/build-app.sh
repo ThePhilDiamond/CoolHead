@@ -9,12 +9,16 @@ APP="build/Cool Head.app"
 
 swift build -c release --product CoolHeadApp
 swift build -c release --product coolhead
+swift build -c release --product coolhead-chrome-host
 BIN=$(swift build -c release --show-bin-path)
 
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources"
 cp "$BIN/CoolHeadApp" "$APP/Contents/MacOS/Cool Head"
 cp "$BIN/coolhead" "$APP/Contents/MacOS/coolhead"
+# Cool Head for Chrome's native messaging host, which Chrome starts by this path (notes/chrome-link-protocol.md);
+# codesign --deep below signs it with the app, as it signs Contents/MacOS/coolhead
+cp "$BIN/coolhead-chrome-host" "$APP/Contents/Helpers/coolhead-chrome-host"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
