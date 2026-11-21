@@ -1,0 +1,95 @@
+# Cool Head for Chrome
+
+Cool Head's companion extension for Google Chrome, version 1. It puts tabs you aren't using to sleep, so Chrome holds less memory and your Mac stays quick. A sleeping tab stays in your tab bar with its title and icon, and reloads when you click it. Free and open source under the AGPL, like Cool Head.
+
+The design is in Cool Head's notes/chrome-extension-design.md; the link to Cool Head is in [PROTOCOL.md](PROTOCOL.md).
+
+## What it does
+
+- **How hard it works.** Light keeps your 5 most used tabs loaded, Balanced 3, Focus only the tab you're on; the others sleep 30 seconds after you leave them (or at once, in Settings), so going back and forth within half a minute never reloads. Auto, with Cool Head, sleeps nothing while memory is fine; when memory slows your Mac, it sleeps tabs you haven't used for 30 minutes, one at a time, oldest first (5 minutes when memory is very tight), and stops after memory has been fine for 5 minutes.
+- **Held in memory.** Every tab that doesn't sleep on its own, with the reason: on a call, sharing your screen, unsent typing, playing sound, kept by you, or pinned. Each has Keep, Sleep, and Close. Sleep or Close on a call or on unsent typing asks once first, since it would end the call or lose the typing. Keep isn't offered on a pinned tab, which stays loaded already. The list is folded by default, showing its count.
+- **Start a session.** For a meeting or a task: it suggests the tab you're on, tabs on a call or playing sound, tabs you kept, and tabs used in the last 10 minutes, all ticked; "This window only" ticks this window's tabs and unticks the rest. Starting sleeps the rest; a tab you open or switch to joins. Ending offers to save the session's tabs as a named tab group; nothing reloads.
+- **Keep.** On any tab, from the popup or by right-clicking the page: that tab, not its address, stays loaded until you un-keep it, and Chrome's own Memory Saver is told to leave it too. After Chrome restarts, kept tabs are found again by window, position, and address; when two match, the popup asks which.
+- **Duplicates.** Pages open more than once in this Chrome profile, with one button to close the extra copies, keeping the one you used last. Never automatic.
+- **Rest extensions.** Optional. Turns off extensions that aren't on your safe list during a session, or while memory is very tight on Auto, and turns them back on when the session ends or memory clears. The safe list starts with password managers, ad and tracker blockers, VPNs, security tools, and anything your organization installed always on, and you can move any.
+- **The toolbar.** The icon's badge counts the tabs this extension has put to sleep that are still asleep.
+
+## Alone or with Cool Head
+
+Everything works without Cool Head, including on Windows, Linux, and ChromeOS, where there is no Cool Head; there it shows Chrome's own reading of free memory. Auto needs Cool Head, since only Cool Head can tell when memory is actually slowing the Mac, and the popup says so.
+
+With Cool Head, Auto follows Cool Head's reading, Cool Head's Chrome card can ask for one-click actions (sleep tabs you aren't looking at, close duplicates, fold groups not used today, rest extensions), and each says what the other did. Only counts and your level cross the link: never addresses, titles, or extension names.
+
+If the link drops at any moment, the extension carries on alone with nothing lost: your level stays as you chose it (Auto waits for Cool Head and says so), tabs asleep stay asleep, and extensions rested because memory was tight come back on.
+
+## Permissions, and why
+
+| Permission | Why | What Chrome says |
+|---|---|---|
+| `tabs` | To see each tab's address and title: to list held tabs, find duplicates, and find kept tabs after a restart. | "Read your browsing history" |
+| `nativeMessaging` | To talk to Cool Head, only through the helper Cool Head installs. | "Communicate with cooperating native applications" |
+| `tabGroups` | To save a session as a named tab group, and to fold groups for Cool Head's card. | |
+| `storage` | To remember your level, kept tabs, session, and safe list, on this computer only. | |
+| `alarms` | To check again after the 30 seconds a tab waits once you leave it. | |
+| `contextMenus` | For "Keep this tab loaded" on the right-click menu. | |
+| `scripting` | To start the typing and call checks, only if you allow access to all sites. | |
+| `favicon` | To show each tab's icon from Chrome's own copy, so no icon is fetched from the web. | |
+| `system.memory` | For Chrome's reading of free memory when Cool Head isn't there. | |
+| `management` (optional) | To turn extensions off and on for Rest extensions. Asked for only when you first choose the safe list. | "Manage your apps, extensions, and themes" |
+| Access to all sites (optional) | To see unsent typing and calls. Asked at setup with the cost of saying no, and never assumed. | "Read and change all your data on all websites" |
+
+**Why access to all sites helps.** Chrome's own unloading spares a tab with typed text; an extension's doesn't, and the text is lost when the tab reloads (Cool Head's test T11). Chrome also doesn't tell extensions when a tab uses the camera or microphone. With access, two small scripts check whether a text box has been typed in and whether the camera, microphone, or screen sharing is on; only a yes or no leaves the page, never what you typed. Without it, a tab with unsent typing can sleep and lose the typing, and a call that has been quiet for 10 minutes can sleep, which ends it. Known meeting rooms (Google Meet, Zoom in the browser, Jitsi, Whereby, and Teams meeting links) are recognized by address either way.
+
+**What it never does.** No network use at all: no analytics, no remote code, no fonts or icons from the web (the popup's content security policy blocks connections). Every sleep is Chrome's own `chrome.tabs.discard`, never a stand-in page, so tabs keep working if the extension is removed.
+
+## Load it by hand
+
+1. In Chrome, open `chrome://extensions` and turn on Developer mode (top right).
+2. Click Load unpacked and choose this folder, `Extension/chrome`.
+3. A setup tab opens once and asks about unsent typing and calls.
+
+**The fixed ID** is `idncmcjhcnoknfiomdkjidgmjkglmghl`. The `key` in manifest.json fixes it while the extension is loaded by hand, so Cool Head's helper can name it in its `allowed_origins`. The Chrome Web Store will give its own ID later. The key's private half isn't needed to load unpacked and isn't in the repository.
+
+## Link it to Cool Head
+
+Cool Head places a file named `io.github.thephildiamond.coolhead.json` in Chrome's `NativeMessagingHosts` folder (for a test profile, `<user-data-dir>/NativeMessagingHosts/`), naming its helper inside Cool Head.app and allowing `chrome-extension://idncmcjhcnoknfiomdkjidgmjkglmghl/`. That step waits on Phil's yes (design, stage 3). Until then the extension shows "Not linked to Cool Head" and works alone.
+
+For testing, [tools/mock-host.mjs](tools/mock-host.mjs) stands in for the helper and for Cool Head: it speaks Chrome's framing and plays a scenario from a JSON file (memory state, Cool Head open or not, requests). [tools/run-browser-tests.mjs](tools/run-browser-tests.mjs) shows how to point a test profile at it.
+
+## Tests
+
+- `node --test` (Node 22 or later): the rules (which tabs sleep at each level, Auto, sessions, keep after a restart, duplicates, held reasons, the safe list), what the popup says alone, together, and after the link drops, the link's messages and both framings against a mock port and a real mock host process, the voice (no em dashes or exclamation marks, the Oxford comma, times as 2:15pm), and every color pair's contrast in light and dark.
+- `CFT="<Chrome for Testing binary>" node tools/run-browser-tests.mjs <scratch folder>`: loads the extension into Chrome for Testing on a throwaway profile in the scratch folder, with the mock host in that profile's own `NativeMessagingHosts` folder, and checks the fixed ID and setup; alone, linked, very tight memory, a one-click request, Cool Head closing, the helper ending and relinking; Focus with pinned and kept tabs; a session saved as a group; the popup drawing with no errors; and, in a copy with access to all sites, unsent typing, a call through a fake camera, and resting a second extension. It quits only the Chrome it started.
+- `dev/render-previews.sh <output folder> <scratch folder>`: screenshots the real popup from made-up data ([dev/preview.html](dev/preview.html)) with headless Chrome on its own data folder.
+
+## Testing by hand
+
+In a separate Chrome profile (or Chrome for Testing), never your everyday one:
+
+1. Load it unpacked. The setup tab opens; choose Protect them, accept Chrome's question, and see "Done. Tabs with unsent typing or on a call stay loaded."
+2. Open 8 tabs on different sites. Choose Focus, then switch between two tabs: each tab you leave sleeps after 30 seconds, and the badge counts them. Click one: it reloads.
+3. Type in a text box on a page, don't send, switch away, and wait a minute: that tab stays loaded, and Held in memory lists it as Unsent typing. Press Close on it: the popup warns once; press again to close.
+4. Play a video in a tab, switch away: it stays loaded as Playing sound. Pause it: it stays protected for 10 minutes, listed as Played sound recently.
+5. Pin a tab: it shows in Held in memory without Keep. Right-click a page and choose Keep this tab loaded: it shows as Kept by you, and doesn't sleep.
+6. Open the same address twice: the duplicates card offers to close one, keeping the one you used last.
+7. Start a session with 2 tabs ticked: the rest sleep; switching to another tab adds it. End session, save as a group: a named group appears, and nothing reloads.
+8. Quit and reopen Chrome with tabs restored: kept tabs are still kept. Open the same address twice in the same place first to see the question.
+9. In Settings, turn on Rest extensions and choose the safe list (Chrome asks once). Start a session: extensions on the Rest list turn off; end it: they come back.
+10. With Cool Head's helper installed: the band says Working with Cool Head, and Auto becomes available. Quit Cool Head: the band says Cool Head isn't open within 10 seconds, and nothing else changes.
+
+## Files
+
+- `manifest.json`: Manifest V3, with the key that fixes the ID.
+- `src/worker.js`: the service worker. Chrome can stop it at any moment, so all state lives in `chrome.storage` (`src/store.js`).
+- `src/logic/`: the rules as pure functions with no Chrome calls, tested in Node. `words.js` holds every word on screen.
+- `src/link-client.js`: the extension's end of the link; `src/sites.js`: registers the two content scripts in `content/` only when access to all sites is allowed.
+- `popup/`: the popup (`render.js` draws it from a view; `popup.js` talks to the worker). `setup/`: the page shown once at install.
+- `dev/`: the preview page and render script. `tools/`: the mock host and the browser test runner. `test/`: the Node tests.
+
+When it goes to the Chrome Web Store, the package leaves out `dev/`, `tools/`, `test/`, `package.json`, and this README.
+
+## Not in version 1
+
+- **Tidy up** (journey 2, old tabs saved as a group and closed): left out. Its promise is "nothing is lost", which rests on Chrome keeping a closed tab group saved, and that is untested on Chrome 158. It needs that test first.
+- **"About 2.1 GB freed"** in the band, as the renders showed: Chrome doesn't tell extensions a tab's memory, and the link doesn't carry it yet, so the band counts tabs asleep instead.
+- Windows and Linux are untested; they need a tester or a virtual machine before the store listing says it supports them.

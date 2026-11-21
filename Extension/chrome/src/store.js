@@ -1,0 +1,75 @@
+// All state lives in chrome.storage, never only in the worker's memory: Chrome stops a Manifest V3 service
+// worker after about 30 seconds idle (test T13), and anything held only in a variable is gone with it.
+// - local: what must outlast Chrome itself (the level, the keep list, the session, the safe list).
+// - session: what belongs to this run of Chrome (tab use, sound, typing, the link). Tab IDs end when Chrome quits,
+//   and session storage clears then too, which is also how a restart is noticed (see worker.js, newBrowserRun).
+import { AUTO_OFF } from './logic/auto.js';
+
+export const LOCAL_DEFAULTS = {
+  level: 'balanced',
+  levelChosen: false,        // whether the person picked a level; if not, Auto becomes the level once linked
+  leaveDelayMs: 30000,
+  kept: [],                  // keep records (logic/keep.js)
+  keepQuestions: [],         // kept tabs that matched two restored tabs: { record, candidates }
+  session: null,             // { active, tabIds, startedAt }
+  asleep: [],                // tab IDs this extension put to sleep
+  safeList: { decided: false, alwaysOn: [], rest: [] },
+  restEnabled: false,
+  rest: { ids: [], session: false, memory: false },
+  setupDone: false,
+};
+
+export const SESSION_DEFAULTS = {
+  run: false,                // set once per run of Chrome
+  runStartedAt: null,
+  use: {},
+  audibleAt: {},
+  media: {},                 // { tabId: { frameId: { call, screen } } }
+  typing: {},                // { tabId: { frameId: true } }
+  activeByWindow: {},
+  link: { status: 'connecting', app: '', state: null, stateAt: null, attemptAt: null },
+  auto: AUTO_OFF,
+  lastReport: null,
+  lastReportAt: null,
+  popupScreen: null,         // a screen for the popup to open on, set by Cool Head's "openExtensionsList"
+};
+
+const LOCAL_KEYS = Object.keys(LOCAL_DEFAULTS);
+const SESSION_KEYS = Object.keys(SESSION_DEFAULTS);
+
+export async function load() {
+  const [local, session] = await Promise.all([
+    chrome.storage.local.get(LOCAL_KEYS),
+    chrome.storage.session.get(SESSION_KEYS),
+  ]);
+  return { ...structuredClone(LOCAL_DEFAULTS), ...local, ...structuredClone(SESSION_DEFAULTS), ...session };
+}
+
+export async function save(patch) {
+  const local = {};
+  const session = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (LOCAL_KEYS.includes(k)) local[k] = v;
+    else if (SESSION_KEYS.includes(k)) session[k] = v;
+    else throw new Error(`unknown state key ${k}`);
+  }
+  await Promise.all([
+    Object.keys(local).length ? chrome.storage.local.set(local) : null,
+    Object.keys(session).length ? chrome.storage.session.set(session) : null,
+  ]);
+}
+
+// Chrome runs event handlers side by side, so two that read, change, and write the same state could undo each
+// other. Every change goes through this one queue: fn(state) returns a patch (or nothing), which is saved before
+// the next change reads.
+let queue = Promise.resolve();
+export function change(fn) {
+  const run = queue.then(async () => {
+    const s = await load();
+    const patch = await fn(s);
+    if (patch && Object.keys(patch).length) await save(patch);
+    return { ...s, ...(patch || {}) };
+  });
+  queue = run.catch(() => {});
+  return run;
+}
