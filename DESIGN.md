@@ -2,6 +2,8 @@
 
 Drafted 14 November 2026 for Phil's review, at his request: *"we also should possibly consider user journeys, workflows, UX, layout, build language and other choices"*. Each choice has a recommendation and the reason; Phil decides.
 
+Color, type, icons, voice, and accessibility minimums for the app and its Chrome extension are summed up in [docs/BRAND.md](docs/BRAND.md): Cool Head blue is its own color, not the Mac's accent (Phil, 21 November 2026: "Cool Head blue").
+
 ## Journeys
 
 1. **"Why is my Mac hot?"** Click the menu bar icon. The panel opens on the answer: one card per cause, worst first. If all is calm, it says so in one line.

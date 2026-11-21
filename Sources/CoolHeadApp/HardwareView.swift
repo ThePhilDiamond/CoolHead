@@ -138,7 +138,7 @@ struct HardwareView: View {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.primary.opacity(0.1))
-                        Capsule().fill(space.low ? NetworkView.color(1) : Color.accentColor.opacity(0.7))
+                        Capsule().fill(space.low ? NetworkView.color(1) : Ink.accent.opacity(0.7))
                             .frame(width: max(6, g.size.width * space.used))
                     }
                 }

@@ -124,6 +124,8 @@ struct PanelView: View {
             .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(0.10))
         }
         .frame(width: PanelView.width + extra)
+        // macOS's own controls (filled buttons) in Cool Head blue too, not the Mac's accent color (see Ink.accent)
+        .tint(Ink.accent)
     }
 
     /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase (or any of several, separated by |),
@@ -343,7 +345,7 @@ struct CardView: View {
                 // anywhere on the card opens it and another closes it (Phil, 15 November 2026); this label says so in
                 // words with an arrow pointing the way it opens, and is itself a button for the keyboard and VoiceOver.
                 let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
-                Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open, tint: watch ? .orange : .accentColor) { toggle() }
+                Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open, tint: watch ? .orange : Ink.accentText) { toggle() }
             }
             if open {
                 if !live.card.explanation.isEmpty {
@@ -401,7 +403,7 @@ struct CardView: View {
                 // less button and the matching styling makes it hard to click the right spot")
                 let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
                 Divider().padding(.top, 4)
-                Disclosure(title: "Show less", open: open, tint: watch ? .orange : .accentColor) { toggle() }
+                Disclosure(title: "Show less", open: open, tint: watch ? .orange : Ink.accentText) { toggle() }
             }
         }
         .padding(12)
@@ -638,7 +640,7 @@ struct ShareView: View {
                 .font(.caption2).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -798,7 +800,7 @@ struct WhatsNewCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 }
@@ -942,7 +944,7 @@ struct WelcomeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: "snowflake").font(.title3).foregroundStyle(Color.accentColor)
+                Image(systemName: "snowflake").font(.title3).foregroundStyle(Ink.accent)
                 Text("Cool Head lives up here, in your menu bar.").font(.body.weight(.semibold))
             }
             Text("No window to keep open. It quietly watches your Mac and tells you why it's hot or slow.")
@@ -959,7 +961,7 @@ struct WelcomeCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 }
@@ -972,7 +974,7 @@ struct UpdateBanner: View {
         switch updater.phase {
         case .available(let v):
             HStack(spacing: 8) {
-                Image(systemName: "arrow.down.circle").foregroundStyle(Color.accentColor)
+                Image(systemName: "arrow.down.circle").foregroundStyle(Ink.accent)
                 Text("Cool Head \(v) is available.").font(.callout.weight(.medium))
                 Spacer()
                 if let page = updater.releasePage {
@@ -1414,7 +1416,7 @@ struct SelectField: View {
         .font(.callout)
         .foregroundStyle(Ink.text)
         .background(shape.fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(shape.strokeBorder(open ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.15), lineWidth: 1))
+        .overlay(shape.strokeBorder(open ? Ink.accent.opacity(0.6) : Color.primary.opacity(0.15), lineWidth: 1))
         .clipShape(shape)
     }
 
@@ -1428,7 +1430,7 @@ struct SelectField: View {
                 HStack(spacing: 6) {
                     Text(text).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
-                    if on { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
+                    if on { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Ink.accent) }
                 }
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Color.primary.opacity(hovering ? 0.06 : 0))
@@ -1854,7 +1856,7 @@ struct FixRow: View {
                     if guarded && armed {
                         HStack(spacing: 10) {
                             Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
-                                .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : Color.red)
+                                .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onAccent : Color.red)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                                 Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
@@ -1864,7 +1866,7 @@ struct FixRow: View {
                     } else {
                     HStack(alignment: tag == nil ? .center : .top, spacing: 10) {
                         Image(systemName: icon).font(.body).frame(width: 22)
-                            .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : ends ? Color.red : Color.accentColor)
+                            .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onAccent : ends ? Color.red : Ink.accent)
                         VStack(alignment: .leading, spacing: 2) {
                             // the tag beside the name when both fit on one line, otherwise above it, so a long name
                             // isn't squeezed into three lines beside it
@@ -1947,15 +1949,15 @@ struct OptionStyle: ButtonStyle {
             let line = Color.primary.opacity(hovering ? 0.55 : 0.4)
             let filled = recommended && !yours
             configuration.label
-                .foregroundStyle(filled ? Color.white : Ink.text)
+                .foregroundStyle(filled ? Ink.onAccent : Ink.text)
                 .padding(.horizontal, 11).padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(shape.fill(filled ? AnyShapeStyle(Color.accentColor.opacity(configuration.isPressed ? 0.75 : hovering ? 0.9 : 1))
+                .background(shape.fill(filled ? AnyShapeStyle(Ink.accent.opacity(configuration.isPressed ? 0.75 : hovering ? 0.9 : 1))
                                        : yours ? AnyShapeStyle(Color.primary.opacity(configuration.isPressed ? 0.12 : hovering ? 0.05 : 0))
                                        : AnyShapeStyle(Color.primary.opacity(wash))))
                 .overlay {
                     if yours {
-                        shape.strokeBorder(recommended ? Color.accentColor : line, style: StrokeStyle(lineWidth: recommended ? 1.6 : 1.3, dash: [4, 3]))
+                        shape.strokeBorder(recommended ? Ink.accent : line, style: StrokeStyle(lineWidth: recommended ? 1.6 : 1.3, dash: [4, 3]))
                     } else {
                         shape.strokeBorder(filled ? Color.clear : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1)
                     }
@@ -1982,7 +1984,7 @@ struct RecommendedButton: ButtonStyle {
         configuration.label
             .padding(.horizontal, 8).padding(.vertical, 4)
             .foregroundStyle(.white)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(configuration.isPressed ? 0.75 : 1)))
+            .background(RoundedRectangle(cornerRadius: 6).fill(Ink.accent.opacity(configuration.isPressed ? 0.75 : 1)))
             .opacity(enabled ? 1 : 0.5)
             .contentShape(Rectangle())
     }
@@ -2003,7 +2005,7 @@ struct OptionTag: View {
             Text(words).tracking(0.5)
         }
         .font(Font(OptionTag.font))
-        .foregroundStyle(onAccent ? Color.white : color)
+        .foregroundStyle(onAccent ? Ink.onAccent : color)
         .padding(.horizontal, 5).padding(.vertical, 1.5)
         .background(Capsule().fill(onAccent ? Color.white.opacity(0.22) : color.opacity(0.13)))
         .fixedSize()
@@ -2029,8 +2031,8 @@ struct RecommendedTag: View {
             .font(.caption2.weight(.semibold))
             .fixedSize()
             .padding(.horizontal, 6).padding(.vertical, 1.5)
-            .foregroundStyle(onAccent ? Color.accentColor : .white)
-            .background(Capsule().fill(onAccent ? Color.white.opacity(0.92) : Color.accentColor))
+            .foregroundStyle(onAccent ? Ink.accentText : Ink.onAccent)
+            .background(Capsule().fill(onAccent ? Color.white.opacity(0.92) : Ink.accent))
     }
 }
 
@@ -2075,6 +2077,21 @@ struct IconButton: View {
 enum Ink {
     /// Main text.
     static let text = Color.primary
+    /// Cool Head blue, its own color on every Mac and in its Chrome extension, rather than the Mac's accent color, which
+    /// is blue, orange, or another on each Mac and which Chrome hides from extensions (Phil, 21 November 2026: "set and
+    /// stick to Cool Head blue with brand guidelines, fonts, etc. for consistent experience across platforms", then
+    /// "Cool Head blue"). Light #1769D1, white text on it 5.3:1 and as text on the panel 4.9:1; dark #4A9EFF, near-black
+    /// text on it 7.6:1 and as text 6.1:1. A blue also keeps "do this" apart from the yellow, orange, and red that say
+    /// "watch out". See docs/BRAND.md.
+    static let accent = dynamic(0x1769D1, 0x4A9EFF)
+    /// Text on a filled accent: white in light mode, near-black in dark, where the lighter blue needs it.
+    static let onAccent = Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(0x1A1A1A) : .white })
+    /// Text in the accent color on the panel.
+    static let accentText = accent
+    static func rgb(_ h: Int) -> NSColor { NSColor(srgbRed: CGFloat(h >> 16 & 255) / 255, green: CGFloat(h >> 8 & 255) / 255, blue: CGFloat(h & 255) / 255, alpha: 1) }
+    static func dynamic(_ light: Int, _ dark: Int) -> Color {
+        Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(dark) : rgb(light) })
+    }
     /// Supporting text: still well above 7:1 contrast on the card in light and dark.
     static let muted = Color.primary.opacity(0.82)
     /// A card: a slightly raised surface with a visible edge.
