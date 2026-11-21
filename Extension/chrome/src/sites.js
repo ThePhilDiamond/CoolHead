@@ -11,15 +11,25 @@ const SCRIPTS = [
   { id: 'coolhead-typing', js: ['content/typing.js'], matches: ['<all_urls>'], allFrames: true, runAt: 'document_start', persistAcrossSessions: true },
 ];
 
-export async function ensure() {
+// Called from several places at once (a permission change, the popup, a new run); one at a time, so a script is
+// never registered twice.
+let queue = Promise.resolve();
+export function ensure(opts = {}) {
+  const run = queue.then(() => ensureNow(opts));
+  queue = run.catch(() => {});
+  return run;
+}
+
+async function ensureNow({ injectOpenPages = false } = {}) {
   const granted = await chrome.permissions.contains(ALL_SITES);
   const have = new Set((await chrome.scripting.getRegisteredContentScripts()).map((s) => s.id));
   if (granted) {
     const missing = SCRIPTS.filter((s) => !have.has(s.id));
-    if (missing.length) {
-      await chrome.scripting.registerContentScripts(missing);
-      // Pages already open get the typing check now; a call already running is seen once the page next asks
-      // for the camera or microphone, and meanwhile its sound protects it.
+    if (missing.length) await chrome.scripting.registerContentScripts(missing);
+    // Pages already open get the typing check now: after the permission is given, and after the extension is
+    // reloaded or updated, which cuts off the copies already in open pages. A call already running is seen once
+    // the page next asks for the camera or microphone, and meanwhile its sound protects it.
+    if (missing.length || injectOpenPages) {
       const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file://*/*'] });
       await Promise.all(tabs.filter((t) => !t.discarded).map((t) => chrome.scripting.executeScript({
         target: { tabId: t.id, allFrames: true },

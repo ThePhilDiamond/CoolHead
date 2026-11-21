@@ -192,7 +192,7 @@ const A = [
     const s = await waitFor('notRunning', async () => { const x = await state(w); return x.link.status === 'notRunning' ? x : null; });
     assert.equal(s.level, 'balanced');
   }],
-  ['together: Cool Head opens, they link, say hello, and Auto becomes the level', async ({ w, scenario, logLines }) => {
+  ['together: Cool Head opens, they link, say hello, and Auto becomes the level the person never chose', async ({ w, scenario, logLines }) => {
     scenario({ app: 'running', memory: 'fine' });
     const s = await waitFor('linked', async () => { const x = await state(w); return x.link.status === 'linked' && x.link.state ? x : null; });
     assert.equal(s.level, 'auto');
@@ -226,7 +226,8 @@ const A = [
     assert.deepEqual([r.ok, r.count], [true, 1], JSON.stringify({ r, dup, tabs: (await tabsNow(w)).filter((t) => t.url.includes("dup") || dup.includes(t.id)) }));
     assert.match(r.done, /^Closed 1 duplicate tab\./);
   }],
-  ['dropped: Cool Head closes; the extension carries on alone, Auto waits, nothing lost', async ({ w, scenario }) => {
+  ['dropped: Cool Head closes; the extension carries on alone, a chosen Auto waits, nothing lost', async ({ w, scenario }) => {
+    await act(w, { action: 'level', level: 'auto' }); // the person chooses Auto
     scenario({ app: 'notRunning', memory: 'fine' });
     const s = await waitFor('notRunning', async () => { const x = await state(w); return x.link.status === 'notRunning' ? x : null; });
     assert.equal(s.level, 'auto', 'the chosen level stays');
@@ -310,7 +311,7 @@ const B = [
     });
     assert.deepEqual(ids, ['coolhead-media', 'coolhead-typing']);
   }],
-  ['unsent typing keeps a tab loaded and is listed as held; Sleep then asks once in the popup words', async ({ w, cdp }) => {
+  ['unsent typing keeps a tab loaded through an in-place address change, is listed as held, and a real reload clears it', async ({ w, cdp }) => {
     await act(w, { action: 'level', level: 'focus' });
     await act(w, { action: 'leaveDelay', ms: 0 });
     const { targetId } = await cdp.send('Target.createTarget', { url: `${BASE}/typing` });
@@ -323,6 +324,10 @@ const B = [
       const id = Object.keys(s.typing)[0];
       return id ? Number(id) : null;
     });
+    // A page that changes its address without reloading (as Gmail does) keeps its draft, and stays held.
+    await evaluate(cdp, sessionId, "history.pushState({}, '', '/typing?view=draft')");
+    await sleep(1000);
+    assert.ok((await state(w)).typing[typingTab], 'typing still recorded after the address changed in place');
     const other = (await openTabs(w, [`${BASE}/page?n=b1`]))[0];
     await loaded(w, [other]);
     await w(`chrome.tabs.update(${other}, { active: true })`);
@@ -333,6 +338,9 @@ const B = [
     const view = await w('coolHead.viewFor()');
     const row = view.held.tabs.find((r) => r.id === typingTab);
     assert.deepEqual([row?.reason, row?.reasonText, row?.risk], ['typing', 'Unsent typing', 'typing']);
+    // A real reload starts a new page with nothing typed: the tab is no longer held for typing.
+    await cdp.send('Page.reload', {}, sessionId).catch(() => evaluate(cdp, sessionId, 'location.reload()'));
+    await waitFor('typing cleared by the new page', async () => ((await state(w)).typing[typingTab] ? null : true), 15000);
   }],
   ['a page using the camera and microphone is seen as on a call and kept awake', async ({ w, cdp }) => {
     const { targetId } = await cdp.send('Target.createTarget', { url: `${BASE}/call` });

@@ -190,6 +190,22 @@ test('dropped mid-send: a send on a closed port counts as a drop, not a crash', 
   assert.equal(link.status, 'notLinked');
 });
 
+test('a late disconnect or message from an old port does not touch the new link', async () => {
+  const { link, port } = client();
+  link.start();
+  await port.deliver({ type: 'link', app: 'running' });
+  port.closed = true;
+  link.port = null; // as after a drop already handled
+  const fresh = mockPort();
+  link.deps.connect = () => fresh;
+  link.start();
+  await fresh.deliver({ type: 'link', app: 'running' });
+  port.drop(); // the old port's disconnect arrives late
+  await port.deliver({ type: 'link', app: 'notRunning' });
+  assert.equal(link.status, 'linked');
+  assert.equal(link.port, fresh);
+});
+
 test('a host that stops after saying hello is a drop, not a missing install', async () => {
   const { link, port } = client({ error: 'Native host has exited.' });
   link.start();

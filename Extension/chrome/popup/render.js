@@ -50,8 +50,9 @@ function band(view, ui, on) {
     brand.append(h('button', { class: 'iconbtn', 'aria-label': W.SETTINGS, title: W.SETTINGS, 'data-key': 'settings', onclick: on.openSettings }, icon('gear')));
   }
   return h('header', { class: `band tone-${b.tone}` }, brand,
-    // A polite live region, so a change in memory is said without taking the person's place.
-    h('div', { class: 'status', role: 'status' }, flake(b.melting),
+    // Not a live region itself: it is redrawn often, and a fresh live region is not reliably read. popup.js says a
+    // change in memory through the one lasting live region instead.
+    h('div', { class: 'status' }, flake(b.melting),
       h('div', {}, h('h1', { text: b.title }), h('p', { text: b.line }))));
 }
 
@@ -179,7 +180,12 @@ function levels(view, on) {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = enabled[(i - 1 + enabled.length) % enabled.length];
     if (e.key === 'Home') next = enabled[0];
     if (e.key === 'End') next = enabled[enabled.length - 1];
-    if (next) { e.preventDefault(); choose(next.id); }
+    if (next) {
+      e.preventDefault();
+      // Focus moves with the choice, so the redraw puts it back on the newly chosen level.
+      e.currentTarget.parentElement.querySelector(`[data-level="${next.id}"]`)?.focus();
+      choose(next.id);
+    }
   };
   const chosenEnabled = enabled.some((o) => o.id === l.chosen);
   const buttons = l.options.map((o) => {
@@ -195,7 +201,7 @@ function levels(view, on) {
   return h('footer', { class: `bottom tone-${l.tone}` },
     h('p', { class: 'label', id: 'lvl', text: l.label }),
     h('div', { class: 'seg', role: 'radiogroup', 'aria-labelledby': 'lvl' }, buttons),
-    h('p', { class: 'what', 'aria-live': 'polite', text: l.line }),
+    h('p', { class: 'what', text: l.line }),
     l.needs ? h('p', { class: 'what', id: 'auto-needs', text: l.needs }) : null);
 }
 
@@ -252,8 +258,8 @@ function startScreen(view, ui, on) {
       others.length > OTHERS_SHOWN ? h('button', { class: 'more', 'aria-expanded': ui.showAllOthers ? 'true' : 'false', 'data-key': 'more', onclick: on.showMore },
         icon(ui.showAllOthers ? 'chevDown' : 'chevRight'), ui.showAllOthers ? W.SHOW_FEWER : W.showMore(others.length - OTHERS_SHOWN)) : null) : null);
   const footer = h('footer', { class: 'pinned' },
-    h('button', { class: 'btn primary wide', disabled: counts.ticked === 0, 'data-key': 'start-go', onclick: on.startSession }, W.startButton(counts.ticked)),
-    h('p', { class: 'note', 'aria-live': 'polite', text: W.startNote(counts.sleep, counts.stayLoaded, st.resting) }));
+    h('button', { class: 'btn primary wide', disabled: counts.ticked === 0, 'aria-describedby': 'start-note', 'data-key': 'start-go', onclick: on.startSession }, W.startButton(counts.ticked)),
+    h('p', { class: 'note', id: 'start-note', text: W.startNote(counts.sleep, counts.stayLoaded, st.resting) }));
   return [band(view, ui, on), main, footer];
 }
 
@@ -347,5 +353,11 @@ export function render(root, view, ui, on) {
     fade();
     main.addEventListener('scroll', fade, { passive: true });
   }
-  if (focusKey) root.querySelector(`[data-key="${CSS.escape(focusKey)}"]`)?.focus();
+  if (focusKey) {
+    const again = root.querySelector(`[data-key="${CSS.escape(focusKey)}"]`);
+    // The control may be gone (a closed tab's row, an answered question): focus goes to the section it was in,
+    // or the first control, never lost to the page.
+    const fallback = focusKey.match(/^(keep|sleep|close)-/) ? root.querySelector('[data-key="held"]') : null;
+    (again || fallback || root.querySelector('main button, main input'))?.focus();
+  }
 }

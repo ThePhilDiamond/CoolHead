@@ -3,8 +3,11 @@
 // unsent typing never sleeps on its own. Only a yes or no leaves this page: never what was typed.
 // Runs in the extension's isolated world, so the page can't read or change it.
 (() => {
-  if (globalThis.__coolHeadTyping) return; // injected again into an open page after the permission was given
-  globalThis.__coolHeadTyping = true;
+  // Injected again into an open page after the permission is given, or after the extension is reloaded. A copy
+  // whose extension was reloaded can no longer reach it, so only a copy that still can stops this one.
+  const alive = () => { try { return Boolean(chrome.runtime && chrome.runtime.id); } catch { return false; } };
+  if (globalThis.__coolHeadTyping && globalThis.__coolHeadTyping()) return;
+  globalThis.__coolHeadTyping = alive;
 
   const TEXT_INPUTS = new Set(['text', 'search', 'email', 'url', 'tel', 'number', 'password', '']);
   const edited = new Set();
@@ -62,6 +65,11 @@
   for (const el of document.querySelectorAll('input, textarea')) {
     if (editable(el) && unsent(el)) edited.add(el);
   }
+  // Said once at the start of every page, even when there's nothing: it replaces whatever the last page in this
+  // frame reported, so a draft or a call on the page before doesn't keep this one held.
+  dirty = edited.size > 0;
+  send({ type: 'typing', dirty });
+  send({ type: 'media', call: false, screen: false });
   check();
 
   // Calls and screen sharing, seen by content/media.js in the page's own world and passed here as a string.

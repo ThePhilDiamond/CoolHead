@@ -28,8 +28,10 @@ export class LinkClient {
     this.port = port;
     this.heardFromHost = false;
     this.setStatus('connecting');
-    port.onMessage.addListener((msg) => this.receive(msg));
-    port.onDisconnect.addListener(() => this.dropped());
+    // Each listener checks it still belongs to the current port: a late message or disconnect from an old one
+    // must not touch a link made since.
+    port.onMessage.addListener((msg) => { if (this.port === port) this.receive(msg); });
+    port.onDisconnect.addListener(() => { if (this.port === port) this.dropped(); });
   }
 
   stop() {

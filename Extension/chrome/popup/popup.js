@@ -42,7 +42,10 @@ function draw() {
 }
 
 async function refresh() {
+  const before = view;
   view = await ask({ type: 'view' });
+  // A change in memory while the popup is open is said aloud, once, through the lasting live region.
+  if (before && before.band.title !== view.band.title) announce(`${view.band.title}. ${view.band.line}`);
   // Cool Head's "Turn off extensions" opens the safe list; Chrome only asks for a permission after a click, so
   // without it yet, Settings opens with its Choose the safe list button.
   if (view.openScreen === 'safe') {
@@ -79,7 +82,7 @@ const on = {
     root.querySelector(`[data-key="${from === 'safe' ? 'safe' : 'settings'}"]`)?.focus();
   },
   toggleHeld() { ui.heldOpen = !ui.heldOpen; ui.confirm = null; draw(); },
-  level(id) { act({ action: 'level', level: id }); },
+  async level(id) { const r = await act({ action: 'level', level: id }); announce(`${r.said} ${r.view.levels.line}`); },
   keep(tabId, keep) { ui.confirm = null; act({ action: 'keep', tabId, on: keep }); },
   sleep(row) { tryRisky(row, 'sleep'); },
   close(row) { tryRisky(row, 'close'); },
@@ -134,11 +137,12 @@ const on = {
     await act({ action: 'sites', on: turnOn });
   },
   async restEnabled(turnOn) {
+    // Saved first: Chrome's permission question can close the popup before anything after it runs.
+    await act({ action: 'restEnabled', on: turnOn });
     if (turnOn && !view.settings.managementGranted) {
       const granted = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
-      if (!granted) { announce(W.REST_NEEDS); draw(); return; }
+      if (!granted) { await act({ action: 'restEnabled', on: false }); announce(W.REST_NEEDS); }
     }
-    await act({ action: 'restEnabled', on: turnOn });
   },
   async openSafe() { await openSafe(); draw(); root.querySelector('[data-key="back"]')?.focus(); },
   async safeMove(id, toAlwaysOn) {
@@ -165,7 +169,8 @@ function tryRisky(row, action) {
 let pending = null;
 function soon() {
   clearTimeout(pending);
-  pending = setTimeout(() => { if (ui.screen === 'home' || ui.screen === 'settings') refresh().catch(console.error); }, 200);
+  // Not while the group name is being typed: a redraw would move the caret and break input methods.
+  pending = setTimeout(() => { if ((ui.screen === 'home' && !ui.ending) || ui.screen === 'settings') refresh().catch(console.error); }, 200);
 }
 chrome.storage.onChanged.addListener(soon);
 for (const ev of [chrome.tabs.onUpdated, chrome.tabs.onRemoved, chrome.tabs.onCreated, chrome.tabs.onActivated]) ev.addListener(soon);
