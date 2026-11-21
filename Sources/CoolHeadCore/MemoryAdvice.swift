@@ -140,7 +140,7 @@ public enum MemoryAdvice {
     /// `leak`: the biggest app's memory has kept growing with the same windows open (see Leaks). `models`: what Ollama
     /// has loaded, when it is among the biggest (see Leftovers); `buildData`: the size of Xcode's build data, when the
     /// startup disk is nearly full.
-    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), chrome: ChromeLimit.Status? = nil,
+    public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), context: MemoryContext = MemoryContext(),
                             leak: Leaks.Leak? = nil, models: [Leftovers.Model]? = nil, buildData: UInt64? = nil, tabMemoryOn: Bool? = nil) -> Card {
         let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
         guard let top = groups.first else {
@@ -149,6 +149,22 @@ public enum MemoryAdvice {
                             + (lowDisk(s) ? [Leftovers.buildDataFix(bytes: buildData).map { var f = $0; f.recommended = false; return f }, freeDisk].compactMap { $0 } : []))
         }
         let size = Fmt.bytes(top.bytes)
+        // Chrome using the most while the Mac copes: macOS says warning, but nothing is being moved to disk, so nothing waits
+        // on memory yet, and closing tabs would cost something for nothing (see MemoryGate). A calm card says so, and Cool
+        // Head says if it changes (Phil, 21 November 2026, the calm card offered for his look). At critical, the full card.
+        if top.name == "Google Chrome", top.kind == .browser, context.slowed == false, s.memoryPressure == "warning",
+           let moved = s.swappedOutMB, moved < MemoryGate.writingMB {
+            var calm = Card(state: .working, headline: "Memory is busy, but your Mac is keeping up.",
+                            explanation: "Google Chrome is using the most (\(size)), and your Mac isn't moving memory to its disk, so nothing is slowed down yet. We'll say if that changes.",
+                            fixes: [])
+            calm.names = ["Google Chrome"]
+            return calm
+        }
+        // how often memory has slowed this Mac this week (see PressureHistory): a pattern is a reason to act now rather than wait
+        var weekNote: String? = nil
+        if top.name == "Google Chrome", let w = context.week, w.count >= 2 {
+            weekNote = "It's slowed your Mac \(w.count) times this week, about \(Fmt.duration(Double(w.minutes) * 60)) in all, so it's likely to happen again while Chrome holds this much."
+        }
         // the three biggest, named so they can be told apart (see Naming)
         let shown = Array(groups.prefix(3))
         let names = Naming.distinct(shown.map(\.named))
@@ -161,7 +177,6 @@ public enum MemoryAdvice {
         let expl = pressure(s)
         let also = next.isEmpty ? [] : ["Also using a lot: \(Fmt.list(next))"]
         var fixes: [Fix] = []
-        var limitNote: String? = nil
         // the biggest app has been leaking: quitting and reopening it gives the memory back, so that's the advice
         var leaking: (headline: String, sentence: String, fix: Fix)? = nil
         if let l = leak, top.kind == .app, let b = top.bundle {
@@ -181,16 +196,36 @@ public enum MemoryAdvice {
                          ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "In \(top.name), find the tabs using the most memory and close the ones you don't need.",
                                       steps: ["Open \(top.name)."] + steps, recommended: true)).fixingTheCause())
             if top.name == "Google Chrome" {
-                let st = chrome ?? ChromeLimit.status(chromeUse: top.bytes)
-                if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
-                limitNote = ChromeLimit.note(st, using: top.bytes)
                 if let b = top.bundle {
-                    fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
+                    // Memory Saver: nothing once it's at Maximum; Cool Head sets Maximum itself when it's worth it (see
+                    // ChromeMemorySaver.shouldOffer), as part of a restart, since Chrome must be closed to change it;
+                    // otherwise Chrome's own settings, as before
+                    if context.memorySaver?.atMaximum == true {
+                    } else if context.offerSaverMaximum {
+                        fixes.append(Fix(id: "saver-max", title: "Set Memory Saver to Maximum",
+                                         consequence: "Restarts Chrome, keeping your tabs, and makes it your own setting: tabs unused for 2 hours unload, and reload when clicked. It won't help right now. Incognito windows, unsent form text, and downloads don't come back.",
+                                         kind: .restartBrowser(b)))
+                    } else {
+                        fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
+                    }
                     // Chrome names each tab and its memory, which Cool Head can't (Phil, 18 November 2026: "A user doesn't know
                     // which tasks in Chrome are big ... Can we get the different tabs to flag specific big ones?"); not offered once
                     // it's on (see ChromeHoverMemory)
                     if (tabMemoryOn ?? ChromeHoverMemory.read()) != true {
                         fixes.append(Fix(id: "tabmemory", title: "Show each tab's memory", consequence: "Takes you to Chrome's Appearance settings. Turn on \(Fmt.ui("Show memory usage on tab hover preview card")), then point at any tab to see how much it's using.", kind: .openPage(b, "chrome://settings/appearance")))
+                    }
+                    // tab groups hold whole projects of hidden tabs: hiding a group gives their memory back and keeps the group
+                    // to open again (Chrome 158's menu: "Hide group"; "Close group" and "Delete group" are beside it)
+                    // extensions hold memory that unloading tabs never reaches (see ChromeParts): Chrome's Task Manager names each
+                    if let parts = context.chrome, parts.extensionBytes >= ChromeParts.extensionsWorthSaying {
+                        fixes.append(Fix.openApp("extensions", "Turn off extensions you don't use", bundle: b,
+                                                 steps: [parts.extensionSentence ?? "", TaskManager.open("Google Chrome"), TaskManager.sort(by: "Memory", so: "what uses the most"),
+                                                         "Extensions are the rows that start with \(Fmt.ui("Extension:")). Turn off the ones you don't use in Chrome's Extensions settings (type \(Fmt.ui("chrome://extensions")) in the address bar)."].joined(separator: " ")))
+                    }
+                    if let parts = context.chrome, parts.markWorks, parts.hiddenBytes >= ChromeParts.worthGroups {
+                        fixes.append(Fix.guide("groups", "Hide tab groups you aren't using",
+                                               "Their tabs close and give their memory back. Chrome keeps each group under Tab groups in its menu, so you can open it again; its tabs reload when you do.",
+                                               steps: ["In Chrome, right-click the name of a tab group you aren't using.", "Choose Hide group."]))
                     }
                 }
             } else if top.name == "Microsoft Edge" {
@@ -223,20 +258,26 @@ public enum MemoryAdvice {
         case .macOS, .other:
             fixes.append(Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(top.name)\u{201D}.", kind: .lookUp(top.name)))
         }
-        // Chrome among the biggest, but not the biggest: limiting it is a way to free memory that closes nothing
-        // (found in the live test, 15 November 2026: Google Drive 4.7 GB, Chrome 4.6 GB, and only Quit was offered)
-        if top.name != "Google Chrome", let c = groups.prefix(3).first(where: { $0.name == "Google Chrome" && $0.kind == .browser }) {
-            let st = chrome ?? ChromeLimit.status(chromeUse: c.bytes)
-            if let limit = ChromeLimit.fix(st) { fixes.append(limit) }
-            limitNote = ChromeLimit.note(st, using: c.bytes)
-        }
         // a Chromium browser among the biggest: restarting it frees the memory it has built up, and its tabs come back
         // (see BrowserRestart); before Quit, since it loses less, and never recommended, since it closes the browser
         // you may be using and doesn't bring back private windows, unsent form text or downloads
+        // For Chrome, what Cool Head reads of its parts (see ChromeParts): when its own program or graphics process has grown,
+        // only a restart gives that back, so it's recommended; when it has been open for days, the option says so.
+        var partsNote: String? = nil
         if let r = groups.prefix(3).first(where: { $0.kind == .browser && BrowserRestart.browsers.contains($0.name) && $0.bundle != nil }), let b = r.bundle {
-            fixes.append(Fix(id: "restart", title: "Restart \(r.name), keeping your tabs",
-                             consequence: "Closes and reopens \(r.name), freeing memory it built up. Your tabs come back; \(BrowserRestart.privateWindows(r.name)), unsent form text, and downloads in progress don't.",
-                             kind: .restartBrowser(b)))
+            let parts = r.name == "Google Chrome" ? context.chrome : nil
+            let days = parts?.openFor(now: now).flatMap { $0 >= ChromeParts.openLong ? Int($0 / 86400) : nil }
+            let builtUp = days.map { "freeing memory it built up over \($0) days" } ?? "freeing memory it built up"
+            var restart = Fix(id: "restart", title: "Restart \(r.name), keeping your tabs",
+                              consequence: "Closes and reopens \(r.name), \(builtUp). Your tabs come back; \(BrowserRestart.privateWindows(r.name)), unsent form text, and downloads in progress don't.",
+                              kind: .restartBrowser(b))
+            if let g = parts?.grownPart {
+                restart.recommended = true
+                // closing tabs still fixes the cause, so it stays, shown as that rather than recommended
+                if let i = fixes.firstIndex(where: { $0.id == "tabs" }) { fixes[i].recommended = false }
+                partsNote = "\(g.name) has grown to \(Fmt.bytes(g.bytes)), and only a restart gives that back; closing tabs can't."
+            }
+            fixes.append(restart)
         }
         // the next largest app that can be quit, as a second way to free memory
         if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
@@ -257,9 +298,10 @@ public enum MemoryAdvice {
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
         var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
-                        explanation: leaking?.sentence ?? expl + (limitNote.map { " " + $0 } ?? ""), fixes: fixes)
+                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" ? context.chrome?.hiddenSentence : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
+                        fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
-        card.facts = also
+        card.facts = also + (context.chrome?.facts ?? [])
         return card
     }
 

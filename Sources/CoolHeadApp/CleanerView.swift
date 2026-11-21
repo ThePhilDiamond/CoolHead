@@ -50,7 +50,7 @@ struct CleanerView: View {
                 let v = Cleaner.verdict(finds)
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: finds.isEmpty ? "checkmark.circle.fill" : "sparkles")
-                        .font(.title3).foregroundStyle(finds.isEmpty ? Color.green : Color.accentColor)
+                        .font(.title3).foregroundStyle(finds.isEmpty ? Color.green : Ink.accent)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(v.title).font(.callout.weight(.semibold))
                         Text(v.meaning).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
@@ -113,7 +113,7 @@ struct CleanerView: View {
         let bytes = quick.compactMap(\.bytes).reduce(0, +)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").foregroundStyle(Color.accentColor).frame(width: 18)
+                Image(systemName: "sparkles").foregroundStyle(Ink.accent).frame(width: 18)
                 Text("Quick clean").font(.callout.weight(.semibold))
                 Spacer()
                 if bytes > 0 { Text(Fmt.fileSize(bytes)).foregroundStyle(Ink.muted) }
@@ -345,7 +345,7 @@ struct CleanerView: View {
             }
             .font(.caption)
         }
-        .buttonStyle(.plain).foregroundStyle(Color.accentColor)
+        .buttonStyle(.plain).foregroundStyle(Ink.accent)
     }
 
     func linkRow(symbol: String, title: String, detail: String, button: String, url: String) -> some View {

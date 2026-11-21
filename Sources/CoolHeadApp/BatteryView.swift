@@ -112,7 +112,7 @@ struct PanelSwitch: ToggleStyle {
             configuration.label
             Spacer(minLength: 8)
             Capsule()
-                .fill(on ? Color.accentColor : Color.primary.opacity(0.2))
+                .fill(on ? Ink.accent : Color.primary.opacity(0.2))
                 .frame(width: 32, height: 18)
                 .overlay(alignment: on ? .trailing : .leading) {
                     Circle().fill(Color.white).shadow(color: .black.opacity(0.25), radius: 0.5, y: 0.5).padding(2)

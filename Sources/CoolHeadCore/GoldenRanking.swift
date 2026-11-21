@@ -35,6 +35,9 @@ enum GoldenRanking {
     catalogue-displaylink-long · catalogue · unknown · → advice · advice, quit, lookup, share
     catalogue-local-ai-model · catalogue · working · → none · no options
     catalogue-local-ai-model-long · catalogue · unknown · → advice · advice, lookup, share
+    memory-chrome-saver-max · - · unknown · → tabs · tabs, saver-max, restart, quit, tabmemory
+    memory-chrome-hidden-tabs · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory, extensions, groups
+    memory-chrome-grown · - · unknown · → restart · restart, tabs, quit, saver, tabmemory
     crash-loop · - · unknown · → lookup · lookup, console
     disguise-macos-name · disguise · unknown · → remove · remove, share
     disguise-apple-label · disguise · unknown · → remove · remove, share
@@ -47,6 +50,8 @@ enum GoldenRanking {
     power-held-awake-sound · - · working · → none · quit
     power-night-wakes · - · quiet · → battery-options · battery-options
     power-night-upkeep · - · quiet · → battery-options · battery-options
+    memory-chrome-calm · - · working · → none · no options
+    memory-chrome-week · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory
     virtual-machine · job · unknown · → lookup · lookup, stop, cooler, share
     web-page-in-app · web-page-in-app · unknown · → quit · quit, lookup
     macos-service-for-app · served · unknown · → quit · quit, lookup
@@ -54,11 +59,10 @@ enum GoldenRanking {
     macos-unknown-normal-priority · unknown-service · unknown · → none · lookup
     background-helper · job · unknown · → cooler · cooler, agent, lookup, share
     time-machine-build · catalogue · working · → backup · backup
-    memory-chrome · - · unknown · → chromelimit · chromelimit, tabs, restart, quit, saver, tabmemory
-    memory-chrome-limited · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory
+    memory-chrome · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory
     memory-safari · - · unknown · → tabs · tabs, quit
     memory-edge · - · unknown · → tabs · tabs, restart, quit, saver
-    memory-sync-app · - · unknown · → quit · quit, restart, quit2, chromelimit, pause
+    memory-sync-app · - · unknown · → quit · quit, restart, quit2, pause
     memory-app-and-program-alike · - · unknown · → none · quit
     memory-program-first · - · unknown · → none · quit2, lookup
     memory-low-disk · - · unknown · → quit · quit, disk

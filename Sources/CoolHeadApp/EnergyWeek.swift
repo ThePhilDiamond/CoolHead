@@ -36,7 +36,7 @@ struct EnergyWeek: View {
                         Divider()
                         Disclosure(title: more ? "Show only the top three"
                                                : "Show everything that used 5% or more this week (\(split.more.count) more)",
-                                   open: more, tint: .accentColor) { withAnimation(.easeOut(duration: 0.15)) { more.toggle() } }
+                                   open: more, tint: Ink.accent) { withAnimation(.easeOut(duration: 0.15)) { more.toggle() } }
                     }
                 }
                 .padding(12)
@@ -104,7 +104,7 @@ struct EnergyWeek: View {
                             Text(PowerHistory.share(row.share)).font(.callout.monospacedDigit()).foregroundStyle(Ink.text)
                         }
                         GeometryReader { g in
-                            Capsule().fill(Color.accentColor.opacity(0.55))
+                            Capsule().fill(Ink.accent.opacity(0.55))
                                 .frame(width: max(3, g.size.width * min(1, row.share)), height: 4)
                         }
                         .frame(height: 4)

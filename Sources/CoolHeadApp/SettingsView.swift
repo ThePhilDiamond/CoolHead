@@ -150,7 +150,7 @@ struct IconStylePicker: View {
                 HStack(spacing: 0) {
                     HStack(spacing: 6) {
                         Image(systemName: on ? "largecircle.fill.circle" : "circle")
-                            .foregroundStyle(on ? Color.accentColor : Ink.muted)
+                            .foregroundStyle(on ? Ink.accent : Ink.muted)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(name).font(.callout)
                             Text(how).font(.caption2).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
@@ -162,7 +162,7 @@ struct IconStylePicker: View {
                     }
                 }
                 .padding(.vertical, 3).padding(.leading, 6)
-                .background(RoundedRectangle(cornerRadius: 6).fill(on ? Color.accentColor.opacity(0.12) : .clear))
+                .background(RoundedRectangle(cornerRadius: 6).fill(on ? Ink.accent.opacity(0.12) : .clear))
                 .contentShape(Rectangle())
                 .onTapGesture { style = key }
                 .accessibilityElement(children: .ignore)

@@ -200,7 +200,7 @@ struct NetworkView: View {
             case .testing(let started):
                 TimelineView(.periodic(from: started, by: 1)) { t in
                     let left = max(1, NetworkCheck.testSeconds - Int(t.date.timeIntervalSince(started)))
-                    statusText("arrow.triangle.2.circlepath", Color.accentColor, "Testing…", "About \(left) seconds left. Calls and downloads may slow for a moment.")
+                    statusText("arrow.triangle.2.circlepath", Ink.accent, "Testing…", "About \(left) seconds left. Calls and downloads may slow for a moment.")
                 }
             case .done(let outcome):
                 let v = NetworkCheck.verdict(outcome)
