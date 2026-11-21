@@ -809,6 +809,12 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.16.0": [
+            "Cool Head has a color of its own now, Cool Head blue, the same on every Mac and easier to read.",
+            "Chrome's memory card says how much is in tabs you aren't looking at and in its extensions, and when a restart would help.",
+            "When memory keeps slowing your Mac, Chrome's card can set Memory Saver to Maximum as your own setting.",
+            "Limit Chrome is gone: Chrome never applied it on your Mac. Cool Head removes what it set, so Chrome stops saying it's managed.",
+        ],
         "0.15.0": [
             "The tools are now This Mac, Power, Network, and Cleaner: the three that show how your Mac is, then the one that changes things.",
             "Battery is now Power. It shows the three apps that used the most energy this week, and a Mac with no battery gets it too.",
