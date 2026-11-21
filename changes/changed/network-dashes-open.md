@@ -1,1 +1,0 @@
-- The dashes around the Network globe also show while Network is open, gray around an orange globe.

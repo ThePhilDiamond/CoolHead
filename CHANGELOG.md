@@ -6,6 +6,16 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.15.0] - 2026-11-21
+
+### Changed
+
+- The dashes around the Network globe also show while Network is open, gray around an orange globe.
+- Battery is now Power. A Mac with no battery shows a plug and gets the page too, with the week's energy use. The energy list shows the three that used the most without a click, "Show everything that used 5% or more this week" for the rest, and every one with its share in Nerdy stuff.
+- Hardware is now This Mac. Its page shows your Mac's model and serial number, with a copy button, and how much of the startup disk is free, with a button to macOS's Storage settings and, when space is low, one to the Cleaner. The lines under the temperatures are gone: the ring at the top already says whose temperature it shows.
+- The tools along the bottom are now in the order This Mac, Power, Network, and Cleaner: the three that show how your Mac is, then the one that changes things.
+- With a tool open, a pill in the top row says what the cards hold, such as "2 fixes recommended", and goes back to them. The top row's sentence gives the cause without pointing at the cards ("The cards below need a look" is gone), and the tools bar along the bottom takes the same green, yellow, or red tint as the top row.
+
 ## [0.14.1] - 2026-11-19
 
 ### Changed
@@ -384,7 +394,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.12.0...v0.13.0
