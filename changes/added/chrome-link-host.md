@@ -1,0 +1,1 @@
+- Cool Head for Chrome's link: a small helper inside the app, `coolhead-chrome-host`, that Chrome can start to pass messages between the Cool Head for Chrome extension and Cool Head on this Mac, adding nothing and using no network. Nothing sets it up in Chrome yet.

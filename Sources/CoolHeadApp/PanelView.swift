@@ -537,7 +537,7 @@ struct CardView: View {
             if saver { whileClosed = { SaverResult.write(into: wrote) } }
             Task {
                 let w = watcher
-                let o = await BrowserRestart.restart(bundle: bundle, whileClosed: whileClosed) { step in w.log("Restart \(name) pressed: \(step)") }
+                let o = await BrowserRestart.restart(bundle: bundle, whileClosed: whileClosed, log: { step in w.log("Restart \(name) pressed: \(step)") })
                 var n = BrowserRestart.note(o, name: name)
                 if saver, !n.failed {
                     if wrote.value == .set { n.text += " Memory Saver is now at Maximum; change it any time in Chrome's Performance settings." }
@@ -555,7 +555,7 @@ struct CardView: View {
             note = "Asked \(name) to quit. It opens again once it has closed."; noteFailed = false; acted = true
             Task {
                 let w = watcher
-                let o = await BrowserRestart.restart(bundle: bundle, arguments: []) { step in w.log("Quit and reopen \(name) pressed: \(step)") }
+                let o = await BrowserRestart.restart(bundle: bundle, arguments: [], log: { step in w.log("Quit and reopen \(name) pressed: \(step)") })
                 let n: (text: String, failed: Bool) = {
                     if case .restarted = o { return ("Reopened \(name). The memory it had built up is free.", false) }
                     if case .stillOpen = o { return ("\(name) is still open after \(Int(BrowserRestart.wait)) seconds, so it wasn't reopened. It may be asking you something.", true) }
