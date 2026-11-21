@@ -82,7 +82,7 @@ public struct ChromeParts: Equatable {
     public static let extensionsWorthSaying: UInt64 = 500_000_000
     public var extensionSentence: String? {
         guard extensionBytes >= ChromeParts.extensionsWorthSaying else { return nil }
-        return "Chrome's extensions are using \(Fmt.bytes(extensionBytes)), which unloading tabs doesn't touch; turning off ones you don't use gives it back."
+        return "Chrome's extensions are using \(Fmt.bytes(extensionBytes)), which closing tabs doesn't give back."
     }
 
     /// For Nerdy stuff: the evidence, and its known errors.

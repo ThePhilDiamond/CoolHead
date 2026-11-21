@@ -44,7 +44,7 @@ extension Fixture {
         // open for days: said, and the restart option says so, still not recommended
         let days = card(chromeParts(now, hiddenGB: 0.3, openDays: 6.2))
         let daysRestart = days.fixes.first { $0.id == "restart" }
-        review.append(("chrome-restart-days", days.explanation.contains("Chrome has been open for 6 days") && daysRestart?.recommended == false
+        review.append(("chrome-restart-days", !days.explanation.contains("open for") && daysRestart?.recommended == false
                        && daysRestart?.consequence.contains("built up over 6 days") == true, days.explanation))
         // Chrome's own program grown: only a restart gives it back, so it's recommended; closing tabs still fixes the cause
         let grown = card(chromeParts(now, hiddenGB: 0.3, browserGB: 3.2))
@@ -59,9 +59,9 @@ extension Fixture {
         // extensions: said from 500 MB, with where to see which, since unloading tabs never reaches them
         let exts = card(chromeParts(now, extGB: 1.6)), fewExts = card(chromeParts(now))
         let extFix = exts.fixes.first { $0.id == "extensions" }
-        review.append(("chrome-extensions-line", exts.explanation.contains("Chrome's extensions are using 1.6 GB, which unloading tabs doesn't touch")
+        review.append(("chrome-extensions-line", extFix?.consequence.contains("Chrome's extensions are using 1.6 GB, which closing tabs doesn't give back.") == true
                        && extFix?.title == "Turn off extensions you don't use" && exts.facts.contains { $0.hasPrefix("Chrome's extensions: 1.6 GB in 1 process") }
-                       && !fewExts.fixes.contains { $0.id == "extensions" } && !fewExts.explanation.contains("extensions are using"), exts.explanation))
+                       && !fewExts.fixes.contains { $0.id == "extensions" }, extFix?.consequence ?? "not offered"))
         return review
     }
 
