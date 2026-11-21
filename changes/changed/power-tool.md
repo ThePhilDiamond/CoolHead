@@ -1,1 +1,0 @@
-- Battery is now Power. A Mac with no battery shows a plug and gets the page too, with the week's energy use. The energy list shows the three that used the most without a click, "Show everything that used 5% or more this week" for the rest, and every one with its share in Nerdy stuff.

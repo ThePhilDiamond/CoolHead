@@ -812,6 +812,12 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.15.0": [
+            "The tools are now This Mac, Power, Network, and Cleaner: the three that show how your Mac is, then the one that changes things.",
+            "Battery is now Power. It shows the three apps that used the most energy this week, and a Mac with no battery gets it too.",
+            "Hardware is now This Mac, with your Mac's model, serial number, and how much of the disk is free.",
+            "With a tool open, a pill at the top such as \"2 fixes recommended\" takes you back to the cards.",
+        ],
         "0.14.1": [
             "Trusted is now at the right of the bar, with Report and Settings, since it's Cool Head's own list.",
             "Hardware shows your Mac, drawn as a laptop or a desktop, and Cleaner shows a hard disk with sparkles.",

@@ -1,1 +1,0 @@
-- Hardware is now This Mac. Its page shows your Mac's model and serial number, with a copy button, and how much of the startup disk is free, with a button to macOS's Storage settings and, when space is low, one to the Cleaner. The lines under the temperatures are gone: the ring at the top already says whose temperature it shows.
