@@ -57,7 +57,6 @@ public struct Fix: Identifiable {
         case openPage(String, String)   // open a page of an app's own settings in that app: bundle path, address
         case pauseJob            // SIGSTOP until the Mac is plugged in; resumed then, or on request, or when Cool Head quits
         case pauseSync(String, String)  // open a sync app (bundle path, name) to pause it, with a reminder to resume
-        case chromeLimit(Int?)   // set Chrome's own memory limit to this many MB (nil: remove it), as Chrome settings on this Mac
         case resume              // SIGCONT for a process something other than Cool Head paused
         case forceQuit           // SIGKILL for an app that isn't responding, after asking: what Force Quit in the Apple menu does
         case restartBrowser(String)   // a normal quit of the browser at this bundle path, then reopen it with its last session
@@ -106,7 +105,6 @@ public struct Fix: Identifiable {
         case .cooler: return .coolHead
         case .quitApp: return .coolHead
         case .pauseJob: return .coolHead
-        case .chromeLimit: return .coolHead
         case .resume: return .coolHead
         case .forceQuit: return .coolHead
         case .restartBrowser: return .coolHead
@@ -148,7 +146,6 @@ public struct Fix: Identifiable {
         case .openPage: return .eases
         case .pauseJob: return .eases
         case .pauseSync: return .eases
-        case .chromeLimit: return .eases
         case .resume: return .fixesCause
         case .forceQuit: return .fixesCause
         case .restartBrowser: return .fixesCause
@@ -189,7 +186,6 @@ public struct Fix: Identifiable {
         case .openPage: return false
         case .pauseJob: return false
         case .pauseSync: return false
-        case .chromeLimit: return false
         case .resume: return false
         }
     }
@@ -221,7 +217,6 @@ public struct Fix: Identifiable {
         case .openPage: return false
         case .pauseJob: return false
         case .pauseSync: return false
-        case .chromeLimit: return false
         case .resume: return false
         }
     }
@@ -257,7 +252,6 @@ extension Fix {
         case .openPage: return nil
         case .pauseJob: return nil
         case .pauseSync: return nil
-        case .chromeLimit: return nil
         case .resume: return nil
         }
     }
@@ -327,7 +321,6 @@ public struct Card {
         switch f.kind {
         case .cooler: return 1
         case .pauseJob: return 1
-        case .chromeLimit: return 1
         case .resume: return 1
         case .keepOutOfBackup: return 1
         case .pauseSync: return 2
@@ -364,7 +357,6 @@ public struct Card {
             case .openPage: return true
             case .pauseJob: return true
             case .pauseSync: return true
-            case .chromeLimit: return true
             case .resume: return true
             case .forceQuit: return true
             case .restartBrowser: return true

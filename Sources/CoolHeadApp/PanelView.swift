@@ -124,6 +124,8 @@ struct PanelView: View {
             .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(0.10))
         }
         .frame(width: PanelView.width + extra)
+        // macOS's own controls (filled buttons) in Cool Head blue too, not the Mac's accent color (see Ink.accent)
+        .tint(Ink.accent)
     }
 
     /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase (or any of several, separated by |),
@@ -169,7 +171,8 @@ struct PanelView: View {
         let n = shownCards.filter { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }.count
             + watcher.syncPauses.filter { $0.until <= Date() }.count                    // syncing to resume
         let stuck = shownCards.filter { $0.card.state == .stalled }.count
-        let jobs = shownCards.filter { $0.card.state == .working || $0.card.state == .starting }.count
+        // the calm memory card is no job (see MemoryAdvice: Chrome using the most while the Mac keeps up)
+        let jobs = shownCards.filter { ($0.card.state == .working || $0.card.state == .starting) && !$0.id.hasPrefix("memory") }.count
         var watch: String?
         if stuck > 0 { watch = "\(stuck) looks stuck" + (n > stuck ? ", \(n - stuck) to watch" : "") }
         else if n > 0 { watch = "\(n) to watch" }
@@ -342,7 +345,7 @@ struct CardView: View {
                 // anywhere on the card opens it and another closes it (Phil, 15 November 2026); this label says so in
                 // words with an arrow pointing the way it opens, and is itself a button for the keyboard and VoiceOver.
                 let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
-                Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open, tint: watch ? .orange : .accentColor) { toggle() }
+                Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open, tint: watch ? .orange : Ink.accentText) { toggle() }
             }
             if open {
                 if !live.card.explanation.isEmpty {
@@ -400,7 +403,7 @@ struct CardView: View {
                 // less button and the matching styling makes it hard to click the right spot")
                 let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
                 Divider().padding(.top, 4)
-                Disclosure(title: "Show less", open: open, tint: watch ? .orange : .accentColor) { toggle() }
+                Disclosure(title: "Show less", open: open, tint: watch ? .orange : Ink.accentText) { toggle() }
             }
         }
         .padding(12)
@@ -527,10 +530,21 @@ struct CardView: View {
             // last session; the waiting happens off the main thread, and the note says how it went
             let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
             note = "Asked \(name) to quit. It reopens with your tabs once it has closed."; noteFailed = false; acted = true
+            // Set Memory Saver to Maximum: written while Chrome is closed (see ChromeMemorySaver)
+            let saver = fix.id == "saver-max"
+            let wrote = SaverResult()
+            var whileClosed: (@Sendable () -> Void)? = nil
+            if saver { whileClosed = { SaverResult.write(into: wrote) } }
             Task {
                 let w = watcher
-                let o = await BrowserRestart.restart(bundle: bundle) { step in w.log("Restart \(name) pressed: \(step)") }
-                let n = BrowserRestart.note(o, name: name)
+                let o = await BrowserRestart.restart(bundle: bundle, whileClosed: whileClosed) { step in w.log("Restart \(name) pressed: \(step)") }
+                var n = BrowserRestart.note(o, name: name)
+                if saver, !n.failed {
+                    if wrote.value == .set { n.text += " Memory Saver is now at Maximum; change it any time in Chrome's Performance settings." }
+                    else { n.text += " Memory Saver didn't change, since Chrome's settings couldn't be written safely; set it in Chrome's Performance settings."; n.failed = true }
+                    let result = wrote.value.map { "\($0)" } ?? "not run"
+                    w.log("Memory Saver at Maximum: " + result)
+                }
                 note = n.text; noteFailed = n.failed; acted = !n.failed
                 // the panel may have closed while the browser came to the front: a failure is also a notification
                 if n.failed { Alerts.remind(n.text) }
@@ -571,23 +585,6 @@ struct CardView: View {
             let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
             note = "Copied the address and opened \(app). There, press ⌘L, then ⌘V, then Return."; noteFailed = false; acted = true
             watcher.log("Copied a settings address for \(live.reportSubject)")
-        case .chromeLimit(let mb):
-            // Chrome's own settings, written the way `defaults write` would; only what Cool Head set is ever removed
-            if let mb {
-                let ok = ChromeLimit.set(mb)
-                watcher.refreshChromeLimit()
-                acted = ok
-                note = ok ? "Chrome is now limited to \(ChromeLimit.gb(mb)). It applies within 15 minutes, or when you reopen Chrome. Remove it from the top of this panel."
-                          : "That didn't work: Chrome's settings didn't change."
-                noteFailed = !ok
-                watcher.log("Limit Chrome pressed: " + (ok ? "set" : "failed"))
-            } else {
-                let ok = watcher.removeChromeLimit()
-                acted = ok
-                note = ok ? "Removed. Chrome goes back to its own settings within 15 minutes, or when you reopen it."
-                          : "That didn't work: Chrome's settings didn't change."
-                noteFailed = !ok
-            }
         case .openApp(let bundle, let steps):
             // what Cool Head can't do itself: it opens the app where it's done, and says how
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
@@ -643,7 +640,7 @@ struct ShareView: View {
                 .font(.caption2).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -803,7 +800,7 @@ struct WhatsNewCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 }
@@ -947,7 +944,7 @@ struct WelcomeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: "snowflake").font(.title3).foregroundStyle(Color.accentColor)
+                Image(systemName: "snowflake").font(.title3).foregroundStyle(Ink.accent)
                 Text("Cool Head lives up here, in your menu bar.").font(.body.weight(.semibold))
             }
             Text("No window to keep open. It quietly watches your Mac and tells you why it's hot or slow.")
@@ -964,7 +961,7 @@ struct WelcomeCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 }
@@ -977,7 +974,7 @@ struct UpdateBanner: View {
         switch updater.phase {
         case .available(let v):
             HStack(spacing: 8) {
-                Image(systemName: "arrow.down.circle").foregroundStyle(Color.accentColor)
+                Image(systemName: "arrow.down.circle").foregroundStyle(Ink.accent)
                 Text("Cool Head \(v) is available.").font(.callout.weight(.medium))
                 Spacer()
                 if let page = updater.releasePage {
@@ -1046,7 +1043,7 @@ enum FrozenItem: Identifiable {
     static func all(_ w: Watcher) -> [FrozenItem] {
         // a screenshot shows nothing of this Mac's own: with example cards, only made-up lines; limited to some of this
         // Mac's cards, only what Cool Head is doing to those (see COOLHEAD_SNAPSHOT_COOL and _PAUSE)
-        if PanelView.sampleSnapshot { return heldBackSamples ? [.chrome(4096), .agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
+        if PanelView.sampleSnapshot { return heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
         if let pids = PanelView.onlyPIDs(w) {
             return w.cooledList.filter { pids.contains($0.pid) }.map { .cooled($0) } + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) }
         }
@@ -1090,7 +1087,7 @@ enum FrozenItem: Identifiable {
         case .cooled(let c): return "Slowing \(c.name) to keep your Mac cool"
         case .paused(let p): return "\(p.name) is paused until you plug in"
         case .sync(let s): return due ? "Time to resume \(s.name) syncing" : "\(s.name) syncing is paused"
-        case .chrome(let mb): return "Chrome is limited to \(ChromeLimit.gb(mb))"
+        case .chrome(let mb): return "Cool Head's \(ChromeLimit.gb(mb)) limit for Chrome is still set"
         case .agent(let a): return a.owner == a.label ? "A background helper is turned off" : "\(a.owner)'s background helper is turned off"
         case .backup(let p): return "Time Machine skips \(FrozenItem.name(p)) in \(FrozenItem.project(p))"
         }
@@ -1123,7 +1120,7 @@ enum FrozenItem: Identifiable {
         case .paused(let p): return "Paused since \(Fmt.time(p.since)). Nothing is lost, and it carries on by itself when you plug in."
         case .sync(let s): return due ? "Resume it from its menu bar icon, then press Resumed."
                                       : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
-        case .chrome(let mb): return "Past \(ChromeLimit.gb(mb)), Chrome unloads tabs you aren't using. While it's on, Chrome says it's \u{201C}managed by your organization\u{201D}."
+        case .chrome: return "Chrome only applies it when an organization manages this Mac, so it does nothing here, and it makes Chrome say it's \u{201C}managed by your organization\u{201D}. Removing it changes nothing else."
         case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
         case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
         }
@@ -1419,7 +1416,7 @@ struct SelectField: View {
         .font(.callout)
         .foregroundStyle(Ink.text)
         .background(shape.fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(shape.strokeBorder(open ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.15), lineWidth: 1))
+        .overlay(shape.strokeBorder(open ? Ink.accent.opacity(0.6) : Color.primary.opacity(0.15), lineWidth: 1))
         .clipShape(shape)
     }
 
@@ -1433,7 +1430,7 @@ struct SelectField: View {
                 HStack(spacing: 6) {
                     Text(text).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
-                    if on { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
+                    if on { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Ink.accent) }
                 }
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Color.primary.opacity(hovering ? 0.06 : 0))
@@ -1789,7 +1786,6 @@ struct FixRow: View {
         case .openPage: return "gearshape"
         case .pauseJob: return "pause.circle"
         case .pauseSync: return "pause.circle"
-        case .chromeLimit: return "memorychip"
         case .resume: return "play.circle"
         case .forceQuit: return "xmark.octagon"
         case .restartBrowser: return "arrow.clockwise.circle"
@@ -1860,7 +1856,7 @@ struct FixRow: View {
                     if guarded && armed {
                         HStack(spacing: 10) {
                             Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
-                                .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : Color.red)
+                                .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onAccent : Color.red)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                                 Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
@@ -1870,7 +1866,7 @@ struct FixRow: View {
                     } else {
                     HStack(alignment: tag == nil ? .center : .top, spacing: 10) {
                         Image(systemName: icon).font(.body).frame(width: 22)
-                            .foregroundStyle(recommended && fix.doer == .coolHead ? Color.white : ends ? Color.red : Color.accentColor)
+                            .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onAccent : ends ? Color.red : Ink.accent)
                         VStack(alignment: .leading, spacing: 2) {
                             // the tag beside the name when both fit on one line, otherwise above it, so a long name
                             // isn't squeezed into three lines beside it
@@ -1953,15 +1949,15 @@ struct OptionStyle: ButtonStyle {
             let line = Color.primary.opacity(hovering ? 0.55 : 0.4)
             let filled = recommended && !yours
             configuration.label
-                .foregroundStyle(filled ? Color.white : Ink.text)
+                .foregroundStyle(filled ? Ink.onAccent : Ink.text)
                 .padding(.horizontal, 11).padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(shape.fill(filled ? AnyShapeStyle(Color.accentColor.opacity(configuration.isPressed ? 0.75 : hovering ? 0.9 : 1))
+                .background(shape.fill(filled ? AnyShapeStyle(Ink.accent.opacity(configuration.isPressed ? 0.75 : hovering ? 0.9 : 1))
                                        : yours ? AnyShapeStyle(Color.primary.opacity(configuration.isPressed ? 0.12 : hovering ? 0.05 : 0))
                                        : AnyShapeStyle(Color.primary.opacity(wash))))
                 .overlay {
                     if yours {
-                        shape.strokeBorder(recommended ? Color.accentColor : line, style: StrokeStyle(lineWidth: recommended ? 1.6 : 1.3, dash: [4, 3]))
+                        shape.strokeBorder(recommended ? Ink.accent : line, style: StrokeStyle(lineWidth: recommended ? 1.6 : 1.3, dash: [4, 3]))
                     } else {
                         shape.strokeBorder(filled ? Color.clear : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1)
                     }
@@ -1988,7 +1984,7 @@ struct RecommendedButton: ButtonStyle {
         configuration.label
             .padding(.horizontal, 8).padding(.vertical, 4)
             .foregroundStyle(.white)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(configuration.isPressed ? 0.75 : 1)))
+            .background(RoundedRectangle(cornerRadius: 6).fill(Ink.accent.opacity(configuration.isPressed ? 0.75 : 1)))
             .opacity(enabled ? 1 : 0.5)
             .contentShape(Rectangle())
     }
@@ -2009,7 +2005,7 @@ struct OptionTag: View {
             Text(words).tracking(0.5)
         }
         .font(Font(OptionTag.font))
-        .foregroundStyle(onAccent ? Color.white : color)
+        .foregroundStyle(onAccent ? Ink.onAccent : color)
         .padding(.horizontal, 5).padding(.vertical, 1.5)
         .background(Capsule().fill(onAccent ? Color.white.opacity(0.22) : color.opacity(0.13)))
         .fixedSize()
@@ -2035,8 +2031,8 @@ struct RecommendedTag: View {
             .font(.caption2.weight(.semibold))
             .fixedSize()
             .padding(.horizontal, 6).padding(.vertical, 1.5)
-            .foregroundStyle(onAccent ? Color.accentColor : .white)
-            .background(Capsule().fill(onAccent ? Color.white.opacity(0.92) : Color.accentColor))
+            .foregroundStyle(onAccent ? Ink.accentText : Ink.onAccent)
+            .background(Capsule().fill(onAccent ? Color.white.opacity(0.92) : Ink.accent))
     }
 }
 
@@ -2081,6 +2077,21 @@ struct IconButton: View {
 enum Ink {
     /// Main text.
     static let text = Color.primary
+    /// Cool Head blue, its own color on every Mac and in its Chrome extension, rather than the Mac's accent color, which
+    /// is blue, orange, or another on each Mac and which Chrome hides from extensions (Phil, 21 November 2026: "set and
+    /// stick to Cool Head blue with brand guidelines, fonts, etc. for consistent experience across platforms", then
+    /// "Cool Head blue"). Light #1769D1, white text on it 5.3:1 and as text on the panel 4.9:1; dark #4A9EFF, near-black
+    /// text on it 7.6:1 and as text 6.1:1. A blue also keeps "do this" apart from the yellow, orange, and red that say
+    /// "watch out". See docs/BRAND.md.
+    static let accent = dynamic(0x1769D1, 0x4A9EFF)
+    /// Text on a filled accent: white in light mode, near-black in dark, where the lighter blue needs it.
+    static let onAccent = Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(0x1A1A1A) : .white })
+    /// Text in the accent color on the panel.
+    static let accentText = accent
+    static func rgb(_ h: Int) -> NSColor { NSColor(srgbRed: CGFloat(h >> 16 & 255) / 255, green: CGFloat(h >> 8 & 255) / 255, blue: CGFloat(h & 255) / 255, alpha: 1) }
+    static func dynamic(_ light: Int, _ dark: Int) -> Color {
+        Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(dark) : rgb(light) })
+    }
     /// Supporting text: still well above 7:1 contrast on the card in light and dark.
     static let muted = Color.primary.opacity(0.82)
     /// A card: a slightly raised surface with a visible edge.
@@ -2096,4 +2107,14 @@ enum Ink {
 struct MiddleHeight: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// What the Memory Saver write returned, from the restart's background thread.
+final class SaverResult: @unchecked Sendable {
+    var value: ChromeMemorySaver.Write?
+    /// Sets Maximum, and notes when, so a person who lowers it again isn't asked for 30 days.
+    static func write(into r: SaverResult) {
+        r.value = ChromeMemorySaver.setMaximum()
+        if r.value == .set { UserDefaults.standard.set(Date(), forKey: ChromeMemorySaver.setKey) }
+    }
 }

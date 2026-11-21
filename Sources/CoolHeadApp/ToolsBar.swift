@@ -300,11 +300,11 @@ struct ToolButton: View {
             // "I also don't like how tight the margin is on the selected item. Please add some space on either side so it's not so tight (I guess increase the fixed width of each button on the left?), or decrease font size. Thoughts?"); the names keep their size
             .padding(.horizontal, labels ? 5 : 2)
             .padding(.vertical, labels ? 5 : 6)
-            .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.accentColor.opacity(0.16) : hovering ? Color.primary.opacity(0.07) : .clear))
+            .background(RoundedRectangle(cornerRadius: 7).fill(on ? Ink.accent.opacity(0.16) : hovering ? Color.primary.opacity(0.07) : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(on ? Color.accentColor : hovering ? Ink.text : Ink.muted)
+        .foregroundStyle(on ? Ink.accent : hovering ? Ink.text : Ink.muted)
         .onHover { hovering = $0 }
         .help(tip)
         .accessibilityLabel(tip)
@@ -334,7 +334,7 @@ struct Orbit: View {
                     let gap = StrokeStyle(lineWidth: 3.9, lineCap: .round, dash: [2.5, 3], dashPhase: phase)
                     half.stroke(Color(nsColor: .windowBackgroundColor), style: gap)
                     half.stroke(wash, style: gap)
-                    if on { half.stroke(Color.accentColor.opacity(0.16), style: gap) }
+                    if on { half.stroke(Ink.accent.opacity(0.16), style: gap) }
                     else if hovering { half.stroke(Color.primary.opacity(0.07), style: gap) }
                 }
                 half.stroke(on ? Ink.muted : Color.orange, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
@@ -437,7 +437,7 @@ struct TrustedView: View {
         }
         .foregroundStyle(on ? Color.white : Ink.text)
         .padding(.horizontal, 8).padding(.vertical, 5)
-        .background(on ? Color.accentColor : stripe ? Color.primary.opacity(0.035) : .clear)
+        .background(on ? Ink.accent : stripe ? Color.primary.opacity(0.035) : .clear)
         .contentShape(Rectangle())
         .onTapGesture { selected = on ? nil : item.key }
         .accessibilityElement(children: .combine)

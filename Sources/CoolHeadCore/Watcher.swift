@@ -43,7 +43,8 @@ public struct LiveCard: Identifiable {
 }
 
 /// Samples every process on a timer and turns sustained load into cards.
-/// Nothing is written to disk: what it needs while running stays in memory and is gone when it quits.
+/// Nothing is written to disk but spells of tight memory (see PressureHistory): what else it needs while running stays in
+/// memory and is gone when it quits.
 @Observable
 public final class Watcher {
     public static let shared = Watcher()
@@ -105,6 +106,17 @@ public final class Watcher {
     @ObservationIgnored private var timer: DispatchSourceTimer?
     /// The running count of swap-outs over about the last 2 minutes, for `MacState.swappedOutMB`.
     @ObservationIgnored private var swapSamples: [(at: Date, pages: UInt64)] = []
+    /// Since when macOS has said memory is tight (warning or critical), for MemoryGate.
+    @ObservationIgnored private var tightSince: Date?
+    /// Spells of tight memory, kept 30 days (see PressureHistory); saved when a spell starts, changes, ends, and every
+    /// 5 minutes while it lasts.
+    @ObservationIgnored private var pressure: [PressureHistory.Episode] = {
+        var l = PressureHistory.load(); PressureHistory.closeOpen(&l); return l
+    }()
+    /// Ends a spell left open, at quit (it's also closed at the next launch, if Cool Head didn't get to quit).
+    public func closePressureSpell() {
+        queue.sync { PressureHistory.closeOpen(&pressure); PressureHistory.save(pressure) }
+    }
 
     struct Track {
         var cpu: Double            // CPU seconds at the last tick
@@ -124,11 +136,19 @@ public final class Watcher {
 
     public private(set) var pausedJobs: [PausedJob] = PauseStore.load("pausedJobs")
     public private(set) var syncPauses: [SyncPause] = PauseStore.load("syncPauses")
-    /// Chrome's memory limit in MB, while the one Cool Head set is in place: listed at the top of the panel with its
-    /// undo. Chrome's settings are read only when Cool Head has set one.
+    /// The memory limit an earlier Cool Head set for Chrome, in MB, while it's still in place. It did nothing on a Mac no
+    /// organization manages (see ChromeLimit), so it's removed once per launch, and listed at the top of the panel, with
+    /// Remove, only if that failed. Chrome's settings are read only when Cool Head has set one.
     public private(set) var chromeLimitMB: Int? = nil
+    private var triedRetiringChromeLimit = false
     public func refreshChromeLimit() {
         guard UserDefaults.standard.integer(forKey: ChromeLimit.marker) > 0, case .set(let mb) = ChromeLimit.status() else { chromeLimitMB = nil; return }
+        if !triedRetiringChromeLimit {
+            triedRetiringChromeLimit = true
+            let ok = ChromeLimit.remove()
+            log("Removed the Chrome memory limit an earlier Cool Head set: " + (ok ? "done" : "failed"))
+            if ok { chromeLimitMB = nil; return }
+        }
         chromeLimitMB = mb
     }
     @discardableResult public func removeChromeLimit() -> Bool {
@@ -562,6 +582,7 @@ public final class Watcher {
                 state.swappedOutMB = Double(pages - first.pages) * Double(getpagesize()) / 1_048_576
             }
         }
+        tightSince = state.memoryPressure == "warning" || state.memoryPressure == "critical" ? (tightSince ?? now) : nil
         guard dt > 0 else { publish(state, [], own: 0); return }
 
         let warm = state.thermal != "nominal"
@@ -737,7 +758,28 @@ public final class Watcher {
                 if let p = groups[i].pid { groups[i].evidence = Evidence.gather(pid: p, measured: (tracks[p]?.cores ?? 0, 0), gpu: tracks[p].flatMap { $0.gpuTime != nil ? $0.gpu : nil }) }
             }
             let models = groups.prefix(3).contains(where: MemoryAdvice.isOllama) ? Leftovers.loadedRecently(now: now) : nil
-            let card = MemoryAdvice.card(groups, mac: s, now: now, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
+            // whether memory is what slows the Mac now, kept with this spell; and how often it has this week
+            let slowed = MemoryGate.slowed(s, tightSince: tightSince, now: now)
+            if PressureHistory.note(&pressure, tight: PressureHistory.Episode.Level(s), slowed: slowed, top: groups.first.map(PressureHistory.Episode.Top.init),
+                                    swapOutPages: s.swapOutPages, now: now) { PressureHistory.save(pressure, now: now) }
+            // Chrome among the biggest: its memory by part, from each process's priority (see ChromeParts). A tab Cool Head
+            // is running cooler sits in the same band and would count as hidden; that's rare while memory is the problem.
+            var chromeParts: ChromeParts? = nil
+            if let c = groups.prefix(3).first(where: { $0.name == "Google Chrome" && $0.kind == .browser }), let b = c.bundle {
+                chromeParts = ChromeParts.read(tracks.compactMap { pid, tr in
+                    guard let path = Proc.path(pid), path.hasPrefix(b + "/") else { return nil }
+                    let args = Proc.args(pid)
+                    let main = !args.contains { $0.hasPrefix("--type=") }
+                    return ChromeParts.Process(path: path, args: args, footprint: tr.footprint, priority: Proc.schedulingPriority(pid),
+                                               start: main ? Proc.bsd(pid)?.start : nil)
+                }, bundle: b)
+            }
+            let week = PressureHistory.week(pressure, now: now)
+            let saver = chromeParts != nil ? ChromeMemorySaver.read() : nil
+            let offerSaver = chromeParts != nil && ChromeMemorySaver.shouldOffer(saver, week: week, memoryGB: s.memoryGB,
+                                                                                 setAt: UserDefaults.standard.object(forKey: ChromeMemorySaver.setKey) as? Date, now: now)
+            let context = MemoryContext(slowed: slowed, week: week, chrome: chromeParts, memorySaver: saver, offerSaverMaximum: offerSaver)
+            let card = MemoryAdvice.card(groups, mac: s, now: now, context: context, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
                                          buildData: MemoryAdvice.lowDisk(s) ? Leftovers.buildDataSize(now: now) : nil)
             let top = groups.first
             let subject = top.map { g -> String in
@@ -759,6 +801,8 @@ public final class Watcher {
                 }
             }
             out.append(mc)
+        } else if PressureHistory.note(&pressure, tight: nil, slowed: false, top: nil, swapOutPages: s.swapOutPages, now: now) {
+            PressureHistory.save(pressure, now: now)
         }
         return out
     }

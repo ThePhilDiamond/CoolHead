@@ -104,7 +104,7 @@ public enum Decision {
         case .share: return OptionFacts(helps: "sends us the details, so we can work out what it is")
         case .wait: return OptionFacts(helps: "gives it time to finish")
         // the rest need words for what they do in their card
-        case .restartBrowser, .keepOutOfBackup, .restartApp, .unloadModels, .deleteBuildData, .chromeLimit, .resume,
+        case .restartBrowser, .keepOutOfBackup, .restartApp, .unloadModels, .deleteBuildData, .resume,
              .pauseSync, .openApp, .reveal, .guide, .openPage:
             return nil
         }

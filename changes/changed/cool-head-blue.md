@@ -1,0 +1,1 @@
+- Cool Head now has a color of its own, Cool Head blue, the same on every Mac, in place of your Mac's accent color. The recommended option, switches, and links read clearly in light and dark (white text on the blue measures 5.3:1), and the blue keeps "do this" apart from the yellow, orange, and red that say "watch out".

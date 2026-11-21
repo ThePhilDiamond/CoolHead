@@ -31,6 +31,12 @@ struct HardwareView: View {
         : ThisMac.space()
     @State private var copiedSerial = false
 
+    /// The week's spells of tight memory; made-up ones for screenshots (COOLHEAD_SNAPSHOT_PRESSURE).
+    var pressureWeek: PressureHistory.Week {
+        let list = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_PRESSURE"] != nil ? PressureHistory.sample() : PressureHistory.load()
+        return PressureHistory.week(list, now: Date())
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
@@ -73,6 +79,18 @@ struct HardwareView: View {
                 Text("Checking the hardware…").foregroundStyle(Ink.muted)
                 storage
             }
+            Divider()
+            // how often memory slowed this Mac this week, from the history kept for that one purpose (see PressureHistory)
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "gauge.with.dots.needle.33percent")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Memory this week")
+                    Text(([PressureHistory.weekLine(pressureWeek)] + [PressureHistory.chromeLine(pressureWeek)].compactMap { $0 }).joined(separator: " "))
+                        .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+            }
+            .help("Cool Head keeps when memory was tight on this Mac for 30 days, only to tell whether memory is what slows it. No app names, and nothing leaves your Mac.")
             Divider()
             // what can't be read from inside macOS, the memory among it, and Apple's own test for it
             HStack(spacing: 8) {
@@ -120,7 +138,7 @@ struct HardwareView: View {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.primary.opacity(0.1))
-                        Capsule().fill(space.low ? NetworkView.color(1) : Color.accentColor.opacity(0.7))
+                        Capsule().fill(space.low ? NetworkView.color(1) : Ink.accent.opacity(0.7))
                             .frame(width: max(6, g.size.width * space.used))
                     }
                 }
