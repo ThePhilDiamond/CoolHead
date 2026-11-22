@@ -1,14 +1,13 @@
 import Foundation
 
-/// Games are protected (Phil, 15 November 2026: "if we "run it cooler" with a game, couldn't it adversely impact
-/// performance? We may wish to protect games as a class we know will usually be busy and suggest killing other tasks
-/// first to improve game performance"): busy is what a game does, so it's calm and never slowed down; when the Mac is
+/// Games are protected: busy is what a game does, and running it cooler would hurt its performance, so it's calm and
+/// never slowed down, and other busy work is offered to run cooler first, to leave the game more power. When the Mac is
 /// warm, lower settings is the fix that keeps play smooth.
 enum GameCard: ProcessCard {
     static let name = "a game"
     static let id = "game"
     static let kind = CardKind.explanation
-    static let rule = "Phil, 15 November 2026: games are protected, never slowed"
+    static let rule = "Games are protected, never slowed"
     static func confidence(_ s: Situation) -> Confidence { .named("the app itself says it's a game") }
     static let samples = ["game"]
 

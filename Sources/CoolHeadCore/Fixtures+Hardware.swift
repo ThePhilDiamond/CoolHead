@@ -110,8 +110,8 @@ extension Fixture {
             && drops?.card.headline == "A device on USB-C port 2 has failed to connect 3 times." && drops?.needsLook == false
         review.append(("hardware-port-cards", portOK, [power, drops].map { $0?.card.headline ?? "none" }.joined(separator: " | ")))
 
-        // Phil's style, on every hardware card: no em dashes or exclamation marks, the Apple Diagnostics steps right for
-        // the kind of Mac, and the worst first
+        // Cool Head's house style, on every hardware card: no em dashes or exclamation marks, the Apple Diagnostics
+        // steps right for the kind of Mac, and the worst first
         let all = samples.flatMap { $0.1.cards(now: now) }
         let text = all.flatMap { c in [c.card.headline, c.card.explanation] + c.card.fixes.flatMap { f -> [String] in
             if case .guide(let s) = f.kind { return [f.title, f.consequence] + s }; return [f.title, f.consequence] } }

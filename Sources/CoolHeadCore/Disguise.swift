@@ -8,8 +8,7 @@ import Security
 /// hidden in pirated apps have run as `mdworker_local` and `mdworker_shared` from /private/tmp and /usr/local/bin
 /// (Jamf Threat Labs, 23 February 2023; Intego, 9 March 2023), and a backdoor has used the label com.apple.qtop for its
 /// helper in ~/Library/LaunchAgents (Jamf, September 2025). The card says what Cool Head thinks ("pretending to be part
-/// of macOS"), a brief disclaimer, and its advice (Phil, 16 November 2026: "Say what we think, use a brief disclaimer,
-/// then give our advice"). It never says "is malware": an Apple installer has left an unsigned
+/// of macOS"), a brief disclaimer, and its advice. It never says "is malware": an Apple installer has left an unsigned
 /// com.apple.installer.osmessagetracing.plist in /Library/LaunchDaemons (Apple Community 254334032), and someone's own
 /// tool can share a name with one of macOS's.
 ///
@@ -18,9 +17,9 @@ import Security
 /// the same: Apple's programs and unsigned tools both show none.
 ///
 /// A finding needs a definite answer: a signature that is missing, broken or someone else's, never a check that failed
-/// for another reason. "Isn't Apple's" inside macOS's folders also needs those folders to be changeable at all (Phil,
-/// 16 November 2026: "recommending reinstalling macOS is a HUGE ask, so we need to be really careful with that advice
-/// and make sure our confidence interval is higher"); even then, a reinstall is offered, never recommended.
+/// for another reason. "Isn't Apple's" inside macOS's folders also needs those folders to be changeable at all, since
+/// reinstalling macOS is a huge ask and that advice needs more confidence than any other; even then, a reinstall is
+/// offered, never recommended.
 ///
 /// Only reads: the process's own facts, `csrutil status` and `csrutil authenticated-root status`, the launch plists'
 /// text and code signatures. Nothing is deleted, turned off or moved to the Trash without a press and a confirmation.
@@ -201,8 +200,8 @@ public enum Disguise {
 
     /// The card for a finding, in place of the usual one: who it is comes before what it's doing (research rules,
     /// "Order of evaluation"). What Cool Head thinks, the disclaimer, then its advice, which is the recommended option,
-    /// done in one click where Cool Head can (Phil, 16 November 2026: stopping and then deleting as a separate task "is
-    /// not a good user flow"). An option marked Caution says why in its own description.
+    /// done in one click where Cool Head can, rather than stopping it and then deleting it as a separate task. An
+    /// option marked Caution says why in its own description.
     public static func card(_ f: Finding, _ e: Evidence) -> Card {
         let reveal = { (path: String, steps: String, rec: Bool) in
             Fix(id: "delete", title: "Delete it", consequence: "Shows it in Finder, to drag to the Trash; macOS asks for your password.",

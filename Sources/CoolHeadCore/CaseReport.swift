@@ -5,7 +5,7 @@ public enum CoolHead {
     /// Kept in step with the VERSION file; scripts/build-app.sh checks they match.
     public static let version = "0.18.0"
     /// The day this version was released, as CHANGELOG.md dates it (scripts/check-version.sh checks they match); shown
-    /// in Settings beside the version (Phil, 19 November 2026: "Cool Head version: 0.12.0 (released: DATE OF 0.12.0 release)").
+    /// in Settings under the version, so it's clear how old the version is.
     public static let released = "2026-11-21"
     /// `released` in words, such as "19 November 2026".
     public static var releasedWords: String {

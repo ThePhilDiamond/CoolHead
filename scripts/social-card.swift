@@ -7,8 +7,8 @@ import SwiftUI
 //
 //     swift scripts/social-card.swift
 //
-// It writes docs/images/social-card.png. Chosen by Phil, 19 November 2026: "The Split social card is great", with "a
-// few bonus tools to check related symptoms like the network hardware cleaner etc."
+// It writes docs/images/social-card.png: the Split layout, with a line for the extra tools that check related
+// symptoms (the network, the battery and hardware, and clearing space).
 let logo = NSImage(contentsOfFile: "docs/images/logo.png")!
 let panel = NSImage(contentsOfFile: "docs/images/panel-light.png")!
 

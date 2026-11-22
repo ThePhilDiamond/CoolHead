@@ -1,11 +1,12 @@
 // Why a tab is held in memory. Chrome lets an extension unload almost any tab: its discard is marked EXTERNAL
-// and skips Chrome's own safety checks (notes/chrome-one-tab.md, section 2; test T10 unloaded the tab playing
-// sound, the pinned tab, and the tab with typed text). So these checks are ours to make, copied from Chrome's.
+// and skips Chrome's own safety checks (Chromium's discard_eligibility_policy.cc; in testing, an extension's discard
+// unloaded the tab playing sound, the pinned tab, and the tab with typed text). So these checks are ours to make,
+// copied from Chrome's.
 
 // Shown and checked in this order: what would be lost first (a call, typing) before what only costs a reload.
 export const REASON_ORDER = ['call', 'screen', 'typing', 'sound', 'kept', 'pinned', 'session'];
 
-// The protocol's held reasons (notes/chrome-link-protocol.md, "report").
+// The protocol's held reasons (PROTOCOL.md, the `report` message).
 export const PROTOCOL_REASONS = ['sound', 'call', 'screen', 'typing', 'pinned', 'kept', 'session'];
 
 // A call that has gone quiet still matters: without the camera and microphone check (it needs access to all

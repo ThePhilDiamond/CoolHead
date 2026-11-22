@@ -1,7 +1,7 @@
 import Foundation
 
-/// Checks for the memory history and the gate (see PressureHistory and MemoryGate; Phil, 21 November 2026: "The history
-/// can be stored locally and for a very clear specific purpose, so we should disclose that but still include it.").
+/// Checks for the memory history and the gate (see PressureHistory and MemoryGate): a record kept on this Mac only, for one
+/// stated purpose.
 extension Fixture {
     static func mac(_ pressure: String, swappedMB: Double?) -> MacState {
         var s = MacState(); s.memoryPressure = pressure; s.swapUsedMB = 2000; s.swapTotalMB = 3072; s.swappedOutMB = swappedMB

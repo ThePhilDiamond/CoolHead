@@ -6,7 +6,7 @@ enum JobCard: ProcessCard {
     static let name = "a busy program"
     static let id = "job"
     static let kind = CardKind.catchAll
-    static let rule = "Stopping is recommended only when a job has stalled (Phil); on battery, only the really hungry or long-running are paused (Phil, 15 November 2026)"
+    static let rule = "Stopping is recommended only when a job has stalled; on battery, only the really hungry or long-running are paused"
     /// It fits any busy program, so it knows least; its reason is what it does know, from the job's own signs.
     static func confidence(_ s: Situation) -> Confidence {
         switch s.state {
@@ -75,11 +75,10 @@ enum JobCard: ProcessCard {
         // while a game is being played, other busy work is the thing to slow, so the game runs smoothly
         let forGame = s.gameRunning != nil && cooler != nil
         // on battery, with Save Battery When Unplugged on: a heavy job (a script or command-line tool, never an app)
-        // can be frozen until the Mac is plugged in. Nothing is lost, unlike stopping it (Phil's rule: stopping is
-        // recommended only when a job has stalled).
+        // can be frozen until the Mac is plugged in. Nothing is lost, unlike stopping it, which is recommended only
+        // when a job has stalled.
         let pausable = e.mine && (e.script != nil || (e.appBundle == nil && !(e.path.map(CaseReport.isMacOS) ?? true)))
         // only the really hungry or long-running while the battery is healthy; any steady load once it's under half
-        // (Phil, 15 November 2026: "only be aggressive to really hungry /extended processes or when battery is below 50%")
         let hungry = (e.coresNow >= 2 && s.busyFor >= 600) || (e.coresNow >= 1 && s.busyFor >= 1800)
         let drains = s.onBattery && pausable && s.state != .stalled && e.coresNow >= 1 && s.busyFor >= 600
             && (hungry || (s.battery ?? 100) < 50)

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Another app's background helper, started by launchd from a plist in ~/Library/LaunchAgents or /Library/LaunchAgents
-/// (research node N-009, finding F5, from launchctl(1) on macOS 26.6.2). Stopping such a helper doesn't last: launchd
+/// (from launchctl(1) on macOS 26.6.2). Stopping such a helper doesn't last: launchd
 /// starts it again if its plist says to keep it alive, and at the next login anyway. Turning it off does:
 /// `launchctl disable gui/<uid>/<label>` keeps it from loading, across restarts, and `bootout` stops it now. Neither
 /// needs an administrator password in your own login session (only the system domain does). Undone with `enable`, then

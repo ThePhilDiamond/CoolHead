@@ -22,9 +22,8 @@ struct PanelView: View {
     }
 
     /// The middle scrolls; the panel grows with it up to this height, so it stays easy to read. High enough for all of
-    /// Test my network, results and an option included (Phil, 18 November 2026: "Let's increase the height cap to fit the
-    /// full network panel"; it was 560, or 62% of the screen), and on a short screen, the screen less the top row, the
-    /// tools, and a margin.
+    /// Test my network, results and an option included (it was 560, or 62% of the screen, which cut the network page
+    /// short), and on a short screen, the screen less the top row, the tools, and a margin.
     static var maxMiddle: CGFloat {
         // screenshots of a whole long card (COOLHEAD_SNAPSHOT_TALL) aren't held to the screen's height
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_TALL"] != nil { return 1600 }
@@ -32,14 +31,14 @@ struct PanelView: View {
     }
     @State private var middleHeight: CGFloat = 0
 
-    /// The panel's width (Phil, 18 November 2026: "Is there a reason the panel couldn't be a bit wider?"; it was 412).
+    /// The panel's width: a little wider than the 412 it was, to give the cards and tools more room.
     static let width: CGFloat = 440
 
     /// With scroll bars that take room (System Settings ▸ Appearance ▸ Show scroll bars: Always, or with a mouse plugged in),
     /// the panel grows by the scroll bar's width while the middle scrolls, so the scroll bar sits beside what's in the
-    /// middle and never narrows it (Phil, 18 November 2026: "expanding/collapsing a card effects the height of the frozen
-    /// pane, which it shouldn't", then "Can we EXPAND the panel when we need a scroll bar instead of rendering it inside the
-    /// panel?"). With scroll bars that float over the content, there's nothing to make room for.
+    /// middle and never narrows it; a scroll bar inside the panel squeezed the content, so opening or closing a card
+    /// changed the height of On hold above it. With scroll bars that float over the content, there's nothing to make
+    /// room for.
     static var scrollerRoom: CGFloat {
         NSScroller.preferredScrollerStyle == .legacy ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
     }
@@ -50,12 +49,12 @@ struct PanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // fixed at the top: the snowflake, what's happening and how busy the chip and memory are, in one row; the
-            // status is its title (Phil, 17 November 2026: "remove the top bar so the top is just the large icon, what's
-            // happening, and the chip and memory data"). The version is in the toolbar along the bottom.
+            // status is its title. There's no separate title bar above it, so the top is just the large icon, what's
+            // happening, and the chip and memory figures. The version is in the toolbar along the bottom.
             RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level, extra: extra,
                          back: backTo)
-                // with a tool open, clicking the top goes back to the cards (Phil, 19 November 2026: "We can also make the
-                // top bar click to return to the main screen - if there's an issue it lists, that flow makes sense")
+                // with a tool open, clicking the top goes back to the cards: the top names any problem, so a click on
+                // it leads to the cards about it
                 .contentShape(Rectangle())
                 .onTapGesture { if toolOpen { withAnimation(.easeOut(duration: 0.15)) { Tools.closeAll(watcher) } } }
                 .help(toolOpen ? "Back to the cards" : "")
@@ -113,14 +112,13 @@ struct PanelView: View {
             Divider()
             // fixed at the bottom
             VStack(alignment: .leading, spacing: 10) {
-                // the battery's health is on the Battery tool's page now, not a line here (Phil, 16 November 2026)
+                // the battery's health is on the Battery tool's page now, not a line here
                 ToolsBar(watcher: watcher)
             }
             .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
             .padding(.trailing, extra)           // the tools stay where they were while the panel is wider
-            // the same wash of the level's color as the top, so the two bars frame the middle (Phil, 20 November 2026:
-            // "match the bottom bar background to the top bar so they both match as design elements outside the active
-            // items in the middle panel of the app", then "Bottom bar: I think version 1 is the way to go, though we can just render the red version to see how it looks and decide.")
+            // the same wash of the level's color as the top, so the two bars match as the frame outside the active
+            // items in the middle
             .background(Color(nsColor: Badge.color(level)).opacity(0.10))
             .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(0.10))
         }
@@ -135,8 +133,9 @@ struct PanelView: View {
     var level: Watcher.Level { watcher.level(shownCards, thermal: RunningStrip.snapshotThermal) }
 
     /// A tool, Settings, or Report a problem is open in the middle.
-    /// With a tool open and cards waiting, the pill in the top bar that goes back to them, saying what they hold (Phil,
-    /// 20 November 2026: "Way back: pill, but remove the "The cards below need attention" text because that's the whole point, and change the pill text to reflect that, e.g., "2 fixes recommended" or something more intuitive and clear."): the fixes the cards recommend, or, when none recommends one, how many there are.
+    /// With a tool open and cards waiting, the pill in the top bar that goes back to them, saying what they hold: the
+    /// fixes the cards recommend, or, when none recommends one, how many there are. No "The cards below need attention"
+    /// line beside it, since going back to them is the pill's whole point.
     var backTo: String? {
         guard toolOpen, !shownCards.isEmpty else { return nil }
         let fixes = shownCards.filter { $0.card.fixes.contains { $0.recommended } }.count
@@ -202,16 +201,15 @@ struct GroupHeading: View {
     }
 }
 
-/// One thing open at a time in the middle: a card, or Managed by Cool Head (Phil, 18 November 2026: "only have one expanded thing at a
-/// time"). Opening one closes the other, so the panel rarely needs to scroll.
+/// One thing open at a time in the middle: a card, or Managed by Cool Head. Opening one closes the other, so the panel
+/// rarely needs to scroll.
 final class PanelFocus: ObservableObject {
     static let shared = PanelFocus()
-    /// The open card's id, or `onHold`; nil when everything is closed. Managed by Cool Head starts open, and opens again
-    /// whenever nothing else is: each time the panel opens, and when the last tool or Settings closes (Phil, 19 November
-    /// 2026: "When there's nothing open (i.e., fresh panel open, or after closing a tool or settings) let's auto-expand
-    /// the "Managed by Cool Head" pane, because it's one less click for the user, more info, and "why not?""). Folding a
-    /// card doesn't open it, so the cards don't move from under the pointer just after a click. Screenshots that open
-    /// the first card (COOLHEAD_SNAPSHOT_OPEN) start with it folded, unless COOLHEAD_SNAPSHOT_ONHOLD_OPEN is set.
+    /// The open card's id, or `onHold`; nil when everything is closed. Managed by Cool Head starts open, and opens
+    /// again whenever nothing else is: each time the panel opens, and when the last tool or Settings closes, since that
+    /// saves a click and shows more with nothing else using the room. Folding a card doesn't open it, so the cards
+    /// don't move from under the pointer just after a click. Screenshots that open the first card
+    /// (COOLHEAD_SNAPSHOT_OPEN) start with it folded, unless COOLHEAD_SNAPSHOT_ONHOLD_OPEN is set.
     @Published var open: String? = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONHOLD_OPEN"] != nil
         || !PanelFocus.snapshotCard ? PanelFocus.onHold : nil
     static let onHold = "on-hold"
@@ -222,17 +220,16 @@ final class PanelFocus: ObservableObject {
     /// Screenshots open the option groups too (COOLHEAD_SNAPSHOT_GROUPS=one-click or you).
     static let snapshotGroup = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_GROUPS"]
     func toggle(_ id: String) { withAnimation(.easeOut(duration: 0.15)) { open = open == id ? nil : id } }
-    /// A tool opening folds Managed by Cool Head, and opening the section closes the tool, as one tool closes another
-    /// (Phil, 19 November 2026: "if someone opens the hold panel when on a tool screen, we might want them collapsed, or
-    /// we might want to auto-close the tool", then "Build the "managed by..." edits as suggested").
+    /// A tool opening folds Managed by Cool Head, and opening the section closes the tool, as one tool closes another,
+    /// so the section and a tool are never open at once.
     func foldSection() { if open == PanelFocus.onHold { open = nil } }
     /// Opens Managed by Cool Head if nothing else is open: a card left open while a tool was shown stays open.
     func openSection() { if open == nil { withAnimation(.easeOut(duration: 0.15)) { open = PanelFocus.onHold } } }
 }
 
 /// What's typed in Report a problem, and what's picked, kept while the form closes, the panel closes, or another tool
-/// opens, until the report is sent or Cancel is pressed (Phil, 19 November 2026: "can we protect text entered in a
-/// report in case of accidental closes or clicking a tool?"). In memory only, like the activity it's sent with; quitting
+/// opens, until the report is sent or Cancel is pressed, so a stray click or close doesn't lose what was written. In
+/// memory only, like the activity it's sent with; quitting
 /// Cool Head drops it.
 final class ReportDraft: ObservableObject {
     static let shared = ReportDraft()
@@ -246,14 +243,13 @@ final class ReportDraft: ObservableObject {
     func clear() { kind = ProblemReport.kinds[0]; words = ""; summary = ""; heldProblem = ProblemReport.heldProblems[0]; about = nil }
 }
 
-/// A group of options folded to one line with how many it holds; a click opens it (Phil, 18 November 2026: "it would
-/// show a single bar saying how many options there are in each of those categories. The only thing that shouldn't hide
-/// is the one recommended action").
+/// A group of options folded to one line with how many it holds; a click opens it. Only the one recommended action
+/// stays out of the groups, always shown.
 struct GroupBar: View {
     let doer: Fix.Doer
     let count: Int
-    /// A recommendation is shown above the groups, so every group holds more (Phil, 18 November 2026: "The One Click options
-    /// don't have "more" the way do it yourself options do, which is more clear and should be consistent").
+    /// A recommendation is shown above the groups, so every group holds more, and both groups say "more" the same way,
+    /// which is clearer.
     let more: Bool
     let open: Bool
     let toggle: () -> Void
@@ -290,17 +286,17 @@ struct CardView: View {
     @State private var facts = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FACTS"] != nil  // screenshots show it open
     @State private var confirmStop: Fix?
     @State private var note: String?          // what happened after a button, when it didn't simply work
-    @State private var noteFor: String?       // the option it's about, so it shows right under that button (Phil, 15 November 2026)
+    @State private var noteFor: String?       // the option it's about, so it shows right under that button
     @State private var copiedFacts = false
     @State private var noteFailed = false      // the note reports a failure (orange, with a way to report it)
-    // Once an option has done something, the options give way to what was done, so nothing sits there to press again
-    // (Phil, 15 November 2026). They're worked out afresh the next time the panel opens.
+    // Once an option has done something, the options give way to what was done, so nothing sits there to press again.
+    // They're worked out afresh the next time the panel opens.
     @State private var acted = false
     @State private var sharing = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SHARE"] != nil  // screenshots
 
-    /// The options in two groups: what Cool Head does in one click, then what you do, with Cool Head taking you there or
-    /// showing the steps (Phil, 16 November 2026: "I think the grouped layout is great"; "I think one click first is
-    /// right"). Each group keeps the card's order: the recommendation, then what does most about the problem.
+    /// The options in two groups: what Cool Head does in one click, then what you do, with Cool Head taking you there
+    /// or showing the steps; one click comes first, since it's the least effort. Each group keeps the card's order: the
+    /// recommendation, then what does most about the problem.
     var groups: [(Fix.Doer, [Fix])] {
         [Fix.Doer.coolHead, .you].compactMap { d in
             let fs = live.card.fixes.filter { $0.doer == d }
@@ -342,9 +338,9 @@ struct CardView: View {
             }
             if canOpen && !open {
                 // a warning offers fixes; a calm card only explains, with options if you want them anyway. Worth
-                // watching (stuck, unexplained, or a cause of heat you can act on) says Explore fixes, in orange. A click
-                // anywhere on the card opens it and another closes it (Phil, 15 November 2026); this label says so in
-                // words with an arrow pointing the way it opens, and is itself a button for the keyboard and VoiceOver.
+                // watching (stuck, unexplained, or a cause of heat you can act on) says Explore fixes, in orange. A
+                // click anywhere on the card opens it and another closes it; this label says so in words with an arrow
+                // pointing the way it opens, and is itself a button for the keyboard and VoiceOver.
                 let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
                 Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open, tint: watch ? .orange : Ink.accentText) { toggle() }
             }
@@ -389,8 +385,8 @@ struct CardView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(facts ? "Hide the nerdy stuff" : "Show the nerdy stuff")
-                // open, the details are a little terminal with its copy button in the title bar; folded, no copy button
-                // (Phil, 19 November 2026: "the nerdy stuff section shouldn't show the copy icon until it's expanded")
+                // open, the details are a little terminal with its copy button in the title bar; folded, no copy
+                // button, since there's nothing shown to copy
                 if facts {
                     TerminalPane(lines: live.details, copied: copiedFacts) {
                         NSPasteboard.general.clearContents()
@@ -400,8 +396,7 @@ struct CardView: View {
                     .onTapGesture {}              // selecting text here doesn't close the card
                 }
                 // the same color as the label that opened it, apart from Nerdy stuff by a line and space, so the two
-                // aren't mistaken for each other (Phil, 19 November 2026: "the spacing between the nerdy stuff and the show
-                // less button and the matching styling makes it hard to click the right spot")
+                // aren't mistaken for each other; close together and styled alike, they were hard to click apart
                 let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
                 Divider().padding(.top, 4)
                 Disclosure(title: "Show less", open: open, tint: watch ? .orange : Ink.accentText) { toggle() }
@@ -588,8 +583,8 @@ struct CardView: View {
             if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
         case .openPage(_, let address) where address.hasPrefix("x-apple.systempreferences:"):
-            // System Settings opens its own pages from another app; it has no address bar to paste into (Phil, 19 November
-            // 2026: "Cmd-L did nothing")
+            // System Settings opens its own pages from another app; it has no address bar to paste into (Command-L does
+            // nothing there)
             let ok = URL(string: address).map { NSWorkspace.shared.open($0) } ?? false
             note = ok ? "Opened System Settings." : "That didn't work: System Settings didn't open."
             noteFailed = !ok; acted = ok
@@ -674,9 +669,9 @@ struct ProblemView: View {
     /// button, with no title of its own, and closes with `close`.
     var inline = false
     var close: (() -> Void)? = nil
-    /// Which of the things held back caused it: asked first whenever something is held back (Phil, 17 November 2026:
-    /// "The report flow should START by asking which freeze caused it."). Opened from under them, the first is picked
-    /// to start; opened from the tools, None of these is, so a report isn't pinned on a hold by default.
+    /// Which of the things held back caused it: asked first whenever something is held back, since that's what a report
+    /// about a hold most needs to say. Opened from under them, the first is picked to start; opened from the tools,
+    /// None of these is, so a report isn't pinned on a hold by default.
     static let somethingElse = "None of these"
     var freezes: [String] { FrozenItem.all(watcher).map(\.line) }
     var pick: String {
@@ -983,8 +978,8 @@ struct WelcomeCard: View {
             }
             Text("No window to keep open. It quietly watches your Mac and tells you why it's hot or slow.")
                 .font(.callout).foregroundStyle(Ink.text).fixedSize(horizontal: false, vertical: true)
-            // the two icons at each level, to pick one by sight; the columns say what each level means (Phil,
-            // 17 November 2026: "a welcome window that shows the user the different icon options")
+            // the two icons at each level, to pick one by sight; the columns say what each level means, so the
+            // welcome shows the icon options before the person has to choose
             Text("Pick your menu bar icon").font(.callout.weight(.medium))
             IconStylePicker(style: $iconStyle)
                 .onChange(of: iconStyle) { NotificationCenter.default.post(name: MenuIcon.changed, object: nil) }
@@ -1031,8 +1026,9 @@ struct UpdateBanner: View {
 /// A process running cooler because the person chose it: pinned at the top until it ends or is set back, so it
 /// is clear what Cool Head has changed. Reporting a problem with it sits beside it.
 /// What opens a card or a line, in words with an arrow pointing the way it opens (down to open, up to close), not an
-/// arrow alone (Phil, 15 November 2026: the corner chevron "isn't very visible or intuitive"). A real button, so the
-/// keyboard reaches it and VoiceOver reads it as one, with whether it's open; a click anywhere on the card does the same.
+/// arrow alone, since a chevron in the corner was hard to see and didn't say what it did. A real button, so the
+/// keyboard reaches it and VoiceOver reads it as one, with whether it's open; a click anywhere on the card does the
+/// same.
 struct Disclosure: View {
     let title: String
     let open: Bool
@@ -1050,7 +1046,7 @@ struct Disclosure: View {
         }
         .buttonStyle(.plain)
         .accessibilityValue(open ? "Open" : "Closed")
-        .frame(maxWidth: .infinity)          // centered under the card's text (Phil, 19 November 2026)
+        .frame(maxWidth: .infinity)          // centered under the card's text
     }
 }
 
@@ -1118,8 +1114,8 @@ enum FrozenItem: Identifiable {
     }
     var line: String {
         switch self {
-        // says what's happening, in the present tense, so a slowed job never reads as frozen or stuck (Phil, 15 November
-        // 2026: "If we just say "running cooler" and it's got ice and a restore button it may be perceived as frozen")
+        // says what's happening, in the present tense, so a slowed job never reads as frozen or stuck: "Running cooler"
+        // beside ice and a restore button looked like a job that had stopped
         case .cooled(let c): return "Slowing \(c.name) to keep your Mac cool"
         case .paused(let p): return "\(p.name) is paused until you plug in"
         case .sync(let s): return due ? "Time to resume \(s.name) syncing" : "\(s.name) syncing is paused"
@@ -1171,9 +1167,8 @@ enum FrozenItem: Identifiable {
         case .backup: return ("Back it up again", "arrow.uturn.backward")
         }
     }
-    /// The undo, as a button on the line itself, so it's one click (Phil, 16 November 2026: "It needs to be clear to the
-    /// user they they need to expand and then act, or we need to add a big old button right there to release it"). It
-    /// names what it does, not a general "Restore" (Phil, 15 November 2026), in a few words so the line keeps its room.
+    /// The undo, as a button on the line itself, so it's one click and nobody has to work out that the line opens
+    /// first. It names what it does, not a general "Restore", in a few words so the line keeps its room.
     /// A sync app can't be resumed from here, so its button says it was.
     var button: String {
         switch self {
@@ -1187,14 +1182,12 @@ enum FrozenItem: Identifiable {
     }
 }
 
-/// Everything Cool Head is holding back, one line each at the top of the panel, in one frosted frame (Phil, 15 November
-/// 2026: "a horizontal line with frozen tasks at the top as single lines. Click to expand them for more info and then
-/// once expanded a button to unfreeze"). Undo lives here, never on the Settings page or in the right-click menu.
+/// Everything Cool Head is holding back, one line each at the top of the panel, in one frosted frame: a click opens a
+/// line for more, with its button to undo it. Undo lives here, never on the Settings page or in the right-click menu.
 struct FrozenList: View {
     let watcher: Watcher
     @ObservedObject private var tools = Tools.shared
-    /// Folded to one frosted line until clicked, and closed when a card opens (Phil, 18 November 2026: "We could collapse
-    /// the frozen stuff into a single ice crystal indicator at the top with a count, and clicking would expand it"). A
+    /// Folded to one frosted line with a count until clicked, and closed when a card opens, so it takes little room. A
     /// labelled line, not an icon in the top row: these are changes Cool Head made, such as Chrome's limit, which makes
     /// Chrome say it's managed, so they stay easy to notice.
     @ObservedObject private var focus = PanelFocus.shared
@@ -1208,19 +1201,17 @@ struct FrozenList: View {
         let rows = VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                 if i > 0 { Divider().opacity(0.6).padding(.horizontal, FrozenList.inset) }
-                // the same margin above the first line and below the last, so the lines sit centered in the frame
-                // (Phil, 17 November 2026: "fix the frozen pane so text is centered"). The margin is inside each line,
-                // so a click anywhere in the frame opens the line it's beside (Phil, 17 November 2026: "The click box
-                // should fill the whole area.")
+                // the same margin above the first line and below the last, so the lines sit centered in the frame.
+                // The margin is inside each line, so a click anywhere in the frame opens the line it's beside, and the
+                // whole area is the target
                 FrozenLine(item: item, watcher: watcher, inset: FrozenList.inset, top: i == 0 ? 14 : 0, bottom: i == items.count - 1 ? 14 : 0)
             }
         }
-        // one titled section: the frosted lines, then Report a problem, whose form opens under it (Phil, 17 November
-        // 2026: "add a title to the frozen section, then have the button outside the frozen items but inside that
-        // section. And when clicked, the form expands from the button within that section")
+        // one titled section: the frosted lines, then Report a problem, outside the lines but inside the section, whose
+        // form opens under it, within the section
         if !open {
-            // the words on a dark band, like the lines' own buttons, so they read clearly over the frost (Phil, 18 November
-            // 2026: "The collapsed "on hold" count needs to be higher-contrast as it's too hard to read as-is")
+            // the words on a dark band, like the lines' own buttons, so they read clearly over the frost; the count on
+            // the frost alone was too low in contrast to read
             HStack(spacing: 8) {
                 Image(systemName: "snowflake").font(.callout.weight(.semibold))
                 FrozenTitle(count: items.count, open: false)
@@ -1255,10 +1246,9 @@ struct FrozenList: View {
     }
 }
 
-/// Nerdy stuff, open: the details in a small terminal, green on near-black in light and dark mode alike, with scan lines
-/// and a blinking cursor, and the copy button in its title bar (Phil, 19 November 2026: "maybe we should add a fun Matrix
-/// or terminal-style background or design flair to the nerdy stuff section to make it fun the way the Managed by Cool Head
-/// section is frozen"). The dots are dim, so they don't pass for a window's buttons.
+/// Nerdy stuff, open: the details in a small terminal, green on near-black in light and dark mode alike, with scan
+/// lines and a blinking cursor, and the copy button in its title bar: a bit of fun, as Managed by Cool Head has its
+/// frost. The dots are dim, so they don't pass for a window's buttons.
 struct TerminalPane: View {
     let lines: [String]
     let copied: Bool
@@ -1323,8 +1313,7 @@ struct FrozenTitle: View {
     var open = true
     var body: some View {
         HStack(spacing: 6) {
-            // not "On hold", which could read as turned off when several are only slowed or limited (Phil, 19 November
-            // 2026: "i don't like "on hold" as a user could interpret that as disabled, rather than throttled/managed")
+            // not "On hold", which could read as turned off when several are only slowed or limited
             Text("Managed by Cool Head").font(.callout.weight(.semibold))
             // folded, the count is dark on white, to read at a glance over the frost
             Text("\(count)").font(.caption.weight(.bold)).monospacedDigit()
@@ -1341,9 +1330,8 @@ struct FrozenTitle: View {
 }
 
 /// One line: its undo as a button on the line, one click, and what it is and since when, always shown: the section is
-/// the only thing open, so there's room (Phil, 19 November 2026: "As we only display one thing at a time, when the hold
-/// panel is open, we should expand them, no?"). Every undo puts things back as they were and can be redone from the
-/// card, so it asks nothing first.
+/// the only thing open, so there's room. Every undo puts things back as they were and can be redone from the card, so
+/// it asks nothing first.
 struct FrozenLine: View {
     let item: FrozenItem
     let watcher: Watcher
@@ -1387,10 +1375,8 @@ struct FrozenLine: View {
 }
 
 /// Report a problem, once, for everything held back, instead of under each line; the form then starts by asking which
-/// one (Phil, 17 November 2026: "add the "report a problem" function as a separate line below any active freezes ...
-/// let them select from the active freezes and have a clean flow without cluttering the individual sections"). One
-/// wide button, not a row, so it doesn't read as another thing held back (Phil, 17 November 2026: "it's not a frozen
-/// row, but it is related ... Maybe the text and icon are one large button").
+/// one, which keeps each line uncluttered. One wide button, text and icon together, not a row: it's related to the
+/// lines, but it doesn't read as another thing held back.
 struct FrozenReportButton: View {
     let watcher: Watcher
     /// How many things are held back, so one reads "this", not "one of these".
@@ -1416,8 +1402,7 @@ struct FrozenReportButton: View {
 }
 
 /// A choice as a field that opens in place to a list, the chosen one ticked: cleaner than radio buttons, and every
-/// choice shows at once when open (Phil, 17 November 2026: "the radial form layout is pretty ugly/old-fashioned, we
-/// want a more modern style (e.g., typeform, a modern clean drop-down, or something else)").
+/// choice shows at once when open, in a more modern style than a column of radio buttons.
 struct SelectField: View {
     let options: [String]
     @Binding var selection: String
@@ -1479,8 +1464,8 @@ struct SelectField: View {
 }
 
 /// A "frozen" frame for things Cool Head has cooled: frost growing in from the edges, as on a cold window, on an ice
-/// tint. No snowflake symbols: Phil, 15 November 2026, "We don't want too many "snowflakes" in the frame as it will
-/// look like Christmas season - we want cold/chill/frozen vibes". All vector lines, drawn from a fixed pattern, so it looks the same every time and costs almost nothing.
+/// tint. No snowflake symbols, which would look like Christmas decorations rather than cold and frozen. All vector
+/// lines, drawn from a fixed pattern, so it looks the same every time and costs almost nothing.
 struct Frozen: ViewModifier {
     static let ice = Color(red: 0.55, green: 0.82, blue: 1.0)
 
@@ -1507,9 +1492,8 @@ enum IceTint {
     })
 }
 
-/// A button on the frosted frame: a pale backing, so it stands out from the ice instead of blending into it (Phil,
-/// 17 November 2026: "only adding a background on the button so it had better contrast and didn't blend into the ice
-/// as much"). Lighter under the mouse, darker when pressed.
+/// A button on the frosted frame: a pale backing, so it has better contrast and stands out from the ice instead of
+/// blending into it. Lighter under the mouse, darker when pressed.
 struct IceButton: ButtonStyle {
     /// Off the frost (Report a problem, under it): the frost's tint and edge, so it reads as part of the same section.
     var tinted = false
@@ -1540,12 +1524,9 @@ struct Frost: View {
     @ObservedObject private var focus = PanelFocus.shared
     var body: some View {
         // drawn anew whenever the row's size changes: a row that grew as the panel opened kept the frost drawn for its
-        // first, shorter size, with its bottom edge across the middle, until On hold was folded and opened again (Phil,
-        // 18 November 2026: "When I open the pane, the holds bar also renders with a visual error. Expanding and
-        // collapsing it fixes it")
+        // first, shorter size, with its bottom edge across the middle, until On hold was folded and opened again;
         // and each time the panel opens: after closing and reopening it quickly, the frost again stopped short of
-        // the row's bottom (Phil, 18 November 2026: "the frozen section render issue happens when I open, close, and
-        // reopen the pane in relatively quick succession")
+        // the row's bottom
         GeometryReader { g in
             frost.id("\(Int(g.size.width))x\(Int(g.size.height))-\(focus.opened)")
         }
@@ -1656,10 +1637,9 @@ struct Frost: View {
                 ctx.stroke(branches, with: .color(.white.opacity(0.8 * o)), style: StrokeStyle(lineWidth: 0.5, lineCap: .round))
                 ctx.stroke(stem, with: .color(.white.opacity(0.95 * o)), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
             }
-            // ferns grow all along the edges, more and longer in the corners, and one or two reach further in (Phil,
-            // 16 November 2026: "Ice typically builds more in the corners, but the ferns can grow along the edge, with
-            // only one or two growing more out into the middle"). Placed from the style's own seed, so the pattern looks
-            // random but is the same every time it's drawn. The bottom edge keeps its ferns short, where text sits.
+            // ferns grow all along the edges, more and longer in the corners, and one or two reach further in, as ice
+            // builds up most in a window's corners. Placed from the style's own seed, so the pattern looks random but
+            // is the same every time it's drawn. The bottom edge keeps its ferns short, where text sits.
             let st = style
             let scale = min(1, h / 90)
             func range(_ r: ClosedRange<CGFloat>) -> CGFloat { r.lowerBound + rnd() * (r.upperBound - r.lowerBound) }
@@ -1706,8 +1686,8 @@ struct Frost: View {
                 let along = (rnd() < 0.5 ? -1 : 1) * (0.35 + rnd() * 0.4)
                 fern(from: pt, angle: inward + along, length: st.reachLength * (0.8 + rnd() * 0.4) * max(scale, 0.7), curl: (rnd() - 0.5) * st.curl * 1.5)
             }
-            // wild ferns, placed by hand along an edge away from the corners (Phil, 16 November 2026: "1-2 wild ferns
-            // somewhere other than a corner"), fading a little so text over them stays readable
+            // one or two wild ferns, placed by hand along an edge away from the corners, fading a little so text over
+            // them stays readable
             for f in st.wild {
                 let (pt, inward): (CGPoint, CGFloat) = switch f.edge {
                 case .top: (CGPoint(x: w * f.at, y: 2), .pi / 2)
@@ -1781,9 +1761,8 @@ struct FrostStyle {
     var wild: [Wild] = []
     struct Wild { enum Edge { case top, left, right }; var edge: Edge; var at: CGFloat; var lean: CGFloat; var length: CGFloat; var curl: CGFloat }
 
-    /// The frost in use: Phil chose it from two batches of renders (16 November 2026: "I think version 4 of the frost is
-    /// the best"): ferns fanning from the corners, short ones along the edges, the most texture, and two short wild
-    /// ferns from the top. Change a number here and render to tune it.
+    /// The frost in use, chosen from two batches of renders: ferns fanning from the corners, short ones along the
+    /// edges, the most texture, and two short wild ferns from the top. Change a number here and render to tune it.
     static let current = FrostStyle(seed: 0x1CE, edgeSpacing: 26, edgeLength: 6...14, cornerFerns: 4, cornerLength: 26...50,
                                     curl: 0.5, grain: 320,
                                     wild: [Wild(edge: .top, at: 0.3, lean: 0.6, length: 46, curl: 0.9),
@@ -1796,9 +1775,9 @@ struct FixRow: View {
     let cooled: Bool
     /// A task that does more about the problem than the recommended option: says "Fixes the cause".
     var betterThanRecommended = false
-    /// The label in the option's bottom right corner (Phil, 16 November 2026: "smaller and justified in the bottom right
-    /// corner"): Caution for what has consequences that can't be undone or known, or Fixes the cause for a task that does more than the
-    /// recommendation. Never both: the options that need Caution are all ones Cool Head does.
+    /// The label in the option's bottom right corner, small: Caution for what has consequences that can't be undone or
+    /// known, or Fixes the cause for a task that does more than the recommendation. Never both: the options that need
+    /// Caution are all ones Cool Head does.
     var tag: OptionTag? {
         if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red) }
         if betterThanRecommended { return OptionTag(words: "FIXES THE CAUSE", symbol: "checkmark.seal.fill", color: .green,
@@ -1838,11 +1817,9 @@ struct FixRow: View {
     var runUntil: (Fix, Date) -> Void = { _, _ in }
     @State private var choosing = false
     /// Every Caution option asks twice: the first click shows why it's risky on the option itself, and a second click
-    /// within 5 seconds goes ahead (Phil, 17 November 2026: "use the same guard concept we already devised: clicking once
-    /// shows the caution text and asks for another click to confirm"; a tooltip on the label was easy to miss). It began
-    /// with Stop and Force Quit, which end a program at once with no chance to save (Phil, 16 November 2026: *"a first click to overlay
-    /// the button with a message to the effect of "Did you save? Click again to proceed/quit once saved."*; then *"if force
-    /// quitting warn of lost data unless they save with the guard"*). A normal quit needs no guard: the app asks.
+    /// within 5 seconds goes ahead; a tooltip on the label was easy to miss. The guard began with Stop and Force Quit,
+    /// which end a program at once with no chance to save, so the first click warns that unsaved work will be lost and
+    /// gives the person a moment to save first. A normal quit needs no guard: the app asks.
     @State private var armed = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ARMED"] != nil
     var guarded: Bool { fix.caution }
     /// What the first click says: for Stop and Force Quit, that anything unsaved goes; otherwise why it's Caution.
@@ -1879,9 +1856,8 @@ struct FixRow: View {
     var line: String { fix.kind == .cooler && cooled ? "Runs at normal speed again." : fix.consequence }
 
     // Each option is its own bordered tile, title and what it does inside it, with an arrow at the end: plainly a
-    // button, plainly separate from the next (Phil, 15 November 2026: "the options provided lack clear delineation
-    // between them, and don't look clearly clickable"). Every option is one (Phil, 15 November 2026): what Cool Head
-    // can't do itself opens the app where it's done, or shows the steps right under it.
+    // button, plainly separate from the next, since options that run together don't look clickable. Every option is
+    // one: what Cool Head can't do itself opens the app where it's done, or shows the steps right under it.
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
                 Button {
@@ -1947,8 +1923,7 @@ struct FixRow: View {
                     }
                     .padding(.leading, 11)
                 }
-                // the mini-guide (Phil, 15 November 2026: "a button that upon clicking opens a mini-guide to do the
-                // recommended tip (if it can't be automated)"): numbered steps under the option
+                // the mini-guide, for what Cool Head can't do itself: numbered steps under the option
                 if showingSteps, let steps = guideSteps {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(steps.enumerated()), id: \.offset) { i, step in

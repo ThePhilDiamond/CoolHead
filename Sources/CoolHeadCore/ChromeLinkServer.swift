@@ -2,10 +2,9 @@ import Darwin
 import Foundation
 import CoolHeadChromeLink
 
-/// Cool Head's end of the link with Cool Head for Chrome (notes/chrome-link-protocol.md; Phil, 21 November 2026: "The
-/// goal is that the extension in Chrome can help optimize there, but can also talk to the app on the computer that
-/// knows what resources the computer has free and can make decisions together based on user preferences", then "So
-/// both the app and the Chrome extension should be able to work independently or together").
+/// Cool Head's end of the link with Cool Head for Chrome (Extension/chrome/PROTOCOL.md). The extension works on its own
+/// inside Chrome; linked, it can also ask Cool Head, which knows how much the Mac has free, and the two decide
+/// together, following the person's settings. Each works alone or with the other.
 ///
 /// It listens on a socket only this user can open (ChromeLink.listen checks the socket's mode, accept checks the peer).
 /// Chrome starts the helper (coolhead-chrome-host) for each Chrome profile that has the extension, and the helper

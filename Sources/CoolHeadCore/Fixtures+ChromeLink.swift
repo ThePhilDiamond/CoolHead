@@ -2,7 +2,7 @@ import CoolHeadChromeLink
 import Darwin
 import Foundation
 
-/// Checks for the link with Cool Head for Chrome (notes/chrome-link-protocol.md): the framing on each side, the
+/// Checks for the link with Cool Head for Chrome (Extension/chrome/PROTOCOL.md): the framing on each side, the
 /// messages, Chrome's manifest, and the host itself, run for real against a socket in a temporary folder (never Cool
 /// Head's own) to check it relays both ways, says whether Cool Head is there, and refuses a socket that isn't this
 /// user's. It has no cards.

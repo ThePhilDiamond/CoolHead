@@ -1,11 +1,10 @@
 import Foundation
 
 /// Chrome's memory by part, read from outside with no permission: tabs Chrome marks as hidden, tabs on screen, Chrome's
-/// own program, and its graphics process, and when Chrome was opened (the Chrome plan's fourth stage: advice that needs
-/// nothing installed; Phil, 21 November 2026: "Do it all").
+/// own program, and its graphics process, and when Chrome was opened: advice that needs nothing installed.
 ///
-/// Chrome puts a tab process with nothing on screen in macOS's background band (scheduling priority 4; research node
-/// N-029 F1), and Cool Head already reads that priority for Run it cooler (Proc.schedulingPriority). Seen on Phil's Mac,
+/// Chrome puts a tab process with nothing on screen in macOS's background band (scheduling priority 4),
+/// and Cool Head already reads that priority for Run it cooler (Proc.schedulingPriority). Seen on one Mac,
 /// 21 November 2026: 9 tab processes at 4, others at 46, 47, and 97. So the memory of the processes at 4 is memory in tabs
 /// the person isn't looking at, which unloading or closing those tabs gives back without touching the one they're on.
 /// Known errors, said in Nerdy stuff: a hidden tab playing sound or using the camera stays out of the band, and several
@@ -75,10 +74,9 @@ public struct ChromeParts: Equatable {
         return "About \(Fmt.bytes(hiddenBytes)) of Chrome's memory is in tabs you aren't looking at, so closing those gives it back without touching the tab you're on."
     }
 
-    /// Extensions hold memory unloading tabs never reaches: on Phil's Mac, 21 November 2026, 19 extension processes held
-    /// 1.6 GB of Chrome's 5.6 GB (29%), against 54% in tabs (Phil: "I want to make sure we're not just dealing with one
-    /// tiny subsection of the problem"). Cool Head can't tell which extension is which from outside; Chrome's Task
-    /// Manager names each, with its memory.
+    /// Extensions hold memory unloading tabs never reaches, so advice about tabs alone would miss part of the problem: on
+    /// one Mac, 21 November 2026, 19 extension processes held 1.6 GB of Chrome's 5.6 GB (29%), against 54% in tabs. Cool
+    /// Head can't tell which extension is which from outside; Chrome's Task Manager names each, with its memory.
     public static let extensionsWorthSaying: UInt64 = 500_000_000
     public var extensionSentence: String? {
         guard extensionBytes >= ChromeParts.extensionsWorthSaying else { return nil }

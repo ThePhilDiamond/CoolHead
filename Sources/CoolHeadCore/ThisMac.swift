@@ -1,11 +1,10 @@
 import Foundation
 import IOKit
 
-/// This Mac's name, serial number, and startup disk space, for the This Mac page (Phil, 20 November 2026: "Maybe also
-/// display the serial number and drive usage of total in that tab", then "In the short term, show free / total and a
-/// button to the macOS storage settings"). All three are read without a password or a macOS prompt. The serial number
-/// identifies the Mac, so it's shown on the page only: never in a problem report, the shared database, or `coolhead`
-/// output (see SECURITY.md).
+/// This Mac's name, serial number, and startup disk space, for the This Mac page: for now, the space as free out of
+/// total, with a button to macOS's own storage settings for the breakdown. All three are read without a password or a
+/// macOS prompt. The serial number identifies the Mac, so it's shown on the page only: never in a problem report, the
+/// shared database, or `coolhead` output (see SECURITY.md).
 public enum ThisMac {
     /// "MacBook Air (M2, 2022)", from the device tree's product node; nil where there's none (Intel Macs).
     public static func modelName() -> String? {

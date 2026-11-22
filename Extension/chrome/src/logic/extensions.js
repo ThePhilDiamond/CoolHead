@@ -1,7 +1,6 @@
-// Rest extensions (Phil, 21 November 2026: "Have we got a "temporarily disable extensions not in use" option,
-// whether as part of a session or more broadly? Again we can have a safe list for this."). Chrome tells an
-// extension nothing about when another was last used or what memory it holds, so "not in use" means "not on
-// your safe list" (design, "Rest extensions").
+// Rest extensions: turns off extensions not in use, during a session or more broadly, sparing a safe list (README,
+// "What it does"). Chrome tells an extension nothing about when another was last used or what memory it holds, so
+// "not in use" means "not on your safe list".
 
 const BLOCKER_PERMS = ['declarativeNetRequest', 'declarativeNetRequestWithHostAccess', 'declarativeNetRequestFeedback', 'webRequestBlocking'];
 const VPN_PERMS = ['proxy', 'vpnProvider'];

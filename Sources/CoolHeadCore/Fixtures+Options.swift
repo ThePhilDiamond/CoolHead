@@ -24,11 +24,10 @@ extension Fixture {
         let recs = samples.compactMap(\.1.recommended)
         let labelled = "\(caution) with a Caution option, \(better) with a task that fixes the cause; recommendations: \(recs.count), "
             + "\(recs.filter { $0.doer == .coolHead && !$0.caution }.count) one click and safe, \(recs.filter(\.caution).count) Caution, \(recs.filter { $0.doer == .you }.count) tasks"
-        // Caution only where there's risk (Phil, 16 November 2026: "Caution should be reserved for actions like killing a
-        // process with unknown and/or irreversible consequences. There is risk attached. Whereas quitting Slack is not
-        // risky..."): quitting an app that asks to save, or one that loses nothing (Slack, a sync app, music), isn't
-        // Caution, and is recommended when it's the way to free memory; quitting what loses work in progress (containers,
-        // a call, a terminal, a game, a browser's tabs), stopping, force quitting and restarting a browser are
+        // Caution only where there's risk, such as stopping a process with unknown or irreversible consequences: quitting
+        // an app that asks to save, or one that loses nothing (Slack, a sync app, music), isn't Caution, and is
+        // recommended when it's the way to free memory; quitting what loses work in progress (containers, a call, a
+        // terminal, a game, a browser's tabs), stopping, force quitting, and restarting a browser are Caution
         var tight = MacState(); tight.memoryPressure = "warning"
         func quit(_ name: String, _ kind: MemGroup.Kind = .app) -> Fix? {
             MemoryAdvice.card([MemGroup(key: name, name: name, kind: kind, bundle: "/Applications/\(name).app", bytes: 3_000_000_000, count: 3)],
@@ -60,8 +59,8 @@ extension Fixture {
             + [cautionSaysWhy(samples), textLeavesTheActionToItsOption(samples)]
     }
 
-    /// Every Caution option, on every example card, says why when the pointer rests on its label (Phil, 16 November 2026:
-    /// "mousing over the caution label should explain why it's got the warning"); and only Caution options have a reason.
+    /// Every Caution option, on every example card, says why when the pointer rests on its label, so no warning goes
+    /// unexplained; and only Caution options have a reason.
     static func cautionSaysWhy(_ samples: [(String, Card)]) -> (String, Bool, String) {
         let fixes = samples.flatMap { s in s.1.fixes.map { (s.0, $0) } }
         let cautious = fixes.filter { $0.1.caution }
@@ -74,9 +73,8 @@ extension Fixture {
     }
 
     /// A card's text gives the verdict and the evidence; the action is its recommended option, and the text doesn't
-    /// repeat it (Phil, 16 November 2026: "You included the action in the description, which then repeats in the
-    /// one-click. That's not ideal."). A mechanical check, the option's own title in the text: a reworded repeat still
-    /// needs reading for.
+    /// repeat it, so the card doesn't say the same thing twice. A mechanical check, the option's own title in the text:
+    /// a reworded repeat still needs reading for.
     static func textLeavesTheActionToItsOption(_ samples: [(String, Card)]) -> (String, Bool, String) {
         let repeats = samples.compactMap { id, c -> String? in
             guard let r = c.recommended else { return nil }

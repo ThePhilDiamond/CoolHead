@@ -58,9 +58,8 @@ extension Fixture {
             && judge(simulator, signer: apple) == nil && judge(script) == nil && judge(unrelated) == nil
         review.append(("disguise-macos-name-elsewhere", r2, "miner \(String(describing: judge(miner))); renamed \(String(describing: judge(renamed))); not flagged: a failed check, an Apple-signed simulator copy, a script, mdserve"))
 
-        // the card: what Cool Head thinks, one short disclaimer, then its advice as one click (Phil, 16 November 2026: "Say
-        // what we think, use a brief disclaimer, then give our advice"; stopping, then deleting as a separate task, "is not
-        // a good user flow"); the Caution option says why; not yours: shown in Finder to delete
+        // the card: what Cool Head thinks, one short disclaimer, then its advice as one click, not stopping it and then
+        // deleting it as a separate task; the Caution option says why; not yours: shown in Finder to delete
         let minerCard = Card.make(miner, now: now, disguise: judge(miner))
         let theirs = disguiseEvidence("mdworker_shared", "/usr/local/bin/mdworker_shared", mine: false, now: now)
         let theirsCard = Card.make(theirs, now: now, disguise: judge(theirs))
@@ -82,9 +81,9 @@ extension Fixture {
             && unreadCard.headline == "mds_stores is probably part of macOS, but we couldn't confirm it." && unreadCard.fixes.map(\.id) == ["share"]
         review.append(("disguise-unchecked-path", r4, unreadCard.headline))
 
-        // "isn't Apple's" inside macOS's folders needs a folder that could have been changed and a definite answer (Phil:
-        // "make sure our confidence interval is higher"): the sealed system volume only with its seal off, /Library/Apple
-        // with protection off; turning protection back on is recommended, a reinstall only offered
+        // "isn't Apple's" inside macOS's folders needs a folder that could have been changed and a definite answer,
+        // since a reinstall is a huge ask: the sealed system volume only with its seal off, /Library/Apple with
+        // protection off; turning protection back on is recommended, a reinstall only offered
         let mds = disguiseEvidence("mds_stores", mdsPath, mine: false, now: now)
         let dataPath = "/Library/Apple/System/Library/CoreServices/XProtect.app/Contents/MacOS/XProtect"
         let xp = disguiseEvidence("XProtect", dataPath, mine: false, now: now)

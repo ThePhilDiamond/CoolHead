@@ -1,8 +1,7 @@
 import Foundation
 
 /// Every card Cool Head can show, from its recorded examples, so all the wording can be read in one place
-/// (`coolhead wording`). Hand-written wording (Phil, 15 November 2026: "Yes, hand-write it"): no model rewords anything,
-/// so this list is what people read.
+/// (`coolhead wording`). The wording is written by hand: no model rewords anything, so this list is what people read.
 public enum Wording {
     public static func samples(now: Date = Date()) -> [(String, Card)] {
         var out: [(String, Card)] = Fixture.all(now).map { f in
@@ -34,7 +33,7 @@ public enum Wording {
         var node = MemGroup(key: "other-node", name: "node", kind: .other, bundle: nil, bytes: 3_000_000_000, count: 1)
         node.what = .background
         out.append(("memory-program-first", MemoryAdvice.card([node, group("Slack", .app, "/Applications/Slack.app", 1.2, 5)], mac: tight, now: now)))
-        // a nearly full startup disk, and heavy swapping while macOS still says normal (research nodes N-002, N-006)
+        // a nearly full startup disk, and heavy swapping while macOS still says normal
         var lowDisk = tight; lowDisk.diskFreeBytes = 12_400_000_000
         out.append(("memory-low-disk", MemoryAdvice.card([group("Slack", .app, "/Applications/Slack.app", 3.1, 5)], mac: lowDisk, now: now)))
         var swapping = MacState(); swapping.memoryPressure = "normal"; swapping.swapUsedMB = 4200; swapping.swapTotalMB = 5120; swapping.swappedOutMB = 1400

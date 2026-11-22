@@ -1,9 +1,9 @@
 import Foundation
 
-/// A sync app kept busy by a build or other job writing lots of files into a folder it syncs (found on Phil's Mac,
-/// 15 November 2026: Google Drive logged about 22,700 failed uploads in under two hours, all Java and Android build
-/// output from a project inside Documents, which Drive backed up; they stopped when the project moved out). The sync
-/// app uploads every file a build writes, including short-lived ones it then can't find.
+/// A sync app kept busy by a build or other job writing lots of files into a folder it syncs (seen in practice: Google
+/// Drive logged about 22,700 failed uploads in under two hours, all Java and Android build output from a project inside
+/// Documents, which Drive backed up; they stopped when the project moved out). The sync app uploads every file a build
+/// writes, including short-lived ones it then can't find.
 ///
 /// Which folders a sync app syncs is known for certain only for its own folder (in ~/Library/CloudStorage, or
 /// ~/Dropbox). Documents and Desktop are often backed up too (Google Drive, OneDrive, iCloud), but only the sync app's

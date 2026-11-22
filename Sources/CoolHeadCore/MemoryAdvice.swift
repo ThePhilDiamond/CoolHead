@@ -34,9 +34,8 @@ public enum MemoryAdvice {
     static let browsers = ["Google Chrome", "Safari", "Microsoft Edge", "Brave Browser", "Firefox", "Arc", "Opera", "Vivaldi", "Chromium"]
 
     /// What quitting costs, for apps where it costs more than unsaved work (the app asks to save that), and whether it
-    /// loses something reopening can't bring back: work in progress, a call, what's running. Only those are Caution
-    /// (Phil, 16 November 2026: "Caution should be reserved for actions like killing a process with unknown and/or
-    /// irreversible consequences. There is risk attached. Whereas quitting Slack is not risky...").
+    /// loses something reopening can't bring back: work in progress, a call, what's running. Only those are Caution,
+    /// which is kept for real risk: unknown or irreversible consequences. Quitting an app like Slack isn't risky.
     struct QuitCost {
         let words: String
         let losesWork: Bool
@@ -149,9 +148,9 @@ public enum MemoryAdvice {
                             + (lowDisk(s) ? [Leftovers.buildDataFix(bytes: buildData).map { var f = $0; f.recommended = false; return f }, freeDisk].compactMap { $0 } : []))
         }
         let size = Fmt.bytes(top.bytes)
-        // Chrome using the most while the Mac copes: macOS says warning, but nothing is being moved to disk, so nothing waits
-        // on memory yet, and closing tabs would cost something for nothing (see MemoryGate). A calm card says so, and Cool
-        // Head says if it changes (Phil, 21 November 2026, the calm card offered for his look). At critical, the full card.
+        // Chrome using the most while the Mac copes: macOS says warning, but nothing is being moved to disk, so nothing
+        // waits on memory yet, and closing tabs would cost something for nothing (see MemoryGate). A calm card says so,
+        // and Cool Head says if it changes. At critical, the full card.
         if top.name == "Google Chrome", top.kind == .browser, context.slowed == false, s.memoryPressure == "warning",
            let moved = s.swappedOutMB, moved < MemoryGate.writingMB {
             var calm = Card(state: .working, headline: "Memory is busy, but your Mac is keeping up.",
@@ -172,8 +171,7 @@ public enum MemoryAdvice {
         // the next biggest, by name, so the card shows where the rest of the memory is (the biggest is in the headline)
         let next = zip(shown.dropFirst(), names.dropFirst()).map { "\($1) (\(Fmt.bytes($0.bytes)))" }
         // the next biggest go in Nerdy stuff, not the text: the options already name the second, and a shorter card is
-        // easier to read (Phil, 17 November 2026: "can we trim it to be more user-friendly and less intimidating to a lay
-        // person?")
+        // easier to read and less intimidating to someone who isn't technical
         let expl = pressure(s)
         let also = next.isEmpty ? [] : ["Also using a lot: \(Fmt.list(next))"]
         var fixes: [Fix] = []
@@ -208,9 +206,8 @@ public enum MemoryAdvice {
                     } else {
                         fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
                     }
-                    // Chrome names each tab and its memory, which Cool Head can't (Phil, 18 November 2026: "A user doesn't know
-                    // which tasks in Chrome are big ... Can we get the different tabs to flag specific big ones?"); not offered once
-                    // it's on (see ChromeHoverMemory)
+                    // Chrome names each tab and its memory, which Cool Head can't, so the person can see which tabs are
+                    // the big ones; not offered once it's on (see ChromeHoverMemory)
                     if (tabMemoryOn ?? ChromeHoverMemory.read()) != true {
                         fixes.append(Fix(id: "tabmemory", title: "Show each tab's memory", consequence: "Takes you to Chrome's Appearance settings. Turn on \(Fmt.ui("Show memory usage on tab hover preview card")), then point at any tab to see how much it's using.", kind: .openPage(b, "chrome://settings/appearance")))
                     }
@@ -297,10 +294,10 @@ public enum MemoryAdvice {
         // a leak: the verdict leads, with its evidence and advice alone, and a plain quit of the same app isn't offered too,
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
-        // Cool Head for Chrome connected: Chrome's steps become one click (Phil, 21 November 2026: "The "close chrome's
-        // heaviest tabs" recommendation could also be one-click if they have the extension and "safe list.""). An
-        // extension can't see each tab's memory, so "heaviest" becomes the tabs you aren't looking at; Cool Head's own
-        // figure says how much that is. Not connected, and memory has slowed the Mac twice this week: it's offered.
+        // Cool Head for Chrome connected: the recommendation to close Chrome's heaviest tabs becomes one click, and the
+        // extension's safe list stays awake. An extension can't see each tab's memory, so "heaviest" becomes the tabs
+        // you aren't looking at; Cool Head's own figure says how much that is. Not connected, and memory has slowed the
+        // Mac twice this week: it's offered.
         if top.name == "Google Chrome", top.bundle != nil {
             if context.companion == .connected {
                 let hidden = context.chrome.flatMap { $0.markWorks ? $0.hiddenBytes : nil }
@@ -349,7 +346,7 @@ public enum MemoryAdvice {
     /// source: a high bar so it shows only for heavy swapping.
     public static let heavySwapMB = 1024.0
     /// Free space on the startup disk below which tight memory also mentions the disk. Not from a source: Howard
-    /// Oakley advises keeping 50 GB free; macOS warns near 1 GB and purges toward about 10 to 15 GB (research node N-006).
+    /// Oakley advises keeping 50 GB free; macOS warns near 1 GB and purges toward about 10 to 15 GB.
     public static let lowDiskBytes: UInt64 = 20_000_000_000
     public static func lowDisk(_ s: MacState) -> Bool { s.diskFreeBytes.map { $0 < lowDiskBytes } ?? false }
 

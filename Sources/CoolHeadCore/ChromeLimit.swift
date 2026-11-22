@@ -1,7 +1,6 @@
 import Foundation
 
-/// Chrome's memory limit as Cool Head 0.10 to 0.15 set it, which Cool Head now removes (Phil, 21 November 2026: "Do it
-/// all", the Chrome plan's first stage).
+/// Chrome's memory limit as Cool Head 0.10 to 0.15 set it, which Cool Head now removes.
 ///
 /// Those versions wrote three of Chrome's documented policies to its preferences, as `defaults write com.google.Chrome`
 /// would: TotalMemoryLimitMb, and Memory Saver on, at Maximum. Chrome reads values written that way as Recommended, and
@@ -60,8 +59,7 @@ public enum ChromeLimit {
 
 /// Chrome's own setting to show each tab's memory when you point at the tab (Settings ▸ Appearance, "Show memory usage
 /// on tab hover preview card"). Chrome knows which tab is which and Cool Head doesn't, so the memory card offers to
-/// turn it on, and stops offering once it's on (Phil, 18 November 2026: "Can we see if that setting is enabled? It
-/// would be annoying to get that card repeatedly after it's enabled").
+/// turn it on, and stops offering once it's on, so the offer doesn't keep coming back after it's done.
 ///
 /// Chrome keeps it in its Local State file as `browser.hovercard.memory_usage_enabled`
 /// (chrome/common/pref_names.h). It was registered on (chrome/browser/ui/browser_ui_prefs.cc), and a later Chrome
@@ -89,7 +87,7 @@ public enum ChromeHoverMemory {
 }
 
 /// Chrome's Memory Saver, read from Chrome's Local State file, and set to Maximum there while Chrome is closed, as the
-/// person's own setting (the Chrome plan's second stage; Phil, 21 November 2026: "Do it all"). Chrome keeps it as
+/// person's own setting. Chrome keeps it as
 /// `performance_tuning.high_efficiency_mode.state` (0 off, 2 on) and `.aggressiveness` (0 Moderate, 1 Balanced, 2
 /// Maximum) (components/performance_manager/public/user_tuning/prefs.h). Written that way it is the person's own choice:
 /// no "managed by your organization", and they can change it in Chrome's Performance settings. Tested on Google Chrome

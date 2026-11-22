@@ -26,8 +26,8 @@ extension Fixture {
             && Fmt.sentenceStart("macOS's mds") == "macOS's mds" && Fmt.sentenceStart("the claude command-line program") == "The claude command-line program"
         return [("names-tell-apart", bad.isEmpty && cases && named >= aboutProcesses * 2 / 3,
                  bad.isEmpty ? "\(named) of \(aboutProcesses) example cards about processes record their names; all can be told apart; cases \(cases)" : bad.joined(separator: "; ")),
-                // every list of three or more in a sentence takes the Oxford comma (Phil, 18 November 2026), and code builds
-                // its lists with Fmt.list, not ListFormatter, which drops the comma in British English
+                // every list of three or more in a sentence takes the Oxford comma, and code builds its lists with
+                // Fmt.list, not ListFormatter, which drops the comma in British English
                 oxfordComma()]
     }
 

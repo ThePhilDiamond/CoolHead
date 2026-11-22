@@ -6,10 +6,10 @@ import SQLite3
 ///
 /// It comes from macOS's own power log, `/private/var/db/powerlog/Library/BatteryLife/CurrentPowerlog.PLSQL` and its
 /// daily archives beside it (gzipped copies, one a day, about a week of them). macOS writes them; they are SQLite, and
-/// readable by every user without a password (tested on macOS 26.6.2; research node N-018). Cool Head keeps no copy:
+/// readable by every user without a password (tested on macOS 26.6.2). Cool Head keeps no copy:
 /// it reads them when the history is shown and keeps only the totals, in memory.
 ///
-/// Privacy (Phil's rule for this feature): the same database records which app was in front and when (app usage). Cool
+/// Privacy, a firm rule for this feature: the same database records which app was in front and when (app usage). Cool
 /// Head never reads that. It reads the three tables in `tables`, by name, and nothing else: every connection carries a
 /// SQLite authorizer that refuses to read any other table, so a mistake in a query fails instead of reading more. The
 /// selftest check `power-history-reads-only-its-tables` runs every query against a database with a decoy app-usage table.
@@ -49,12 +49,11 @@ public struct PowerHistory: Equatable {
     public var totalEnergy: Double { users.reduce(0) { $0 + $1.energy } }
 
 
-    /// What used the most energy, as the Battery page shows it (Phil, 17 November 2026: "The goal is useful data that a lay
-    /// person can act on. If it's just data for data's sake because we can access it, we should drop it."): apps and
-    /// programs one by one, since something can be done about them, and macOS's own parts together as one line, since
-    /// there's nothing to change there. Each says, when clicked, what its share means and whether to do anything. "What woke the
-    /// chip most often" was dropped for the same reason: a wakeup's cost is already in the energy, and the count gave
-    /// nothing to act on.
+    /// What used the most energy, as the Battery page shows it. The goal is useful information anyone can act on, not data
+    /// shown just because it can be read: apps and programs one by one, since something can be done about them, and
+    /// macOS's own parts together as one line, since there's nothing to change there. Each says, when clicked, what its
+    /// share means and whether to do anything. "What woke the chip most often" was dropped for the same reason: a
+    /// wakeup's cost is already in the energy, and the count gave nothing to act on.
     public struct EnergyRow: Equatable {
         public let name: String
         public let what: String?
@@ -64,10 +63,9 @@ public struct PowerHistory: Equatable {
         public let user: User?
     }
     public static let macOSItself = "macOS itself"
-    /// The Power page's list: the top three, shown without a click; the others at 5% or more, behind one line; and every
-    /// one, for Nerdy stuff (Phil, 20 November 2026: "just show the top three and it can be expanded", then ""more" should
-    /// cover everything using 5% or more, as anything less isn't as significant, and if they want more detail we can
-    /// include the full log in the "Nerdy stuff" section"). 5% as shown: a share that reads "5%" counts.
+    /// The Power page's list: the top three, shown without a click; the others at 5% or more, behind one line, since
+    /// anything less matters little; and every one, for Nerdy stuff, for anyone who wants the full detail. 5% as shown: a
+    /// share that reads "5%" counts.
     public func energySplit() -> (top: [EnergyRow], more: [EnergyRow], all: [EnergyRow]) {
         let all = energyRows(Int.max)
         return (Array(all.prefix(3)), all.dropFirst(3).filter { ($0.share * 100).rounded() >= PowerHistory.moreFloor }, all)
@@ -114,8 +112,7 @@ public struct PowerHistory: Equatable {
     // MARK: the tables it may read, and the only queries it runs
 
     /// One row per app or program per interval (about 2 minutes): energy, graphics energy and more. Only the energy is read:
-    /// its wakeup counts were dropped with the list that showed them, since nothing diagnosed with them (Phil, 17 November
-    /// 2026: "Do we use the wake up data for any of our diagnosing efforts? Otherwise stop reading it.").
+    /// its wakeup counts were dropped with the list that showed them, since no diagnosis used them.
     static let coalition = "PLCoalitionAgent_EventInterval_CoalitionInterval"
     /// One row per sleep or wake event.
     static let powerState = "PLSleepWakeAgent_EventForward_PowerState"
@@ -484,8 +481,8 @@ extension PowerHistory {
 
     static func times(_ n: Int) -> String { n == 1 ? "Once" : n == 2 ? "Twice" : "\(n) times" }
 
-    /// A cause's short name, for its row in the app, beside the count and a bar (Phil, 19 November 2026: "Can we also fix
-    /// the "Why it woke from sleep" section to be more visual? it's a wall of text now").
+    /// A cause's short name, for its row in the app, beside the count and a bar, so the list is visual rather than a wall
+    /// of text.
     public static func label(_ cause: Cause) -> String {
         switch cause {
         case .lid: return "Lid opened"

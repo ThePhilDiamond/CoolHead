@@ -4,8 +4,8 @@ import Foundation
 /// account without sudo): Low Power Mode for each power source, what is holding the Mac awake, and what happened while
 /// it slept. Each makes a card only when it explains something a person would notice: a slow Mac, a Mac that won't
 /// sleep, or a battery that drained overnight (rules 7 and 12 in the research). The text gives the verdict and the
-/// evidence; the option carries the action (Phil, 16 November 2026: "You included the action in the description, which
-/// then repeats in the one-click. That's not ideal.").
+/// evidence; the option carries the action, so the action isn't said twice, once in the text and again on the
+/// button.
 public enum PowerState {
     // MARK: Low Power Mode
 
@@ -89,7 +89,7 @@ public enum PowerState {
     }
 
     /// What each class of wake is, for the card's sentence. Upkeep is macOS's own timer ("rtc/SleepService" and
-    /// "rtc/Maintenance"); on Phil's Mac (19 November 2026) the tasks that asked for it were Spotlight, Calendar's travel
+    /// "rtc/Maintenance"); on the Mac it was checked on, the tasks that asked for it were Spotlight, Calendar's travel
     /// times, widgets, and keeping the network address.
     static let whyWoke: [String: String] = [
         "macOS's own upkeep": "Most wakes were macOS waking itself for background tasks, such as indexing files, refreshing widgets, and checking calendars for travel time. Each is short, but they add up.",
@@ -122,7 +122,7 @@ public enum PowerState {
                 if !charge(line).1 { night!.onBattery = false }
             // every "Wake" line is the Mac fully awake (dark wakes are "DarkWake"; "Wake Requests" only schedules one).
             // Opening the lid reads "due to smc.sysState.Wake ... lid ... HID Activity", with no "UserActivity", so a
-            // test for particular reasons merged a day of use into one long sleep (Phil's Mac, 19 November 2026)
+            // test for particular reasons merged a day of use into one long sleep
             } else if rest.hasPrefix("Wake "), !rest.hasPrefix("Wake Requests"), var n = night {
                 let (c, batt) = charge(line)
                 n.to = date; n.chargeTo = c
@@ -171,9 +171,9 @@ public enum PowerState {
         // one program keeping the Mac awake for hours: named, with the app it does it for (rule 12; rule 4 for the
         // sound service). Normal for a call, a download or a backup, so it says so and stays calm unless on battery
         let me = getpid()
-        // an app keeping the Mac awake while it works is doing what it should: only one that has done almost nothing for
-        // half an hour is shown, with how long, since that's the evidence it forgot to let go (Phil, 17 November 2026:
-        // "the card for Claude is obviously wrong as it's been open working on projects, which is why it prevented sleep")
+        // an app keeping the Mac awake while it works is doing what it should: only one that has done almost nothing
+        // for half an hour is shown, with how long, since that's the evidence it forgot to let go; an app busy on a
+        // long task is right to prevent sleep, so it isn't flagged
         let long = holds.filter { h in
             h.seconds >= 2 * 3600 && h.pid != me && h.name != "powerd" && h.name != "WindowServer"
                 && (idleFor(h.forPID ?? h.pid) ?? 0) >= idleMinimum
@@ -213,7 +213,7 @@ public enum PowerState {
             var lc = LiveCard(id: "night-wakes", pid: nil, card: Card(
                 state: .quiet,
                 headline: "Your Mac lost \(drop)% of its battery while asleep, waking \(n.total) times.",
-                // what woke it most, in words that say what it is (Phil, 19 November 2026: "the explanation about wakes isn't clear")
+                // what woke it most, in words that say what it is, since a class name alone didn't explain the wakes
                 explanation: "It slept from \(Fmt.time(n.from)) to \(Fmt.time(n.to)). " + (whyWoke[top.key] ?? "Most wakes were for \(top.key).")
                     + " A sleeping Mac usually loses only a few percent overnight.",
                 fixes: [Fix(id: "battery-options", title: "Open Battery settings",
