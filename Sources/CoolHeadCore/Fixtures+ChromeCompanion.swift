@@ -57,11 +57,16 @@ extension Fixture {
         FileManager.default.createFile(atPath: fakeHelper, contents: Data("#!/bin/sh\n".utf8), attributes: [.posixPermissions: 0o755])
         let wrote = ChromeCompanion.installHostFile(folder: hosts, helper: fakeHelper) && ChromeCompanion.hostFileInstalled(folder: hosts, helper: fakeHelper)
             && !ChromeCompanion.hostFileInstalled(folder: hosts, helper: "/elsewhere/coolhead-chrome-host")
+        // a file from 0.17.0, which allowed only the hand-loaded ID, counts as out of date, so it's written again
+        let older = ChromeLink.manifest(hostPath: fakeHelper, extensionIDs: [ChromeCompanion.handID]) ?? []
+        FileManager.default.createFile(atPath: hosts + "/" + ChromeLink.hostName + ".json", contents: Data(older))
+        let rewritten = !ChromeCompanion.hostFileInstalled(folder: hosts, helper: fakeHelper)
+            && ChromeCompanion.installHostFile(folder: hosts, helper: fakeHelper) && ChromeCompanion.hostFileInstalled(folder: hosts, helper: fakeHelper)
         try? FileManager.default.removeItem(atPath: hosts); try? FileManager.default.removeItem(atPath: fakeHelper)
         let memoryWords = [ChromeLinkServer.memory(mac("normal", swappedMB: nil), slowed: false), ChromeLinkServer.memory(mac("warning", swappedMB: 30), slowed: false),
                            ChromeLinkServer.memory(mac("warning", swappedMB: 600), slowed: true), ChromeLinkServer.memory(mac("critical", swappedMB: 600), slowed: true)]
         return [("chrome-link-end-to-end", link.ran && link.linked && link.state && link.request && link.answered && link.unlinked, "\(link)"),
-                ("chrome-link-setup-file", wrote, "written and recognized \(wrote)"),
+                ("chrome-link-setup-file", wrote && rewritten, "written and recognized \(wrote), an older file rewritten \(rewritten)"),
                 ("chrome-link-memory-words", memoryWords == [.fine, .tight, .slowed, .veryTight], "\(memoryWords)"),
                 ("companion-one-click", on.recommended?.id == "sleep" && on.recommended?.consequence.hasPrefix("Frees about 2.1 GB.") == true
                  && !ids.contains("tabs") && ids.contains("duplicates") && on.fixes.first { $0.id == "extensions" }.map { if case .chromeCompanion = $0.kind { return true } else { return false } } == true

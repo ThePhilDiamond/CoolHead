@@ -308,6 +308,9 @@ public enum ChromeLink {
 
     // MARK: Chrome's manifest
 
+    /// How Chrome's file names each allowed extension.
+    public static func origins(_ extensionIDs: [String]) -> [String] { extensionIDs.map { "chrome-extension://\($0)/" } }
+
     /// Whether this is an extension ID as Chrome writes one: 32 letters from a to p.
     public static func isExtensionID(_ id: String) -> Bool {
         id.utf8.count == 32 && id.utf8.allSatisfy { (0x61 ... 0x70).contains($0) }
@@ -323,12 +326,12 @@ public enum ChromeLink {
     }
 
     /// The file Chrome reads to find the host (`io.github.thephildiamond.coolhead.json` in its NativeMessagingHosts
-    /// folder): the host's absolute path, and the one extension allowed to start it. Nil for a relative path or a
+    /// folder): the host's absolute path, and the extensions allowed to start it. Nil for a relative path, no IDs, or a
     /// malformed ID, since Chrome would refuse the file.
-    public static func manifest(hostPath: String, extensionID: String) -> [UInt8]? {
-        guard hostPath.hasPrefix("/"), isExtensionID(extensionID) else { return nil }
+    public static func manifest(hostPath: String, extensionIDs: [String]) -> [UInt8]? {
+        guard hostPath.hasPrefix("/"), !extensionIDs.isEmpty, extensionIDs.allSatisfy(isExtensionID) else { return nil }
         let m = Manifest(name: hostName, description: "Links Cool Head for Chrome with the Cool Head app on this Mac.",
-                         path: hostPath, type: "stdio", allowedOrigins: ["chrome-extension://\(extensionID)/"])
+                         path: hostPath, type: "stdio", allowedOrigins: origins(extensionIDs))
         let e = JSONEncoder()
         e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return (try? e.encode(m)).map { Array($0) + [0x0A] }

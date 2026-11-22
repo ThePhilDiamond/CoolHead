@@ -59,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // the link with Cool Head for Chrome, not while taking screenshots (see ChromeLinkServer)
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] == nil {
             ChromeLinkServer.shared.start()
-            // a Cool Head that moved since Set up: the file names the old place, so it's written again for this copy
+            // a Cool Head that moved since Set up, or an update that allows a new extension ID: the file is written again
             if FileManager.default.fileExists(atPath: ChromeCompanion.hostsFolder + "/" + ChromeLink.hostName + ".json"), !ChromeCompanion.hostFileInstalled() {
                 ChromeCompanion.installHostFile()
             }
