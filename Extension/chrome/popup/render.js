@@ -46,9 +46,9 @@ function band(view, ui, on) {
     brand.append(h('span', { class: `link${b.link.state === 'linked' ? '' : ' off'}` },
       icon(b.link.state === 'linked' ? 'sync' : 'syncOff'), h('span', { text: b.link.text })));
   }
-  // With a tool open (Protected or Settings), a pill under the title goes back home, saying what waits there, and the
+  // With a tool open (Effort, Protected, or Settings), a pill under the title goes back home, saying what waits there, and the
   // whole band goes back on a click, as in Cool Head.
-  const toolOpen = ui.screen === 'protected' || ui.screen === 'settings';
+  const toolOpen = ['effort', 'protected', 'settings'].includes(ui.screen);
   const pill = toolOpen ? h('button', { class: `pill tone-${b.tone}`, 'data-key': 'home', onclick: on.home },
     icon('chevLeft'), W.backTo({ suggestions: view.questions.length + (view.duplicates ? 1 : 0), session: Boolean(view.session) })) : null;
   return h('header', { class: `band tone-${b.tone}${toolOpen ? ' goes-home' : ''}`, onclick: toolOpen ? on.home : null }, brand,
@@ -153,35 +153,29 @@ function protectedScreen(view, ui, on) {
     tabs.append(h('p', { class: 'lede', text: W.PROTECTED_LEDE }),
       h('ul', { class: 'tabs', 'aria-labelledby': 'p-tabs' }, view.held.tabs.map((r) => heldRow(r, ui, on))));
   }
-  // What keeps tabs with typing or on a call awake, here because it decides what's protected; it's also a site
-  // permission, so it says what it looks at.
-  const st = view.settings;
-  tabs.append(h('div', { class: 'sites', role: 'group', 'aria-labelledby': 'sites-h' },
-    h('h4', { id: 'sites-h', text: W.SITES_TITLE }),
-    h('p', { text: st.sitesGranted ? W.SITES_ON : W.SITES_OFF }),
-    h('p', { class: 'note', text: st.sitesGranted ? W.SITES_ON_HOW : W.SITES_HOW }),
-    h('div', { class: 'row' }, h('button', { class: st.sitesGranted ? 'btn tall' : 'btn primary', 'data-key': 'sites', onclick: () => on.sites(!st.sitesGranted) },
-      st.sitesGranted ? W.TURN_OFF : W.TURN_ON))));
-  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, screenTitle(W.PROTECTED), tabs, extensionsPart(view, ui, on));
+  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, screenTitle(W.PROTECTED, 'shield', on), tabs, extensionsPart(view, ui, on));
   return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 
-// The design drew two columns; a 360 px popup has room for one, so the two lists stack, each named.
+// The design drew two columns; a 360 px popup has room for one, so the two lists stack, each named. The switch that
+// pauses extensions heads them, since it decides what the lists mean.
 function extensionsPart(view, ui, on) {
   const st = view.settings;
   const cols = ui.safe;
   const part = h('section', { class: 'part', id: 'p-ext-part', 'aria-labelledby': 'p-ext' },
-    h('h3', { class: 'parthead', id: 'p-ext' }, W.SAFE_TITLE));
-  if (!st.restEnabled) {
-    part.append(h('p', { class: 'lede', text: W.PAUSE_OFF }),
-      h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'to-settings', onclick: on.openSettings }, W.OPEN_SETTINGS)));
-  } else if (!st.managementGranted) {
-    part.append(h('p', { class: 'lede', text: W.REST_NEEDS }),
+    h('h3', { class: 'parthead', id: 'p-ext' }, W.SAFE_TITLE),
+    h('label', { class: 'choice' },
+      h('input', { type: 'checkbox', checked: st.restEnabled, 'data-key': 'rest-on', onchange: (e) => on.restEnabled(e.target.checked) }),
+      h('span', {}, h('b', { text: W.REST_TOGGLE }), h('span', { class: 'why', text: W.REST_WHY }))));
+  if (!st.restEnabled) return part;
+  if (st.restingText) part.append(h('p', { class: 'note', text: st.restingText }));
+  if (!st.managementGranted) {
+    part.append(h('p', { class: 'note', text: W.REST_NEEDS }),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', 'data-key': 'allow', onclick: on.openSafe }, W.PAUSE_ALLOW)));
   } else if (!cols || (cols.alwaysOn.length === 0 && cols.rest.length === 0)) {
-    part.append(h('p', { class: 'lede', text: W.SAFE_EMPTY }));
+    part.append(h('p', { class: 'note', text: W.SAFE_EMPTY }));
   } else {
-    part.append(h('p', { class: 'lede', text: W.SAFE_LEDE }),
+    part.append(
       h('section', { 'aria-labelledby': 'on-h' }, h('p', { class: 'sub', id: 'on-h', text: `${W.SAFE_ON} · ${cols.alwaysOn.length}` }),
         h('ul', { class: 'tabs' }, cols.alwaysOn.map((e) => extRow(e, false, on)))),
       h('section', { 'aria-labelledby': 'rest-h2' }, h('p', { class: 'sub', id: 'rest-h2', text: `${W.SAFE_REST} · ${cols.rest.length}` }),
@@ -199,10 +193,10 @@ function duplicatesCard(view, on) {
     h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'dups', onclick: on.closeDuplicates }, d.button)));
 }
 
-// The Effort choices: one row each, its name and what it does. A click sets it at once; the row says so, and the
-// drawer closes a moment later (popup.js). Arrow keys move between rows; Enter or Space chooses, so moving along
-// with the keyboard doesn't change the level on the way.
-function levels(view, ui, on, opening = false) {
+// Effort, a tool that fills the middle as Cool Head's do: one row a level, its name and what it does. A click sets
+// it at once; the row says so, and a moment later it goes back home (popup.js). Arrow keys move between rows; Enter
+// or Space chooses, so moving along with the keyboard doesn't change the level on the way.
+function effortScreen(view, ui, on) {
   const l = view.levels;
   const enabled = l.options.filter((o) => !o.disabled);
   const keydown = (e) => {
@@ -236,23 +230,25 @@ function levels(view, ui, on, opening = false) {
   });
   // What the chosen level is doing right now, when that's more than its line says (view.js).
   const status = l.status;
-  return h('div', { class: `levels${opening ? ' opening' : ''}`, id: 'levels' },
+  const main = h('main', { class: 'middle', 'aria-label': W.LEVEL_LABEL },
+    screenTitle(W.LEVEL_LABEL, 'gauge', on),
     h('div', { class: 'levelrows', role: 'radiogroup', 'aria-label': W.LEVEL_LABEL }, rows),
-    status ? h('p', { class: 'what', text: status }) : null,
-    l.needs ? h('p', { class: 'what', id: 'auto-needs', text: l.needs }) : null);
+    status ? h('p', { class: 'note', text: status }) : null,
+    l.needs ? h('p', { class: 'note', id: 'auto-needs', text: l.needs }) : null);
+  return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 
 // ---------- the bottom bar ----------
 
 // As in Cool Head's own bottom bar: each tool is an icon over its name, and the open one is white on Cool Head blue.
-// The level's tool reads "Effort: Auto", so the level can be read without opening; its choices slide down below the bar.
+// Effort's tool reads "Effort: Auto", so the level can be read without opening it.
 function toolbar(view, ui, on) {
   const l = view.levels;
   const chosen = l.options.find((o) => o.id === l.chosen)?.label || W.LEVEL_LABEL;
   const tool = (key, ico, label, open, props) => h('button', { class: `tool${open ? ' open' : ''}`, 'data-key': key, ...props },
     h('span', { class: 'toolicon' }, icon(ico)), h('span', { class: 'toolname', text: label }));
-  // open, just "Effort": the level chosen shows below
-  const effort = ui.levelOpen ? W.LEVEL_LABEL : `${W.LEVEL_LABEL}: ${chosen}`;
+  // open, just "Effort": the level chosen shows in the middle
+  const effort = ui.screen === 'effort' ? W.LEVEL_LABEL : `${W.LEVEL_LABEL}: ${chosen}`;
   const count = view.held.count ? h('span', { class: 'badge', 'aria-hidden': 'true', text: String(view.held.count) }) : null;
   const shield = tool('protected', 'shield', W.PROTECTED, ui.screen === 'protected', {
     'aria-current': ui.screen === 'protected' ? 'page' : null, 'aria-label': `${W.PROTECTED}, ${view.held.countText}`, onclick: on.openProtected,
@@ -260,15 +256,13 @@ function toolbar(view, ui, on) {
   if (count) shield.querySelector('.toolicon').append(count);
   return h('footer', { class: `bottom tone-${l.tone}` },
     h('nav', { class: 'tools', 'aria-label': W.NAME },
-      tool('level', 'gauge', effort, ui.levelOpen, {
-        'aria-expanded': ui.levelOpen ? 'true' : 'false', 'aria-controls': 'levels', 'aria-label': `${W.LEVEL_LABEL}: ${chosen}`, onclick: on.toggleLevel,
+      tool('effort', 'gauge', effort, ui.screen === 'effort', {
+        'aria-current': ui.screen === 'effort' ? 'page' : null, 'aria-label': `${W.LEVEL_LABEL}: ${chosen}`, onclick: on.openEffort,
       }),
       shield,
       tool('settings', 'gear', W.SETTINGS, ui.screen === 'settings', {
         'aria-current': ui.screen === 'settings' ? 'page' : null, onclick: on.openSettings,
-      })),
-    // drawn only when open; it slides only as it opens (ui.levelOpening), not on every redraw
-    ui.levelOpen ? levels(view, ui, on, ui.levelOpening) : null);
+      })));
 }
 
 function home(view, ui, on) {
@@ -330,9 +324,13 @@ function startScreen(view, ui, on) {
 
 // ---------- settings ----------
 
-// A tool's title. The way back is the pill in the band, or the tool again, as in Cool Head.
-function screenTitle(title) {
-  return h('div', { class: 'screenhead' }, h('h2', { text: title }));
+// A tool's title: its icon and name, and a close button, as Cool Head's tools have. The pill in the band, the band,
+// and the tool again go back home too.
+function screenTitle(title, ico, on) {
+  return h('div', { class: 'screenhead' },
+    h('span', { class: 'headicon', 'aria-hidden': 'true' }, icon(ico)),
+    h('h2', { text: title }),
+    h('button', { class: 'iconbtn', 'aria-label': W.CLOSE_TOOL, title: W.CLOSE_TOOL, 'data-key': 'close-tool', onclick: on.home }, icon('x')));
 }
 
 function radio(name, value, checked, title, why, onchange) {
@@ -344,21 +342,20 @@ function radio(name, value, checked, title, why, onchange) {
 function settingsScreen(view, ui, on) {
   const st = view.settings;
   const main = h('main', { class: 'middle', 'aria-label': W.SETTINGS },
-    screenTitle(W.SETTINGS),
+    screenTitle(W.SETTINGS, 'gear', on),
     h('section', { class: 'card', 'aria-labelledby': 'leave-h' },
       h('h2', { id: 'leave-h', text: W.LEAVE_TITLE }),
       h('div', { role: 'radiogroup', 'aria-labelledby': 'leave-h', style: 'margin-top:6px' },
         radio('leave', 30000, st.leaveDelayMs === 30000, W.LEAVE_30, W.LEAVE_30_WHY, () => on.leaveDelay(30000)),
         radio('leave', 0, st.leaveDelayMs === 0, W.LEAVE_0, W.LEAVE_0_WHY, () => on.leaveDelay(0))),
       h('p', { class: 'note', text: W.LEAVE_NOTE })),
-    h('section', { class: 'card', 'aria-labelledby': 'rest-h' },
-      h('h2', { id: 'rest-h', text: W.REST_TITLE }),
+    // set and forget: what keeps tabs with typing or on a call awake, which needs Chrome's access to every site
+    h('section', { class: 'card', 'aria-labelledby': 'sites-h' },
+      h('h2', { id: 'sites-h', text: W.SITES_TITLE }),
       h('label', { class: 'choice' },
-        h('input', { type: 'checkbox', checked: st.restEnabled, 'data-key': 'rest-on', onchange: (e) => on.restEnabled(e.target.checked) }),
-        h('span', {}, h('b', { text: W.REST_TOGGLE }), h('span', { class: 'why', text: W.REST_WHY }))),
-      st.managementGranted ? null : h('p', { class: 'note', text: W.REST_NEEDS }),
-      st.restingText ? h('p', { class: 'note', text: st.restingText }) : null,
-      h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'safe', onclick: on.openProtected }, W.REST_SET_UP))),
+        h('input', { type: 'checkbox', checked: st.sitesGranted, 'data-key': 'sites', onchange: (e) => on.sites(e.target.checked) }),
+        h('span', {}, h('b', { text: W.SITES_TOGGLE }), h('span', { class: 'why', text: W.SITES_TOGGLE_WHY }))),
+      st.sitesGranted ? null : h('p', { class: 'note', text: W.SITES_ASKS })),
     h('section', { class: 'card', 'aria-labelledby': 'about-h' },
       h('h2', { id: 'about-h', text: W.ABOUT_TITLE }),
       h('p', { text: st.about })));
@@ -378,7 +375,7 @@ function extRow(e, toOn, on) {
 // ---------- the whole popup ----------
 
 export function render(root, view, ui, on) {
-  const screens = { home, start: startScreen, settings: settingsScreen, protected: protectedScreen };
+  const screens = { home, start: startScreen, settings: settingsScreen, protected: protectedScreen, effort: effortScreen };
   const parts = (screens[ui.screen] || home)(view, ui, on);
   // Keep the person's place: the focused control and the scroll position survive a redraw.
   const focusKey = document.activeElement?.dataset?.key;

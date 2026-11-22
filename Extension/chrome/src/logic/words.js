@@ -133,8 +133,8 @@ export function backTo({ suggestions = 0, session = false } = {}) {
   if (suggestions > 0) return plural(suggestions, 'suggestion');
   return session ? 'Your session' : 'Start a session';
 }
-export const PROTECTED_LEDE = "These tabs stay awake, so they hold memory. Each says why; choose what happens to it.";
-export const PROTECTED_EMPTY = 'No tabs are protected right now. A tab playing sound, on a call, with unsent typing, pinned, or kept by you would show here.';
+export const PROTECTED_LEDE = 'Each stays awake for the reason shown.';
+export const PROTECTED_EMPTY = 'None right now. Tabs on a call, playing sound, pinned, with unsent typing, or kept by you show here.';
 export const REASON_TEXT = {
   call: 'On a call',
   screen: 'Sharing your screen',
@@ -282,23 +282,28 @@ export const SETTINGS = 'Settings';
 export const BACK = 'Back';
 export const LEAVE_TITLE = 'How soon a tab you leave sleeps';
 export const LEAVE_30 = '30 seconds after you leave';
-export const LEAVE_30_WHY = 'Going back and forth within half a minute never reloads.';
+export const LEAVE_30_WHY = 'No reload if you come back quickly.';
 export const LEAVE_0 = 'As soon as you leave';
-export const LEAVE_0_WHY = 'Frees memory sooner, but a tab you go back to reloads.';
-export const LEAVE_NOTE = 'Applies to Light, Balanced, and Focus.';
+export const LEAVE_0_WHY = 'Frees memory sooner.';
+export const LEAVE_NOTE = 'For Light, Balanced, and Focus.';
 
-export const SITES_TITLE = 'Unsent typing and calls';
+export const SITES_TITLE = 'Typing and calls';
 export const SITES_ON = "On: tabs with unsent typing, or using the camera, microphone, or screen sharing, don't sleep on their own, so you don't lose what you typed or drop out of a call.";
 export const SITES_OFF = 'Off: a tab with unsent typing can sleep, and what you typed is lost when it reloads. A call that has been quiet for 10 minutes can sleep too, which ends it.';
 export const SITES_HOW = 'Turning it on lets Cool Head for Chrome check, on each site, whether a text box has been typed in and whether the camera, microphone, or screen sharing is on. It never reads what you type, and nothing leaves your computer. Chrome will ask you to allow it to "read and change all your data on all websites", which is how Chrome words any access to every site.';
+export const SITES_TOGGLE = 'Keep tabs with unsent typing or a call awake';
+export const SITES_TOGGLE_WHY = 'Checks each site for typing and calls; never reads what you type.';
+export const SITES_ASKS = 'Chrome will ask to "read and change all your data on all websites", its words for any access to every site.';
+export const CLOSE_TOOL = 'Close';
 export const SITES_ON_HOW = 'To notice them, it checks each site for a text box with typing in it and for the camera, microphone, or screen sharing. It never reads what you type, and nothing leaves your computer.';
 export const TURN_ON = 'Turn on';
 export const TURN_OFF = 'Turn off';
 
 export const REST_TITLE = 'Pause extensions';
-export const REST_TOGGLE = 'Pause extensions during a session and when memory is very tight';
-export const REST_WHY = "Extensions that aren't protected turn off, and back on when the session ends or memory clears. Pausing one closes its open pages and stops what it is doing until then.";
-export const REST_NEEDS = 'Chrome asks you to allow "Manage your apps, extensions, and themes" the first time, since that is what pausing extensions needs.';
+export const REST_TOGGLE = 'Pause extensions when memory is very tight or a session runs';
+export const REST_WHY = 'They turn back on afterward. Pausing one closes its open pages.';
+export const REST_NEEDS = 'Chrome asks you to allow this once.';
+export const PAUSE_REFUSED = "Pausing extensions stays off, since Chrome's permission wasn't given.";
 export const REST_SET_UP = 'Choose which stay on';
 export const SAFE_TITLE = 'Extensions';
 export const SAFE_LEDE = "Pausing turns an extension off until the session ends or memory clears, which closes its pages and stops what it's doing. So password managers, blockers, VPNs, and security tools start as Always on: pausing them would lock your passwords, let ads and trackers through, or drop your VPN.";
@@ -308,7 +313,7 @@ export const MOVE_TO_REST = 'Let it pause';
 export const MOVE_TO_ON = 'Keep on';
 export const SAFE_ADMIN = 'Installed by your organization, so Chrome keeps it on.';
 export const SAFE_DONE = 'Done';
-export const SAFE_EMPTY = 'You have no other extensions, so there is nothing to pause.';
+export const SAFE_EMPTY = 'You have no other extensions to pause.';
 export const EXT_WHY = {
   admin: 'Installed by your organization',
   password: 'Password manager',

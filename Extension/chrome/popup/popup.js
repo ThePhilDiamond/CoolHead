@@ -10,9 +10,7 @@ const ALL_SITES = { origins: ['<all_urls>'] };
 
 const ui = {
   screen: 'home',
-  levelOpen: false, // the effort choices, opened from their tool in the bottom bar
-  levelOpening: false,
-  levelSet: null, // the level just chosen, said on its row until the drawer closes
+  levelSet: null, // the level just chosen, said on its row until Effort goes back home
   confirm: null,
   ending: false,
   groupName: null,
@@ -74,7 +72,7 @@ async function loadSafe() {
 async function openSafe() {
   // Chrome's "Manage your apps, extensions, and themes" permission is asked for only here, when first used.
   const granted = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
-  if (!granted) { announce(W.REST_NEEDS); return; }
+  if (!granted) { announce(W.PAUSE_REFUSED); return; }
   view = await ask({ type: 'view' });
   await loadSafe();
   ui.screen = 'protected';
@@ -93,7 +91,7 @@ const on = {
   openSettings() { openTool('settings').catch(console.error); },
   openProtected() { openTool('protected').catch(console.error); },
   // The effort choices slide down as they open; later redraws draw them still.
-  toggleLevel() { clearTimeout(closeLevels); ui.levelSet = null; ui.levelOpen = !ui.levelOpen; ui.levelOpening = ui.levelOpen; draw(); ui.levelOpening = false; },
+  openEffort() { clearTimeout(closeLevels); ui.levelSet = null; openTool('effort').catch(console.error); },
   // Back home from a tool, by the band's pill, the band, or the open tool again; focus goes to the tool that was open.
   home() {
     const from = ui.screen;
@@ -103,8 +101,8 @@ const on = {
     draw();
     root.querySelector(`[data-key="${from}"]`)?.focus({ preventScroll: true });
   },
-  // A click sets the level at once; its row says so, and a moment later the drawer closes, focus going back to the
-  // Effort tool if it was in the drawer. Choosing the level already set just closes it the same way.
+  // A click sets the level at once; its row says so, and a moment later Effort goes back home, focus going to the
+  // Effort tool. Choosing the level already set goes back the same way.
   async level(id) {
     clearTimeout(closeLevels);
     if (id !== view.levels.chosen) {
@@ -115,11 +113,7 @@ const on = {
     draw();
     closeLevels = setTimeout(() => {
       ui.levelSet = null;
-      if (!ui.levelOpen) return;
-      const inDrawer = Boolean(document.activeElement?.closest('#levels'));
-      ui.levelOpen = false;
-      draw();
-      if (inDrawer) root.querySelector('[data-key="level"]')?.focus({ preventScroll: true });
+      if (ui.screen === 'effort') on.home(); else draw();
     }, 1500);
   },
   keep(tabId, keep) { ui.confirm = null; act({ action: 'keep', tabId, on: keep }); },
@@ -171,7 +165,7 @@ const on = {
     if (turnOn) {
       // Chrome shows its own question; the worker also hears of the answer if this popup closes meanwhile.
       const granted = await chrome.permissions.request(ALL_SITES).catch(() => false);
-      if (!granted) { announce(W.SETUP_REFUSED); return; }
+      if (!granted) { announce(W.SETUP_REFUSED); draw(); return; }
     }
     await act({ action: 'sites', on: turnOn });
   },
@@ -180,8 +174,10 @@ const on = {
     await act({ action: 'restEnabled', on: turnOn });
     if (turnOn && !view.settings.managementGranted) {
       const granted = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
-      if (!granted) { await act({ action: 'restEnabled', on: false }); announce(W.REST_NEEDS); }
+      if (!granted) { await act({ action: 'restEnabled', on: false }); announce(W.PAUSE_REFUSED); return; }
     }
+    // Protected's lists appear under the switch once pausing is on and allowed.
+    if (ui.screen === 'protected') { view = await ask({ type: 'view' }); await loadSafe(); draw(); }
   },
   async openSafe() { await openSafe(); draw(); },
   async safeMove(id, toAlwaysOn) {
@@ -209,7 +205,7 @@ let pending = null;
 function soon() {
   clearTimeout(pending);
   // Not while the group name is being typed: a redraw would move the caret and break input methods.
-  pending = setTimeout(() => { if ((ui.screen === 'home' && !ui.ending) || ui.screen === 'settings' || ui.screen === 'protected') refresh().catch(console.error); }, 200);
+  pending = setTimeout(() => { if ((ui.screen === 'home' && !ui.ending) || ['settings', 'protected', 'effort'].includes(ui.screen)) refresh().catch(console.error); }, 200);
 }
 chrome.storage.onChanged.addListener(soon);
 for (const ev of [chrome.tabs.onUpdated, chrome.tabs.onRemoved, chrome.tabs.onCreated, chrome.tabs.onActivated]) ev.addListener(soon);

@@ -15,7 +15,7 @@
   --group: light-dark(#EBEBEB, #3A3A3A);
   --chip: light-dark(#ECECEC, #3D3D3D);
   --accent: light-dark(#1769D1, #4A9EFF);        /* Cool Head blue: text, icons, focus, and fills */
-  --accent-soft: light-dark(#E8F0FB, #1C2B3F);   /* blue at about 10%: a chosen segment, the session card */
+  --accent-soft: light-dark(#E8F0FB, #1C2B3F);   /* blue at about 10%: the chosen level, the session card */
   --on-accent: light-dark(#FFFFFF, #1A1A1A);     /* white on blue in light, near-black on blue in dark */
   --danger: light-dark(#B3261E, #FF8A80);        /* Close, and the warning */
   --linked: light-dark(#1E7A35, #5FD283);        /* the working-together icon */
@@ -136,10 +136,14 @@ button { font: inherit; color: inherit; }
 .sub { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; color: var(--muted); margin: 4px 0 2px; text-transform: uppercase; }
 .more { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 6px; border: 0; background: transparent; color: var(--accent); font-weight: 600; font-size: 13px; cursor: pointer; }
 .screenhead { display: flex; align-items: center; gap: 8px; }
+.screenhead .headicon { display: inline-flex; color: var(--accent); }
+.screenhead .headicon .ico { width: 18px; height: 18px; }
+.screenhead .iconbtn { margin-right: -6px; }
+.levelrows { margin-top: 10px; }
 .screenhead h2 { flex: 1; font-size: 15px; margin: 0; }
 
 /* the bottom bar, with the same wash as the top, as in the app: each tool is an icon over its name; the open one is
-   white on Cool Head blue. The level's choices open above the tools. */
+   white on Cool Head blue. */
 .bottom { border-top: 1px solid var(--edge); padding: 6px 10px 8px; }
 .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .tool { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 48px; padding: 6px 4px 5px; border: 0; border-radius: 9px; background: transparent; color: var(--text); font: 12px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; cursor: pointer; }
@@ -149,7 +153,6 @@ button { font: inherit; color: inherit; }
 .tool.open { background: var(--tool-open); color: #FFFFFF; }
 .badge { position: absolute; top: -5px; right: -11px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
 .tool.open .badge { background: #FFFFFF; color: var(--tool-open); }
-.levels { padding: 12px 6px 6px; margin-top: 6px; border-top: 1px solid var(--edge); }
 /* the effort choices: a row each, its name and what it does; the chosen one in Cool Head blue's wash, with a check */
 .levelrows { display: flex; flex-direction: column; gap: 4px; }
 .levelrow { display: flex; gap: 8px; align-items: flex-start; width: 100%; padding: 7px 10px 8px 6px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text); text-align: left; font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; cursor: pointer; }
@@ -162,12 +165,6 @@ button { font: inherit; color: inherit; }
 .levelname { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .setnow { font-size: 12px; font-weight: 600; color: var(--accent); }
 .levelrow .why { font-size: 12px; color: var(--muted); }
-.sites { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--card); }
-.sites h4 { margin: 0 0 4px; font-size: 13px; }
-.sites p { margin: 4px 0 0; }
-/* the effort choices slide down from their tool as they open */
-.levels.opening { animation: drop 160ms ease-out; }
-@keyframes drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
 /* with a tool open, a pill under the band's title goes back home, as in Cool Head; the whole band goes back too */
 .band.goes-home { cursor: pointer; }
@@ -179,13 +176,6 @@ button { font: inherit; color: inherit; }
 .parthead { display: flex; align-items: baseline; gap: 8px; margin: 18px 0 4px; padding-top: 12px; border-top: 1px solid var(--edge); font-size: 13px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; }
 .part:first-of-type .parthead { margin-top: 8px; padding-top: 0; border-top: 0; }
 .parthead .count { font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
-.bottom .label { font-size: 12px; font-weight: 700; letter-spacing: 0.5px; margin: 0 0 8px; text-transform: uppercase; }
-.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
-.seg button { min-height: 32px; border: 1px solid var(--control); border-radius: 7px; background: var(--fill); color: var(--text); font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; }
-.seg button[aria-checked="true"] { background: var(--accent-soft); border: 2px solid var(--accent); font-weight: 700; }
-.seg button[aria-checked="true"] .ico { color: var(--accent); width: 13px; height: 13px; stroke-width: 2.4; }
-.seg button[aria-disabled="true"] { color: var(--muted); border-style: dashed; cursor: default; }
-.bottom .what { margin: 8px 0 0; font-size: 12px; color: var(--text); }
 .pinned { border-top: 1px solid var(--edge); padding: 12px 16px 14px; background: var(--bg); }
 .pinned .note { margin-top: 6px; }
 

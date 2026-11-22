@@ -54,7 +54,7 @@ const s = {
 };
 
 const ui = {
-  screen: 'home', levelOpen: false, confirm: null, ending: false, groupName: null, start: null,
+  screen: 'home', levelSet: null, confirm: null, ending: false, groupName: null, start: null,
   ticked: new Set(), windowOnly: false, beforeWindowOnly: null, showAllOthers: false, safe: null,
 };
 
@@ -71,9 +71,9 @@ if (screen === 'alone') {
   s.link = { status: 'notInstalled', app: '', state: null, stateAt: null, attemptAt: null };
   s.level = 'balanced';
 }
-const protectedScreen = ['held', 'confirm', 'protected-ext', 'protected-sites'].includes(screen);
+const protectedScreen = ['held', 'confirm', 'protected-ext'].includes(screen);
 if (protectedScreen) { ui.screen = 'protected'; s.restEnabled = true; }
-if (screen === 'levels' || screen === 'levels-set') ui.levelOpen = true;
+if (screen === 'levels' || screen === 'levels-set') ui.screen = 'effort';
 if (screen === 'levels-set') ui.levelSet = 'auto';
 if (screen === 'confirm') ui.confirm = { tabId: form.id, action: 'close' };
 
@@ -103,8 +103,8 @@ const root = document.getElementById('app');
 render(root, view, ui, on);
 
 if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
-if (screen === 'protected-ext' || screen === 'protected-sites') {
+if (screen === 'protected-ext') {
   const main = root.querySelector('main');
-  main.scrollTop = root.querySelector(screen === 'protected-ext' ? '#p-ext-part' : '.sites').offsetTop - main.offsetTop - 6;
+  main.scrollTop = root.querySelector('#p-ext-part').offsetTop - main.offsetTop - 6;
 }
 document.body.dataset.ready = 'yes';

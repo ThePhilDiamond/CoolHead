@@ -18,7 +18,7 @@ for theme in light dark; do
   shot "home-$theme" home "$theme"
   shot "start-session-$theme" start "$theme"
   shot "protected-$theme" held "$theme"
-  shot "level-open-$theme" levels "$theme"
+  shot "effort-$theme" levels "$theme"
 done
 shot "held-asks-once-light" confirm light
 shot "session-ending-light" ending light
