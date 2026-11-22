@@ -985,8 +985,7 @@ struct WelcomeCard: View {
             IconStylePicker(style: $iconStyle)
                 .onChange(of: iconStyle) { NotificationCenter.default.post(name: MenuIcon.changed, object: nil) }
             SettingSwitch(title: "Open at login", detail: nil, on: Binding(get: { login }, set: { LoginItem.set($0); login = LoginItem.on }))
-            // offered at the start to people who use Chrome (Phil, 21 November 2026: "We should add the extension as a
-            // suggestion on install")
+            // offered at the start to people who use Chrome, so they find the extension while setting up Cool Head
             if ChromeCompanion.status == .notInstalled { CompanionRow() }
             Text("Click the snowflake to open. Change these and more any time with the gear below.")
                 .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
@@ -1871,8 +1870,7 @@ struct FixRow: View {
     var recommended: Bool { fix.kind == .cooler && cooled ? false : fix.recommended }
     var title: String { fix.kind == .cooler && cooled ? "Back to full speed" : fix.title }
     /// The recommended option Cool Head does itself, filled with blue: its text at full strength, since dimmed white on
-    /// blue measured 4.0:1, under the 4.5:1 text needs (Phil, 21 November 2026: "I find the text on the blue a bit harder
-    /// to read. Can we measure the contrast and find a way to make it as easy to read as possible?").
+    /// blue measured 4.0:1, under the 4.5:1 text needs.
     var filledTile: Bool { recommended && fix.doer == .coolHead }
     var line: String { fix.kind == .cooler && cooled ? "Runs at normal speed again." : fix.consequence }
 
@@ -2117,16 +2115,13 @@ enum Ink {
     /// Main text.
     static let text = Color.primary
     /// Cool Head blue, its own color on every Mac and in its Chrome extension, rather than the Mac's accent color, which
-    /// is blue, orange, or another on each Mac and which Chrome hides from extensions (Phil, 21 November 2026: "set and
-    /// stick to Cool Head blue with brand guidelines, fonts, etc. for consistent experience across platforms", then
-    /// "Cool Head blue"). Light #1769D1, white text on it 5.3:1 and as text on the panel 4.9:1; dark #4A9EFF, near-black
+    /// is blue, orange, or another on each Mac and which Chrome hides from extensions, so Cool Head looks the same on
+    /// every computer. Light #1769D1, white text on it 5.3:1 and as text on the panel 4.9:1; dark #4A9EFF, near-black
     /// text on it 7.6:1 and as text 6.1:1. A blue also keeps "do this" apart from the yellow, orange, and red that say
     /// "watch out". See docs/BRAND.md.
     static let accent = dynamic(0x1769D1, 0x4A9EFF)
     /// Blue behind text (the recommended option, the Recommended pill): one deep blue with white text in light and dark,
-    /// 7.4:1, the stricter AAA level, where the accent with dimmed text measured 4.0:1 (Phil, 21 November 2026: "I find
-    /// the text on the blue a bit harder to read. Can we measure the contrast and find a way to make it as easy to read as
-    /// possible?", then, of the renders, "Deep blue, white text").
+    /// 7.4:1, the stricter AAA level, where the accent with dimmed text measured 4.0:1 and was harder to read.
     static let fill = Color(nsColor: rgb(0x0F52AD))
     static let onFill = Color.white
     /// On a dark card the deep blue stands apart only 1.9:1, so it gets an edge in the accent there (5.1:1).
