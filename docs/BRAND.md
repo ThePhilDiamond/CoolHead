@@ -31,8 +31,8 @@ The system font everywhere, so each feels native: SF Pro on the Mac (SwiftUI's d
 
 ## Icons
 
-- The app's icon: a smiling face with snowflakes on Cool Head blue (docs/images/logo.png).
-- The menu bar: a snowflake, with a status badge or melting as it warms (docs/images/menu-icons.png).
+- The app's icon: the menu bar's melting snowflake, in white on Cool Head blue, its drops and puddle a paler white so the flake leads (docs/images/logo.png, drawn by scripts/make-icon.swift). It replaced a smiling face with snowflakes on 21 November 2026, so the app icon and the menu bar are one family (Phil, 21 November 2026: "I lean toward Melting snowflake for the icon with the badge on that for the shapes and colors badges menu icon option."; then "For the icon the quiet puddle is nice, but in the menu it's harder to see so we should keep the current design in the menu for greater contrast/visibility."; then "For the app icon keep the larger droplets and puddle size, but render the droplets and the puddle in the color of the "quiet puddle" which is more subtle").
+- The menu bar, in two styles (docs/images/menu-icons.png): the Status badge, one melting snowflake with ice-blue drops and puddle, the same at every level, with a green circle, yellow triangle, or red octagon; and the Melting Snowflake, whole, melting, or in flames. The menu bar keeps the bolder ice-blue drops, which show better at its size than the app icon's pale ones.
 - Inside the app: SF Symbols, in the text color or Cool Head blue. Two arrows in a circle mean Cool Head and its Chrome extension are working together, wherever that shows.
 
 ## Voice
