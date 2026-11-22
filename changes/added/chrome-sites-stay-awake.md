@@ -1,1 +1,0 @@
-- Cool Head for Chrome can keep every tab from a site awake, from Protected or the right-click menu, and Protected lists those sites with Remove.

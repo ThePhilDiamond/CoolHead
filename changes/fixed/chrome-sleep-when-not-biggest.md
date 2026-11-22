@@ -1,1 +1,0 @@
-- With Cool Head for Chrome linked, the memory card offers Sleep Chrome tabs you aren't looking at whenever Chrome is among the apps using the most memory, not only when it uses the most. It comes before Restart and Quit, since it closes nothing.

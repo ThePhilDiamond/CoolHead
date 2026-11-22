@@ -1,1 +1,0 @@
-- Cool Head for Chrome doesn't sleep tabs on its own while you're offline, since a sleeping tab can't reload until you're back; it's a setting, on by default, and a card says so when you're offline and memory is low.

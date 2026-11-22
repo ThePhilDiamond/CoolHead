@@ -6,6 +6,28 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.20.0] - 2026-11-22
+
+### Added
+
+- Run it cooler can now be every time: after it works, a card offers Every time, so an app is slowed whenever you aren't using it and is back to full speed the moment you switch to it, and a job or script is slowed whenever it runs. Rules are listed under Always cooler in Trusted, and Managed by Cool Head shows what they're slowing under Every time, with Speed up for now and Stop every time.
+- Cool Head for Chrome can take over tabs a tab suspender holds: each opens once and goes straight to sleep, one at a time, so the suspender can then be removed without losing them. It's offered when first found, with Do it later, and stays in Settings.
+- Cool Head for Chrome doesn't sleep tabs on its own while you're offline, since a sleeping tab can't reload until you're back; it's a setting, on by default, and a card says so when you're offline and memory is low.
+- Cool Head for Chrome can keep every tab from a site awake, from Protected or the right-click menu, and Protected lists those sites with Remove.
+- Cool Head for Chrome has keyboard shortcuts that put tabs to sleep: Command-Shift-S on a Mac and Ctrl+Shift+S elsewhere for the tab you're on, which gives way to the one you used before it, and one with no key until you choose it for the other tabs in the window. Settings shows the keys and opens Chrome's shortcuts page to change or remove them.
+
+### Changed
+
+- The open tool along the bottom is white on Cool Head's deep blue, easier to read than blue on pale blue; the top and bottom bars have a denser frost, so their text stays readable over a bright desktop; and a network test's rainbow shows while the Network tool is open too.
+- Cool Head for Chrome's menu has a bottom bar like Cool Head's, with Effort, Protected, and Settings, each opening in the middle with a pill back home. Protected holds tabs, sites, and extensions together, extensions pause rather than rest, typing and calls is a switch in Settings, and the text throughout is shorter.
+- A click anywhere on Nerdy stuff copies the details, and its terminal no longer shows a blinking cursor, since nothing can be typed there.
+
+### Fixed
+
+- Cool Head for Chrome's menu stays where you scrolled it. It jumped back to the top whenever a tab changed while it was open.
+- With Cool Head for Chrome linked, the memory card offers Sleep Chrome tabs you aren't looking at whenever Chrome is among the apps using the most memory, not only when it uses the most. It comes before Restart and Quit, since it closes nothing.
+- Cool Head for Chrome no longer pauses an extension that has tabs open on its own pages, such as tabs another extension has suspended, since Chrome would close those tabs.
+
 ## [0.19.0] - 2026-11-22
 
 ### Changed
@@ -439,7 +461,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.16.0...v0.17.0

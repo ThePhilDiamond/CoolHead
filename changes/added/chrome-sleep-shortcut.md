@@ -1,1 +1,0 @@
-- Cool Head for Chrome has keyboard shortcuts that put tabs to sleep: Command-Shift-S on a Mac and Ctrl+Shift+S elsewhere for the tab you're on, which gives way to the one you used before it, and one with no key until you choose it for the other tabs in the window. Settings shows the keys and opens Chrome's shortcuts page to change or remove them.
