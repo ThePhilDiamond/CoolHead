@@ -287,12 +287,12 @@ const A = [
       const v = await evaluate(cdp, sessionId, "document.querySelector('#app')?.innerText || ''");
       return v.includes('Start a session') ? v : null;
     });
-    assert.match(text, /How hard it works/i);
-    // Open Held in memory, then Settings, to draw the other screens.
-    await evaluate(cdp, sessionId, "document.querySelector('[data-key=held]').click()");
+    assert.match(text, /Effort/i);
+    // Open Protected, then Settings, to draw the other screens.
+    await evaluate(cdp, sessionId, "document.querySelector('[data-key=protected]').click()");
     await sleep(300);
     await evaluate(cdp, sessionId, "document.querySelector('[data-key=settings]').click()");
-    await waitFor('settings', async () => ((await evaluate(cdp, sessionId, "document.querySelector('#app').innerText")).includes('When you leave a tab') ? true : null));
+    await waitFor('settings', async () => ((await evaluate(cdp, sessionId, "document.querySelector('#app').innerText")).includes('How soon a tab you leave sleeps') ? true : null));
     const errors = cdp.events.filter((e) => e.sessionId === sessionId && (e.method === 'Runtime.exceptionThrown'
       || (e.method === 'Log.entryAdded' && e.params.entry.level === 'error')
       || (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error')));
@@ -366,7 +366,7 @@ const B = [
       return Object.values(s.media[callTab] || {}).some((x) => x.call) ? null : true;
     }, 15000);
   }],
-  ['rest extensions: a session turns off an extension not on the safe list, and ending it turns it back on', async ({ w }) => {
+  ['pausing extensions: a session turns off an extension not kept on, and ending it turns it back on', async ({ w }) => {
     const dummy = await waitFor('the second extension', async () => (await w('chrome.management.getAll()')).find((e) => e.name === 'Test helper extension'));
     assert.equal(dummy.enabled, true);
     const cols = await w(`chrome.management.getAll().then((all) => all.filter((e) => e.id !== chrome.runtime.id).map((e) => e.name))`);
