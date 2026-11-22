@@ -838,6 +838,12 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.20.0": [
+            "Run it cooler can be every time: an app is slowed whenever you aren't using it and is back to full speed when you switch to it. Rules are under Always cooler in Trusted.",
+            "The open tool along the bottom is white on Cool Head's deep blue, and the top and bottom bars stay readable over a bright desktop.",
+            "Chrome's memory card offers to sleep tabs you aren't looking at whenever Chrome is among the apps using the most memory.",
+            "Cool Head for Chrome's next update has a bottom bar like Cool Head's, sleep shortcuts, sites that stay awake, and a way to take over a tab suspender's tabs.",
+        ],
         "0.19.0": [
             "Explore fixes and Show less are in Cool Head blue, like every link, and a network test shows a small neon rainbow while it runs.",
             "The panel no longer stays wider than its content after a long section closes.",

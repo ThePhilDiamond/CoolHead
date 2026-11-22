@@ -1,1 +1,0 @@
-- A click anywhere on Nerdy stuff copies the details, and its terminal no longer shows a blinking cursor, since nothing can be typed there.
