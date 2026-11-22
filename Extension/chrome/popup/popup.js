@@ -54,6 +54,9 @@ async function refresh() {
       ui.screen = 'safe';
     } else ui.screen = 'settings';
   }
+  // Nothing the popup shows has changed (a tab finished loading, the worker saved its own bookkeeping): no redraw,
+  // so nothing moves under the person's pointer.
+  if (before && !view.openScreen && JSON.stringify(before) === JSON.stringify(view)) return;
   draw();
 }
 
@@ -166,11 +169,17 @@ function tryRisky(row, action) {
 }
 
 // Redraw when tabs or state change while the popup is open, at most every 200 ms.
+// Not while the person is scrolling either: replacing the list mid-scroll stops it; the redraw waits for a pause.
 let pending = null;
+let scrolledAt = 0;
+document.addEventListener('scroll', () => { scrolledAt = Date.now(); }, { capture: true, passive: true });
 function soon() {
   clearTimeout(pending);
-  // Not while the group name is being typed: a redraw would move the caret and break input methods.
-  pending = setTimeout(() => { if ((ui.screen === 'home' && !ui.ending) || ui.screen === 'settings') refresh().catch(console.error); }, 200);
+  pending = setTimeout(() => {
+    if (Date.now() - scrolledAt < 400) { soon(); return; }
+    // Not while the group name is being typed: a redraw would move the caret and break input methods.
+    if ((ui.screen === 'home' && !ui.ending) || ui.screen === 'settings') refresh().catch(console.error);
+  }, 200);
 }
 chrome.storage.onChanged.addListener(soon);
 for (const ev of [chrome.tabs.onUpdated, chrome.tabs.onRemoved, chrome.tabs.onCreated, chrome.tabs.onActivated]) ev.addListener(soon);

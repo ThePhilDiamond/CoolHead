@@ -10,7 +10,21 @@ extension Fixture {
                                                  chrome: chromeParts(now, extGB: 1.6), companion: status), tabMemoryOn: false)
     }
 
+    /// A build using the most and Chrome second, as when a compiler runs beside a full browser.
+    static func companionBelowCard(_ now: Date, _ status: ChromeCompanion.Status) -> Card {
+        let build = MemGroup(key: "rustc", name: "rustc", kind: .job, bundle: nil, bytes: 5_700_000_000, count: 1)
+        let chrome = MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 3_800_000_000, count: 41)
+        return MemoryAdvice.card([build, chrome], mac: mac("warning", swappedMB: 843), now: now,
+                                 context: MemoryContext(slowed: true, week: PressureHistory.Week(count: 3, minutes: 40, chromeCount: 2),
+                                                        chrome: chromeParts(now, hiddenGB: 1.4), companion: status), tabMemoryOn: false)
+    }
+
     static func chromeCompanionChecks(_ now: Date) -> [(String, Bool, String)] {
+        let below = companionBelowCard(now, .connected)
+        let belowIDs = below.fixes.map(\.id)
+        let sleepFirst = (belowIDs.firstIndex(of: "sleep") ?? .max) < (belowIDs.firstIndex(of: "restart") ?? -1)
+            && (belowIDs.firstIndex(of: "restart") ?? .max) < (belowIDs.firstIndex(of: "quit2") ?? -1)
+        let belowOffered = companionBelowCard(now, .notInstalled).fixes.contains { $0.id == "companion" }
         let on = companionCard(now, .connected)
         let ids = on.fixes.map(\.id)
         let offered = companionCard(now, .notInstalled).fixes.contains { $0.id == "companion" }
@@ -70,11 +84,16 @@ extension Fixture {
                 ("chrome-link-memory-words", memoryWords == [.fine, .tight, .slowed, .veryTight], "\(memoryWords)"),
                 ("companion-one-click", on.recommended?.id == "sleep" && on.recommended?.consequence.hasPrefix("Frees about 2.1 GB.") == true
                  && !ids.contains("tabs") && ids.contains("duplicates") && on.fixes.first { $0.id == "extensions" }.map { if case .chromeCompanion = $0.kind { return true } else { return false } } == true
-                 && offered && notYet && noChrome, ids.joined(separator: " ") + "; offered \(offered), not after once \(notYet), not without Chrome \(noChrome)")]
+                 && offered && notYet && noChrome, ids.joined(separator: " ") + "; offered \(offered), not after once \(notYet), not without Chrome \(noChrome)"),
+                // Chrome second, behind a build: the extension's one click still comes, before Restart and Quit
+                ("companion-chrome-not-biggest", sleepFirst && below.recommended?.id == "sleep" && below.recommended?.title == "Sleep Chrome tabs you aren't looking at"
+                 && below.recommended?.consequence.hasPrefix("Frees about 1.4 GB.") == true && belowOffered && !belowIDs.contains("companion"),
+                 belowIDs.joined(separator: " ") + "; offered when not linked \(belowOffered)")]
     }
 
     static func chromeCompanionSamples(_ now: Date) -> [(String, Card)] {
-        [("memory-chrome-companion", companionCard(now, .connected)), ("memory-chrome-get-companion", companionCard(now, .notInstalled))]
+        [("memory-chrome-companion", companionCard(now, .connected)), ("memory-chrome-get-companion", companionCard(now, .notInstalled)),
+         ("memory-chrome-second-companion", companionBelowCard(now, .connected))]
     }
 }
 
