@@ -44,6 +44,7 @@ const s = {
   ...structuredClone(LOCAL_DEFAULTS),
   ...structuredClone(SESSION_DEFAULTS),
   level: 'auto',
+  keepSites: q.get('sites') ? q.get('sites').split(',') : [],
   use,
   asleep: asleep.map((t) => t.id),
   kept: [{ tabId: tracker.id, url: tracker.url, title: tracker.title, index: tracker.index, windowOrdinal: 0 }],
@@ -54,7 +55,7 @@ const s = {
 };
 
 const ui = {
-  screen: 'home', heldOpen: false, confirm: null, ending: false, groupName: null, start: null,
+  screen: 'home', levelSet: null, confirm: null, ending: false, groupName: null, start: null,
   ticked: new Set(), windowOnly: false, beforeWindowOnly: null, showAllOthers: false, safe: null,
 };
 
@@ -71,13 +72,16 @@ if (screen === 'alone') {
   s.link = { status: 'notInstalled', app: '', state: null, stateAt: null, attemptAt: null };
   s.level = 'balanced';
 }
-if (screen === 'held' || screen === 'confirm') ui.heldOpen = true;
+const protectedScreen = ['held', 'confirm', 'protected-ext'].includes(screen);
+if (protectedScreen) { ui.screen = 'protected'; s.restEnabled = true; }
+if (screen === 'levels' || screen === 'levels-set') ui.screen = 'effort';
+if (screen === 'levels-set') ui.levelSet = 'auto';
 if (screen === 'confirm') ui.confirm = { tabId: form.id, action: 'close' };
 
 const view = buildView({
   tabs: sessionTabs, s, now: NOW, focusedWindowId: 1, isMac: q.get('os') !== 'other',
   memInfo: { capacity: 16 * 1024 ** 3, availableCapacity: 2.5 * 1024 ** 3 }, version: '1.0.0',
-  sitesGranted: true, managementGranted: false,
+  sitesGranted: true, managementGranted: protectedScreen, shortcuts: { tab: q.get('key') || '', others: '' }, online: q.get('offline') !== '1',
 });
 
 if (screen === 'start') {
@@ -86,24 +90,32 @@ if (screen === 'start') {
   ui.ticked = new Set(ui.start.suggested);
 }
 if (screen === 'settings') ui.screen = 'settings';
-if (screen === 'safe') {
-  ui.screen = 'safe';
+// Moving a suspender's tabs (made-up suspender and counts): ?screen=migrate, migrate-running, migrate-done, home-later
+view.migrate = { count: 37, from: 'Tab Napper', later: false, running: false, done: 0, total: 0, result: null };
+if (screen === 'migrate') ui.screen = 'migrate';
+if (screen === 'migrate-running') { ui.screen = 'migrate'; Object.assign(view.migrate, { running: true, done: 12, total: 37 }); }
+if (screen === 'migrate-done') { ui.screen = 'migrate'; Object.assign(view.migrate, { count: 0, result: { moved: 36, failed: 1, removeId: 'x', removeName: 'Tab Napper' } }); }
+if (screen === 'home-later') ui.laterNote = true;
+if (protectedScreen) {
   const ext = (name, permissions = [], over = {}) => ({ id: name, name, type: 'extension', enabled: true, mayDisable: true, installType: 'normal', permissions, ...over });
   ui.safe = columns([
     ext('Vaultly Password Manager'), ext('Quiet Ad Blocker', ['declarativeNetRequest']), ext('Company sign-in', [], { installType: 'admin', mayDisable: false }),
-    ext('Writing helper'), ext('Coupon finder'), ext('Screenshot tool'), ext('Read later'),
-  ], null, 'self');
+    ext('Writing helper'), ext('Coupon finder'), ext('Screenshot tool'), ext('Read later'), ext('Tab napper'),
+  ], null, 'self', new Set(['Tab napper']));
 }
 
 const noop = () => {};
 const on = new Proxy({}, { get: () => noop });
 const root = document.getElementById('app');
 render(root, view, ui, on);
+// How tall the drawn popup is, for the store images (store/make-images.py)
+document.body.dataset.height = String(Math.ceil(root.getBoundingClientRect().bottom));
+// ?scroll=end, or a number of pixels, or the id of a part to show at the top
+{ const m = root.querySelector('main'); const v = q.get('scroll'); if (m && v) m.scrollTop = v === 'end' ? m.scrollHeight : /^\d+$/.test(v) ? Number(v) : (root.querySelector(`#${v}`)?.offsetTop ?? 0) - m.offsetTop; }
 
-if (screen === 'held' || screen === 'confirm') {
+if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
+if (screen === 'protected-ext') {
   const main = root.querySelector('main');
-  const head = root.querySelector('#held-h');
-  main.scrollTop = head.offsetTop - main.offsetTop - 6;
-  if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
+  main.scrollTop = root.querySelector('#p-ext-part').offsetTop - main.offsetTop - 6;
 }
 document.body.dataset.ready = 'yes';

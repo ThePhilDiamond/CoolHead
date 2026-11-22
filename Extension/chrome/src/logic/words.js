@@ -86,7 +86,15 @@ export const GET_COOL_HEAD_LABEL = 'Get Cool Head, opens its website in a new ta
 
 // ---- levels ----
 export const LEVEL_NAME = { auto: 'Auto', light: 'Light', balanced: 'Balanced', focus: 'Focus' };
-export const LEVEL_LABEL = 'How hard it works';
+export const LEVEL_LABEL = 'Effort';
+// One line each, under its name in the Effort choices.
+export const LEVEL_SHORT = {
+  auto: 'Tabs sleep only when Cool Head says memory is slowing your Mac.',
+  light: 'Your 5 most used tabs stay loaded; others sleep after you leave them.',
+  balanced: 'Your 3 most used tabs stay loaded; others sleep after you leave them.',
+  focus: "Only the tab you're on stays loaded; others sleep after you leave them.",
+};
+export function levelSetTo(level) { return `Set to ${LEVEL_NAME[level]}`; }
 
 function leaving(delayMs) {
   return delayMs > 0
@@ -115,9 +123,18 @@ export function levelLine(level, o = {}) {
 export const AUTO_NEEDS = 'Auto needs Cool Head, which knows when memory is short.';
 
 // ---- held in memory ----
-export const HELD_TITLE = 'Held in memory';
-export const HELD_LEDE = "These tabs don't sleep on their own, so they hold memory. Each says why; choose what happens to it.";
-export const HELD_EMPTY = 'No tabs are held right now. A tab playing sound, on a call, with unsent typing, pinned, or kept by you would show here.';
+export const PROTECTED = 'Protected';
+export const PROTECTED_TABS = 'Tabs';
+export const PAUSE_OFF = 'Pausing extensions is off, so they all stay on. Turn it on in Settings to choose which pause when memory is tight.';
+export const PAUSE_ALLOW = 'Allow';
+export const OPEN_SETTINGS = 'Open Settings';
+// The pill under the band's title that goes back home from a tool, saying what waits there, as Cool Head's does.
+export function backTo({ suggestions = 0, session = false } = {}) {
+  if (suggestions > 0) return plural(suggestions, 'suggestion');
+  return session ? 'Your session' : 'Start a session';
+}
+export const PROTECTED_LEDE = 'Each stays awake for the reason shown.';
+export const PROTECTED_EMPTY = 'None right now. Tabs on a call, playing sound, pinned, with unsent typing, or kept by you show here.';
 export const REASON_TEXT = {
   call: 'On a call',
   screen: 'Sharing your screen',
@@ -125,6 +142,7 @@ export const REASON_TEXT = {
   soundRecent: 'Played sound recently',
   typing: 'Unsent typing',
   kept: 'Kept by you',
+  site: 'Site kept awake',
   pinned: 'Pinned',
   session: 'In the session',
 };
@@ -202,7 +220,7 @@ export function startNote(sleepCount, stayLoaded, resting) {
       parts.push(`${head}: ${list([...counts].map(([reason, k]) => `${k} ${STAY_WHY[reason][k === 1 ? 0 : 1]}`), 9)}.`);
     }
   }
-  if (resting) parts.push('Extensions not on your safe list rest until it ends.');
+  if (resting) parts.push("Extensions that aren't protected pause until it ends.");
   return parts.join(' ');
 }
 // What keeps an unticked tab loaded, said of one tab and of several.
@@ -212,6 +230,7 @@ const STAY_WHY = {
   sound: ['is playing sound', 'are playing sound'],
   typing: ['has unsent typing', 'have unsent typing'],
   kept: ['is kept by you', 'are kept by you'],
+  site: ['is on a site you keep awake', 'are on sites you keep awake'],
   pinned: ['is pinned', 'are pinned'],
   active: ['is in front in another window', 'are in front in other windows'],
 };
@@ -251,8 +270,8 @@ export const DONE = {
   foldedGroups: (g, t) => (g === 0
     ? "No tab groups to fold: you've used each one today."
     : `Folded ${plural(g, 'tab group')} you haven't used today and put ${plural(t, 'tab')} in them to sleep.`),
-  rested: (n) => (n === 0 ? 'No extensions to turn off: the rest are on your safe list.' : `Turned off ${plural(n, 'extension')} until memory clears.`),
-  restNeedsYes: 'Cool Head for Chrome needs your yes before it can turn extensions off. Open it from the toolbar to allow that.',
+  rested: (n) => (n === 0 ? 'No extensions to pause: the rest are protected.' : `Paused ${plural(n, 'extension')} until memory clears.`),
+  restNeedsYes: 'Cool Head for Chrome needs your yes before it can pause extensions. Open it from the toolbar to allow that.',
   started: (n, s) => `Session started with ${plural(n, 'tab')}. ${s === 0 ? 'No other tabs needed to sleep.' : `${plural(s, 'other tab')} ${s === 1 ? 'is' : 'are'} asleep.`}`,
   ended: 'Session ended. Nothing reloaded.',
   saved: (n, name, already) => `Session ended. Saved ${plural(n, 'tab')} as ${quoted(name)}.${already > 0 ? ` ${plural(already, 'tab was', 'tabs were')} already in a group, so ${already === 1 ? 'it stays' : 'they stay'} there.` : ''}`,
@@ -263,34 +282,40 @@ export const DONE = {
 // ---- settings ----
 export const SETTINGS = 'Settings';
 export const BACK = 'Back';
-export const LEAVE_TITLE = 'When you leave a tab';
-export const LEAVE_30 = 'After 30 seconds';
-export const LEAVE_30_WHY = 'Going back and forth within half a minute never reloads.';
-export const LEAVE_0 = 'At once';
-export const LEAVE_0_WHY = 'Frees memory sooner, but a tab you go back to reloads.';
-export const LEAVE_NOTE = 'Applies to Light, Balanced, and Focus.';
+export const LEAVE_TITLE = 'How soon a tab you leave sleeps';
+export const LEAVE_30 = '30 seconds after you leave';
+export const LEAVE_30_WHY = 'No reload if you come back quickly.';
+export const LEAVE_0 = 'As soon as you leave';
+export const LEAVE_0_WHY = 'Frees memory sooner.';
+export const LEAVE_NOTE = 'For Light, Balanced, and Focus.';
 
-export const SITES_TITLE = 'Unsent typing and calls';
+export const SITES_TITLE = 'Typing and calls';
 export const SITES_ON = "On: tabs with unsent typing, or using the camera, microphone, or screen sharing, don't sleep on their own, so you don't lose what you typed or drop out of a call.";
 export const SITES_OFF = 'Off: a tab with unsent typing can sleep, and what you typed is lost when it reloads. A call that has been quiet for 10 minutes can sleep too, which ends it.';
 export const SITES_HOW = 'Turning it on lets Cool Head for Chrome check, on each site, whether a text box has been typed in and whether the camera, microphone, or screen sharing is on. It never reads what you type, and nothing leaves your computer. Chrome will ask you to allow it to "read and change all your data on all websites", which is how Chrome words any access to every site.';
+export const SITES_TOGGLE = 'Keep tabs with unsent typing or a call awake';
+export const SITES_TOGGLE_WHY = 'Checks each site for typing and calls; never reads what you type.';
+export const SITES_ASKS = 'Chrome will ask to "read and change all your data on all websites", its words for any access to every site.';
+export const CLOSE_TOOL = 'Close';
+export const SITES_ON_HOW = 'To notice them, it checks each site for a text box with typing in it and for the camera, microphone, or screen sharing. It never reads what you type, and nothing leaves your computer.';
 export const TURN_ON = 'Turn on';
 export const TURN_OFF = 'Turn off';
 
-export const REST_TITLE = 'Rest extensions';
-export const REST_TOGGLE = 'Rest extensions during a session and when memory is very tight';
-export const REST_WHY = 'Extensions not on your safe list turn off, and back on when the session ends or memory clears. Turning one off closes its open pages and stops what it is doing until then.';
-export const REST_NEEDS = 'Chrome asks you to allow "Manage your apps, extensions, and themes" the first time, since that is what turning extensions off needs.';
-export const REST_SET_UP = 'Choose the safe list';
-export const SAFE_TITLE = 'Your extensions safe list';
-export const SAFE_LEDE = "Resting turns an extension off until the session ends or memory clears, which closes its pages and stops what it's doing. So password managers, blockers, VPNs, and security tools start as Always on: resting them would lock your passwords, let ads and trackers through, or drop your VPN.";
+export const REST_TITLE = 'Pause extensions';
+export const REST_TOGGLE = 'Pause extensions when memory is very tight or a session runs';
+export const REST_WHY = 'They turn back on afterward. One with tabs open stays on.';
+export const REST_NEEDS = 'Chrome asks you to allow this once.';
+export const PAUSE_REFUSED = "Pausing extensions stays off, since Chrome's permission wasn't given.";
+export const REST_SET_UP = 'Choose which stay on';
+export const SAFE_TITLE = 'Extensions';
+export const SAFE_LEDE = "Pausing turns an extension off until the session ends or memory clears, which closes its pages and stops what it's doing. So password managers, blockers, VPNs, and security tools start as Always on: pausing them would lock your passwords, let ads and trackers through, or drop your VPN.";
 export const SAFE_ON = 'Always on';
-export const SAFE_REST = 'Rest when memory is tight';
-export const MOVE_TO_REST = 'Rest it';
+export const SAFE_REST = 'Pause when needed';
+export const MOVE_TO_REST = 'Let it pause';
 export const MOVE_TO_ON = 'Keep on';
 export const SAFE_ADMIN = 'Installed by your organization, so Chrome keeps it on.';
 export const SAFE_DONE = 'Done';
-export const SAFE_EMPTY = 'You have no other extensions, so there is nothing to rest.';
+export const SAFE_EMPTY = 'You have no other extensions to pause.';
 export const EXT_WHY = {
   admin: 'Installed by your organization',
   password: 'Password manager',
@@ -299,9 +324,33 @@ export const EXT_WHY = {
   security: 'Security tool',
   other: '',
 };
-export function restingNow(n) { return n === 0 ? '' : `${plural(n, 'extension is', 'extensions are')} resting now.`; }
+export function restingNow(n) { return n === 0 ? '' : `${plural(n, 'extension is', 'extensions are')} paused now.`; }
 
 export const ABOUT_TITLE = 'About';
+export const EXT_OPEN = 'Has tabs open, so it stays on';
+export const SHORTCUT_COMMAND = 'Put this tab to sleep';
+export const SHORTCUT_TITLE = 'Keyboard shortcut';
+export const SHORTCUT_WHAT = "The tab you're on gives way to the one you used before it. Other tabs keep their protections.";
+export const SHORTCUT_NONE = 'Not set';
+export const SHORTCUT_SET = 'Choose a key';
+export const SHORTCUT_CHANGE = 'Change or remove';
+export const SHORTCUT_PAGE = "Keys are set on Chrome's shortcuts page.";
+
+export const MIGRATE_TITLE = 'Move suspended tabs';
+export const MIGRATE_SETTINGS = 'Tabs from a tab suspender';
+export function migrateHead(n, name) { return `${plural(n, 'tab is', 'tabs are')} suspended by ${name || 'another extension'}`; }
+export const MIGRATE_HOW = 'Cool Head can take them over. Each opens once and goes straight to sleep, one at a time, so memory never jumps.';
+export const MIGRATE_WARN = 'Move them before you remove the suspender: removing it first closes these tabs.';
+export function migrateGo(n) { return `Move ${plural(n, 'tab')}`; }
+export const MIGRATE_LATER = 'Do it later';
+export const MIGRATE_LATER_NOTE = 'You can move your suspended tabs any time from Settings.';
+export function migrateProgress(done, total) { return `Moving ${done} of ${total}`; }
+export const MIGRATE_KEEP_GOING = 'You can close this; it keeps going.';
+export function migrateDone(n) { return `${plural(n, 'tab')} moved. Each is asleep and wakes when you click it.`; }
+export function migrateFailed(n) { return `${plural(n, "tab couldn't", "tabs couldn't")} be moved and ${n === 1 ? 'stays' : 'stay'} with the suspender.`; }
+export function migrateRemove(name) { return `Remove ${name || 'the suspender'} now, so it can't suspend them again.`; }
+export const MIGRATE_REMOVE = 'Remove it';
+export const MIGRATE_NOT_NOW = 'Not now';
 export function about(version) {
   return `Version ${version}. Free and open source under the AGPL. Nothing leaves your computer: no network use and no analytics.`;
 }
@@ -321,3 +370,20 @@ export const SETUP_NEXT = 'Open Cool Head for Chrome from the puzzle piece in th
 
 // ---- the right-click menu ----
 export const MENU_KEEP = 'Keep this tab loaded';
+export function menuSite(host) { return `Keep every ${host} tab loaded`; }
+
+export const SITES_PART = 'Sites';
+export const SITES_LEDE = 'Every tab from these sites stays awake.';
+export const SITES_NONE = 'None yet.';
+export function siteAdd(host) { return `Keep ${host} awake`; }
+export const SITE_REMOVE = 'Remove';
+
+export const OFFLINE_TITLE = 'Offline';
+export const OFFLINE_TOGGLE = "Don't sleep tabs while you're offline";
+export const OFFLINE_WHY = "A sleeping tab can't reload until you're back online.";
+export const OFFLINE_CARD_TITLE = "You're offline, so tabs aren't sleeping";
+export const OFFLINE_CARD_LINE = "Memory is low. Sleeping tabs would free it, but they couldn't reload until you're back online. You can let them sleep anyway in Settings.";
+export const OFFLINE_CARD_BUTTON = 'Open Settings';
+
+export const SHORTCUT_THIS = 'This tab';
+export const SHORTCUT_OTHERS = 'Other tabs in this window';

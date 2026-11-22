@@ -13,15 +13,18 @@ Run `scripts/package-extension.sh`. It builds `build/cool-head-for-chrome-1.0.0.
 **Description:**
 
 ```
-Cool Head for Chrome puts tabs you aren't using to sleep and temporarily turns off extensions you don't need, so Chrome holds less memory and your computer stays quick. A sleeping tab stays in your tab bar and reloads when you click it. A resting extension isn't removed: it's switched off for a while and comes back on by itself. Nothing closes unless you choose.
+Cool Head for Chrome puts tabs you aren't using to sleep and can pause extensions you don't need, so Chrome holds less memory and your computer stays quick. A sleeping tab stays in your tab bar and reloads when you click it. A paused extension isn't removed: it's switched off for a while and comes back on by itself. Nothing closes unless you choose.
 
 What it does
-• Sleeps tabs once you leave them. You choose how hard it works: Light keeps your 5 most used tabs loaded, Balanced your 3, and Focus only the tab you're on.
-• Keeps what matters awake: calls, sound, unsent typing, pinned tabs, and any tab you mark Keep.
-• Shows each tab it's keeping loaded and why, so you can keep it, sleep it, or close it.
+• Sleeps tabs once you leave them. Effort sets how many stay loaded: Light keeps your 5 most used tabs, Balanced your 3, and Focus only the tab you're on.
+• Keeps what matters awake: calls, sound, unsent typing, pinned tabs, any tab you keep, and every tab from a site you choose.
+• Protected shows each tab it's keeping loaded and why, so you can keep it, sleep it, or close it.
 • Start a session: tick the tabs a task needs, like a meeting or a project, and the rest sleep until you want them back. When it ends, you can save its tabs as a tab group.
+• Keyboard shortcuts: Command-Shift-S (Ctrl+Shift+S on Windows and Linux) sleeps the tab you're on, and another can sleep the rest of the window.
+• Doesn't sleep tabs while you're offline, when they couldn't reload, unless you choose otherwise.
+• Moving from another tab suspender: its tabs move over one at a time, each asleep at its real address, so you can remove the suspender without losing them.
 • Finds pages open twice and closes the extra copy, keeping the one you used last.
-• Temporarily turns off extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. They give back their memory without you removing anything or remembering to switch them on again. Password managers, ad blockers, VPNs, and security tools stay on, and you choose the rest. It's off until you turn it on.
+• Pauses extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. Password managers, ad blockers, VPNs, and security tools stay on, and you choose the rest. It's off until you turn it on.
 
 Works on its own, or with Cool Head
 Cool Head is a free Mac app that keeps an eye on your Mac's memory, heat, and battery. Linked to it, the extension's Auto level puts tabs to sleep only when memory is actually short, so they reload less, and Cool Head's advice can act in Chrome with one click. Without it, the extension works on its own at the level you choose.
@@ -36,7 +39,7 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 
 **Graphic assets:**
 - Store icon, 128 by 128: `Extension/chrome/icons/icon128.png`, the melting snowflake, the same as the package's.
-- Screenshots, 1280 by 800, in this order: `1-tabs.png`, `2-extensions.png`, `3-held.png`, `4-session.png`, `5-alone.png`.
+- Screenshots, 1280 by 800, in this order: `1-tabs.png`, `2-extensions.png`, `3-protected.png`, `4-session.png`, `5-alone.png`.
 - Small promo tile, 440 by 280: `promo-tile.png`.
 - Marquee promo tile, 1400 by 560: `marquee-tile.png`.
 
@@ -48,23 +51,23 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 **Single purpose:**
 
 ```
-Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep and, if the user turns it on, temporarily turns off extensions they don't need, while keeping awake what they need: calls, sound, unsent typing, and the tabs and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, closing duplicate tabs, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
+Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep and, if the user turns it on, temporarily pauses extensions they don't need, while keeping awake what they need: calls, sound, unsent typing, and the tabs, sites, and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, keyboard shortcuts to sleep tabs, closing duplicate tabs, moving tabs held by another tab suspender so they can sleep natively, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
 ```
 
 **Permission justifications:**
 
 | Permission | Justification to paste |
 |---|---|
-| tabs | Reads each tab's address, title, and state (loaded, asleep, playing sound, pinned) to choose which tabs to put to sleep, to find pages open twice, and to list the tabs it keeps loaded and why. Puts tabs to sleep with chrome.tabs.discard. |
+| tabs | Reads each tab's address, title, and state (loaded, asleep, playing sound, pinned) to choose which tabs to put to sleep, to find pages open twice, to list the tabs it keeps loaded and why, and to find tabs another tab suspender holds, which it reopens at their own address when the person asks. Puts tabs to sleep with chrome.tabs.discard. |
 | tabGroups | When a session ends, the person can save its tabs as a named tab group; Cool Head can also ask it to collapse groups the person isn't using. |
-| storage | Keeps settings, the tabs the person chose to keep, the session, and the safe list in chrome.storage on the computer, because a Manifest V3 service worker stops when idle. |
+| storage | Keeps settings, the tabs and sites the person chose to keep, the session, and which extensions may pause in chrome.storage on the computer, because a Manifest V3 service worker stops when idle. |
 | nativeMessaging | Optionally links to Cool Head, a Mac app, through its helper, so tabs sleep only when the Mac's memory is short. Only counts are sent (tabs asleep, tabs held by reason), never addresses or titles, and only on the Mac. |
 | alarms | Wakes the service worker to put tabs to sleep after the person leaves them, and to find kept tabs again after Chrome restarts. |
-| contextMenus | Adds a "Keep this tab loaded" checkbox to the page and toolbar menus. |
+| contextMenus | Adds "Keep this tab loaded" and "Keep every tab of this site loaded" checkboxes to the page and toolbar menus. |
 | scripting | Registers its two page scripts, which say only whether a page has unsent typing or a live call, and runs them in tabs already open when the person turns on "Unsent typing and calls". Neither reads page content. |
 | favicon | Shows each tab's icon in the popup's lists, from Chrome's own icon cache. |
 | system.memory | Reads the computer's free memory, to show and decide how hard to work. |
-| management (optional, asked for when used) | Asked for only when the person turns on "Rest extensions". During a session, or when Cool Head reports memory is very tight, turns off extensions that aren't on the person's safe list, and turns them back on when the session ends or memory clears. |
+| management (optional, asked for when used) | Asked for only when the person turns on "Pause extensions", or asks to remove a tab suspender after its tabs are moved. During a session, or when Cool Head reports memory is very tight, pauses extensions the person hasn't kept on, and turns them back on when the session ends or memory clears. Never pauses an extension with tabs open on its own pages. Removing a suspender uses Chrome's own confirmation. |
 | Host permissions, all sites (optional, asked for when used) | Asked for only when the person turns on "Unsent typing and calls". Lets its page scripts check whether a tab has unsent typing or a camera, microphone, or screen-sharing call, so those tabs never sleep and lose typing or end a call. Only a yes or no leaves the page. The person can turn it off at any time. |
 
 **Remote code:** No, I am not using remote code. (Every script is in the package; the content security policy allows only the extension's own scripts.)
@@ -85,10 +88,11 @@ Then tick the three certifications: no selling or transferring to third parties 
 
 ```
 The extension works on its own; the Cool Head Mac app is optional and not needed to review it.
-1. Open several tabs, then click the toolbar button. "How hard it works" sets how many of the most used tabs stay loaded (Balanced: 3). Leave a tab and it goes to sleep 30 seconds later; it stays in the tab bar and reloads when clicked.
-2. Play a video or sound in a tab: it stays awake and appears under "Held in memory" with Keep, Sleep, and Close.
-3. Click "Start a session", keep a few tabs ticked, and press Start: the unticked tabs sleep. End the session from the popup.
-4. Optional: in Settings, turn on "Unsent typing and calls" and allow access, then type in a form without sending it; that tab is held as "Unsent typing".
+1. Open several tabs, then click the toolbar button. Effort, in the bottom bar, sets how many of the most used tabs stay loaded (Balanced: 3). Leave a tab and it goes to sleep 30 seconds later; it stays in the tab bar and reloads when clicked.
+2. Play a video or sound in a tab: it stays awake and appears in Protected with Keep, Sleep, and Close.
+3. Click "Start a session", keep a few tabs ticked, and press Start: the unticked tabs sleep. End the session from the menu.
+4. Press Command-Shift-S (Ctrl+Shift+S on Windows and Linux) on a tab: it sleeps, and the tab used before it shows.
+5. Optional: in Settings, turn on "Keep tabs with unsent typing or a call awake" and allow access, then type in a form without sending it; that tab is held as "Unsent typing".
 No account or sign-in is needed.
 ```
 

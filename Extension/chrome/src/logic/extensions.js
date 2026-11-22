@@ -1,6 +1,6 @@
-// Rest extensions: turns off extensions not in use, during a session or more broadly, sparing a safe list (README,
+// Pausing extensions: turns off extensions not in use, during a session or more broadly, sparing those kept on (README,
 // "What it does"). Chrome tells an extension nothing about when another was last used or what memory it holds, so
-// "not in use" means "not on your safe list".
+// "not in use" means "not kept on".
 
 const BLOCKER_PERMS = ['declarativeNetRequest', 'declarativeNetRequestWithHostAccess', 'declarativeNetRequestFeedback', 'webRequestBlocking'];
 const VPN_PERMS = ['proxy', 'vpnProvider'];
@@ -34,12 +34,24 @@ export function isAlwaysOn(ext, safeList) {
   return kind !== 'other';
 }
 
-export function columns(exts, safeList, selfId) {
+// Extensions with a tab open on one of their own pages, such as a tab another extension has suspended, a saved
+// list of tabs, or a vault. Chrome closes those tabs when the extension is turned off, so such an extension is never
+// paused while any is open: the tabs, and anything in them, would be gone.
+export function withOpenTabs(tabs) {
+  const ids = new Set();
+  for (const t of tabs) {
+    const m = /^chrome-extension:\/\/([a-p]{32})\//.exec(t.url || t.pendingUrl || '');
+    if (m) ids.add(m[1]);
+  }
+  return ids;
+}
+
+export function columns(exts, safeList, selfId, open = new Set()) {
   const on = [];
   const rest = [];
   for (const e of exts) {
     if (!restable(e, selfId)) continue;
-    const row = { id: e.id, name: e.name, kind: kindOf(e), enabled: e.enabled };
+    const row = { id: e.id, name: e.name, kind: kindOf(e), enabled: e.enabled, open: open.has(e.id) };
     (isAlwaysOn(e, safeList) ? on : rest).push(row);
   }
   const byName = (a, b) => a.name.localeCompare(b.name);
@@ -53,9 +65,10 @@ export function move(safeList, id, toAlwaysOn) {
   return { decided: true, alwaysOn, rest };
 }
 
-// Which extensions to turn off now: on, not on the safe list, and ones Chrome lets the person turn off.
-export function restPlan(exts, safeList, selfId) {
-  return exts.filter((e) => restable(e, selfId) && e.enabled && !isAlwaysOn(e, safeList)).map((e) => e.id);
+// Which extensions to turn off now: on, not kept on, ones Chrome lets the person turn off, and none with
+// its own tabs open (withOpenTabs).
+export function restPlan(exts, safeList, selfId, open = new Set()) {
+  return exts.filter((e) => restable(e, selfId) && e.enabled && !isAlwaysOn(e, safeList) && !open.has(e.id)).map((e) => e.id);
 }
 
 // Rested extensions come back when no reason to rest is left. reasons: { session, memory }.

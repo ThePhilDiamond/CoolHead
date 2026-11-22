@@ -1,6 +1,6 @@
 // All state lives in chrome.storage, never only in the worker's memory: Chrome stops a Manifest V3 service
 // worker after about 30 seconds idle (test T13), and anything held only in a variable is gone with it.
-// - local: what must outlast Chrome itself (the level, the keep list, the session, the safe list).
+// - local: what must outlast Chrome itself (the level, the keep list, the session, the extensions kept on).
 // - session: what belongs to this run of Chrome (tab use, sound, typing, the link). Tab IDs end when Chrome quits,
 //   and session storage clears then too, which is also how a restart is noticed (see worker.js, newBrowserRun).
 import { AUTO_OFF } from './logic/auto.js';
@@ -17,6 +17,9 @@ export const LOCAL_DEFAULTS = {
   restEnabled: false,
   rest: { ids: [], session: false, memory: false },
   setupDone: false,
+  keepSites: [],            // sites whose every tab stays awake, as host names without www (logic/reasons.js)
+  offlineHold: true,         // no tab sleeps on its own while Chrome is offline, since a sleeping tab can't reload then
+  migrateLater: false,       // the person chose "Do it later" for moving a suspender's tabs (Settings still has it)
 };
 
 export const SESSION_DEFAULTS = {
@@ -32,6 +35,8 @@ export const SESSION_DEFAULTS = {
   lastReport: null,
   lastReportAt: null,
   popupScreen: null,         // a screen for the popup to open on, set by Cool Head's "openExtensionsList"
+  migrating: null,           // { running, total, done, failed }: moving a suspender's tabs (logic/migrate.js)
+  migrated: null,            // { moved, failed, extIds }: the last move, until the person closes its result
 };
 
 const LOCAL_KEYS = Object.keys(LOCAL_DEFAULTS);

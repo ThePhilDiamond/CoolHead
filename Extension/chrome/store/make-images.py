@@ -7,6 +7,7 @@ the result with a Chrome kept apart from your own, on a scratch data folder.
     python3 -I store/make-images.py "<Chrome or Chrome for Testing binary>" <scratch folder>
 """
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -27,14 +28,14 @@ p{font-size:24px;line-height:1.45;color:#3A3A3A}
 .shot img{display:block;width:404px}
 """
 
-# (file name, popup render, height shown in points, headline, line under it). Renders are 720 by 1200 pixels, shown
-# 404 wide; Home ends at 1115 pixels, so it's cut there rather than showing empty space.
+# (file name, popup render, its preview screen and theme, headline, line under it). Renders are 720 by 1200 pixels,
+# shown 404 wide, and each is cut where the drawn popup ends, measured from the preview itself.
 SHOTS = [
-    ("1-tabs", "home-light.png", 673 * 1115 / 1200, "Tabs you aren't using go to sleep, so Chrome holds less memory.", "A sleeping tab stays in your tab bar and reloads when you click it. Nothing closes."),
-    ("2-extensions", "safe-list-light.png", 674, "Extensions you don't need turn off for a while, then back on by themselves.", "Nothing is removed. During a session, or when memory is tight, they give back their memory. Password managers, blockers, VPNs, and security tools stay on."),
-    ("3-held", "held-open-light.png", 674, "Calls, sound, and unsent typing stay awake.", "It shows each tab it keeps loaded and why, so you choose: keep it, sleep it, or close it."),
-    ("4-session", "start-session-light.png", 674, "Start a session for the task in front of you.", "Tick the tabs a meeting or project needs. The rest sleep until you want them back."),
-    ("5-alone", "alone-dark.png", 674, "Works on its own, or with Cool Head on a Mac.", "On its own, you choose how hard it works. With Cool Head, a free Mac app, tabs sleep only when memory is actually short."),
+    ("1-tabs", "home-light.png", "home", "light", "Tabs you aren't using go to sleep, so Chrome holds less memory.", "A sleeping tab stays in your tab bar and reloads when you click it. Nothing closes."),
+    ("2-extensions", "protected-extensions-light.png", "protected-ext", "light", "Extensions you don't need pause for a while, then come back on by themselves.", "Nothing is removed. During a session, or when memory is tight, they give back their memory. Password managers, blockers, VPNs, and security tools stay on."),
+    ("3-protected", "protected-light.png", "held", "light", "Calls, sound, unsent typing, and sites you choose stay awake.", "Protected shows each tab it keeps loaded and why, so you choose: keep it, sleep it, or close it."),
+    ("4-session", "start-session-light.png", "start", "light", "Start a session for the task in front of you.", "Tick the tabs a meeting or project needs. The rest sleep until you want them back."),
+    ("5-alone", "alone-dark.png", "alone", "dark", "Works on its own, or with Cool Head on a Mac.", "On its own, you set the Effort: how many tabs stay loaded. With Cool Head, a free Mac app, tabs sleep only when memory is actually short."),
 ]
 
 TILE = """<!doctype html><html><head><meta charset=utf-8><style>
@@ -52,7 +53,7 @@ body{width:1400px;height:560px;overflow:hidden;background:#0F52AD;color:#fff;fon
 .text{width:560px;flex:none}
 h1{font-size:60px;line-height:1.08;font-weight:700;letter-spacing:-0.5px;margin-bottom:20px}
 p{font-size:28px;line-height:1.4}
-.shot{flex:none;width:404px;height:500px;margin-top:120px;border-radius:14px 14px 0 0;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.shot{flex:none;width:404px;height:487px;border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
 .shot img{display:block;width:404px}
 </style></head><body><img class=logo src=logo.png alt=""><div class=text><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and temporarily turns off extensions you don't need, so Chrome holds less memory.</p></div><div class=shot><img src=home-light.png alt=""></div></body></html>"""
 
@@ -77,7 +78,18 @@ def main():
                         "file://" + path], check=True, stderr=subprocess.DEVNULL)
 
     os.makedirs(os.path.join(STORE, "images"), exist_ok=True)
-    for name, render, height, title, line in SHOTS:
+    def drawn_height(screen, theme):
+        # the popup's drawn height in CSS pixels, which preview.js writes on the page, shown at 404 / 360
+        dom = subprocess.run([chrome, "--headless=new", "--user-data-dir=" + os.path.join(scratch, "chrome-shots"),
+                              "--no-first-run", "--allow-file-access-from-files", "--window-size=360,600",
+                              "--virtual-time-budget=3000", "--dump-dom",
+                              "file://" + os.path.join(EXT, "dev", "preview.html") + f"?screen={screen}&theme={theme}"],
+                             capture_output=True, text=True).stdout
+        found = re.search(r'data-height="(\d+)"', dom)
+        return min(600, int(found.group(1)) if found else 600) * 404 / 360
+
+    for name, render, screen, theme, title, line in SHOTS:
+        height = drawn_height(screen, theme)
         shoot(name, f"""<!doctype html><html><head><meta charset=utf-8><style>{CSS}</style></head><body>
 <div class=text><div class=brand><img src=logo.png alt="">Cool Head for Chrome</div><h1>{title}</h1><p>{line}</p></div>
 <div class=shot style="width:404px;height:{int(height)}px"><img src="{render}" alt=""></div></body></html>""", "1280,800")

@@ -1,0 +1,1 @@
+- Cool Head for Chrome no longer pauses an extension that has tabs open on its own pages, such as tabs another extension has suspended, since Chrome would close those tabs.

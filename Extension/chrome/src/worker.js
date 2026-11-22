@@ -4,13 +4,14 @@
 import * as store from './store.js';
 import * as W from './logic/words.js';
 import { planSleep, planSleepHidden, nextDueAt, canSleepOnItsOwn, LEVELS, LEAVE_DELAYS_MS } from './logic/plan.js';
-import { recordActivation, pruneUse, replaceId, lastUsed } from './logic/usage.js';
+import { recordActivation, pruneUse, replaceId, lastUsed, tabToShowInstead } from './logic/usage.js';
 import { nextAuto, autoAllowed, AUTO_OFF } from './logic/auto.js';
 import { findDuplicates, duplicateCount } from './logic/duplicates.js';
 import { startPlan, join, leave, groupPlan } from './logic/session.js';
 import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
-import { restPlan, shouldWake, columns, move } from './logic/extensions.js';
-import { heldCounts } from './logic/reasons.js';
+import { restPlan, shouldWake, columns, move, withOpenTabs } from './logic/extensions.js';
+import { migrationPlan, suspenders } from './logic/migrate.js';
+import { heldCounts, siteOf, siteRuleFor } from './logic/reasons.js';
 import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol.js';
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
 import { LinkClient } from './link-client.js';
@@ -97,7 +98,9 @@ async function sweep() {
     const sentence = checkSentence(explainCheck(tabs, pc), pc);
     if (sentence !== lastCheck) { lastCheck = sentence; log('check', sentence); }
   }
-  const ids = planSleep(tabs, pc);
+  // While Chrome is offline a sleeping tab couldn't reload, so nothing sleeps on its own (Settings, Offline).
+  const held = s.offlineHold !== false && self.navigator.onLine === false;
+  const ids = held ? [] : planSleep(tabs, pc);
   if (ids.length) await sleepMany(ids, { why: (t) => sleepWhy(pc, t, now) });
   const due = nextDueAt(tabs, pc);
   if (due != null) sweepSoon(due - Date.now() + 500);
@@ -129,6 +132,7 @@ function ensureMenu() {
     // Install and a new run of Chrome can both ask for the menu at once; the second create is then a duplicate,
     // which is harmless, so its error is read and dropped.
     chrome.contextMenus.create({ id: 'keep', title: W.MENU_KEEP, type: 'checkbox', contexts: ['page', 'frame', 'action'] }, () => void chrome.runtime.lastError);
+    chrome.contextMenus.create({ id: 'site', title: W.menuSite('this site'), type: 'checkbox', contexts: ['page', 'frame', 'action'] }, () => void chrome.runtime.lastError);
     // The test build only: the Log page, from the toolbar button's right-click menu.
     if (testBuild) chrome.contextMenus.create({ id: 'log', title: 'Open the test log', contexts: ['action'] }, () => void chrome.runtime.lastError);
   });
@@ -140,6 +144,9 @@ async function refreshMenu(tab) {
   const kept = s.kept.some((r) => r.tabId === tab.id);
   // Hidden for a pinned tab, as in the popup: pinned tabs stay loaded already.
   chrome.contextMenus.update('keep', { checked: kept, visible: !tab.pinned }, () => void chrome.runtime.lastError);
+  // The site's own name in the item, for web pages only.
+  const host = siteOf(tab.url);
+  chrome.contextMenus.update('site', { title: W.menuSite(host || 'this site'), checked: Boolean(siteRuleFor(tab.url, s.keepSites)), visible: Boolean(host) }, () => void chrome.runtime.lastError);
 }
 
 // ---------- keep ----------
@@ -238,8 +245,11 @@ async function hasManagement() {
 async function restExtensions(reason) {
   if (!(await hasManagement())) return { ok: false, count: 0, done: W.DONE.restNeedsYes };
   const s = await store.load();
-  const exts = await chrome.management.getAll();
-  const ids = restPlan(exts, s.safeList, chrome.runtime.id);
+  const [exts, tabs] = await Promise.all([chrome.management.getAll(), chrome.tabs.query({})]);
+  const open = withOpenTabs(tabs);
+  const ids = restPlan(exts, s.safeList, chrome.runtime.id, open);
+  const spared = restPlan(exts, s.safeList, chrome.runtime.id).filter((id) => !ids.includes(id));
+  if (spared.length) log('rest', `Left on ${exts.filter((e) => spared.includes(e.id)).map((e) => e.name).join(', ')}: its tabs are open`);
   // Recorded before any is turned off, so a worker stopped halfway still knows to turn them back on. Turning on
   // one that was never turned off does nothing, so recording too many is harmless; recording too few isn't.
   await store.change((st) => ({ rest: { ids: [...new Set([...st.rest.ids, ...ids])], session: st.rest.session || reason === 'session', memory: st.rest.memory || reason === 'memory' } }));
@@ -488,13 +498,15 @@ async function checkBrowserRun() {
 
 async function viewFor() {
   const { tabs, s, now, focusedWindowId } = await gather();
-  const [isMac, memInfo, sitesGranted, managementGranted] = await Promise.all([
+  const [isMac, memInfo, sitesGranted, managementGranted, shortcuts] = await Promise.all([
     chrome.runtime.getPlatformInfo().then((p) => p.os === 'mac'),
     chrome.system.memory.getInfo().catch(() => null),
     chrome.permissions.contains(ALL_SITES),
     hasManagement(),
+    chrome.commands.getAll().then((cs) => ({ tab: cs.find((c) => c.name === 'sleep-tab')?.shortcut || '', others: cs.find((c) => c.name === 'sleep-others')?.shortcut || '' })).catch(() => ({ tab: '', others: '' })),
   ]);
-  const view = buildView({ tabs, s, now, focusedWindowId, isMac, memInfo, version: VERSION, sitesGranted, managementGranted, favicon });
+  const view = buildView({ tabs, s, now, focusedWindowId, isMac, memInfo, version: VERSION, sitesGranted, managementGranted, favicon, shortcuts, online: self.navigator.onLine !== false });
+  view.migrate = await migrateView(tabs, s, managementGranted);
   view.openScreen = s.popupScreen;
   if (s.popupScreen) await store.save({ popupScreen: null });
   return view;
@@ -577,6 +589,27 @@ async function act(m) {
     case 'safeMove':
       await store.change((s) => ({ safeList: move(s.safeList, m.id, m.toAlwaysOn) }));
       return '';
+    case 'keepSite': {
+      const host = String(m.host || '').toLowerCase();
+      if (!host) return W.DONE.failed;
+      await store.change((s) => ({ keepSites: m.on ? [...new Set([...(s.keepSites || []), host])] : (s.keepSites || []).filter((x) => x !== host) }));
+      sweepSoon(0);
+      return '';
+    }
+    case 'offlineHold':
+      await store.change(() => ({ offlineHold: Boolean(m.on) }));
+      sweepSoon(0);
+      return '';
+    case 'migrate':
+      // Minutes for many tabs, so it runs on after this answer; the popup follows it through storage.
+      runMigration().catch(oops);
+      return '';
+    case 'migrateLater':
+      await store.change(() => ({ migrateLater: true }));
+      return '';
+    case 'migrateClose':
+      await store.change(() => ({ migrated: null }));
+      return '';
     case 'openCoolHead':
       await chrome.tabs.create({ url: W.COOL_HEAD_URL });
       return '';
@@ -593,6 +626,8 @@ function actLine(m, tab) {
     case 'sleep': return `Slept ${site} from the popup`;
     case 'close': return `Closed ${site} from the popup`;
     case 'leaveDelay': return `Set the delay after leaving a tab to ${m.ms / 1000} seconds`;
+    case 'keepSite': return `${m.on ? 'Kept' : 'Stopped keeping'} the site ${m.host}`;
+    case 'offlineHold': return `Don't sleep while offline: ${m.on ? 'on' : 'off'}`;
     case 'sites': return `Access to all sites: ${m.on ? 'on' : 'off'}`;
     case 'restEnabled': return `Rest extensions: ${m.on ? 'on' : 'off'}`;
     default: return `Pressed ${m.action}`;
@@ -601,8 +636,8 @@ function actLine(m, tab) {
 
 async function safeColumns() {
   if (!(await hasManagement())) return null;
-  const [exts, s] = await Promise.all([chrome.management.getAll(), store.load()]);
-  return columns(exts, s.safeList, chrome.runtime.id);
+  const [exts, s, tabs] = await Promise.all([chrome.management.getAll(), store.load(), chrome.tabs.query({})]);
+  return columns(exts, s.safeList, chrome.runtime.id, withOpenTabs(tabs));
 }
 
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
@@ -654,6 +689,75 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
   })().then(reply, (e) => reply({ error: String(e?.message || e) }));
   return true; // replies later
 });
+
+// ---------- moving a suspender's tabs ----------
+
+async function extensionNames(ids) {
+  if (!ids.length || !(await hasManagement())) return {};
+  const all = await chrome.management.getAll().catch(() => []);
+  return Object.fromEntries(all.filter((e) => ids.includes(e.id)).map((e) => [e.id, e.name]));
+}
+
+async function migrateView(tabs, s, managementGranted) {
+  const plan = migrationPlan(tabs, chrome.runtime.id);
+  const from = suspenders(plan);
+  const doneFrom = s.migrated?.extIds || [];
+  const names = await extensionNames([...new Set([...from, ...doneFrom])]);
+  // A suspender still installed after the move, which could suspend the tabs again; known only with the permission.
+  const installed = managementGranted ? doneFrom.filter((id) => names[id]) : doneFrom;
+  return {
+    count: plan.length, from: from[0] ? names[from[0]] || null : null, later: Boolean(s.migrateLater),
+    running: Boolean(s.migrating?.running), done: s.migrating?.done || 0, total: s.migrating?.total || 0,
+    result: s.migrated ? { moved: s.migrated.moved, failed: s.migrated.failed, removeId: installed[0] || null, removeName: names[installed[0]] || null } : null,
+  };
+}
+
+// Resolves when the tab has finished loading, is closed, or after the time given.
+function loaded(tabId, ms) {
+  return new Promise((done) => {
+    const finish = () => { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(upd); chrome.tabs.onRemoved.removeListener(rem); done(); };
+    const upd = (id, change) => { if (id === tabId && change.status === 'complete') finish(); };
+    const rem = (id) => { if (id === tabId) finish(); };
+    const timer = setTimeout(finish, ms);
+    chrome.tabs.onUpdated.addListener(upd);
+    chrome.tabs.onRemoved.addListener(rem);
+  });
+}
+
+// One tab at a time: open its real address, wait for it to load (so it keeps its title and icon), then unload it.
+// The tab in front only opens. Picked up again by the alarm if Chrome stops the worker partway.
+let migrating = false;
+async function runMigration() {
+  if (migrating) return;
+  migrating = true;
+  try {
+    const first = migrationPlan(await chrome.tabs.query({}), chrome.runtime.id);
+    const extIds = suspenders(first);
+    const s0 = await store.load();
+    const resumed = s0.migrating?.running ? s0.migrating : null;
+    let { total, done, failed } = resumed || { total: first.length, done: 0, failed: 0 };
+    await store.save({ migrating: { running: true, total, done, failed }, migrated: null });
+    log('migrate', `Moving ${first.length} tabs from ${extIds.length} suspender(s)`);
+    const moved = [];
+    for (const p of first) {
+      const ok = await chrome.tabs.update(p.tabId, { url: p.url }).then(() => true, () => false);
+      if (ok && !p.active) {
+        await loaded(p.tabId, 15000);
+        const r = await sleepTab(p.tabId, { force: true });
+        if (r.id != null) moved.push(r.id);
+      }
+      if (ok) done++; else failed++;
+      await store.save({ migrating: { running: true, total, done, failed } });
+    }
+    if (moved.length) await store.change((s) => ({ asleep: [...new Set([...s.asleep, ...moved])] }));
+    const doneFrom = [...new Set([...(s0.migrated?.extIds || []), ...extIds])];
+    await store.save({ migrating: null, migrated: { moved: done, failed, extIds: doneFrom } });
+    log('migrate', `Moved ${done} tabs${failed ? `; ${failed} couldn't be moved` : ''}`);
+    await refreshBadge();
+  } finally {
+    migrating = false;
+  }
+}
 
 // ---------- Chrome's events ----------
 
@@ -754,10 +858,48 @@ chrome.tabs.onAttached.addListener(() => refreshKeptPositions().catch(oops));
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'log') { chrome.tabs.create({ url: chrome.runtime.getURL('log/log.html') }); return; }
+  if (info.menuItemId === 'site' && tab) {
+    const host = siteOf(tab.url);
+    if (!host) return;
+    store.load().then((s) => { const rule = siteRuleFor(tab.url, s.keepSites); return act({ action: 'keepSite', host: rule || host, on: !rule }); }).then(() => refreshMenu(tab)).then(() => maybeReport()).catch(oops);
+    return;
+  }
   if (info.menuItemId !== 'keep' || !tab) return;
   // From the stored state, not the menu's tick, which can be out of date after a switch between windows.
   store.load().then((s) => setKeep(tab.id, !s.kept.some((r) => r.tabId === tab.id))).then(() => maybeReport()).catch(oops);
 });
+
+// The keyboard shortcut (no key until the person picks one in Chrome's shortcuts page): the tab in front sleeps
+// whatever keeps it awake otherwise, since the person asked while looking at it. Chrome can't unload the tab in
+// front, so the one they used before it comes to the front first.
+async function sleepFrontTab(tab) {
+  if (!tab || tab.discarded) return;
+  const s = await store.load();
+  const tabs = await chrome.tabs.query({ windowId: tab.windowId });
+  const show = tabToShowInstead(tabs, tab.id, s.use);
+  if (show == null) { log('spared', `Didn't sleep ${host(tab.url)}: it's the only tab in its window`, { tab: tab.id }); return; }
+  await chrome.tabs.update(show, { active: true });
+  await sleepMany([tab.id], { force: true, why: () => 'the keyboard shortcut' });
+  await refreshBadge();
+}
+
+// The other shortcut: every other tab in this window that could sleep on its own, keeping their protections.
+async function sleepOtherTabs(tab) {
+  if (!tab) return;
+  const { tabs, s, now, ctx } = await gather();
+  const ids = planSleepHidden(tabs.filter((t) => t.windowId === tab.windowId && t.id !== tab.id), planCtx(s, ctx, now));
+  await sleepMany(ids, { why: () => 'the keyboard shortcut for other tabs' });
+  await refreshBadge();
+}
+
+chrome.commands.onCommand.addListener((command, tab) => {
+  const run = { 'sleep-tab': sleepFrontTab, 'sleep-others': sleepOtherTabs }[command];
+  if (!run) return;
+  const front = tab ? Promise.resolve(tab) : chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([t]) => t);
+  front.then(run).catch(oops);
+});
+
+self.addEventListener('online', () => sweepSoon(0));
 
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) return;
@@ -774,6 +916,7 @@ chrome.alarms.onAlarm.addListener((a) => {
       }
       await connectLink();
       await sweep();
+      if (s.migrating?.running) runMigration().catch(oops);
     }).catch(oops);
   } else if (a.name === 'sweep') {
     sweep().catch(oops);

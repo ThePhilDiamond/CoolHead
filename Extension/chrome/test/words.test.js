@@ -72,7 +72,7 @@ test('counts agree with their nouns', () => {
   assert.equal(W.startNote(1, [{ reason: 'sound' }], false), "1 tab sleeps. Nothing closes. 1 unticked tab stays loaded because it is playing sound.");
   assert.equal(W.startNote(31, [{ reason: 'sound' }, { reason: 'typing' }], false), "31 tabs sleep. Nothing closes. 2 unticked tabs stay loaded: 1 is playing sound and 1 has unsent typing.");
   assert.equal(W.startNote(3, [{ reason: 'pinned' }, { reason: 'pinned' }], false), '3 tabs sleep. Nothing closes. 2 unticked tabs stay loaded because they are pinned.');
-  assert.equal(W.startNote(0, [{ reason: 'typing' }, { reason: 'typing' }, { reason: 'kept' }, { reason: 'call' }], true), 'No tabs need to sleep. Nothing closes. 4 unticked tabs stay loaded: 2 have unsent typing, 1 is kept by you, and 1 is on a call. Extensions not on your safe list rest until it ends.');
+  assert.equal(W.startNote(0, [{ reason: 'typing' }, { reason: 'typing' }, { reason: 'kept' }, { reason: 'call' }], true), "No tabs need to sleep. Nothing closes. 4 unticked tabs stay loaded: 2 have unsent typing, 1 is kept by you, and 1 is on a call. Extensions that aren't protected pause until it ends.");
   assert.equal(W.sessionTitle(4, 31), 'In session: 4 tabs. 31 others asleep.');
   assert.equal(W.usedAgo(30 * 1000), 'Used less than a minute ago');
   assert.equal(W.usedAgo(61 * 60 * 1000), 'Used 1 hour ago');
