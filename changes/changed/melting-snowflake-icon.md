@@ -1,1 +1,0 @@
-- A new app icon: the menu bar's melting snowflake in white on Cool Head blue, in place of the smiling face. The Status badge menu bar icon now shows one melting snowflake, the same at every level, with the badge (green circle, yellow triangle, or red octagon) as the only change.
