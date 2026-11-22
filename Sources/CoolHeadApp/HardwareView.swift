@@ -321,6 +321,7 @@ struct RunningStrip: View {
         // a gentle wash of the level's color (green, yellow, or red), never the only sign: the snowflake's shape
         // (whole, melting, in flames) and the title's words say the same
         .background(Color(nsColor: Badge.color(level)).opacity(0.10))
+        .background(BarFrost.bar)
         .onAppear { load.start() }
         .onDisappear { load.stop() }
     }

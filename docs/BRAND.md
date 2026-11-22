@@ -13,7 +13,7 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 | Text on the blue behind text | white, 7.4:1 (AAA) | white, 7.4:1 (AAA) |
 | Blue text on the panel | 4.9:1 on the light panel | 6.1:1 on `#1E1E1E` |
 
-Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under the 4.5:1 text needs, and was harder to read. Text goes on the deeper blue instead, at full strength. The open tool along the bottom is the same: blue on a pale-blue highlight measured 3.0:1 in dark and 4.4:1 in light on a plain background, and under 2:1 when the panel's frost sat over a bright desktop, so it's white on the deep blue.
+Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under the 4.5:1 text needs, and was harder to read. Text goes on the deeper blue instead, at full strength. The open tool along the bottom is the same: blue on a pale-blue highlight measured 3.0:1 in dark and 4.4:1 in light on a plain background, and under 2:1 when the panel's frost sat over a bright desktop, so it's white on the deep blue. The top and bottom bars have a denser frost of their own, the window's color at 75% under the level's tint: over a bright desktop in dark mode the panel's frost turned mid-gray and gray text on it fell to about 3:1, and with the denser frost it measured 5:1.
 
 **At night** Cool Head stays blue and leaves warmth to the Mac's Night Shift, which warms the whole screen, Cool Head included. I considered an orange night mode and decided against it: orange already means "watch out" on the same cards, and white text on it measured 4.7:1, against the deep blue's 7.4:1.
 
