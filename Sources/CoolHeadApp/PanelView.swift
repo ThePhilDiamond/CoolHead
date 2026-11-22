@@ -1889,7 +1889,7 @@ struct FixRow: View {
                     if guarded && armed {
                         HStack(spacing: 10) {
                             Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
-                                .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onAccent : Color.red)
+                                .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onFill : Color.red)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                                 Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
@@ -1899,7 +1899,7 @@ struct FixRow: View {
                     } else {
                     HStack(alignment: tag == nil ? .center : .top, spacing: 10) {
                         Image(systemName: icon).font(.body).frame(width: 22)
-                            .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onAccent : ends ? Color.red : Ink.accent)
+                            .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onFill : ends ? Color.red : Ink.accent)
                         VStack(alignment: .leading, spacing: 2) {
                             // the tag beside the name when both fit on one line, otherwise above it, so a long name
                             // isn't squeezed into three lines beside it
@@ -1982,7 +1982,7 @@ struct OptionStyle: ButtonStyle {
             let line = Color.primary.opacity(hovering ? 0.55 : 0.4)
             let filled = recommended && !yours
             configuration.label
-                .foregroundStyle(filled ? Ink.onAccent : Ink.text)
+                .foregroundStyle(filled ? Ink.onFill : Ink.text)
                 .padding(.horizontal, 11).padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(shape.fill(filled ? AnyShapeStyle(Ink.fill.opacity(configuration.isPressed ? 0.85 : 1))
@@ -1992,7 +1992,7 @@ struct OptionStyle: ButtonStyle {
                     if yours {
                         shape.strokeBorder(recommended ? Ink.accent : line, style: StrokeStyle(lineWidth: recommended ? 1.6 : 1.3, dash: [4, 3]))
                     } else {
-                        shape.strokeBorder(filled ? Color.clear : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1)
+                        shape.strokeBorder(filled ? Ink.fillEdge : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1)
                     }
                 }
                 .overlay(alignment: .bottomTrailing) {
@@ -2038,7 +2038,7 @@ struct OptionTag: View {
             Text(words).tracking(0.5)
         }
         .font(Font(OptionTag.font))
-        .foregroundStyle(onAccent ? Ink.onAccent : color)
+        .foregroundStyle(onAccent ? Ink.onFill : color)
         .padding(.horizontal, 5).padding(.vertical, 1.5)
         .background(Capsule().fill(onAccent ? Color.white.opacity(0.22) : color.opacity(0.13)))
         .fixedSize()
@@ -2065,8 +2065,8 @@ struct RecommendedTag: View {
             .fixedSize()
             .padding(.horizontal, 6).padding(.vertical, 1.5)
             // on the blue option it's the option's text color with the blue as its text; elsewhere, the blue with that text
-            .foregroundStyle(onAccent ? Ink.fill : Ink.onAccent)
-            .background(Capsule().fill(onAccent ? Ink.onAccent : Ink.fill))
+            .foregroundStyle(onAccent ? Ink.fill : Ink.onFill)
+            .background(Capsule().fill(onAccent ? Ink.onFill : Ink.fill))
     }
 }
 
@@ -2121,7 +2121,14 @@ enum Ink {
     /// Blue behind text (the recommended option, the Recommended pill): deeper in light mode, lighter in dark, so its
     /// text is as easy to read as the panel's own (white on #0F52AD 7.4:1; near-black on #5AA9FF 7.4:1). For renders,
     /// COOLHEAD_SNAPSHOT_FILL=accent draws it in the accent instead, to compare.
-    static let fill = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FILL"] == "accent" ? accent : dynamic(0x0F52AD, 0x5AA9FF)
+    static let fillChoice = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FILL"]
+    static let fill = fillChoice == "accent" ? accent : dynamic(0x0F52AD, fillChoice == "deep" ? 0x0F52AD : 0x8EC5FF)
+    /// Text on that fill: white, and in dark mode near-black on the lighter blue.
+    static let onFill = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua && fillChoice != "deep" ? rgb(0x1A1A1A) : .white })
+    /// The deep blue on a dark card needs an edge to stand apart (1.9:1 without, the accent edge 5.1:1).
+    static let fillEdge = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua && fillChoice == "deep" ? rgb(0x4A9EFF) : .clear })
     /// Text on a filled accent: white in light mode, near-black in dark, where the lighter blue needs it.
     static let onAccent = Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(0x1A1A1A) : .white })
     /// Text in the accent color on the panel.
