@@ -187,10 +187,17 @@ public struct Evidence {
 
 extension Evidence {
     /// The script a language runtime is running, if any: "build.py" for `python build.py index`.
-    public var script: String? {
+    public var script: String? { Evidence.script(path: path, name: name, args: args) }
+
+    /// Whether a program is a language runtime that runs scripts (Python, Node, a shell, and the like).
+    public static func isRuntime(path: String?, name: String) -> Bool {
         let runtimes = ["python", "Python", "node", "ruby", "perl", "bash", "sh", "zsh", "deno", "bun", "php"]
         let exe = (path.map { ($0 as NSString).lastPathComponent }) ?? name
-        guard runtimes.contains(where: { exe.lowercased().hasPrefix($0.lowercased()) }) else { return nil }
+        return runtimes.contains(where: { exe.lowercased().hasPrefix($0.lowercased()) })
+    }
+
+    public static func script(path: String?, name: String, args: [String]) -> String? {
+        guard isRuntime(path: path, name: name) else { return nil }
         for a in args.dropFirst() where !a.hasPrefix("-") {
             let last = (a as NSString).lastPathComponent
             if last.contains(".") || a.contains("/") { return last }

@@ -85,8 +85,31 @@ public final class Watcher {
         public let since: Date
         public let before: Int?
         public let after: Int?
+        /// The every-time rule (CoolerRules) slowing it, or nil when it was slowed just this once.
+        public var rule: String? = nil
+        /// What identifies it for trusting and for rules (Trust.key), so a rule added later can take it over.
+        public var trustKey: String? = nil
+
+        public init(key: String, pid: pid_t, start: Date?, name: String, reportSubject: String, since: Date, before: Int?, after: Int?,
+                    rule: String? = nil, trustKey: String? = nil) {
+            self.key = key; self.pid = pid; self.start = start; self.name = name; self.reportSubject = reportSubject
+            self.since = since; self.before = before; self.after = after; self.rule = rule; self.trustKey = trustKey
+        }
     }
     public var cooledList: [CooledItem] { cooled.values.sorted { $0.since < $1.since } }
+
+    /// A process of yours that an every-time rule covers, found on each sample.
+    struct Ruled { let pid: pid_t; let start: Date; let key: String; var id: String { "\(pid)-\(start.timeIntervalSince1970)" } }
+    /// The app in front, by its rule key, and when each app with a rule last left the front (on the main thread).
+    @ObservationIgnored private var frontKey: String?
+    @ObservationIgnored private var leftFront: [String: Date] = [:]
+    /// Rules sped up for now from the pinned line: rule → the processes running then. The rule applies again once
+    /// they've all ended, so "for now" means until it quits.
+    @ObservationIgnored private var spedUp: [String: Set<String>] = [:]
+    @ObservationIgnored private var lastRuled: [Ruled] = []
+    /// Each of your processes' rule key, kept while it runs, so a sample doesn't read every process's location again
+    /// (on the sampling queue).
+    @ObservationIgnored private var ruleKeys: [pid_t: (start: TimeInterval, scripts: Bool, key: String?)] = [:]
     /// Called on the main thread when a card has needed a look for 10 minutes, once per card.
     @ObservationIgnored public var onAlert: ((LiveCard) -> Void)?
     /// Called on the main thread after every update.
@@ -279,6 +302,12 @@ public final class Watcher {
     public func start() {
         guard timer == nil else { return }
         resumeAllPaused(why: "Cool Head started")
+        // which app is in front, for every-time rules: an app with one is back to full speed the moment you switch to it
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] n in
+            let app = n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            self?.frontChanged(app?.bundleURL?.path)
+        }
+        frontChanged(NSWorkspace.shared.frontmostApplication?.bundleURL?.path)
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now(), repeating: interval, leeway: .seconds(2))
         t.setEventHandler { [weak self] in self?.tick() }
@@ -477,7 +506,7 @@ public final class Watcher {
         log("\(what) pressed for \(c.reportSubject): applied")
         if on {
             cooled[Watcher.key(c)] = CooledItem(key: Watcher.key(c), pid: p, start: c.start, name: name, reportSubject: c.reportSubject,
-                                                since: Date(), before: before, after: pri)
+                                                since: Date(), before: before, after: pri, trustKey: c.trustKey)
             let change = (before != nil && pri != nil) ? " (priority \(before!) → \(pri!))" : ""
             return .done("Slowing \(name)\(change) to keep your Mac cool. It's still working, just more slowly. Speed it up any time from the top of this panel.")
         }
@@ -486,6 +515,119 @@ public final class Watcher {
     }
 
     static func key(_ c: LiveCard) -> String { "\(c.pid ?? 0)-\(c.start?.timeIntervalSince1970 ?? 0)" }
+
+    // MARK: - Every time
+
+    private func setBackground(_ pid: pid_t, _ on: Bool) -> Bool {
+        setpriority(4 /* PRIO_DARWIN_PROCESS */, id_t(pid), on ? 0x1000 /* PRIO_DARWIN_BG */ : 0) == 0
+    }
+
+    /// Puts back to full speed everything a rule slowed, for one rule or (nil) for rules that no longer exist.
+    private func liftRule(_ key: String?) {
+        let rules = CoolerRules.all
+        for (k, item) in cooled {
+            guard let r = item.rule, key.map({ $0 == r }) ?? (rules[r] == nil) else { continue }
+            _ = setBackground(item.pid, false)
+            cooled.removeValue(forKey: k)
+        }
+    }
+
+    /// The app in front changed (on the main thread): an app with a rule is back to full speed at once; the one you left
+    /// is slowed a few seconds later, on a sample.
+    func frontChanged(_ appPath: String?) {
+        let key = appPath.map { Trust.key(appPath: $0) }
+        if let old = frontKey, old != key { leftFront[old] = Date() }
+        frontKey = key
+        guard let key, CoolerRules.contains(key), cooled.values.contains(where: { $0.rule == key }) else { return }
+        liftRule(key)
+        onPublish?()
+    }
+
+    /// Slows or speeds up what rules cover, on each sample (on the main thread). Only your own processes are covered,
+    /// and Cool Head never slows the app in front.
+    private func applyRules(_ ruled: [Ruled], _ now: Date) {
+        let rules = CoolerRules.all
+        liftRule(nil)
+        lastRuled = ruled
+        let running = Set(ruled.map(\.id))
+        spedUp = spedUp.filter { rules[$0.key] != nil && !$0.value.isDisjoint(with: running) }
+        leftFront = leftFront.filter { rules[$0.key] != nil }
+        for r in ruled {
+            let slow = spedUp[r.key] == nil && CoolerRules.slowNow(key: r.key, frontKey: frontKey, leftFrontAt: leftFront[r.key], now: now)
+            let existing = cooled.first { $0.value.pid == r.pid }
+            if slow, existing == nil {
+                guard setBackground(r.pid, true) else { continue }
+                cooled[r.id] = CooledItem(key: r.id, pid: r.pid, start: r.start, name: rules[r.key] ?? "It", reportSubject: "something on Always cooler",
+                                          since: now, before: nil, after: nil, rule: r.key, trustKey: r.key)
+            } else if !slow, let (k, item) = existing, item.rule != nil {
+                _ = setBackground(r.pid, false)
+                cooled.removeValue(forKey: k)
+            }
+        }
+    }
+
+    /// Your own processes that a rule covers (on the sampling queue). Only when there are rules; a language runtime's
+    /// arguments are read only when a rule is for a script.
+    private func ruledProcesses(_ pids: [pid_t], me: pid_t) -> [Ruled] {
+        let rules = CoolerRules.all
+        guard !rules.isEmpty else { ruleKeys = [:]; return [] }
+        let scripts = rules.keys.contains { $0.hasPrefix("script:") }
+        var keys: [pid_t: (start: TimeInterval, scripts: Bool, key: String?)] = [:]
+        var out: [Ruled] = []
+        for pid in pids where pid != me {
+            guard let b = Proc.bsd(pid), b.uid == getuid() else { continue }
+            let st = b.start.timeIntervalSince1970
+            let key: String?
+            if let k = ruleKeys[pid], k.start == st, k.scripts == scripts { key = k.key } else {
+                let path = Proc.path(pid)
+                let runtime = scripts && Evidence.isRuntime(path: path, name: b.name)
+                key = Trust.key(path: path, name: b.name, args: runtime ? Proc.args(pid) : [], cwd: runtime ? Proc.cwd(pid) : nil)
+            }
+            keys[pid] = (st, scripts, key)
+            if let key, rules[key] != nil { out.append(Ruled(pid: pid, start: b.start, key: key)) }
+        }
+        ruleKeys = keys
+        return out
+    }
+
+    /// "Every time" on a card, after Run it cooler worked: a rule for what it's about, which takes over the process
+    /// already slowed. Trusting it stops, since the two are opposites.
+    @discardableResult public func addRule(_ c: LiveCard) -> Bool {
+        guard let k = c.trustKey else { return false }
+        CoolerRules.add(k, name: c.trustName)
+        for (id, item) in cooled where item.trustKey == k || item.pid == c.pid { var i = item; i.rule = k; cooled[id] = i }
+        log("Every time: \(c.reportSubject) runs cooler whenever it runs")
+        refreshTrust()
+        return true
+    }
+
+    /// Always cooler's + button: an app chosen in a file dialog. macOS's own apps can't have a rule.
+    public func addRule(appPath: String) -> Bool {
+        guard !CaseReport.isMacOS(appPath), appPath.hasSuffix(".app") else { return false }
+        let name = (FileManager.default.displayName(atPath: appPath) as NSString).deletingPathExtension
+        CoolerRules.add(Trust.key(appPath: appPath), name: name)
+        log("Every time: an app added from Always cooler")
+        refreshTrust()
+        return true
+    }
+
+    /// "Stop every time", or Always cooler's − button: the rule goes, and what it slowed is back to full speed.
+    public func removeRule(key: String) {
+        CoolerRules.remove(key)
+        liftRule(key)
+        log("Every time: a rule removed")
+        onPublish?()
+    }
+
+    /// "Speed up for now" on a pinned line: back to full speed until it quits; the rule stays.
+    public func speedUpForNow(_ item: CooledItem) -> Outcome {
+        guard let r = item.rule else { return restore(item) }
+        spedUp[r] = Set(lastRuled.filter { $0.key == r }.map(\.id)).union(cooled.values.filter { $0.rule == r }.map(\.key))
+        liftRule(r)
+        log("Every time: sped up for now")
+        onPublish?()
+        return .done("\(item.name) is back to full speed until it quits. It runs cooler again the next time it starts.")
+    }
 
     public var needsLook: Bool { level != .good }
 
@@ -525,9 +667,11 @@ public final class Watcher {
         var seen = Set<pid_t>()
         var own = 0.0
         var unreadable: [pid_t] = []
+        var readable: [pid_t] = []
         for pid in Proc.allPIDs() {
             guard let u = Proc.usage(pid) else { unreadable.append(pid); continue }
             seen.insert(pid)
+            readable.append(pid)
             var tr = tracks[pid] ?? Track(cpu: u.cpuSeconds, written: u.diskWritten)
             if dt > 0 {
                 let c = max(0, u.cpuSeconds - tr.cpu) / dt
@@ -584,7 +728,8 @@ public final class Watcher {
             }
         }
         tightSince = state.memoryPressure == "warning" || state.memoryPressure == "critical" ? (tightSince ?? now) : nil
-        guard dt > 0 else { publish(state, [], own: 0); return }
+        let ruled = ruledProcesses(readable, me: me)
+        guard dt > 0 else { publish(state, [], own: 0, ruled: ruled); return }
 
         let warm = state.thermal != "nominal"
         // suspects: using half a core or half the graphics chip, for over a minute
@@ -627,10 +772,12 @@ public final class Watcher {
             let programs = ([(pid, e.path)] + e.ancestors.map { ($0.pid, $0.path) })
                 .prefix { NSRunningApplication(processIdentifier: $0.0)?.activationPolicy != .regular }.compactMap(\.1)
             let agent = e.mine ? BackgroundAgents.owner(of: Array(programs)) : nil
-            let c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
+            var c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
                               syncFeed: feed, agent: agent, backupFeed: backup, disguise: Disguise.find(e), background: background(e, tr.busySince, state, now),
                               apps: AppBuild.facts(e, isWindowServer: Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver"))
             guard c.state != .quiet else { continue }
+            // something with an every-time rule: the card says so, and doesn't offer Run it cooler again
+            if let k = Trust.key(e), CoolerRules.contains(k) { c = c.underRule(app: CoolerRules.isApp(k)) }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice?.line.map { [$0] } ?? []))
             lc.reportSubject = CaseReport.subject(e)
             lc.displaySubject = Card.subject(e)
@@ -658,7 +805,7 @@ public final class Watcher {
             FileHandle.standardError.write("t+\(Int(ProcessInfo.processInfo.systemUptime - Watcher.launchUptime))s tick busy=\(busy.count) cards=\(live.map { $0.card.headline.prefix(50) }) top=\(top)\n".data(using: .utf8)!)
         }
 
-        publish(state, live, own: own / Double(max(1, state.cores)))
+        publish(state, live, own: own / Double(max(1, state.cores)), ruled: ruled)
     }
 
     /// Cards for processes that are stuck while using almost nothing (see `Hang`), once each has been stuck long enough.
@@ -816,7 +963,7 @@ public final class Watcher {
         return out
     }
 
-    private func publish(_ state: MacState, _ live: [LiveCard], own: Double) {
+    private func publish(_ state: MacState, _ live: [LiveCard], own: Double, ruled: [Ruled] = []) {
         let now = Date()
         DispatchQueue.main.async { [self] in
             mac = state
@@ -879,10 +1026,13 @@ public final class Watcher {
                 if !alive { cooled.removeValue(forKey: k); log("\(item.reportSubject) finished while running cooler"); continue }
                 if let pri = Proc.schedulingPriority(item.pid), pri > 4 {
                     cooled.removeValue(forKey: k)
+                    // a rule's: slowed again below if it should be, without a note each time its app speeds it up
+                    if item.rule != nil { continue }
                     log("\(item.reportSubject) was put back to full speed by its app (priority \(pri))")
                     notices.append("\(item.name) is back to full speed: its app sped it up again, probably because you're using it.")
                 }
             }
+            applyRules(ruled, now)
             onPublish?()
         }
     }

@@ -102,7 +102,8 @@ struct ToolsBar: View {
 @MainActor
 final class Tools: ObservableObject {
     static let shared = Tools()
-    @Published var trusted = false
+    /// For screenshots: COOLHEAD_SNAPSHOT_TRUSTED opens the Trusted tool, with made-up lists.
+    @Published var trusted = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_TRUSTED"] != nil
     @Published var battery = false
     @Published var hardware = false
     @Published var settings = false
@@ -352,6 +353,10 @@ struct TrustedView: View {
     @State private var list: [Item]
     @State private var selected: String?
     @State private var note: String?
+    /// Always cooler: what runs cooler every time (CoolerRules), with its own selection and note.
+    @State private var cooler: [Item]
+    @State private var coolerSelected: String?
+    @State private var coolerNote: String?
 
     struct Item: Identifiable, Equatable {
         let key: String
@@ -362,14 +367,22 @@ struct TrustedView: View {
     }
 
     /// `preset` is for renders; the panel reads the list.
-    init(watcher: Watcher, preset: [Item]? = nil) {
+    init(watcher: Watcher, preset: [Item]? = nil, presetCooler: [Item]? = nil) {
         self.watcher = watcher
-        _list = State(initialValue: preset ?? TrustedView.load())
+        let render = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_TRUSTED"] != nil
+        _list = State(initialValue: preset ?? (render ? [Item(key: "app:com.example.photobackup", name: "Photo Backup"),
+                                                         Item(key: "script:/Users/you/tools/export.py", name: "export.py")] : TrustedView.load()))
+        _cooler = State(initialValue: presetCooler ?? (render ? [Item(key: "app:com.example.huddle", name: "Huddle"),
+                                                                 Item(key: "script:/Users/you/Sites/site/server.js", name: "server.js")] : TrustedView.loadCooler()))
     }
 
-    static func load() -> [Item] {
-        Trust.all.map { Item(key: $0.key, name: $0.value) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    static func load() -> [Item] { sorted(Trust.all) }
+    static func loadCooler() -> [Item] { sorted(CoolerRules.all) }
+    static func sorted(_ d: [String: String]) -> [Item] {
+        d.map { Item(key: $0.key, name: $0.value) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
+    /// Trusting and always slowing are opposites, so a change to one list can change the other.
+    func reload() { list = TrustedView.load(); cooler = TrustedView.loadCooler() }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -381,42 +394,23 @@ struct TrustedView: View {
             }
             Text("Their cards stay calm. We still flag one if it looks stuck, your Mac gets hot, or it runs nonstop for \(Int(Trust.limitHours)) hours.")
                 .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-            // the list and its +/− bar, in one bordered box, as in System Settings
-            VStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    if list.isEmpty {
-                        Text("No trusted apps or jobs")
-                            .font(.callout).foregroundStyle(Ink.muted)
-                            .frame(maxWidth: .infinity, minHeight: 64)
-                    } else {
-                        ForEach(Array(list.enumerated()), id: \.element.id) { i, item in
-                            row(item, stripe: i % 2 == 1)
-                        }
-                    }
-                }
-                .frame(minHeight: 64, alignment: .top)
-                .background(Color(nsColor: .controlBackgroundColor))
-                Divider()
-                HStack(spacing: 0) {
-                    barButton("plus", "Trust an app") { choose() }
-                    Divider().frame(height: 16)
-                    barButton("minus", "Stop trusting the selected one") {
-                        guard let key = selected else { return }
-                        watcher.untrust(key: key)
-                        list = TrustedView.load()
-                        selected = nil
-                        note = nil
-                    }
-                    .disabled(selected == nil)
-                    Divider().frame(height: 16)
-                    Spacer()
-                }
-                .frame(height: 22)
-                .background(Color.primary.opacity(0.03))
+            box(list, empty: "No trusted apps or jobs", selected: $selected, addTip: "Trust an app", removeTip: "Stop trusting the selected one",
+                add: { choose(cooler: false) }) { key in
+                watcher.untrust(key: key)
+                reload(); selected = nil; note = nil
             }
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Ink.edge, lineWidth: 1))
             Text(note ?? "To trust a job or script, use the clock on its card.")
+                .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+            Divider().padding(.vertical, 4)
+            Label("Always cooler", systemImage: "tortoise").font(.body.weight(.semibold))
+            Text("Slowed every time: an app while you aren't using it, back to full speed when you switch to it; a job whenever it runs.")
+                .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+            box(cooler, empty: "Nothing runs cooler every time", selected: $coolerSelected, addTip: "Always run an app cooler",
+                removeTip: "Stop running the selected one cooler", add: { choose(cooler: true) }) { key in
+                watcher.removeRule(key: key)
+                reload(); coolerSelected = nil; coolerNote = nil
+            }
+            Text(coolerNote ?? "To add a job or script, press Every time after Run it cooler on its card. Trusting something takes it off this list.")
                 .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
@@ -425,8 +419,41 @@ struct TrustedView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 
-    func row(_ item: Item, stripe: Bool) -> some View {
-        let on = selected == item.key
+    /// A list and its +/− bar, in one bordered box, as in System Settings.
+    func box(_ items: [Item], empty: String, selected: Binding<String?>, addTip: String, removeTip: String,
+             add: @escaping () -> Void, remove: @escaping (String) -> Void) -> some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                if items.isEmpty {
+                    Text(empty)
+                        .font(.callout).foregroundStyle(Ink.muted)
+                        .frame(maxWidth: .infinity, minHeight: 64)
+                } else {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                        row(item, stripe: i % 2 == 1, selected: selected)
+                    }
+                }
+            }
+            .frame(minHeight: 64, alignment: .top)
+            .background(Color(nsColor: .controlBackgroundColor))
+            Divider()
+            HStack(spacing: 0) {
+                barButton("plus", addTip, action: add)
+                Divider().frame(height: 16)
+                barButton("minus", removeTip) { if let key = selected.wrappedValue { remove(key) } }
+                    .disabled(selected.wrappedValue == nil)
+                Divider().frame(height: 16)
+                Spacer()
+            }
+            .frame(height: 22)
+            .background(Color.primary.opacity(0.03))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Ink.edge, lineWidth: 1))
+    }
+
+    func row(_ item: Item, stripe: Bool, selected: Binding<String?>) -> some View {
+        let on = selected.wrappedValue == item.key
         return HStack(spacing: 8) {
             icon(item).frame(width: 18, height: 18)
             Text(item.name).font(.callout).lineLimit(1)
@@ -437,7 +464,7 @@ struct TrustedView: View {
         .padding(.horizontal, 8).padding(.vertical, 5)
         .background(on ? Ink.accent : stripe ? Color.primary.opacity(0.035) : .clear)
         .contentShape(Rectangle())
-        .onTapGesture { selected = on ? nil : item.key }
+        .onTapGesture { selected.wrappedValue = on ? nil : item.key }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
     }
@@ -460,21 +487,26 @@ struct TrustedView: View {
         .accessibilityLabel(tip)
     }
 
-    /// + : choose an app in Applications to trust.
-    func choose() {
+    /// + : choose an app in Applications to trust, or to always run cooler.
+    func choose(cooler: Bool) {
         let open = NSOpenPanel()
-        open.title = "Trust an app"
-        open.prompt = "Trust"
+        open.title = cooler ? "Always run an app cooler" : "Trust an app"
+        open.prompt = cooler ? "Add" : "Trust"
         open.allowedContentTypes = [.application]
         open.directoryURL = URL(fileURLWithPath: "/Applications")
         open.canChooseDirectories = false
         open.allowsMultipleSelection = false
         NSApp.activate(ignoringOtherApps: true)
         guard open.runModal() == .OK, let url = open.url else { return }
-        if watcher.trust(appPath: url.path) {
-            list = TrustedView.load()
-            selected = list.first { $0.name == (FileManager.default.displayName(atPath: url.path) as NSString).deletingPathExtension }?.key
-            note = nil
+        let name = (FileManager.default.displayName(atPath: url.path) as NSString).deletingPathExtension
+        if cooler {
+            if watcher.addRule(appPath: url.path) {
+                reload(); coolerSelected = self.cooler.first { $0.name == name }?.key; coolerNote = nil
+            } else {
+                coolerNote = "macOS's own apps can't be slowed: Cool Head explains them instead."
+            }
+        } else if watcher.trust(appPath: url.path) {
+            reload(); selected = list.first { $0.name == name }?.key; note = nil
         } else {
             note = "macOS's own apps can't be trusted: Cool Head explains them instead."
         }

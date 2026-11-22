@@ -307,7 +307,16 @@ struct CardView: View {
         }
     }
 
-    var body: some View {
+    var body: some View { content.onAppear { presetEveryTime() } }
+
+    /// For screenshots (COOLHEAD_SNAPSHOT_EVERY_OFFER): a card with Run it cooler as it looks just after it worked.
+    func presetEveryTime() {
+        guard EveryTimeOffer.snapshot, live.card.fixes.contains(where: { $0.kind == .cooler }) else { return }
+        note = "Slowing \(EveryTimeOffer.name(live)) to keep your Mac cool. It's still working, just more slowly. Speed it up any time from the top of this panel."
+        noteFor = "cooler"; noteFailed = false; acted = true
+    }
+
+    var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(live.card.headline)
@@ -453,6 +462,10 @@ struct CardView: View {
             }
             .font(.callout.weight(.medium))
             .foregroundStyle(noteFailed ? Color.orange : Color.green)
+            // after Run it cooler worked: the offer to do it every time, for something that can have a rule
+            if !noteFailed, noteFor == "cooler", (watcher.isCooled(live) && live.trustKey != nil) || EveryTimeOffer.snapshot {
+                EveryTimeOffer(live: live, watcher: watcher)
+            }
             if noteFailed {
                 Button("Report a problem") { watcher.showReport = true }.buttonStyle(.link).font(.callout)
             }
@@ -1085,17 +1098,50 @@ extension View { func hoverHighlight(_ on: Bool) -> some View { modifier(HoverHi
 /// sync app paused, Chrome's memory limit.
 enum FrozenItem: Identifiable {
     case cooled(Watcher.CooledItem), paused(PausedJob), sync(SyncPause), chrome(Int), agent(BackgroundAgents.Agent), backup(String)
+    /// Something an every-time rule is slowing: one line per rule, however many of its processes are slowed (an app's
+    /// helpers count as the app).
+    case rule(Watcher.CooledItem, app: Bool)
+
+    /// Slowed just this once, and slowed by rules, one of each rule.
+    static func split(_ list: [Watcher.CooledItem]) -> (once: [FrozenItem], rules: [FrozenItem]) {
+        var seen = Set<String>()
+        let rules = list.filter { $0.rule.map { seen.insert($0).inserted } ?? false }
+        return (list.filter { $0.rule == nil }.map { .cooled($0) }, rules.map { .rule($0, app: CoolerRules.isApp($0.rule ?? "")) })
+    }
+    var isRule: Bool { if case .rule = self { return true }; return false }
+    /// For screenshots: COOLHEAD_SNAPSHOT_SAMPLES naming "every-time" shows made-up lines slowed just this once and by
+    /// rules, so they can be seen without slowing anything on this Mac.
+    static var everyTimeSamples: [FrozenItem] {
+        guard ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"]?.split(separator: "|").contains("every-time") ?? false else { return [] }
+        let at = Calendar.current.date(bySettingHour: 21, minute: 40, second: 0, of: Date()) ?? Date()
+        func item(_ name: String, _ rule: String?) -> Watcher.CooledItem {
+            Watcher.CooledItem(key: "sample-" + name, pid: 0, start: nil, name: name, reportSubject: "a sample", since: at, before: nil, after: nil, rule: rule)
+        }
+        return [.cooled(item("Exporter", nil)), .rule(item("Huddle", "app:com.example.huddle"), app: true),
+                .rule(item("Site", "script:/Users/you/Sites/site/server.js"), app: false)]
+    }
 
     static func all(_ w: Watcher) -> [FrozenItem] {
         // a screenshot shows nothing of this Mac's own: with example cards, only made-up lines; limited to some of this
         // Mac's cards, only what Cool Head is doing to those (see COOLHEAD_SNAPSHOT_COOL and _PAUSE)
-        if PanelView.sampleSnapshot { return heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : [] }
-        if let pids = PanelView.onlyPIDs(w) {
-            return w.cooledList.filter { pids.contains($0.pid) }.map { .cooled($0) } + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) }
+        if PanelView.sampleSnapshot {
+            return (heldBackSamples ? [.agent(Fixture.updaterAgent), .backup(NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData")] : []) + everyTimeSamples
         }
-        return w.cooledList.map { .cooled($0) } + w.pausedJobs.map { .paused($0) } + w.syncPauses.map { .sync($0) }
-            + (w.chromeLimitMB.map { [.chrome($0)] } ?? [])
-            + w.agentsOff.map { .agent($0) } + w.backupExcluded.map { .backup($0) }
+        if let pids = PanelView.onlyPIDs(w) {
+            let cooled = split(w.cooledList.filter { pids.contains($0.pid) })
+            return cooled.once + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) } + cooled.rules
+        }
+        // slowed just this once, and the rest of what's held back, first; what rules slow after, as its own group
+        let cooled = split(w.cooledList)
+        // built a step at a time: one long chain of + is too slow for the compiler to type-check
+        var items: [FrozenItem] = cooled.once
+        items += w.pausedJobs.map { FrozenItem.paused($0) }
+        items += w.syncPauses.map { FrozenItem.sync($0) }
+        if let mb = w.chromeLimitMB { items.append(.chrome(mb)) }
+        items += w.agentsOff.map { FrozenItem.agent($0) }
+        items += w.backupExcluded.map { FrozenItem.backup($0) }
+        items += cooled.rules
+        return items
     }
     /// For screenshots: COOLHEAD_SNAPSHOT_SAMPLES naming "held-back" shows a made-up turned-off helper and a made-up
     /// folder left out of Time Machine, so the lines can be seen without changing anything on this Mac.
@@ -1113,6 +1159,7 @@ enum FrozenItem: Identifiable {
         case .chrome: return "chrome"
         case .agent(let a): return "agent-" + a.label
         case .backup(let p): return "backup-" + p
+        case .rule(let c, _): return "rule-" + (c.rule ?? c.key)
         }
     }
     var due: Bool { if case .sync(let s) = self { return s.until <= Date() }; return false }
@@ -1124,6 +1171,7 @@ enum FrozenItem: Identifiable {
         case .chrome: return "memorychip"
         case .agent: return "power.circle"
         case .backup: return "clock.arrow.circlepath"
+        case .rule: return "tortoise.fill"
         }
     }
     var line: String {
@@ -1136,6 +1184,7 @@ enum FrozenItem: Identifiable {
         case .chrome(let mb): return "Cool Head's \(ChromeLimit.gb(mb)) limit for Chrome is still set"
         case .agent(let a): return a.owner == a.label ? "A background helper is turned off" : "\(a.owner)'s background helper is turned off"
         case .backup(let p): return "Time Machine skips \(FrozenItem.name(p)) in \(FrozenItem.project(p))"
+        case .rule(let c, let app): return app ? "Slowing \(c.name) while you aren't using it" : "Slowing \(c.name) every time it runs"
         }
     }
     /// The line as a problem report says it: anonymised as the activity log is, with no file, folder or project names
@@ -1150,6 +1199,7 @@ enum FrozenItem: Identifiable {
         case .chrome: return "Chrome's memory limit"
         case .agent(let a): return a.owner == a.label ? "Turning off a background helper" : "Turning off \(a.owner)'s background helper"
         case .backup: return "Skipping a build folder in Time Machine"
+        case .rule: return "Running something cooler every time"
         }
     }
     var reportLine: String {
@@ -1157,6 +1207,7 @@ enum FrozenItem: Identifiable {
         case .cooled(let c): return "Slowing \(c.reportSubject)"
         case .paused(let p): return "\(p.reportSubject) is paused until you plug in"
         case .backup: return "Time Machine skips a build folder"
+        case .rule: return "Slowing something on Always cooler"
         case .sync, .chrome, .agent: return line
         }
     }
@@ -1169,6 +1220,8 @@ enum FrozenItem: Identifiable {
         case .chrome: return "Chrome only applies it when an organization manages this Mac, so it does nothing here, and it makes Chrome say it's \u{201C}managed by your organization\u{201D}. Removing it changes nothing else."
         case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
         case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
+        case .rule(_, let app): return app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it."
+                                           : "Every time it runs, as you chose. It's still working, just more slowly."
         }
     }
     var undo: (title: String, icon: String) {
@@ -1179,6 +1232,7 @@ enum FrozenItem: Identifiable {
         case .chrome: return ("Remove the limit", "xmark")
         case .agent: return ("Turn it back on", "power")
         case .backup: return ("Back it up again", "arrow.uturn.backward")
+        case .rule: return ("Back to full speed until it quits", "hare")
         }
     }
     /// The undo, as a button on the line itself, so it's one click and nobody has to work out that the line opens
@@ -1192,6 +1246,7 @@ enum FrozenItem: Identifiable {
         case .chrome: return "Remove limit"
         case .agent: return "Turn on"
         case .backup: return "Back it up"
+        case .rule: return "Speed up for now"
         }
     }
 }
@@ -1199,6 +1254,36 @@ enum FrozenItem: Identifiable {
 /// Everything Cool Head is holding back, one line each at the top of the panel, in one frosted frame: a click opens a
 /// line for more, with its button to undo it. Undo lives here, never on the Settings page or in the right-click menu.
 struct FrozenList: View {
+    /// Once a rule is slowing something: two frosted boxes, each under its own heading. Just this once first, since
+    /// those need more attention than what someone set up to happen every time.
+    @ViewBuilder static func groups(_ items: [FrozenItem], watcher: Watcher) -> some View {
+        let once = items.filter { !$0.isRule }, every = items.filter(\.isRule)
+        let allSlowed = once.allSatisfy { if case .cooled = $0 { return true }; return false }
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach([(once, "Just this once", "clock", allSlowed ? "Until you speed it up or it quits" : "Until you undo it"),
+                     (every, "Every time", "repeat", "Until you stop it")], id: \.1) { group, title, icon, hint in
+                if !group.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: icon).font(.caption.weight(.bold))
+                        Text(title).font(.callout.weight(.semibold))
+                        Text(hint).font(.caption).foregroundStyle(Ink.muted)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 8).padding(.top, group.first?.id == items.first?.id ? 0 : 6)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isHeader)
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(group.enumerated()), id: \.element.id) { i, item in
+                            if i > 0 { Divider().opacity(0.6).padding(.horizontal, FrozenList.inset) }
+                            FrozenLine(item: item, watcher: watcher, inset: FrozenList.inset, top: i == 0 ? 10 : 0, bottom: i == group.count - 1 ? 10 : 0)
+                        }
+                    }
+                    .frozen()
+                }
+            }
+        }
+    }
+
     let watcher: Watcher
     @ObservedObject private var tools = Tools.shared
     /// Folded to one frosted line with a count until clicked, and closed when a card opens, so it takes little room. A
@@ -1247,7 +1332,11 @@ struct FrozenList: View {
             FrozenTitle(count: items.count, open: true).padding(.horizontal, 8).padding(.top, 4)
                 .contentShape(Rectangle())
                 .onTapGesture { focus.toggle(PanelFocus.onHold) }
-            rows.frozen()
+            if items.contains(where: \.isRule) {
+                FrozenList.groups(items, watcher: watcher)
+            } else {
+                rows.frozen()
+            }
             FrozenReportButton(watcher: watcher, count: items.count)
             if tools.reportAboutHeld { ProblemView(watcher: watcher, inline: true) { tools.reportAboutHeld = false } }
         }
@@ -1370,6 +1459,11 @@ struct FrozenLine: View {
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
             Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
+            if case .rule(let c, _) = item, let r = c.rule {
+                Button("Stop every time") { watcher.removeRule(key: r) }
+                    .buttonStyle(IceButton()).font(.subheadline).fixedSize()
+                    .help("Takes it off Always cooler and puts it back to full speed")
+            }
             if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
         .padding(.horizontal, inset).padding(.top, 8 + top).padding(.bottom, 8 + bottom)
@@ -1384,6 +1478,7 @@ struct FrozenLine: View {
         case .chrome: if !watcher.removeChromeLimit() { failed = "That didn't work: Chrome's settings didn't change." }
         case .agent(let a): if !watcher.turnOnAgent(a) { failed = "That didn't work: macOS didn't turn it back on." }
         case .backup(let p): if !watcher.backUpAgain(p) { failed = "That didn't work: Time Machine's setting didn't change." }
+        case .rule(let c, _): if case .failed(let why) = watcher.speedUpForNow(c) { failed = "That didn't work: \(why)." }
         }
     }
 }
@@ -2158,5 +2253,49 @@ final class SaverResult: @unchecked Sendable {
     static func write(into r: SaverResult) {
         r.value = ChromeMemorySaver.setMaximum()
         if r.value == .set { UserDefaults.standard.set(Date(), forKey: ChromeMemorySaver.setKey) }
+    }
+}
+
+
+/// After Run it cooler works on a card: the offer to do it every time, then what was done.
+struct EveryTimeOffer: View {
+    static let snapshot = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_EVERY_OFFER"] != nil
+    let live: LiveCard
+    let watcher: Watcher
+    @State private var added = false
+    var name: String { EveryTimeOffer.name(live) }
+    /// What the offer calls it: the name trusting would use, else the card's subject; a screenshot's made-up card has
+    /// neither, so it takes the headline's first word.
+    static func name(_ live: LiveCard) -> String {
+        if !live.trustName.isEmpty { return live.trustName }
+        if !live.displaySubject.isEmpty { return live.displaySubject }
+        return snapshot ? String(live.card.headline.split(separator: " ").first ?? "it") : "it"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if added {
+                Label("\(name) runs cooler every time now.", systemImage: "repeat")
+                    .font(.callout).foregroundStyle(Ink.text).fixedSize(horizontal: false, vertical: true)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("Slow \(name) every time it runs?").font(.callout).foregroundStyle(Ink.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    Button("Every time") { added = watcher.addRule(live) }
+                        .buttonStyle(.plain).font(.callout.weight(.semibold)).foregroundStyle(Ink.onFill)
+                        .padding(.horizontal, 12).padding(.vertical, 5)
+                        .background(Capsule().fill(Ink.fill))
+                        .overlay(Capsule().strokeBorder(Ink.fillEdge, lineWidth: 1))
+                        .fixedSize()
+                        .help(CoolerRules.isApp(live.trustKey ?? "") ? "Slowed whenever you aren't using it; full speed when you are" : "Slowed whenever it runs")
+                }
+            }
+            Text("Stop any time from Trusted, under Always cooler.")
+                .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Ink.edge, lineWidth: 1))
     }
 }
