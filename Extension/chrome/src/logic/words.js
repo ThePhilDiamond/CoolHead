@@ -115,9 +115,9 @@ export function levelLine(level, o = {}) {
 export const AUTO_NEEDS = 'Auto needs Cool Head, which knows when memory is short.';
 
 // ---- held in memory ----
-export const HELD_TITLE = 'Held in memory';
-export const HELD_LEDE = "These tabs don't sleep on their own, so they hold memory. Each says why; choose what happens to it.";
-export const HELD_EMPTY = 'No tabs are held right now. A tab playing sound, on a call, with unsent typing, pinned, or kept by you would show here.';
+export const PROTECTED = 'Protected';
+export const PROTECTED_LEDE = "These tabs stay awake, so they hold memory. Each says why; choose what happens to it.";
+export const PROTECTED_EMPTY = 'No tabs are protected right now. A tab playing sound, on a call, with unsent typing, pinned, or kept by you would show here.';
 export const REASON_TEXT = {
   call: 'On a call',
   screen: 'Sharing your screen',

@@ -17,7 +17,8 @@ shot() { # name screen theme
 for theme in light dark; do
   shot "home-$theme" home "$theme"
   shot "start-session-$theme" start "$theme"
-  shot "held-open-$theme" held "$theme"
+  shot "protected-$theme" held "$theme"
+  shot "level-open-$theme" levels "$theme"
 done
 shot "held-asks-once-light" confirm light
 shot "session-ending-light" ending light

@@ -25,6 +25,7 @@
   --wash-none: light-dark(#F2F2F2, #2C2C2C);     /* not working with Cool Head */
   --drip: light-dark(#2F86C9, #6CB8F0);
   --focus: var(--accent);
+  --tool-open: light-dark(#0F4FA8, #1D5BB5);   /* deep Cool Head blue behind the open tool, white on it */
 }
 :root.light { color-scheme: light; }
 :root.dark { color-scheme: dark; }
@@ -137,8 +138,18 @@ button { font: inherit; color: inherit; }
 .screenhead { display: flex; align-items: center; gap: 8px; }
 .screenhead h2 { flex: 1; font-size: 15px; margin: 0; }
 
-/* the level, in the bottom bar with the same wash as the top, as in the app */
-.bottom { border-top: 1px solid var(--edge); padding: 12px 16px 14px; }
+/* the bottom bar, with the same wash as the top, as in the app: each tool is an icon over its name; the open one is
+   white on Cool Head blue. The level's choices open above the tools. */
+.bottom { border-top: 1px solid var(--edge); padding: 6px 10px 8px; }
+.tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.tool { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 48px; padding: 6px 4px 5px; border: 0; border-radius: 9px; background: transparent; color: var(--text); font: 12px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; cursor: pointer; }
+.tool:hover { background: var(--fill-hover); }
+.tool .ico { width: 20px; height: 20px; stroke-width: 1.5; }
+.toolicon { position: relative; display: inline-flex; }
+.tool.open { background: var(--tool-open); color: #FFFFFF; }
+.badge { position: absolute; top: -5px; right: -11px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
+.tool.open .badge { background: #FFFFFF; color: var(--tool-open); }
+.levels { padding: 8px 6px 12px; margin-bottom: 6px; border-bottom: 1px solid var(--edge); }
 .bottom .label { font-size: 12px; font-weight: 700; letter-spacing: 0.5px; margin: 0 0 8px; text-transform: uppercase; }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
 .seg button { min-height: 32px; border: 1px solid var(--control); border-radius: 7px; background: var(--fill); color: var(--text); font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; }

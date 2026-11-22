@@ -54,7 +54,7 @@ const s = {
 };
 
 const ui = {
-  screen: 'home', heldOpen: false, confirm: null, ending: false, groupName: null, start: null,
+  screen: 'home', levelOpen: false, confirm: null, ending: false, groupName: null, start: null,
   ticked: new Set(), windowOnly: false, beforeWindowOnly: null, showAllOthers: false, safe: null,
 };
 
@@ -71,7 +71,8 @@ if (screen === 'alone') {
   s.link = { status: 'notInstalled', app: '', state: null, stateAt: null, attemptAt: null };
   s.level = 'balanced';
 }
-if (screen === 'held' || screen === 'confirm') ui.heldOpen = true;
+if (screen === 'held' || screen === 'confirm') ui.screen = 'protected';
+if (screen === 'levels') ui.levelOpen = true;
 if (screen === 'confirm') ui.confirm = { tabId: form.id, action: 'close' };
 
 const view = buildView({
@@ -100,10 +101,5 @@ const on = new Proxy({}, { get: () => noop });
 const root = document.getElementById('app');
 render(root, view, ui, on);
 
-if (screen === 'held' || screen === 'confirm') {
-  const main = root.querySelector('main');
-  const head = root.querySelector('#held-h');
-  main.scrollTop = head.offsetTop - main.offsetTop - 6;
-  if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
-}
+if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
 document.body.dataset.ready = 'yes';

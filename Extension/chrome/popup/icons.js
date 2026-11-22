@@ -18,6 +18,8 @@ export const PATHS = {
   external: '<path d="M6.5 3.5h6v6"/><path d="M12.5 3.5L4 12"/>',
   warn: '<path d="M8 1.8l6.6 11.6H1.4z"/><path d="M8 6.2v3.3"/><path d="M8 11.6v.1"/>',
   bolt: '<path d="M9 1.5L3.5 9h4L7 14.5 12.5 7h-4z"/>',
+  shield: '<path d="M8 1.8l5.2 2v4c0 3.1-2.2 5.4-5.2 6.4-3-1-5.2-3.3-5.2-6.4v-4z"/><path d="M5.7 8.1l1.6 1.6 3-3.1"/>',
+  gauge: '<path d="M2.4 11.8a5.8 5.8 0 1 1 11.2 0"/><path d="M8 10l2.8-3.3"/><path d="M8 10h.01"/>',
   gear: '<path d="M2 4.5h6.5M12.5 4.5H14M2 11.5h1.5M7.5 11.5H14"/><circle cx="10.5" cy="4.5" r="2"/><circle cx="5.5" cy="11.5" r="2"/>',
 };
 

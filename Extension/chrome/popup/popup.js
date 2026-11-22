@@ -10,7 +10,7 @@ const ALL_SITES = { origins: ['<all_urls>'] };
 
 const ui = {
   screen: 'home',
-  heldOpen: false, // folded by default, showing its count, like Cool Head's folded groups
+  levelOpen: false, // the level's choices, opened from its tool in the bottom bar
   confirm: null,
   ending: false,
   groupName: null,
@@ -74,14 +74,16 @@ async function openSafe() {
 }
 
 const on = {
-  openSettings() { ui.screen = 'settings'; ui.confirm = null; draw(); root.querySelector('[data-key="back"]')?.focus(); },
+  // The bottom bar's tools: pressing the open one again goes back home, as in Cool Head.
+  openSettings() { if (ui.screen === 'settings') { on.back(); return; } ui.screen = 'settings'; ui.confirm = null; draw(); root.querySelector('[data-key="back"]')?.focus(); },
+  openProtected() { if (ui.screen === 'protected') { on.back(); return; } ui.screen = 'protected'; ui.confirm = null; draw(); root.querySelector('[data-key="back"]')?.focus(); },
+  toggleLevel() { ui.levelOpen = !ui.levelOpen; draw(); },
   back() {
     const from = ui.screen;
     ui.screen = from === 'safe' ? 'settings' : 'home';
     draw();
-    root.querySelector(`[data-key="${from === 'safe' ? 'safe' : 'settings'}"]`)?.focus();
+    root.querySelector(`[data-key="${from === 'safe' ? 'safe' : from}"]`)?.focus();
   },
-  toggleHeld() { ui.heldOpen = !ui.heldOpen; ui.confirm = null; draw(); },
   async level(id) { const r = await act({ action: 'level', level: id }); announce(`${r.said} ${r.view.levels.line}`); },
   keep(tabId, keep) { ui.confirm = null; act({ action: 'keep', tabId, on: keep }); },
   sleep(row) { tryRisky(row, 'sleep'); },
@@ -170,7 +172,7 @@ let pending = null;
 function soon() {
   clearTimeout(pending);
   // Not while the group name is being typed: a redraw would move the caret and break input methods.
-  pending = setTimeout(() => { if ((ui.screen === 'home' && !ui.ending) || ui.screen === 'settings') refresh().catch(console.error); }, 200);
+  pending = setTimeout(() => { if ((ui.screen === 'home' && !ui.ending) || ui.screen === 'settings' || ui.screen === 'protected') refresh().catch(console.error); }, 200);
 }
 chrome.storage.onChanged.addListener(soon);
 for (const ev of [chrome.tabs.onUpdated, chrome.tabs.onRemoved, chrome.tabs.onCreated, chrome.tabs.onActivated]) ev.addListener(soon);

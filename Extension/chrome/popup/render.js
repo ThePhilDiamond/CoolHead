@@ -46,9 +46,6 @@ function band(view, ui, on) {
     brand.append(h('span', { class: `link${b.link.state === 'linked' ? '' : ' off'}` },
       icon(b.link.state === 'linked' ? 'sync' : 'syncOff'), h('span', { text: b.link.text })));
   }
-  if (ui.screen === 'home') {
-    brand.append(h('button', { class: 'iconbtn', 'aria-label': W.SETTINGS, title: W.SETTINGS, 'data-key': 'settings', onclick: on.openSettings }, icon('gear')));
-  }
   return h('header', { class: `band tone-${b.tone}` }, brand,
     // Not a live region itself: it is redrawn often, and a fresh live region is not reliably read. popup.js says a
     // change in memory through the one lasting live region instead.
@@ -141,22 +138,15 @@ function heldRow(row, ui, on) {
   return h('li', { class: 'tab' }, fav(row), main);
 }
 
-function heldSection(view, ui, on) {
-  const open = ui.heldOpen;
-  const header = h('button', {
-    class: 'group', id: 'held-h', 'aria-expanded': open ? 'true' : 'false', 'aria-controls': 'held', 'data-key': 'held',
-    onclick: on.toggleHeld,
-  }, icon('bolt', 'ico lead'), h('span', { class: 'cap', text: W.HELD_TITLE }), h('span', { class: 'count', text: view.held.countText }),
-  icon(open ? 'chevDown' : 'chevRight', 'ico chev'));
-  const body = h('div', { class: 'section-body', id: 'held', hidden: !open });
-  if (open) {
-    if (view.held.tabs.length === 0) body.append(h('p', { class: 'lede', text: W.HELD_EMPTY }));
-    else {
-      body.append(h('p', { class: 'lede', text: W.HELD_LEDE }),
-        h('ul', { class: 'tabs', 'aria-label': 'Tabs held in memory' }, view.held.tabs.map((r) => heldRow(r, ui, on))));
-    }
+// Protected: the tabs that stay awake and why, opened from the bottom bar as Trusted is in Cool Head.
+function protectedScreen(view, ui, on) {
+  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, backHead(W.PROTECTED, on));
+  if (view.held.tabs.length === 0) main.append(h('p', { class: 'lede', text: W.PROTECTED_EMPTY }));
+  else {
+    main.append(h('p', { class: 'lede', text: W.PROTECTED_LEDE }),
+      h('ul', { class: 'tabs', 'aria-label': W.PROTECTED }, view.held.tabs.map((r) => heldRow(r, ui, on))));
   }
-  return h('section', { 'aria-labelledby': 'held-h' }, header, body);
+  return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 
 function duplicatesCard(view, on) {
@@ -198,11 +188,37 @@ function levels(view, on) {
       onclick: () => { if (!o.disabled) choose(o.id); }, onkeydown: keydown,
     }, on_ ? icon('check') : null, o.label);
   });
-  return h('footer', { class: `bottom tone-${l.tone}` },
+  return h('div', { class: 'levels', id: 'levels' },
     h('p', { class: 'label', id: 'lvl', text: l.label }),
     h('div', { class: 'seg', role: 'radiogroup', 'aria-labelledby': 'lvl' }, buttons),
     h('p', { class: 'what', text: l.line }),
     l.needs ? h('p', { class: 'what', id: 'auto-needs', text: l.needs }) : null);
+}
+
+// ---------- the bottom bar ----------
+
+// As in Cool Head's own bottom bar: each tool is an icon over its name, and the open one is white on Cool Head blue.
+// The level's tool is named by the level chosen, so it can be read without opening; it opens its choices above the bar.
+function toolbar(view, ui, on) {
+  const l = view.levels;
+  const chosen = l.options.find((o) => o.id === l.chosen)?.label || W.LEVEL_LABEL;
+  const tool = (key, ico, label, open, props) => h('button', { class: `tool${open ? ' open' : ''}`, 'data-key': key, ...props },
+    h('span', { class: 'toolicon' }, icon(ico)), h('span', { class: 'toolname', text: label }));
+  const count = view.held.count ? h('span', { class: 'badge', 'aria-hidden': 'true', text: String(view.held.count) }) : null;
+  const shield = tool('protected', 'shield', W.PROTECTED, ui.screen === 'protected', {
+    'aria-current': ui.screen === 'protected' ? 'page' : null, 'aria-label': `${W.PROTECTED}, ${view.held.countText}`, onclick: on.openProtected,
+  });
+  if (count) shield.querySelector('.toolicon').append(count);
+  return h('footer', { class: `bottom tone-${l.tone}` },
+    ui.levelOpen ? levels(view, on) : null,
+    h('nav', { class: 'tools', 'aria-label': W.NAME },
+      tool('level', 'gauge', chosen, ui.levelOpen, {
+        'aria-expanded': ui.levelOpen ? 'true' : 'false', 'aria-controls': 'levels', 'aria-label': `${W.LEVEL_LABEL}: ${chosen}`, onclick: on.toggleLevel,
+      }),
+      shield,
+      tool('settings', 'gear', W.SETTINGS, ui.screen === 'settings', {
+        'aria-current': ui.screen === 'settings' ? 'page' : null, onclick: on.openSettings,
+      })));
 }
 
 function home(view, ui, on) {
@@ -210,9 +226,8 @@ function home(view, ui, on) {
     notice(view, on),
     questions(view, on),
     view.session ? sessionCard(view, ui, on) : startBlock(view, on),
-    heldSection(view, ui, on),
     duplicatesCard(view, on));
-  return [band(view, ui, on), main, levels(view, on)];
+  return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 
 // ---------- start a session ----------
@@ -304,7 +319,7 @@ function settingsScreen(view, ui, on) {
     h('section', { class: 'card', 'aria-labelledby': 'about-h' },
       h('h2', { id: 'about-h', text: W.ABOUT_TITLE }),
       h('p', { text: st.about })));
-  return [band(view, ui, on), main];
+  return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 
 function extRow(e, toOn, on) {
@@ -337,7 +352,7 @@ function safeScreen(view, ui, on) {
 // ---------- the whole popup ----------
 
 export function render(root, view, ui, on) {
-  const screens = { home, start: startScreen, settings: settingsScreen, safe: safeScreen };
+  const screens = { home, start: startScreen, settings: settingsScreen, safe: safeScreen, protected: protectedScreen };
   const parts = (screens[ui.screen] || home)(view, ui, on);
   // Keep the person's place: the focused control and the scroll position survive a redraw.
   const focusKey = document.activeElement?.dataset?.key;
@@ -357,7 +372,7 @@ export function render(root, view, ui, on) {
     const again = root.querySelector(`[data-key="${CSS.escape(focusKey)}"]`);
     // The control may be gone (a closed tab's row, an answered question): focus goes to the section it was in,
     // or the first control, never lost to the page.
-    const fallback = focusKey.match(/^(keep|sleep|close)-/) ? root.querySelector('[data-key="held"]') : null;
+    const fallback = focusKey.match(/^(keep|sleep|close)-/) ? root.querySelector('[data-key="protected"]') : null;
     (again || fallback || root.querySelector('main button, main input'))?.focus();
   }
 }
