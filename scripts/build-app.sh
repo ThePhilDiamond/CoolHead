@@ -16,7 +16,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources"
 cp "$BIN/CoolHeadApp" "$APP/Contents/MacOS/Cool Head"
 cp "$BIN/coolhead" "$APP/Contents/MacOS/coolhead"
-# Cool Head for Chrome's native messaging host, which Chrome starts by this path (notes/chrome-link-protocol.md);
+# Cool Head for Chrome's native messaging host, which Chrome starts by this path (Extension/chrome/PROTOCOL.md);
 # codesign --deep below signs it with the app, as it signs Contents/MacOS/coolhead
 cp "$BIN/coolhead-chrome-host" "$APP/Contents/Helpers/coolhead-chrome-host"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"

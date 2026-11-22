@@ -1,5 +1,5 @@
 // Cool Head's voice, the mechanical parts (docs/BRAND.md, "Voice"): no em dashes, no exclamation marks, the
-// Oxford comma, Phil's time format. Whether each sentence ends in what it means for the person is read by eye.
+// Oxford comma, times as 8:45am and 2pm. Whether each sentence ends in what it means for the person is read by eye.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

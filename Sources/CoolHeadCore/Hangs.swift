@@ -2,10 +2,9 @@ import AppKit
 import Darwin
 import Foundation
 
-/// Processes that are stuck while using almost nothing, which the busy-process cards never see (Phil, 15 November
-/// 2026: "are we also looking at smaller ones that hang? Mindful if they're locking up a tiny amount of resources, not
-/// a huge deal, but also could have unforeseen consequences if the frozen process is a dependency for something
-/// else"). Three kinds, each read without an administrator password or a permission prompt:
+/// Processes that are stuck while using almost nothing, which the busy-process cards never see: a frozen process holds
+/// little, but something else may depend on it, with consequences no one sees coming. Three kinds, each read without
+/// an administrator password or a permission prompt:
 /// - **paused** by something other than Cool Head (state T in `ps`), such as a Terminal job suspended with Control-Z;
 /// - **waiting on a disk or network** that hasn't answered (state U in `ps`) for minutes;
 /// - **Not Responding** apps, as macOS marks them (what Activity Monitor and Force Quit show).

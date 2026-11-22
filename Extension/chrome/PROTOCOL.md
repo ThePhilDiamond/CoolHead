@@ -1,8 +1,8 @@
 # Cool Head and Cool Head for Chrome: the link, version 1
 
-A copy of Cool Head's notes/chrome-link-protocol.md as of 21 November 2026, the spec this extension implements (src/link-client.js, src/logic/protocol.js, src/logic/framing.js). If the two ever differ, the notes file is the source; update this copy with it.
+The spec for the link between Cool Head and this extension, which implements it in src/link-client.js, src/logic/protocol.js, and src/logic/framing.js.
 
-Written 21 November 2026 for the build (notes/chrome-extension-design.md, "How they talk" and "Requirement: alone or together"). Both sides work alone; this is only what they say when linked. Unknown message types and fields are ignored, so either side can be newer.
+Both sides work alone; this is only what they say when linked. Unknown message types and fields are ignored, so either side can be newer.
 
 ## Pieces
 

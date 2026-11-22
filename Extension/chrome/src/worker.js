@@ -41,7 +41,8 @@ function planCtx(s, ctx, now) {
 
 // Each tab is checked again just before it sleeps: it may have come to the front or started playing sound
 // since the plan was made. Every sleep is chrome.tabs.discard, never a stand-in page, so a tab keeps its place,
-// title, and icon, and still works if this extension is removed (notes/chrome-one-tab.md, The Marvellous Suspender).
+// title, and icon, and still works if this extension is removed. Extensions that swap in a page of their own, as The
+// Marvellous Suspender does, leave tabs pointing at a page that's gone once the extension is removed or broken.
 async function sleepTab(tabId, { force = false } = {}) {
   const t = await chrome.tabs.get(tabId).catch(() => null);
   if (!t || t.active || t.discarded) return null;
@@ -105,7 +106,7 @@ async function refreshMenu(tab) {
   if (!tab) return;
   const s = await store.load();
   const kept = s.kept.some((r) => r.tabId === tab.id);
-  // Hidden for a pinned tab, as in the popup: pinned tabs stay loaded already (decided 21 November 2026).
+  // Hidden for a pinned tab, as in the popup: pinned tabs stay loaded already.
   chrome.contextMenus.update('keep', { checked: kept, visible: !tab.pinned }, () => void chrome.runtime.lastError);
 }
 
@@ -711,7 +712,7 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   ensureMenu();
   await sites.ensure();
   if (reason === 'install') {
-    // Asked at setup, with the cost of saying no; never assumed (decided 21 November 2026).
+    // Asked at setup, with the cost of saying no; never assumed.
     chrome.tabs.create({ url: chrome.runtime.getURL('setup/setup.html') });
   }
 });

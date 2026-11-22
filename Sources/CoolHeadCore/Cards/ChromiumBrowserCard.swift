@@ -1,14 +1,13 @@
 import Foundation
 
-/// Chrome and other Chromium-style apps, without quitting them (Phil, 15 November 2026: "Chrome is one of the biggest
-/// causes, so we should look into if there are ways we can improve performance without killing it when a user is
-/// using it"). A process can be told apart as a tab, an extension or the graphics process, but not which tab: only the
-/// browser's Task Manager knows that.
+/// Chrome and other Chromium-style apps, without quitting them: Chrome is one of the biggest causes of a slow Mac, and
+/// someone using it shouldn't have to quit it to make it faster. A process can be told apart as a tab, an extension, or
+/// the graphics process, but not which tab: only the browser's Task Manager knows that.
 enum ChromiumBrowserCard: ProcessCard {
     static let name = "a browser tab or extension"
     static let id = "chromium-browser"
     static let kind = CardKind.explanation
-    static let rule = "Phil, 15 November 2026: improve Chrome's performance without quitting it"
+    static let rule = "Improve Chrome's performance without quitting it"
     static func confidence(_ s: Situation) -> Confidence { .type("the app says this process is one of its tabs, extensions, or its graphics process") }
     static let samples = ["chrome-tab", "chrome-tab-in-front-warm", "chrome-extension", "chrome-graphics"]
 

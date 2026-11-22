@@ -17,7 +17,7 @@ let package = Package(
         .executableTarget(name: "CoolHeadApp", dependencies: ["CoolHeadCore", "CoolHeadChromeLink"],
                           linkerSettings: [.linkedFramework("ServiceManagement"), .linkedFramework("UserNotifications")],
                           plugins: ["Lists"]),
-        // the link with Cool Head for Chrome (notes/chrome-link-protocol.md), a target of its own so the host below
+        // the link with Cool Head for Chrome (Extension/chrome/PROTOCOL.md), a target of its own so the host below
         // stays small: it loads none of CoolHeadCore's frameworks (AppKit, IOKit, Network), only Foundation's
         .target(name: "CoolHeadChromeLink"),
         // Cool Head for Chrome's native messaging host, which build-app.sh puts in Contents/Helpers

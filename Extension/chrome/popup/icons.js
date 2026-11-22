@@ -1,4 +1,4 @@
-// 16 px line icons, drawn for the renders (notes/chrome-extension-renders/build.py) and kept identical here.
+// 16 px line icons, the same ones drawn for the design renders.
 const NS = 'http://www.w3.org/2000/svg';
 
 export const PATHS = {

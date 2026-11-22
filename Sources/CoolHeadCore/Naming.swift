@@ -6,9 +6,9 @@ import Foundation
 /// told apart (the same apart from capital letters) and are different kinds of thing, each says what it is: "the
 /// Claude app" and "the claude command-line program". Two of the same kind and name: the first keeps its name, the
 /// rest are "another claude". Names keep their own spelling: "macOS" and "claude" are never capitalised; only a leading "the",
-/// "a" or "another" is, when it starts a sentence. (Phil, 15 November 2026: "we should be thinking and solving for
-/// scale": the memory card had said "Claude (2.7 GB) and claude (1.5 GB)".) `Card.names` records what a card named,
-/// and the selftest check `names-tell-apart` runs over every example card.
+/// "a" or "another" is, when it starts a sentence. The rule is general, for every card, not a fix for the one that
+/// showed the problem: the memory card had said "Claude (2.7 GB) and claude (1.5 GB)". `Card.names` records what a card
+/// named, and the selftest check `names-tell-apart` runs over every example card.
 public enum Naming {
     /// What a process is, as a person would say it.
     public enum What: Equatable {

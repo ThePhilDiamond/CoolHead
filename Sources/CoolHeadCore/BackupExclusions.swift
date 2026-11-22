@@ -5,7 +5,7 @@ import CoreServices
 /// at its next backup, so a busy backup can be mostly a build's own output, which the build makes again anyway.
 ///
 /// A "sticky" exclusion, the kind `tmutil addexclusion` sets without -p or -v, follows the folder and needs no
-/// administrator password; only the -p and -v forms need one (research node N-009, finding F15, from tmutil(8) on macOS
+/// administrator password; only the -p and -v forms need one (from tmutil(8) on macOS
 /// 26.6.2). Cool Head sets it through Core Services (CSBackupSetItemExcluded), and its selftest checks that `tmutil
 /// isexcluded` then agrees. Undone by removing it.
 ///

@@ -12,8 +12,7 @@ extension Fixture {
                  savesAsItGoes: false, workStart: e.start)
     }
 
-    /// Hangs that use almost nothing (Phil, 15 November 2026: "Yes, build hangs"): paused by something else, stuck
-    /// waiting on a drive, and Not Responding apps.
+    /// Hangs that use almost nothing: paused by something else, stuck waiting on a drive, and Not Responding apps.
     static func hangsChecks(_ now: Date) -> [(String, Bool, String)] {
         var out: [(String, Bool, String)] = []
         func ids(_ c: Card) -> [String] { c.fixes.map(\.id) }

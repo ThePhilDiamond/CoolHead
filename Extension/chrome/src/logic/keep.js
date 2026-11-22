@@ -1,6 +1,6 @@
-// Keep (Phil, 21 November 2026: "SPECIFIC INDIVIDUAL TABS"): a kept tab is that tab, not its address. Chrome
-// knows a tab by a number that lasts only until it quits, so after a restart a kept tab is found again by
-// window, position, and address; when two restored tabs match, the popup asks which (design, "Keep").
+// Keep: a kept tab is that one tab, not its address, so a duplicate of it isn't kept. Chrome knows a tab by a
+// number that lasts only until it quits, so after a restart a kept tab is found again by window, position, and
+// address; when two restored tabs match, the popup asks which.
 
 // Windows get new IDs after a restart, but Chrome hands out IDs in the order windows open and restores them
 // in their old order, so a window's place among the open windows is what survives.

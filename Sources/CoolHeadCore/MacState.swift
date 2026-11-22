@@ -18,7 +18,7 @@ public struct MacState {
     public var swapUsedMB = 0.0
     public var swapTotalMB = 0.0
     /// Free space on the startup disk, not counting space macOS may or may not free (purgeable). Swap files share it,
-    /// so when it runs out the Mac can't add more (Howard Oakley's test on macOS 26.6.2, research node N-006).
+    /// so when it runs out the Mac can't add more (Howard Oakley's test on macOS 26.6.2).
     public var diskFreeBytes: UInt64?
     /// Pages moved from memory to the swap files since startup; the Watcher turns them into `swappedOutMB`.
     public var swapOutPages: UInt64?

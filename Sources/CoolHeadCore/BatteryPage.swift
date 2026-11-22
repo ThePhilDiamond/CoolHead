@@ -1,8 +1,7 @@
 import Foundation
 
-/// The Battery tool's page (Phil, 16 November 2026: "when you click on the battery, what it gives you is the insights
-/// into the battery health, the ability to toggle on and off the setting, and any other optimizations we choose to
-/// include"): its health and what it's doing now, in sentences, from what the hardware checks already read.
+/// The Battery tool's page, everything about the battery in one place: its health and what it's doing now, in sentences,
+/// from what the hardware checks already read.
 public enum BatteryPage {
     /// The hardware report's battery (condition and Maximum Capacity, read at most hourly) with this moment's charge,
     /// power and temperature from the Mac's state (read every few seconds). Nil on a Mac with no battery.
@@ -20,8 +19,8 @@ public enum BatteryPage {
         return b
     }
 
-    // Shown the way Test my network shows its result (Phil, 16 November 2026: "The battery tool isn't as visual as the
-    // network tool, it's a bit too much of a wall of text"): a verdict in a few words, three figures, and a status line.
+    // Shown the way Test my network shows its result, so it reads at a glance rather than as a wall of text: a verdict in
+    // a few words, three figures, and a status line.
     // Levels: 0 fine (green), 1 worth knowing (yellow), 2 needs a look (orange).
 
     /// The answer in a few words, and what it means in one short sentence.

@@ -4,7 +4,7 @@ import { heldReasons, isWebPage } from './reasons.js';
 import { lastUsed, rankMostUsed } from './usage.js';
 import { IDLE_MS } from './auto.js';
 
-// Light keeps your 5 most used, Balanced 3, Focus only the tab you're on (design, "How hard it works", as Phil set out).
+// Light keeps your 5 most used, Balanced 3, Focus only the tab you're on (README, "How hard it works").
 export const KEEP_LOADED = { light: 5, balanced: 3, focus: 1 };
 export const LEVELS = ['auto', 'light', 'balanced', 'focus'];
 export const LEAVE_DELAYS_MS = [30000, 0];

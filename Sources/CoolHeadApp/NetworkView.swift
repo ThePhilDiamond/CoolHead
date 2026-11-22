@@ -4,9 +4,8 @@ import SwiftUI
 
 /// "Test my network", one of the tools along the bottom of the panel, shown in the panel's middle. Opening it reads
 /// what the Mac can say about its connection (no prompt, about a second); Apple's test runs only when Start test is
-/// pressed. A test that's started carries on when another tool opens or the panel closes, and its results wait here
-/// (Phil, 19 November 2026: "the network test should continue, complete, and store the results in the background.
-/// Otherwise the work is wasted"); only Stop, or Cool Head quitting, stops it.
+/// pressed. A test that's started carries on when another tool opens or the panel closes, and its results wait here,
+/// so the work isn't wasted; only Stop, or Cool Head quitting, stops it.
 @MainActor
 final class NetworkTester: ObservableObject {
     static let shared = NetworkTester()
@@ -19,12 +18,12 @@ final class NetworkTester: ObservableObject {
     /// Where websites see the Mac, asked of Cloudflare as part of the test; nil before.
     @Published private(set) var seen: NetworkCheck.Where?
     /// When the last test finished. Its results stay for `keep` after the panel or the view closes, so someone on the
-    /// phone with their internet provider can look elsewhere and come back to them (Phil, 19 November 2026: "let's have
-    /// the network test results persist for 30 minutes and add a date-timestamp, even if the user closes the Cool Head pane").
+    /// phone with their internet provider can look elsewhere and come back to them. Each result shows when it was
+    /// taken.
     @Published private(set) var finished: Date?
     static let keep: TimeInterval = 30 * 60
     /// A test finished while the view was closed, and its results haven't been looked at yet: the Network tool shows a
-    /// dot in the result's color until they are (Phil, 19 November 2026: "Yes, render it").
+    /// dot in the result's color until they are.
     @Published private(set) var unseen = false
     private var work: Task<Void, Never>?
 
@@ -139,10 +138,9 @@ struct NetworkView: View {
                 Button { tester.close() } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
             }
-            // one layout from the moment it opens, the same in every state: placeholders that turn into the data, so the
-            // page never grows as it goes (Phil, 16 November 2026: "We should have the fixed layout upon opening it, can
-            // show it's checking the connection, and then populate the data. But starting small and then expanding is
-            // jarring and not elegant."). Only fixes for a real problem add to it, after a test.
+            // one layout from the moment it opens, the same in every state: placeholders that turn into the data, so
+            // the page never grows as it goes, since starting small and then growing is jarring. Only fixes for a real
+            // problem add to it, after a test.
             let result: NetworkCheck.Result? = { if case .done(.done(let r)) = tester.phase { return r }; return nil }()
             status
             HStack(spacing: 8) {
@@ -158,7 +156,6 @@ struct NetworkView: View {
             actionRow
             if let r = result {
                 // the one fact the old Nerdy stuff held that nothing else shows, and only when it's the problem
-                // (Phil, 16 November 2026: "if any of it is useful it can show when the tests run")
                 if case .none = tester.setup?.dns {
                     Label("No server is set to look up website names, so sites won't load by name.", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(Color.red).fixedSize(horizontal: false, vertical: true)
@@ -174,8 +171,7 @@ struct NetworkView: View {
 
     // MARK: pieces
 
-    // poor is red, as at the menu bar's worst level, and apart from the orange dashes of a test running (Phil, 19 November
-    // 2026: "The network poor connection color can be red instead of orange, no?")
+    // poor is red, as at the menu bar's worst level, and apart from the orange dashes of a test running
     static func color(_ level: Int) -> Color { [Color.green, .yellow, .red][min(max(level, 0), 2)] }
     /// A result's mark, in the top line and on the Network tool when results wait: good, fair, or poor.
     static func mark(_ level: Int) -> String { ["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(max(level, 0), 2)] }
@@ -204,8 +200,8 @@ struct NetworkView: View {
                 }
             case .done(let outcome):
                 let v = NetworkCheck.verdict(outcome)
-                // the answer, then what it means in plain words: what the connection is fine for and only what isn't
-                // (Phil, 16 November 2026); when it's fine, that the Mac, not the network, is where to look
+                // the answer, then what it means in plain words: what the connection is fine for and only what isn't;
+                // when it's fine, that the Mac, not the network, is where to look
                 let meaning: String = {
                     guard case .done(let r) = outcome, let s = tester.setup else { return v.meaning }
                     return NetworkCheck.summary(r, s.link) + (v.level == 0 ? " If the Mac feels slow, look at the Mac." : "")
@@ -235,9 +231,9 @@ struct NetworkView: View {
         }
     }
 
-    /// The signal, large and first, as a picture and a word (Phil, 16 November 2026: "signal strength numbers are less
-    /// important, but a clear visual indicator of the signal strength large and up front like the speed and quality
-    /// indicators is important"); the numbers are in its tooltip. Its bars cycle while the connection is read.
+    /// The signal, large and first, as a picture and a word, like the speed and quality tiles: a clear picture of the
+    /// signal's strength matters more than its numbers, which are in its tooltip. Its bars cycle while the connection
+    /// is read.
     @ViewBuilder var signalTile: some View {
         if tester.phase == .reading || tester.setup == nil {
             tileFrame {
@@ -248,8 +244,7 @@ struct NetworkView: View {
             } unit: { Text("signal") }
         } else if let s = tester.setup {
             let sig = NetworkView.signal(s.link)
-            // a click shows the numbers in the same space, and another shows the word again (Phil, 16 November 2026: "if
-            // a user clicks the signal box should we show the detailed numbers?")
+            // a click shows the numbers in the same space, and another shows the word again
             tileFrame {
                 HStack(spacing: 5) {
                     Image(systemName: sig.symbol, variableValue: sig.strength).font(.title3).foregroundStyle(NetworkView.color(sig.level))
@@ -285,8 +280,8 @@ struct NetworkView: View {
         let downLevel = r.map { $0.download < 5e6 ? 2 : $0.download < 15e6 ? 1 : 0 } ?? 0          // HD and 4K video
         let upLevel = r.map { $0.upload < 1e6 ? 2 : $0.upload < 3.8e6 ? 1 : 0 } ?? 0               // video calls
         let waitLevel = r.map { $0.rpm <= NetworkCheck.poorRPM ? 2 : $0.rpm < NetworkCheck.goodRPM ? 1 : 0 } ?? 0
-        // plain labels under each figure, with its unit small beside it (Phil, 16 November 2026: "for a lay person that may
-        // be technical jargon"); "Delay" rather than "latency", as it's what people notice
+        // plain labels under each figure, with its unit small beside it, so the figures aren't jargon to a lay person;
+        // "Delay" rather than "latency", as it's what people notice
         tile("arrow.down", r.map { short($0.download) }, "Mbps", "Download", downLevel)
         tile("arrow.up", r.map { short($0.upload) }, "Mbps", "Upload", upLevel)
         tile("timer", r.map { NetworkCheck.grouped(NetworkCheck.delay($0)) }, "ms", "Delay", waitLevel)
@@ -311,8 +306,7 @@ struct NetworkView: View {
         } unit: { Text(label) }
     }
 
-    /// The symbol on every speed and privacy tile, in points (Phil, 18 November 2026: "I think all the icons on those
-    /// tiles need to be a little bigger", then "Let's do 14 points for the icon size").
+    /// The symbol on every speed and privacy tile, in points: a little bigger than before, so the icons read clearly.
     static let tileIcon: CGFloat = 14
 
     /// A tile's frame, the same size whatever it holds.
@@ -343,9 +337,8 @@ struct NetworkView: View {
                 Text("Stops the test. Or look elsewhere: it carries on, and its results wait here.").foregroundStyle(Ink.muted)
             case .done:
                 Button("Test again") { note = nil; allFixes = false; tester.start() }.buttonStyle(.bordered)
-                // when, beside the button and in bold, to read out on a call later; results are kept 30 minutes (Phil,
-                // 19 November 2026: "The test time should be along the top or beside the button so it's extremely visible
-                // to the user, not merged into explainer text")
+                // when, beside the button and in bold, to read out on a call later; results are kept 30 minutes. The
+                // time stands on its own, not in the explaining text, so it's easy to see
                 VStack(alignment: .leading, spacing: 2) {
                     if let f = tester.finished {
                         Text("Tested at \(NetworkView.stamp(f))").font(.callout.weight(.semibold)).foregroundStyle(Ink.text)
@@ -395,10 +388,10 @@ struct NetworkView: View {
         }
     }
 
-    /// Its own section, filled the same way as the speed: the VPN and who looks website names up are read on the Mac
-    /// as the view opens; where websites see you comes with the test, which asks Cloudflare (Phil, 17 November 2026:
-    /// "why not just include it as part of the single network test? It should be a separate privacy section though").
-    /// Three tiles the size of the speed tiles, then one sentence on what it means; same size in every state.
+    /// Its own section, filled the same way as the speed: the VPN and who looks website names up are read on the Mac as
+    /// the view opens; where websites see you comes with the test, which asks Cloudflare, so there's one test to run,
+    /// but privacy keeps a section of its own. Three tiles the size of the speed tiles, then one sentence on what it
+    /// means; same size in every state.
     var privacy: some View {
         let s = tester.setup
         let vpn = s.map { NetworkCheck.vpnSaid($0.vpn) }
@@ -475,8 +468,8 @@ struct NetworkView: View {
         let fixes = tester.setup.map { NetworkCheck.fixes(r, $0) } ?? []
         if !fixes.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                // the most useful shown, the rest folded to one line with how many, as on a card (Phil, 18 November
-                // 2026: "only have one expanded thing at a time"), so a bad result isn't a wall of options
+                // the most useful shown, the rest folded to one line with how many, as on a card, so a bad result isn't
+                // a wall of options
                 FixRow(fix: fixes[0], cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
                 if fixes.count > 1 {
                     GroupBar(doer: .you, count: fixes.count - 1, more: true, open: allFixes) {
@@ -523,7 +516,7 @@ struct NetworkView: View {
 /// Dashes moving across a tile while the test runs, in place of the figure it's measuring: light, and no images.
 struct DashWave: View {
     var body: some View {
-        // a step every 0.3 seconds: slow enough to read as calm (Phil, 16 November 2026: "slow down the animation on the numbers")
+        // a step every 0.3 seconds: slow enough to read as calm
         TimelineView(.periodic(from: .now, by: 0.3)) { t in
             let step = Int(t.date.timeIntervalSinceReferenceDate / 0.3) % 4
             HStack(spacing: 3) {

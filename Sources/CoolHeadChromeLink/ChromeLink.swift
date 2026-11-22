@@ -1,6 +1,6 @@
 import Foundation
 
-/// The link between Cool Head and Cool Head for Chrome, version 1 (notes/chrome-link-protocol.md): how a message is
+/// The link between Cool Head and Cool Head for Chrome, version 1 (Extension/chrome/PROTOCOL.md): how a message is
 /// framed on each side, what each message holds, where Cool Head's socket is, and the file that tells Chrome where the
 /// host is. Nothing here reads or writes anything; the host (Sources/coolhead-chrome-host) and the app do, and the
 /// socket calls are in ChromeLinkSocket.swift.

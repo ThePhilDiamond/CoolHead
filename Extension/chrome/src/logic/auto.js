@@ -1,7 +1,7 @@
-// Auto, decided together (notes/chrome-link-protocol.md, "Auto, decided together"): Cool Head says how the
-// Mac's memory is; the extension decides which tabs. fine and tight: nothing. slowed: tabs unused for 30
-// minutes sleep, one at a time, oldest first. veryTight: 5 minutes. Back to nothing after memory has been fine
-// for 5 minutes. Without a link, nothing: Auto needs Cool Head and says so.
+// Auto, decided together (PROTOCOL.md, "Auto, decided together"): Cool Head says how the Mac's memory is;
+// the extension decides which tabs. fine and tight: nothing. slowed: tabs unused for 30 minutes sleep, one at
+// a time, oldest first. veryTight: 5 minutes. Back to nothing after memory has been fine for 5 minutes.
+// Without a link, nothing: Auto needs Cool Head and says so.
 
 export const MEMORY_STATES = ['fine', 'tight', 'slowed', 'veryTight'];
 export const IDLE_MS = { slowed: 30 * 60 * 1000, veryTight: 5 * 60 * 1000 };

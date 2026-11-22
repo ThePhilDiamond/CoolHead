@@ -3,12 +3,10 @@ import CoolHeadCore
 import ServiceManagement
 import SwiftUI
 
-/// The Cleaner tool's page: a verdict; Quick clean, a list of what nothing uses, done with one button; Deep clean, a list
-/// to choose from, folded, with what rebuilds itself ticked and what Cool Head can't be sure of left for the person to
-/// tick (Phil, 18 November 2026: "The first section one-button should be stuff that definitely isn't needed and has no
-/// impact, trash. Then the second section, something like "Deep Clean", where you can select things should auto-check
-/// the stuff that rebuilds and have the "check these first" as options to check."). Then what Cool Head moved, to put
-/// back, and the two places in System Settings Cool Head can't clear itself, with a button to open each.
+/// The Cleaner tool's page: a verdict; Quick clean, a list of what nothing uses, done with one button, since nothing in it
+/// is needed or has any effect when cleared; Deep clean, a list to choose from, folded, with what rebuilds itself ticked
+/// and what Cool Head can't be sure of left for the person to tick. Then what Cool Head moved, to put back, and the two
+/// places in System Settings Cool Head can't clear itself, with a button to open each.
 struct CleanerView: View {
     let close: () -> Void
     @ObservedObject var model = CleanerModel.shared
@@ -107,8 +105,8 @@ struct CleanerView: View {
     }
 
     /// Quick clean: each thing it moves, listed, and one button. Nothing in it is used, so there's nothing to choose.
-    /// The check for identical copies in a folder is here too, since the original always stays (Phil, 18 November
-    /// 2026: "Check for duplicate files under deep clean should be under quick clean, as it's a quick zero-risk choice").
+    /// The check for identical copies in a folder is here too, not in Deep clean: the original always stays, so it's quick
+    /// and carries no risk.
     var quickBox: some View {
         let bytes = quick.compactMap(\.bytes).reduce(0, +)
         return VStack(alignment: .leading, spacing: 8) {
@@ -286,9 +284,8 @@ struct CleanerView: View {
         .padding(.horizontal, 12)
     }
 
-    /// Identical copies, in Quick clean, in any folder the person chooses, Downloads to start (Phil, 19 November 2026: "I
-    /// think we should word it more openly to check anywhere for duplicates, and then just default to the downloads
-    /// folder"). A copy is a second download ("Report (1).pdf") or a Finder duplicate ("Report copy.pdf") whose bytes
+    /// Identical copies, in Quick clean, in any folder the person chooses, worded to check anywhere, with Downloads chosen
+    /// to start. A copy is a second download ("Report (1).pdf") or a Finder duplicate ("Report copy.pdf") whose bytes
     /// match the original's, compared in full, never by name or size alone. Old installers found in the same folder go
     /// under Deep clean.
     var copiesRow: some View {
@@ -310,12 +307,10 @@ struct CleanerView: View {
     }
 
     /// A list with its items under 50 MB folded into one line that opens them ("17 smaller items under 50 MB each, 87 MB
-    /// in total"), so the big ones, which free the most, stand out (Phil, 18 November 2026: "I think we should group items
-    /// under 50MB by default and have an expand button").
+    /// in total"), so the big ones, which free the most, stand out.
     /// The folded small items are one line laid out like the list's others (`summary`: its name, their total, how many
-    /// are ticked, and whether it's open), with "Show each one" in orange where the others have their detail (Phil, 18
-    /// November 2026: "it should match other line items with "(expand to see details)" or something similar in
-    /// orange"). Opened, the items follow it.
+    /// are ticked, and whether it's open), so it reads as part of the list, with "Show each one" in orange where the
+    /// others have their detail. Opened, the items follow it.
     func folding<Item: Identifiable, Row: View, Summary: View>(_ key: String, _ items: [Item], bytes: KeyPath<Item, UInt64?>,
                                                ticked: ((Item) -> Bool)? = nil, @ViewBuilder row: @escaping (Item) -> Row,
                                                @ViewBuilder summary: (String, UInt64, Int, Binding<Bool>) -> Summary) -> some View {
@@ -442,13 +437,12 @@ final class CleanerModel: ObservableObject {
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         panel.prompt = "Check"
-        // the button asks for a folder, so the chooser matches it (Phil, 19 November 2026: "labeled as "Check Downloads"
-        // but then clicking it requires selecting a folder")
+        // the button asks for a folder, so the chooser matches it (a button that said Check Downloads and then asked for
+        // a folder didn't match)
         panel.message = "Choose a folder to check for identical copies and old installers. Downloads is chosen to start."
         NSApp.activate(ignoringOtherApps: true)
         // in front of Cool Head's panel: `begin`, not `runModal`, which puts it back at the level for dialogs, under the
-        // panel (Phil, 18 November 2026: "the About pane and the "select a folder" to check for duplicates spawn and sit
-        // behind the Cool Head pane")
+        // panel, where it can't be seen
         panel.level = .abovePanel
         MenuPanel.keepOpen = true
         panel.begin { [weak self] answer in
@@ -480,9 +474,8 @@ final class CleanerModel: ObservableObject {
 }
 
 /// One command run as administrator through a one-shot launchd job: macOS asks for the password, launchd runs the
-/// command, and the job is removed straight after, so nothing stays installed (Phil, 16 November 2026: "one-shot job
-/// and if that doesn't work we'll do the permanent helper"; tested on this Mac that day, notes/research_graph/
-/// apple-silicon-issues/padlock.md). Waits up to 15 seconds for the command; false when not allowed or it failed.
+/// command, and the job is removed straight after, so nothing stays installed; a permanent helper is the fallback only if
+/// this stops working. Waits up to 15 seconds for the command; false when not allowed or it failed.
 enum AdminJob {
     static func run(_ arguments: [String], prompt: String) -> Bool {
         var ref: AuthorizationRef?

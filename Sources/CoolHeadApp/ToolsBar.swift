@@ -5,8 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Along the bottom of the panel: the tools, each an icon with its name (the names can be hidden on the Settings page),
-/// and each opening in the panel's middle. Opening one closes any other. Settings is the last, at the right end (Phil,
-/// 17 November 2026: "The settings icon should be the right-most.").
+/// and each opening in the panel's middle. Opening one closes any other. Settings is the last, at the right end.
 struct ToolsBar: View {
     let watcher: Watcher
     @ObservedObject var network = NetworkTester.shared
@@ -20,24 +19,20 @@ struct ToolsBar: View {
     var body: some View {
         // seven tools fit the panel's width with their names when each is as narrow as its name allows
         HStack(spacing: labels ? 1 : 6) {
-            // the order: This Mac, Power, Network, Cleaner (Phil, 20 November 2026: "Okay let's swap network and cleaner, as network has an action but still provides info, whereas cleaner is much more active. This feels like the left three are more info-oriented and the fourth is more action-oriented."), with no line between
-            // them ("We could arguably add another divider given that they're a different category of tool, but I think the intuitive ordering will achieve the same.")
-            // the hardware checks on one page (Phil, 16 November 2026: "Yes build the hardware tool page")
-            // the Mac itself, line drawn as a laptop or a desktop, since the chip and memory have their own meanings in the
-            // panel (Phil, 19 November 2026: "Is there a different "hardware" icon we could use so we can use a drive icon for
-            // the cleaner tab?", then "open hard disk icon with larger sparklers, line drawing laptop/desktop")
-            // called This Mac (Phil, 20 November 2026: "if "This Mac" fits in the bar nicely, we can use that, but if it's
-            // tight, let's use "My Mac""); it's as wide as "Hardware" was
+            // the order: This Mac, Power, Network, Cleaner. The left three mostly give information (Network has an action,
+            // its test, but what it gives is information), and Cleaner, which changes things, comes last. Cleaner is a
+            // different kind of tool, but no line sets it apart, since the order already makes that clear.
+            // the hardware checks on one page, its icon the Mac itself, line drawn as a laptop or a desktop: the chip and
+            // memory symbols have their own meanings in the panel, and a drive icon suits Cleaner better
+            // called This Mac, which fits the bar ("My Mac" was the shorter fallback); it's as wide as "Hardware" was
             ToolButton(symbol: MacOutline.name, name: "This Mac", tip: "This Mac's hardware, serial number, and storage", labels: labels, on: tools.hardware) {
                 let open = !tools.hardware
                 closeAll()
                 tools.hardware = open
             }
-            // the Power page, after This Mac: a pane that shows how the Mac is (Phil, 20 November 2026: "this mac and power are
-            // info panes"; this replaces 16 November 2026's "the battery tool should be next to the network tool"). Called
-            // Power, with a plug on a Mac with no battery (Phil, 20 November 2026: "Let's rename
-            // "Battery" as "Power" and if it's a desktop show a power plug instead of a battery icon?"); a desktop's page is
-            // the week's energy use, so it's there when the power log can be read
+            // the Power page, after This Mac, since both are panes that show how the Mac is (it used to sit next to
+            // Network). Called Power, not Battery, so the name fits a desktop too, where it has a plug in place of the
+            // battery; a desktop's page is the week's energy use, so it's there when the power log can be read
             if hasBattery || (!MacOutline.laptop && (PowerHistory.available || PanelView.sampleSnapshot)) {
                 ToolButton(symbol: PowerIcon.name, name: "Power",
                            tip: hasBattery ? "Battery health and energy use" : "What used the most energy this week",
@@ -47,13 +42,12 @@ struct ToolsBar: View {
                     tools.battery = open
                 }
             }
-            // a test carries on out of sight: while it runs, dashes fly around the globe's equator like data; when it has finished
-            // unseen, the result's own mark from the view's top line (a green check when it's good) sits on the globe until
-            // it's opened (Phil, 19 November 2026: "I think the network testing should be a ring of dashes around the
-            // existing wire globe icon, maybe animated? And when it's got a result ready, maybe a green check mark?", then "I
-            // meant the ring circumnavigating the globe like data packets flying around it as in a single ring along the equator")
+            // a test carries on out of sight: while it runs, dashes fly around the globe's equator in a single ring,
+            // like data packets going around the world; when it has finished unseen, the result's own mark from the
+            // view's top line (a green check when it's good) sits on the globe until it's opened
             let away = network.running && !network.shown
-            // the dashes show while it runs, open or not, colors swapped when it's open (Phil, 20 November 2026: "Let's also make the network scan animation appear even when the tab is selected, not just in the background - because it looks cool. But invert the colors when it's selected (colored globe with the data packets in the grey or black or white or whatever)")
+            // the dashes show while it runs, open or not, since the animation is part of the look; when it's open, the
+            // colors swap: the globe takes the accent color and the dashes the gray the icon has when closed
             ToolButton(symbol: "network", name: away ? "Testing" : "Network",
                        tip: away ? "A network test is running; its results will wait here"
                            : network.readyLevel != nil ? "Your network test results are ready" : "Test my network",
@@ -63,28 +57,23 @@ struct ToolsBar: View {
                 closeAll()
                 if open { network.open() }
             }
-            // leftovers to clear, last: the one tool that changes things on the Mac (Phil, 18 November 2026: "Can we add a broom
-            // "cleaner" tool"); a drawn broom was hard to make out at this size, so macOS's bubbles and sparkles (Phil,
-            // 18 November 2026, choosing between renders: "Option 5 for the cleaner icon, macOS bubbles and sparkles"); then
-            // an open hard disk with sparkles, line drawn: where it clears space, and that it cleans (Phil, 19 November 2026,
-            // as for Hardware above; macOS's own drive "is a bit ambiguous")
+            // leftovers to clear, last: the one tool that changes things on the Mac. A drawn broom was hard to make out
+            // at this size, and macOS's bubbles and sparkles came next; now an open hard disk with sparkles, line drawn:
+            // where it clears space, and that it cleans (macOS's own drive symbol is ambiguous)
             ToolButton(symbol: HardDisk.name, name: "Cleaner", tip: "Clear what deleted apps left behind", labels: labels, on: tools.cleaner) {
                 let open = !tools.cleaner
                 closeAll()
                 tools.cleaner = open
             }
-            // no Activity Monitor button: it's not Cool Head's tool, and anyone who wants it knows where it is (Phil,
-            // 16 November 2026: "It's not our tool so we should drop it."); no Quit either: it's on the Settings page and
-            // in the right-click menu, so the bar has room for the tools' names (Phil, 17 November 2026: "if we're making
-            // sure everything is in the pane, what about "quit"? That'd be even more crowded again...")
+            // no Activity Monitor button: it's not Cool Head's tool, and anyone who wants it knows where it is; no Quit
+            // either: it's on the Settings page and in the right-click menu, so the bar has room for the tools' names
+            // without crowding
             Spacer(minLength: 4)
-            // Report, Trusted, and Settings are about Cool Head itself, not the Mac: a line sets them apart when the names show
-            // (Phil, 17 November 2026: "they are a separate category of button and should be visually distinguished").
-            // No Update button: the version and Check Now are on the Settings page, and an update that's ready shows at
-            // the top of the panel with Install (Phil, 17 November 2026, choosing between renders: "Update in Settings")
+            // Report, Trusted, and Settings are about Cool Head itself, not the Mac, a separate kind of button: a line sets
+            // them apart when the names show. No Update button: the version and Check Now are on the Settings page, and an
+            // update that's ready shows at the top of the panel with Install
             if labels { Divider().frame(height: 34).padding(.horizontal, 4) }
-            // Trusted is Cool Head's own list, not a tool for the Mac, so it's with Report and Settings (Phil, 19 November
-            // 2026: "the trusted section isn't really a tool, so let's put it on the right, between the report button and settings")
+            // Trusted is Cool Head's own list, not a tool for the Mac, so it's on the right, between Report and Settings
             ToolButton(symbol: "exclamationmark.bubble", name: "Report", tip: "Report a problem", labels: labels, on: watcher.showReport) {
                 let open = !watcher.showReport
                 closeAll()
@@ -95,7 +84,7 @@ struct ToolsBar: View {
                 closeAll()
                 tools.trusted = open
             }
-            // Settings at the right end (Phil, 17 November 2026: "The settings icon should be the right-most.")
+            // Settings at the right end
             ToolButton(symbol: "gearshape", name: "Settings", tip: "Settings", labels: labels, on: tools.settings) {
                 let open = !tools.settings
                 closeAll()
@@ -122,8 +111,7 @@ final class Tools: ObservableObject {
     @Published var reportAboutHeld = false
 
     /// Closes every tool, in one place, so they all behave alike: opening one closes the others, and the panel always
-    /// opens with none open (Phil, 16 November 2026: "We need consistency across the tools, and I think the panel should
-    /// always open with no tools selected"). A network test still running carries on, and its results wait in Network.
+    /// opens with none open. A network test still running carries on, and its results wait in Network.
     static func closeAll(_ watcher: Watcher) {
         NetworkTester.shared.close()
         shared.trusted = false
@@ -153,8 +141,8 @@ struct ToolIcon: View {
 }
 
 /// The Hardware tool's icon: this Mac, line drawn like the icons beside it (macOS's own laptop and desktop have filled
-/// screens): a laptop when it has a battery, a desktop when it doesn't (Phil, 19 November 2026: "line drawing
-/// laptop/desktop"; matching the model isn't needed, and a Mac mini or Studio drawn this small reads as a drive).
+/// screens): a laptop when it has a battery, a desktop when it doesn't. Matching the model isn't needed, and a Mac mini
+/// or Studio drawn this small reads as a drive.
 struct MacOutline: View {
     static let name = "coolhead.mac"
     /// A battery means a laptop: every MacBook has one, and no desktop Mac does. In a screenshot, a laptop.
@@ -186,10 +174,10 @@ struct MacOutline: View {
     }
 }
 
-/// The Cleaner tool's icon: an open hard disk, line drawn (its case, platter, and arm), with sparkles at its corner that
-/// cut a thin gap in the case, as the Battery icon's bolt does (Phil, 19 November 2026: "open hard disk icon with larger
-/// sparklers"). Universal where macOS's own drive "is a bit ambiguous", and not dated the way a floppy disk is. Drawn as a
-/// template image, like the bolt, so the cut is clean in light and dark and the image takes the tool's color.
+/// The Cleaner tool's icon: an open hard disk, line drawn (its case, platter, and arm), with large sparkles at its corner
+/// that cut a thin gap in the case, as the Battery icon's bolt does. Universal where macOS's own drive symbol is
+/// ambiguous, and not dated the way a floppy disk is. Drawn as a template image, like the bolt, so the cut is clean in
+/// light and dark and the image takes the tool's color.
 enum HardDisk {
     static let name = "coolhead.harddisk"
     static func image(size: CGFloat) -> NSImage {
@@ -227,16 +215,15 @@ enum HardDisk {
     }
 }
 
-/// The Power tool's icon: the battery with a bolt on a laptop, a plug on a Mac with no battery (Phil, 20 November 2026).
+/// The Power tool's icon: the battery with a bolt on a laptop, a plug on a Mac with no battery.
 enum PowerIcon {
     static var name: String { MacOutline.laptop ? BatteryBolt.name : "powerplug" }
 }
 
 /// The Power tool's icon on a laptop: a battery a quarter full with a bolt through it, built from macOS's own symbols as it draws
-/// (no image file), since macOS has a bolt only on a full battery, which was hard to read (Phil, 19 November 2026: "It's
-/// harder to read when it's the full battery with the bolt. We want a less-full battery with the bolt", then "For the
-/// battery icon, I like Option 3"). The bolt cuts a thin gap in what's under it, as macOS's own charging icon does, and the
-/// image is a template, so it takes the tool's color like the symbols beside it.
+/// (no image file), since macOS has a bolt only on a full battery, which was hard to read; the bolt reads better on a
+/// less-full battery. The bolt cuts a thin gap in what's under it, as macOS's own charging icon does, and the image is a
+/// template, so it takes the tool's color like the symbols beside it.
 enum BatteryBolt {
     static let name = "coolhead.battery.bolt"
     static func image(pointSize: CGFloat) -> NSImage {
@@ -296,8 +283,8 @@ struct ToolButton: View {
                 if labels { Text(name).font(.caption2) }
             }
             .frame(minWidth: labels ? 44 : 30)
-            // room each side of the name, so an open tool's highlight doesn't sit tight on it (Phil, 21 November 2026:
-            // "I also don't like how tight the margin is on the selected item. Please add some space on either side so it's not so tight (I guess increase the fixed width of each button on the left?), or decrease font size. Thoughts?"); the names keep their size
+            // room each side of the name, so an open tool's highlight doesn't sit tight on it; the names keep their size,
+            // rather than shrinking to make the room
             .padding(.horizontal, labels ? 5 : 2)
             .padding(.vertical, labels ? 5 : 6)
             .background(RoundedRectangle(cornerRadius: 7).fill(on ? Ink.accent.opacity(0.16) : hovering ? Color.primary.opacity(0.07) : .clear))
@@ -312,8 +299,8 @@ struct ToolButton: View {
 }
 
 /// Half of a flat ring around an icon's equator, its dashes moving along it like data going around the world: the near
-/// half passes in front, the far half behind and fainter. Orange, so the data stands apart from the icon (Phil, 19 November
-/// 2026: "the 'data' should be orange"), moving left to right across the front. With Reduce motion on, the dashes stay still.
+/// half passes in front, the far half behind and fainter. Orange, so the data stands apart from the icon, moving left to
+/// right across the front. With Reduce motion on, the dashes stay still.
 struct Orbit: View {
     let near: Bool
     let still: Bool

@@ -1,10 +1,8 @@
 import Foundation
 
-/// The Hardware tool's page (Phil, 16 November 2026: "Yes build the hardware tool page"): the parts of the Mac other than
-/// the battery, which has its own page (Phil, 16 November 2026: "let's omit the battery health from the hardware test
-/// screen. It should be focused on drive, fans (if applicable), memory, and any other hardware we can test"). A verdict
-/// in a few words, then each part with everything about it together (Phil, 16 November 2026: "we should keep related
-/// info together"). A problem still gets its own card in the list as well.
+/// The Hardware tool's page: the parts of the Mac other than the battery, which has its own page, so this one stays on the
+/// drive, fans (if any), memory, and any other hardware Cool Head can test. A verdict in a few words, then each part with
+/// everything about it together. A problem still gets its own card in the list as well.
 /// Levels: 0 fine (green), 1 worth knowing (yellow), 2 needs a look (orange).
 public enum HardwarePage {
     /// The answer in a few words, and what it means in one short sentence. The worst finding leads; its details are
@@ -30,8 +28,7 @@ public enum HardwarePage {
         if let d = r.drive, d.percentUsed >= 80 {
             return Verdict(level: 1, title: "Drive well worn", meaning: "It still works; keep your backups current.")
         }
-        // names what was checked (Phil, 17 November 2026: "the hardware tool says "hardware looks healthy" but doesn't
-        // say WHAT hardware")
+        // names what was checked, since "Hardware looks healthy" wouldn't say which hardware
         return r.drive != nil
             ? Verdict(level: 0, title: "Drive and ports look healthy", meaning: "No warnings from either, and no crash restarts this week.")
             : Verdict(level: 0, title: "Ports look healthy", meaning: "No warnings from them and no crash restarts this week. The drive's health couldn't be read.")
@@ -56,18 +53,16 @@ public enum HardwarePage {
             var lines: [String] = []
             if !d.warnings.isEmpty { lines.append("It reports: " + d.warnings.joined(separator: ", ") + ". Back up now.") }
             if d.mediaErrors > 0 { lines.append("It couldn't correct \(Hardware.count(d.mediaErrors)) reads. Keep your backups current.") }
-            // whether anything backs it up, since every drive warning ends in "back up" (Phil, 16 November 2026: "we can
-            // possibly mention time machine/icloud/google drive/dropbox/box backup state?"); sync apps aren't backups
+            // whether anything backs it up, since every drive warning ends in "back up"; only Time Machine counts, since
+            // sync apps (iCloud Drive, Google Drive, Dropbox, Box) aren't backups
             let backup: String? = switch r.timeMachine {
             case .notSetUp?: "Time Machine isn't set up, so nothing backs this drive up."
             case .setUp?: "Time Machine is set up to back it up."
             case nil: nil
             }
             let level = d.fault ? 2 : (d.percentUsed >= 80 || d.mediaErrors > 0) ? 1 : 0
-            // the figures as tiles, as Test my network shows its own (Phil, 17 November 2026: "maybe we want boxes like
-            // we have for the network test with life used, amount written, hours of writing, and temperature?")
-            // three, in one row: its temperature is with the others under Temperatures (Phil, 17 November 2026: "By
-            // having temps separated out, we could do only three boxes for drive")
+            // the figures as tiles, as Test my network shows its own: three, in one row, since its temperature is with
+            // the others under Temperatures
             let tiles = [Tile(symbol: "gauge.with.dots.needle.33percent", value: "\(d.percentUsed)%", unit: "life used", level: d.percentUsed >= 80 ? 1 : 0),
                          Tile(symbol: "square.and.pencil", value: Hardware.size(d.bytesWritten), unit: "written", level: 0),
                          Tile(symbol: "clock", value: Hardware.count(d.powerOnHours), unit: "hours on", level: 0)]
@@ -79,9 +74,9 @@ public enum HardwarePage {
             out.append(Part(kind: .drive, symbol: "internaldrive", name: "Drive", value: "Not read",
                             level: 0, lines: ["Cool Head couldn't read its health record. It tries again every 10 minutes."]))
         }
-        // crash restarts: the count, when the last one was, and what it means with what to do, together (Phil, 16
-        // November 2026: "The crash time is at the bottom but the crash description is at the top"); short, in plain
-        // words ("A one-off crash like this isn't of concern. If it happens again... in the next week")
+        // crash restarts: the count, when the last one was, and what it means with what to do, together, not the time at
+        // one end of the part and the meaning at the other; short, in plain words ("A one-off crash like this isn't a
+        // concern.")
         let crashes = r.crashes.countThisWeek(now: now)
         var crashLines: [String] = []
         if crashes > 0, let last = r.crashes.lastDate {
@@ -108,10 +103,9 @@ public enum HardwarePage {
         out.append(Part(kind: .ports, symbol: "cable.connector", name: "Ports",
                         value: errors == 0 ? "No errors" : errors == 1 ? "1 error" : "\(Hardware.count(UInt64(errors))) errors",
                         level: r.ports.contains(where: { $0.overCurrent > 0 }) ? 1 : 0, lines: portLines))
-        // every temperature Cool Head reads, together, and what each affects (Phil, 17 November 2026: "Might be worth
-        // including on the hardware page as a "Temps" section"). The chip's heat is what macOS slows it for; a warm
-        // battery pauses charging (see BatteryHealth.notCharging); a drive only matters when very hot. Battery levels as
-        // on the Battery page; the drive's 70°C is Cool Head's own, not from a source.
+        // every temperature Cool Head reads, together in one section, and what each affects. The chip's heat is what
+        // macOS slows it for; a warm battery pauses charging (see BatteryHealth.notCharging); a drive only matters when
+        // very hot. Battery levels as on the Battery page; the drive's 70°C is Cool Head's own, not from a source.
         var temps: [Tile] = []
         if let c = r.chipC { temps.append(Tile(symbol: "cpu", value: Fmt.temperature(c), unit: "chip", level: 0)) }
         if let b = r.battery?.temperatureC {
@@ -123,10 +117,9 @@ public enum HardwarePage {
             out.insert(Part(kind: .temps, symbol: "thermometer.medium", name: "Temperatures", value: ["Normal", "Warm", "Hot"][worst],
                             level: worst, lines: [],
                             // no lines under the tiles: the ring at the top names its part, the ring and the chip tile share
-                            // one reading, and a heat card says what heat means when it matters (Phil, 20 November 2026:
-                            // "There's also a lot of text below the temperatures section of that tool, which I think we can
-                            // remove", then "we don't need the explanation anymore, right?")
-                            tiles: temps), at: 0)            // first: heat is what slows a Mac (Phil, 17 November 2026)
+                            // one reading, and a heat card says what heat means when it matters, so text here would
+                            // only repeat them
+                            tiles: temps), at: 0)            // first: heat is what slows a Mac
         }
         return out
     }
@@ -135,16 +128,13 @@ public enum HardwarePage {
     /// slows itself instead of spinning up. Nil: not known.
     public enum Fans: Equatable { case none, rpm([Int]) }
 
-    /// How it's running now, drawn with the menu bar icon's snowflake (Phil, 16 November 2026: "explain how it's running
-    /// and what it means in a fun visual way that mirrors our menu icon and the spirit of the app"), at the top of the
-    /// panel. The snowflake is the Mac keeping a cool head, so it shows the same level as the menu bar icon, worked out
-    /// here once for both (Phil, 17 November 2026: "The snowflake is meant to represent the Mac keeping a cool head,
-    /// whether temperature or speed. So if anything is slowing it down, we want to show the snowflake melting. If there
-    /// are issues requiring action that are only moderate in impact, that's melting. If severe, that's the 'on fire'
-    /// icon."). `icon`: 0 a whole snowflake, 1 melting, 2 in flames. The meaning names the worst cause.
+    /// How it's running now, drawn with the menu bar icon's snowflake at the top of the panel: a playful picture of how the
+    /// Mac is and what it means, in the spirit of the app. The snowflake is the Mac keeping a cool head, in temperature or
+    /// speed, so it shows the same level as the menu bar icon, worked out here once for both: anything slowing the Mac, or
+    /// needing action of moderate impact, melts it; anything severe sets it on fire. `icon`: 0 a whole snowflake, 1
+    /// melting, 2 in flames. The meaning names the worst cause.
     /// No title of its own: the panel's status ("1 to watch", "All calm") is the title, since the icon is a picture, not
-    /// a word for what's wrong (Phil, 17 November 2026: "The text shouldn't say "Starting to melt" - that's an
-    /// abstraction taking the icon too far.").
+    /// a word for what's wrong; a title such as "Starting to melt" would take the picture too far.
     public struct Running: Equatable { public let icon: Int; public let meaning: String; public let fans: String? }
 
     /// What the cards on screen say, for the snowflake: what's stuck, memory, heat with a cause, and anything else that
@@ -175,10 +165,9 @@ public enum HardwarePage {
             }
         }()
         let speed = thermal == "fair" ? "Warm, but at full speed" : "A normal temperature, at full speed"
-        // each sentence names what it's about: "your Mac", never a bare "it" (Phil, 19 November 2026: "What does
-        // "macOS is slowing it hard to..." refer to? Slowing your Mac? The language should be more clear.")
+        // each sentence names what it's about: "your Mac", never a bare "it", which left "macOS is slowing it" unclear
         // severe first: in flames. Each says the cause, never where the cards are: the title counts them, and with a
-        // tool open the pill goes back to them (Phil, 20 November 2026: "Yes, drop the pointer keep the cause.")
+        // tool open the pill goes back to them
         let (icon, meaning): (Int, String) = {
             if thermal == "critical" { return (2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun.") }
             if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower.") }
@@ -188,7 +177,7 @@ public enum HardwarePage {
             if signs.memoryTight { return (1, "Memory is tight, so your Mac is slower than it could be.") }
             if signs.addingHeat { return (1, "Your Mac is warm, and something running is adding to the heat.") }
             // cards to watch melt the snowflake, but the row doesn't point at them: the title already counts them, and with
-            // a tool open the pill goes back to them (Phil, 20 November 2026: "Way back: pill, but remove the "The cards below need attention" text because that's the whole point, and change the pill text to reflect that, e.g., "2 fixes recommended" or something more intuitive and clear.")
+            // a tool open the pill ("2 fixes recommended") goes back to them, so saying it here too would repeat the pill
             if signs.toWatch > 0 { return (1, speed + ".") }
             if signs.resumeSync { return (1, "It's time to resume syncing.") }
             // nothing slowing it and nothing to act on: whole, even when it's warm
@@ -197,31 +186,29 @@ public enum HardwarePage {
         return Running(icon: icon, meaning: meaning, fans: fanText)
     }
 
-    /// How busy the chip and memory are, for the gauges beside it: a percentage, and a level for its colour (Phil, 16
-    /// November 2026: "If we just display the percentage as well, we don't need mouse-over text"). The chip is the share
-    /// of all its cores in use. Memory is the share macOS itself counts as in use when it judges memory pressure (100
-    /// minus kern.memorystatus_level, the "free percentage" memory_pressure reports), coloured by that pressure; never
-    /// Activity Monitor's "Memory Used", which is high on any healthy Mac (rule 10 in the research).
+    /// How busy the chip and memory are, for the gauges beside it: a percentage, shown so the gauge needs no text on
+    /// pointing, and a level for its color. The chip is the share of all its cores in use. Memory is the share macOS
+    /// itself counts as in use when it judges memory pressure (100 minus kern.memorystatus_level, the "free percentage"
+    /// memory_pressure reports), colored by that pressure; never Activity Monitor's "Memory Used", which is high on any
+    /// healthy Mac (rule 10 in the research).
     public struct Gauge: Equatable {
         public let name: String; public let percent: Int; public let level: Int
         /// What's written inside, when it isn't the percentage.
         public var text: String? = nil
-        /// The part it's about, drawn beside its name (Phil, 19 November 2026: "if we are showing the icon for the temp
-        /// gauge maybe we should for the usage as well?").
+        /// The part it's about, drawn beside its name, on the usage gauges as on the temperature ring.
         public var symbol: String? = nil
         /// The temperature ring, under the Temperature title; the others are under Usage.
         public var isTemperature: Bool { name.hasSuffix(" temperature") }
     }
-    /// The chip's heat, beside the chip and memory (Phil, 17 November 2026: "include temperature in the top bar for temps
-    /// that impact speed/performance"): its temperature written inside, the ring filled by macOS's own four steps, since
-    /// those, not the number, decide when it's slowed. Nil when the chip's temperature isn't known.
+    /// The chip's heat, beside the chip and memory, since heat affects speed: its temperature written inside, the ring
+    /// filled by macOS's own four steps, since those, not the number, decide when it's slowed. Nil when the chip's
+    /// temperature isn't known.
     ///
-    /// The part furthest toward its own limit, named with its icon, the chip on a tie (Phil, 19 November 2026: "Maybe the
-    /// top bar should always show the hottest reading we have, as it's the most worrisome, though there may be cases where
-    /// a hot battery that's charging after being emptied is expected", then "most worrying part plus a clear label and/or
-    /// icon"). Not the highest number: a chip runs at 40 to 100°C, so it would nearly always win, while a battery is warm at
-    /// 40°C and hot at 45°C. Each part on its own scale: the chip by macOS's four steps; the battery as the Battery page
-    /// judges it, its warmth while charging expected until 45°C; the drive warm at 70°C, as the Hardware page judges it.
+    /// The part furthest toward its own limit, the most worrying, named with its icon, the chip on a tie. Not the highest
+    /// number: a chip runs at 40 to 100°C, so it would nearly always win, while a battery is warm at 40°C and hot at 45°C.
+    /// Each part on its own scale: the chip by macOS's four steps; the battery as the Battery page judges it, its warmth
+    /// while charging (after being run down, say) expected until 45°C; the drive warm at 70°C, as the Hardware page judges
+    /// it.
     /// Memory is inside the chip on Apple silicon, so the chip's reading covers it.
     public static func heat(chipC: Double?, thermal: String, batteryC: Double? = nil, charging: Bool = false, driveC: Double? = nil) -> Gauge? {
         let step = ["nominal": 0, "fair": 1, "serious": 2, "critical": 3][thermal] ?? 0

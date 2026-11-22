@@ -1,7 +1,6 @@
-/* Cool Head for Chrome: the popup, the setup page, and the preview. Built from the approved renders
-   (notes/chrome-extension-renders/popup.css; Phil, 21 November 2026: "The extension renders look fantastic,
-   exactly what I wanted"), with Cool Head blue where the renders used orange (docs/BRAND.md: Phil chose
-   "Cool Head blue" after the renders). Each token is light-dark(light, dark), so one list serves both modes.
+/* Cool Head for Chrome: the popup, the setup page, and the preview. Built from the design renders, with
+   Cool Head blue (docs/BRAND.md) where the renders used orange, since that color was chosen after them.
+   Each token is light-dark(light, dark), so one list serves both modes.
    Contrast for every pair is checked in test/contrast.test.js (WCAG 2.2 AA: 4.5:1 text, 3:1 edges and icons). */
 :root {
   color-scheme: light dark;
@@ -37,7 +36,7 @@ svg { flex: none; }
 .ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-/* Chrome caps a popup at 600 px (decided 21 November 2026): the band and the level bar stay put; the middle scrolls. */
+/* Chrome caps a popup at 600 px: the band and the level bar stay put; the middle scrolls. */
 .popup { width: 360px; max-height: 600px; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
 .popup > header, .popup > footer { flex: none; }
 .popup > main { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
