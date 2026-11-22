@@ -302,7 +302,7 @@ public enum MemoryAdvice {
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
         // Cool Head for Chrome connected: the recommendation to close Chrome's heaviest tabs becomes one click, and the
-        // extension's safe list stays awake. An extension can't see each tab's memory, so "heaviest" becomes the tabs
+        // tabs it protects stay awake. An extension can't see each tab's memory, so "heaviest" becomes the tabs
         // you aren't looking at; Cool Head's own figure says how much that is. Not connected, and memory has slowed the
         // Mac twice this week: it's offered.
         if top.name == "Google Chrome", top.bundle != nil {
@@ -338,7 +338,7 @@ public enum MemoryAdvice {
     static func sleepChromeTabs(_ context: MemoryContext, title: String, recommended: Bool) -> Fix {
         let hidden = context.chrome.flatMap { $0.markWorks ? $0.hiddenBytes : nil }
         return Fix(id: "sleep", title: title,
-                   consequence: (hidden.map { "Frees about \(Fmt.bytes($0)). " } ?? "") + "They stay in the tab bar and reload when clicked. Your safe list, calls, sound, and unsent typing stay awake.",
+                   consequence: (hidden.map { "Frees about \(Fmt.bytes($0)). " } ?? "") + "They stay in the tab bar and reload when clicked. Tabs and sites you keep, calls, sound, and unsent typing stay awake.",
                    kind: .chromeCompanion("sleepHidden"), recommended: recommended)
     }
 

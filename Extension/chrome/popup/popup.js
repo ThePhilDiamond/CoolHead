@@ -10,7 +10,7 @@ const ALL_SITES = { origins: ['<all_urls>'] };
 
 const ui = {
   screen: 'home',
-  heldOpen: false, // folded by default, showing its count, like Cool Head's folded groups
+  levelSet: null, // the level just chosen, said on its row until Effort goes back home
   confirm: null,
   ending: false,
   groupName: null,
@@ -20,8 +20,11 @@ const ui = {
   beforeWindowOnly: null,
   showAllOthers: false,
   safe: null,
+  laterNote: false, // after "Do it later": home says where to find the move again, until the popup closes
+  offered: false,   // the move was offered on this opening already
 };
 let view = null;
+let closeLevels = null;
 
 function ask(msg) {
   return chrome.runtime.sendMessage(msg).then((r) => {
@@ -46,14 +49,16 @@ async function refresh() {
   view = await ask({ type: 'view' });
   // A change in memory while the popup is open is said aloud, once, through the lasting live region.
   if (before && before.band.title !== view.band.title) announce(`${view.band.title}. ${view.band.line}`);
-  // Cool Head's "Turn off extensions" opens the safe list; Chrome only asks for a permission after a click, so
-  // without it yet, Settings opens with its Choose the safe list button.
+  // Cool Head's "Turn off extensions" opens Protected, at its extensions; Chrome only asks for a permission after a
+  // click, so without it yet, the part shows its Allow button.
   if (view.openScreen === 'safe') {
-    if (view.settings.managementGranted) {
-      ui.safe = await ask({ type: 'safe' });
-      ui.screen = 'safe';
-    } else ui.screen = 'settings';
+    await loadSafe();
+    ui.screen = 'protected';
   }
+  // Tabs a suspender holds are offered once, when the popup first finds them, unless the person put it off; a move
+  // under way, or its result, shows whenever the popup opens.
+  const m = view.migrate;
+  if (!before && m && ui.screen === 'home' && (m.running || m.result || (m.count && !m.later))) ui.screen = 'migrate';
   // Nothing the popup shows has changed (a tab finished loading, the worker saved its own bookkeeping): no redraw,
   // so nothing moves under the person's pointer.
   if (before && !view.openScreen && JSON.stringify(before) === JSON.stringify(view)) return;
@@ -68,24 +73,58 @@ async function act(m) {
   return r;
 }
 
+// Protected's extensions, read when pausing is on and Chrome allows reading them.
+async function loadSafe() {
+  ui.safe = view.settings.restEnabled && view.settings.managementGranted ? await ask({ type: 'safe' }) : null;
+}
+
 async function openSafe() {
   // Chrome's "Manage your apps, extensions, and themes" permission is asked for only here, when first used.
   const granted = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
-  if (!granted) { announce(W.REST_NEEDS); return; }
-  ui.safe = await ask({ type: 'safe' });
-  ui.screen = 'safe';
+  if (!granted) { announce(W.PAUSE_REFUSED); return; }
+  view = await ask({ type: 'view' });
+  await loadSafe();
+  ui.screen = 'protected';
+}
+
+// A tool in the bottom bar: pressing the open one again goes back home, as in Cool Head. Focus stays on the tool.
+async function openTool(screen) {
+  if (ui.screen === screen) { on.home(); return; }
+  if (screen === 'protected') await loadSafe();
+  ui.screen = screen;
+  ui.confirm = null;
+  draw();
 }
 
 const on = {
-  openSettings() { ui.screen = 'settings'; ui.confirm = null; draw(); root.querySelector('[data-key="back"]')?.focus(); },
-  back() {
+  openSettings() { openTool('settings').catch(console.error); },
+  openProtected() { openTool('protected').catch(console.error); },
+  // The effort choices slide down as they open; later redraws draw them still.
+  openEffort() { clearTimeout(closeLevels); ui.levelSet = null; openTool('effort').catch(console.error); },
+  // Back home from a tool, by the band's pill, the band, or the open tool again; focus goes to the tool that was open.
+  home() {
     const from = ui.screen;
-    ui.screen = from === 'safe' ? 'settings' : 'home';
+    if (from === 'home') return;
+    ui.screen = 'home';
+    ui.confirm = null;
     draw();
-    root.querySelector(`[data-key="${from === 'safe' ? 'safe' : 'settings'}"]`)?.focus();
+    root.querySelector(`[data-key="${from}"]`)?.focus({ preventScroll: true });
   },
-  toggleHeld() { ui.heldOpen = !ui.heldOpen; ui.confirm = null; draw(); },
-  async level(id) { const r = await act({ action: 'level', level: id }); announce(`${r.said} ${r.view.levels.line}`); },
+  // A click sets the level at once; its row says so, and a moment later Effort goes back home, focus going to the
+  // Effort tool. Choosing the level already set goes back the same way.
+  async level(id) {
+    clearTimeout(closeLevels);
+    if (id !== view.levels.chosen) {
+      const r = await act({ action: 'level', level: id });
+      announce(`${r.said} ${r.view.levels.line}`);
+    }
+    ui.levelSet = id;
+    draw();
+    closeLevels = setTimeout(() => {
+      ui.levelSet = null;
+      if (ui.screen === 'effort') on.home(); else draw();
+    }, 1500);
+  },
   keep(tabId, keep) { ui.confirm = null; act({ action: 'keep', tabId, on: keep }); },
   sleep(row) { tryRisky(row, 'sleep'); },
   close(row) { tryRisky(row, 'close'); },
@@ -131,11 +170,32 @@ const on = {
   async endWithout() { ui.ending = false; await act({ action: 'endSession', save: false }); root.querySelector('[data-key="start"]')?.focus(); },
 
   leaveDelay(ms) { act({ action: 'leaveDelay', ms }); },
+  // Chrome keeps the keys for every extension on one page of its own; an extension can open it but not set a key.
+  keepSite(host, on) { act({ action: 'keepSite', host, on }); },
+  offlineHold(on) { act({ action: 'offlineHold', on }); },
+  openMigrate() { ui.screen = 'migrate'; draw(); },
+  migrate() { act({ action: 'migrate' }); },
+  async migrateLater() {
+    await act({ action: 'migrateLater' });
+    ui.screen = 'home';
+    ui.laterNote = true;
+    draw();
+    announce(W.MIGRATE_LATER_NOTE);
+  },
+  async migrateClose() { await act({ action: 'migrateClose' }); ui.screen = 'home'; draw(); },
+  // Chrome asks the person to confirm; the permission is asked for here, on the click, if it isn't given yet.
+  async migrateRemove(id) {
+    const ok = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
+    if (!ok) return;
+    await chrome.management.uninstall(id, { showConfirmDialog: true }).catch(() => {});
+    await refresh();
+  },
+  shortcut() { chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }).catch(console.error); window.close(); },
   async sites(turnOn) {
     if (turnOn) {
       // Chrome shows its own question; the worker also hears of the answer if this popup closes meanwhile.
       const granted = await chrome.permissions.request(ALL_SITES).catch(() => false);
-      if (!granted) { announce(W.SETUP_REFUSED); return; }
+      if (!granted) { announce(W.SETUP_REFUSED); draw(); return; }
     }
     await act({ action: 'sites', on: turnOn });
   },
@@ -144,10 +204,12 @@ const on = {
     await act({ action: 'restEnabled', on: turnOn });
     if (turnOn && !view.settings.managementGranted) {
       const granted = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
-      if (!granted) { await act({ action: 'restEnabled', on: false }); announce(W.REST_NEEDS); }
+      if (!granted) { await act({ action: 'restEnabled', on: false }); announce(W.PAUSE_REFUSED); return; }
     }
+    // Protected's lists appear under the switch once pausing is on and allowed.
+    if (ui.screen === 'protected') { view = await ask({ type: 'view' }); await loadSafe(); draw(); }
   },
-  async openSafe() { await openSafe(); draw(); root.querySelector('[data-key="back"]')?.focus(); },
+  async openSafe() { await openSafe(); draw(); },
   async safeMove(id, toAlwaysOn) {
     await act({ action: 'safeMove', id, toAlwaysOn });
     ui.safe = await ask({ type: 'safe' });
@@ -178,7 +240,7 @@ function soon() {
   pending = setTimeout(() => {
     if (Date.now() - scrolledAt < 400) { soon(); return; }
     // Not while the group name is being typed: a redraw would move the caret and break input methods.
-    if ((ui.screen === 'home' && !ui.ending) || ui.screen === 'settings') refresh().catch(console.error);
+    if ((ui.screen === 'home' && !ui.ending) || ['settings', 'protected', 'effort', 'migrate'].includes(ui.screen)) refresh().catch(console.error);
   }, 200);
 }
 chrome.storage.onChanged.addListener(soon);

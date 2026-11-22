@@ -1,0 +1,1 @@
+- Cool Head for Chrome's menu has a bottom bar like Cool Head's, with Effort, Protected, and Settings, each opening in the middle with a pill back home. Protected holds tabs, sites, and extensions together, extensions pause rather than rest, typing and calls is a switch in Settings, and the text throughout is shorter.

@@ -4,9 +4,23 @@
 // copied from Chrome's.
 
 // Shown and checked in this order: what would be lost first (a call, typing) before what only costs a reload.
-export const REASON_ORDER = ['call', 'screen', 'typing', 'sound', 'kept', 'pinned', 'session'];
+export const REASON_ORDER = ['call', 'screen', 'typing', 'sound', 'kept', 'site', 'pinned', 'session'];
 
-// The protocol's held reasons (PROTOCOL.md, the `report` message).
+// A site the person keeps awake: the host without "www.", and a rule for a host covers its subdomains too.
+export function siteOf(url) {
+  try {
+    const u = new URL(url);
+    return /^https?:$/.test(u.protocol) ? u.hostname.replace(/^www\./, '').toLowerCase() : null;
+  } catch { return null; }
+}
+export function siteRuleFor(url, sites) {
+  const host = siteOf(url);
+  if (!host || !sites?.length) return null;
+  return sites.find((s) => host === s || host.endsWith(`.${s}`)) || null;
+}
+
+// The protocol's held reasons (PROTOCOL.md, the `report` message). A kept site reports as kept, so Cool Head's
+// side of the link needs no change.
 export const PROTOCOL_REASONS = ['sound', 'call', 'screen', 'typing', 'pinned', 'kept', 'session'];
 
 // A call that has gone quiet still matters: without the camera and microphone check (it needs access to all
@@ -44,6 +58,7 @@ export function heldReasons(tab, ctx) {
   if (ctx.typing?.[tab.id]) reasons.push('typing');
   if (tab.audible || recentlyAudible(tab, ctx)) reasons.push('sound');
   if (ctx.kept?.has(tab.id)) reasons.push('kept');
+  if (siteRuleFor(tab.url, ctx.keepSites)) reasons.push('site');
   if (tab.pinned) reasons.push('pinned');
   if (ctx.sessionIds?.has(tab.id)) reasons.push('session');
   return reasons;
@@ -73,7 +88,7 @@ export function heldCounts(tabs, ctx) {
   for (const tab of tabs) {
     if (tab.discarded) continue;
     const p = primaryReason(heldReasons(tab, ctx));
-    if (p) counts[p] += 1;
+    if (p) counts[p === 'site' ? 'kept' : p] += 1;
   }
   return counts;
 }

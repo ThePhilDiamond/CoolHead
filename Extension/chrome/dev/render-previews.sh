@@ -12,17 +12,23 @@ mkdir -p "$OUT" "$DATA"
 shot() { # name screen theme
   "$CHROME" --headless=new --user-data-dir="$DATA" --no-first-run --no-default-browser-check --hide-scrollbars \
     --allow-file-access-from-files --force-device-scale-factor=2 --window-size=360,600 --virtual-time-budget=3000 \
-    --screenshot="$OUT/$1.png" "file://$HERE/preview.html?screen=$2&theme=$3" 2>/dev/null
+    --screenshot="$OUT/$1.png" "file://$HERE/preview.html?screen=$2&theme=$3" 2>/dev/null || true
+  # Chrome can exit with an error after a good screenshot, so the file decides
+  [ -s "$OUT/$1.png" ] || { echo "No render for $1" >&2; exit 1; }
 }
 for theme in light dark; do
   shot "home-$theme" home "$theme"
   shot "start-session-$theme" start "$theme"
-  shot "held-open-$theme" held "$theme"
+  shot "protected-$theme" held "$theme"
+  shot "effort-$theme" levels "$theme"
 done
 shot "held-asks-once-light" confirm light
 shot "session-ending-light" ending light
 shot "session-running-dark" session dark
 shot "alone-dark" alone dark
 shot "settings-light" settings light
-shot "safe-list-light" safe light
+shot "protected-extensions-light" protected-ext light
+shot "protected-extensions-dark" protected-ext dark
+shot "settings-dark" settings dark
+shot "migrate-light" migrate light
 ls "$OUT"

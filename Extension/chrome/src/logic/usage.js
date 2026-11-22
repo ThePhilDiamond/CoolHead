@@ -42,6 +42,17 @@ export function rankMostUsed(tabs, use, now, frontTabId = null) {
   }).map((t) => t.id);
 }
 
+// The tab to show when the person puts the one in front to sleep (Chrome can't unload the tab in front): the one
+// they used before it in the same window, or failing that its neighbor. Null when it is the window's only tab.
+export function tabToShowInstead(tabs, tabId, use) {
+  const me = tabs.find((t) => t.id === tabId);
+  if (!me) return null;
+  const others = tabs.filter((t) => t.windowId === me.windowId && t.id !== tabId);
+  if (!others.length) return null;
+  const near = (t) => Math.abs(t.index - me.index) + (t.index < me.index ? 0.5 : 0);
+  return [...others].sort((a, b) => ((lastUsed(b, use) ?? 0) - (lastUsed(a, use) ?? 0)) || near(a) - near(b))[0].id;
+}
+
 export function pruneUse(use, liveIds) {
   const live = new Set(liveIds);
   return Object.fromEntries(Object.entries(use).filter(([id]) => live.has(Number(id))));

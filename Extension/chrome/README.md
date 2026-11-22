@@ -6,36 +6,42 @@ The link to Cool Head is in [PROTOCOL.md](PROTOCOL.md).
 
 ## What it does
 
-- **How hard it works.** Light keeps your 5 most used tabs loaded, Balanced 3, Focus only the tab you're on; the others sleep 30 seconds after you leave them (or at once, in Settings), so going back and forth within half a minute never reloads. Auto, with Cool Head, sleeps nothing while memory is fine; when memory slows your Mac, it sleeps tabs you haven't used for 30 minutes, one at a time, oldest first (5 minutes when memory is very tight), and stops after memory has been fine for 5 minutes.
-- **Held in memory.** Every tab that doesn't sleep on its own, with the reason: on a call, sharing your screen, unsent typing, playing sound, kept by you, or pinned. Each has Keep, Sleep, and Close. Sleep or Close on a call or on unsent typing asks once first, since it would end the call or lose the typing. Keep isn't offered on a pinned tab, which stays loaded already. The list is folded by default, showing its count.
+The menu has a bottom bar like Cool Head's: Effort, Protected, and Settings. Each opens in the middle of the menu, and the pill under the top band's title goes back home.
+
+- **Effort.** Light keeps your 5 most used tabs loaded, Balanced 3, Focus only the tab you're on; the others sleep 30 seconds after you leave them (or at once, in Settings), so going back and forth within half a minute never reloads. Auto, with Cool Head, sleeps nothing while memory is fine; when memory slows your Mac, it sleeps tabs you haven't used for 30 minutes, one at a time, oldest first (5 minutes when memory is very tight), and stops after memory has been fine for 5 minutes.
+- **Protected: tabs.** Every tab that doesn't sleep on its own, with the reason: on a call, sharing your screen, unsent typing, playing sound, kept by you, on a site you keep awake, or pinned. Each has Keep, Sleep, and Close. Sleep or Close on a call or on unsent typing asks once first, since it would end the call or lose the typing. Keep isn't offered on a pinned tab, which stays loaded already.
+- **Protected: sites.** Sites whose every tab stays awake, including their subdomains, each with Remove. Add the site you're on from Protected, or by right-clicking a page and choosing Keep every tab of that site loaded.
+- **Protected: extensions.** Optional. Pauses extensions you haven't kept on during a session, or while memory is very tight on Auto, and turns them back on when the session ends or memory clears. Password managers, ad and tracker blockers, VPNs, security tools, and anything your organization installed start kept on, and you can move any. An extension with tabs open on its own pages always stays on, since Chrome would close those tabs.
 - **Start a session.** For a meeting or a task: it suggests the tab you're on, tabs on a call or playing sound, tabs you kept, and tabs used in the last 10 minutes, all ticked; "This window only" ticks this window's tabs and unticks the rest. Starting sleeps the rest; a tab you open or switch to joins. Ending offers to save the session's tabs as a named tab group; nothing reloads.
-- **Keep.** On any tab, from the popup or by right-clicking the page: that tab, not its address, stays loaded until you un-keep it, and Chrome's own Memory Saver is told to leave it too. After Chrome restarts, kept tabs are found again by window, position, and address; when two match, the popup asks which.
+- **Keep.** On any tab, from Protected or by right-clicking the page: that tab, not its address, stays loaded until you un-keep it, and Chrome's own Memory Saver is told to leave it too. After Chrome restarts, kept tabs are found again by window, position, and address; when two match, the menu asks which.
 - **Duplicates.** Pages open more than once in this Chrome profile, with one button to close the extra copies, keeping the one you used last. Never automatic.
-- **Rest extensions.** Optional. Turns off extensions that aren't on your safe list during a session, or while memory is very tight on Auto, and turns them back on when the session ends or memory clears. The safe list starts with password managers, ad and tracker blockers, VPNs, security tools, and anything your organization installed always on, and you can move any.
+- **Keyboard shortcuts.** Command-Shift-S on a Mac (Ctrl+Shift+S elsewhere) puts the tab you're on to sleep and shows the one you used before it. Another, with no key until you choose one, puts the other tabs in the window to sleep, keeping their protections. Chrome keeps every extension's keys on its own shortcuts page, which Settings opens; Chrome gives the default key only if no other extension holds it.
+- **Offline.** On by default: no tab sleeps on its own while you're offline, since a sleeping tab couldn't reload until you're back. When you're offline and memory is low, the menu says so and points to the setting.
+- **Moving from a tab suspender.** Suspenders such as The Marvellous Suspender swap each tab for a page of their own, which Chrome closes if the suspender is removed. When the menu finds such tabs, it offers to move them: each opens once at its real address and goes straight to sleep, one at a time, so memory never jumps; then it offers to remove the suspender, which Chrome asks you to confirm. Do it later keeps the offer in Settings. It reads The Marvellous Suspender, The Great Suspender 2026, Tab Suspender, Tiny Suspender, tabssuspender.com's Tab Suspender, and Workona's Tab Suspender.
 - **The toolbar.** The icon's badge counts the tabs this extension has put to sleep that are still asleep.
 
 ## Alone or with Cool Head
 
 Everything works without Cool Head, including on Windows, Linux, and ChromeOS, where there is no Cool Head; there it shows Chrome's own reading of free memory. Auto needs Cool Head, since only Cool Head can tell when memory is actually slowing the Mac, and the popup says so.
 
-With Cool Head, Auto follows Cool Head's reading, Cool Head's Chrome card can ask for one-click actions (sleep tabs you aren't looking at, close duplicates, fold groups not used today, rest extensions), and each says what the other did. Only counts and your level cross the link: never addresses, titles, or extension names.
+With Cool Head, Auto follows Cool Head's reading, Cool Head's Chrome card can ask for one-click actions (sleep tabs you aren't looking at, close duplicates, fold groups not used today, pause extensions), and each says what the other did. Only counts and your level cross the link: never addresses, titles, or extension names.
 
-If the link drops at any moment, the extension carries on alone with nothing lost: your level stays as you chose it (Auto waits for Cool Head and says so), tabs asleep stay asleep, and extensions rested because memory was tight come back on.
+If the link drops at any moment, the extension carries on alone with nothing lost: your level stays as you chose it (Auto waits for Cool Head and says so), tabs asleep stay asleep, and extensions paused because memory was tight come back on.
 
 ## Permissions, and why
 
 | Permission | Why | What Chrome says |
 |---|---|---|
-| `tabs` | To see each tab's address and title: to list held tabs, find duplicates, and find kept tabs after a restart. | "Read your browsing history" |
+| `tabs` | To see each tab's address and title: to list protected tabs, find duplicates, find kept tabs after a restart, and find tabs a suspender holds. | "Read your browsing history" |
 | `nativeMessaging` | To talk to Cool Head, only through the helper Cool Head installs. | "Communicate with cooperating native applications" |
 | `tabGroups` | To save a session as a named tab group, and to fold groups for Cool Head's card. | |
-| `storage` | To remember your level, kept tabs, session, and safe list, on this computer only. | |
+| `storage` | To remember your level, kept tabs and sites, session, and which extensions may pause, on this computer only. | |
 | `alarms` | To check again after the 30 seconds a tab waits once you leave it. | |
-| `contextMenus` | For "Keep this tab loaded" on the right-click menu. | |
+| `contextMenus` | For "Keep this tab loaded" and keeping a whole site loaded, on the right-click menu. | |
 | `scripting` | To start the typing and call checks, only if you allow access to all sites. | |
 | `favicon` | To show each tab's icon from Chrome's own copy, so no icon is fetched from the web. | |
 | `system.memory` | For Chrome's reading of free memory when Cool Head isn't there. | |
-| `management` (optional) | To turn extensions off and on for Rest extensions. Asked for only when you first choose the safe list. | "Manage your apps, extensions, and themes" |
+| `management` (optional) | To pause extensions and turn them back on, to name a tab suspender, and to remove one when you ask after its tabs are moved. Asked for only when first needed. | "Manage your apps, extensions, and themes" |
 | Access to all sites (optional) | To see unsent typing and calls. Asked at setup with the cost of saying no, and never assumed. | "Read and change all your data on all websites" |
 
 **Why access to all sites helps.** Chrome's own unloading spares a tab with typed text; an extension's doesn't, and the text is lost when the tab reloads (Cool Head's test T11). Chrome also doesn't tell extensions when a tab uses the camera or microphone. With access, two small scripts check whether a text box has been typed in and whether the camera, microphone, or screen sharing is on; only a yes or no leaves the page, never what you typed. Without it, a tab with unsent typing can sleep and lose the typing, and a call that has been quiet for 10 minutes can sleep, which ends it. Known meeting rooms (Google Meet, Zoom in the browser, Jitsi, Whereby, and Teams meeting links) are recognized by address either way.
@@ -79,14 +85,16 @@ In a separate Chrome profile (or Chrome for Testing), never your everyday one:
 
 1. Load it unpacked. The setup tab opens; choose Protect them, accept Chrome's question, and see "Done. Tabs with unsent typing or on a call stay loaded."
 2. Open 8 tabs on different sites. Choose Focus, then switch between two tabs: each tab you leave sleeps after 30 seconds, and the badge counts them. Click one: it reloads.
-3. Type in a text box on a page, don't send, switch away, and wait a minute: that tab stays loaded, and Held in memory lists it as Unsent typing. Press Close on it: the popup warns once; press again to close.
+3. Type in a text box on a page, don't send, switch away, and wait a minute: that tab stays loaded, and Protected lists it as Unsent typing. Press Close on it: the popup warns once; press again to close.
 4. Play a video in a tab, switch away: it stays loaded as Playing sound. Pause it: it stays protected for 10 minutes, listed as Played sound recently.
-5. Pin a tab: it shows in Held in memory without Keep. Right-click a page and choose Keep this tab loaded: it shows as Kept by you, and doesn't sleep.
+5. Pin a tab: it shows in Protected without Keep. Right-click a page and choose Keep this tab loaded: it shows as Kept by you, and doesn't sleep. In Protected's Sites, keep the site you're on: its other tabs show as Site kept awake.
 6. Open the same address twice: the duplicates card offers to close one, keeping the one you used last.
 7. Start a session with 2 tabs ticked: the rest sleep; switching to another tab adds it. End session, save as a group: a named group appears, and nothing reloads.
 8. Quit and reopen Chrome with tabs restored: kept tabs are still kept. Open the same address twice in the same place first to see the question.
-9. In Settings, turn on Rest extensions and choose the safe list (Chrome asks once). Start a session: extensions on the Rest list turn off; end it: they come back.
-10. With Cool Head's helper installed: the band says Working with Cool Head, and Auto becomes available. Quit Cool Head: the band says Cool Head isn't open within 10 seconds, and nothing else changes.
+9. In Protected, turn on Pause extensions (Chrome asks once). Start a session: extensions under Pause when needed turn off; end it: they come back.
+10. Press Command-Shift-S (or set it in Settings first): the tab you're on sleeps and the one you used before shows. Turn off Wi-Fi with memory low: nothing sleeps, and the menu says why.
+11. With a tab suspender in the same test profile, suspend a few tabs, then open the menu: Move them, and each lands on its real address, asleep.
+12. With Cool Head's helper installed: the band says Working with Cool Head, and Auto becomes available. Quit Cool Head: the band says Cool Head isn't open within 10 seconds, and nothing else changes.
 
 ## Files
 
