@@ -1,0 +1,1 @@
+- Pause until you plug in waits while a job is playing sound or downloading, so its sound doesn't cut out and its download doesn't stall. The card says why in place of the option ("Not paused while it's playing sound." or "Not paused while it's downloading."), and the option comes back once it stops. Downloading means at least 100 KB a second coming in for 10 seconds.

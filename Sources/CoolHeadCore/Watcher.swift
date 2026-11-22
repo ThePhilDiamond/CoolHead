@@ -31,6 +31,10 @@ public struct LiveCard: Identifiable {
     /// when nothing explains it. Heat with a cause turns the badge yellow, so the cause is flagged rather than
     /// left green under "Running warm". It doesn't notify on its own.
     public var heatCause = false
+    /// What a card offering Pause until you plug in is about, with the programs it started, and whether that was
+    /// coming in at the download rate in the latest reading: checked again at the click (see BusyWith.atClick).
+    public var pauseGroup: Set<pid_t> = []
+    public var downloadingNow = false
     /// What the card is about, whatever its state: the process, or the Mac-wide condition.
     public var cause: String { causeKey ?? pid.map { "pid-\($0)" } ?? id }
     /// Overrides the cause, so a card keeps one identity as it changes (the memory card, warning or critical).
@@ -126,6 +130,9 @@ public final class Watcher {
     @ObservationIgnored private var hangSince: [pid_t: (kind: Hang.Kind, since: Date)] = [:]
     /// Process numbers of the jobs Cool Head paused itself, copied for the sampling queue: those aren't hangs.
     @ObservationIgnored private var ownPauses: Set<pid_t> = []
+    /// Bytes coming in, by process, from the last 30 seconds of nettop readings (see BusyWith). Read once a tick, and
+    /// only while a card offers Pause until you plug in.
+    @ObservationIgnored private var downloadSamples: [BusyWith.Sample] = []
     @ObservationIgnored private let queue = DispatchQueue(label: "coolhead.watcher", qos: .utility)
     @ObservationIgnored private var timer: DispatchSourceTimer?
     /// The running count of swap-outs over about the last 2 minutes, for `MacState.swappedOutMB`.
@@ -248,6 +255,13 @@ public final class Watcher {
     /// Freezes a job until the Mac is plugged in. Checked by reading back the process's state.
     public func pauseJob(_ c: LiveCard) -> Outcome {
         guard let p = c.pid, sameProcess(c) else { log("Pause pressed for \(c.reportSubject): it had already gone"); return .gone }
+        // sound can start between readings, so it's read again now; a download is judged from the latest reading
+        let playing = BusyWith.playingNow()
+        if let r = BusyWith.atClick(group: c.pauseGroup.isEmpty ? [p] : c.pauseGroup, playing: playing,
+                                    soundOpen: playing == nil ? BusyWith.soundOpenNow() : [], downloadingNow: c.downloadingNow) {
+            log("Pause pressed for \(c.reportSubject): not paused, it's \(r == .sound ? "playing sound" : "downloading")")
+            return .done(r.cardLine)
+        }
         guard kill(p, SIGSTOP) == 0 else {
             let why = String(cString: strerror(errno)); log("Pause pressed for \(c.reportSubject): failed (\(why))"); return .failed(why)
         }
@@ -764,6 +778,14 @@ public final class Watcher {
             guard pid != me, dt > 0, Double(tr.lastWritten) / dt >= 100_000, let b = Proc.bsd(pid), b.uid == getuid() else { return nil }
             return (b.name, Proc.openFiles(pid).filter(\.writable).map(\.path), tr.lastWritten)
         }
+        // playing sound or downloading holds back Pause until you plug in (see BusyWith); read only when a card offers it
+        lazy var playing = BusyWith.playingNow()
+        lazy var soundOpen: Set<pid_t> = playing == nil ? BusyWith.soundOpenNow() : []
+        lazy var incoming: BusyWith.Sample = {
+            let s = BusyWith.readDownloads(now: now)
+            downloadSamples = BusyWith.remember(s, in: downloadSamples)
+            return s
+        }()
         for (pid, tr, e) in gathered {
             let feed = SyncApps.app(bundle: e.appBundle).flatMap { SyncFeed.find(sync: $0, writers: writers) }
             let backup = Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "time-machine" ? BackupExclusions.find(writers: fileWriters) : nil
@@ -778,7 +800,18 @@ public final class Watcher {
             guard c.state != .quiet else { continue }
             // something with an every-time rule: the card says so, and doesn't offer Run it cooler again
             if let k = Trust.key(e), CoolerRules.contains(k) { c = c.underRule(app: CoolerRules.isApp(k)) }
+            // a job offered Pause until you plug in, with the programs it started: not while it plays sound or downloads
+            var pauseGroup: Set<pid_t> = [], downloadingNow = false
+            if c.fixes.contains(where: { $0.kind == .pauseJob }) {
+                pauseGroup = Set([pid] + Proc.children(of: pid))
+                downloadingNow = BusyWith.rate(group: pauseGroup, in: incoming) >= BusyWith.downloadRate
+                if let r = BusyWith.reason(group: pauseGroup, playing: playing, soundOpen: soundOpen, samples: downloadSamples, now: now) {
+                    c = c.busyWith(r)
+                }
+            }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice?.line.map { [$0] } ?? []))
+            lc.pauseGroup = pauseGroup
+            lc.downloadingNow = downloadingNow
             lc.reportSubject = CaseReport.subject(e)
             lc.displaySubject = Card.subject(e)
             // flagged only when there's something to press; normal macOS work is still shown, as the explanation

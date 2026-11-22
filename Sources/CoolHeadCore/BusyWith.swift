@@ -61,6 +61,17 @@ public enum BusyWith: Equatable {
         return recent.allSatisfy { s in group.reduce(0) { $0 + (s.bytesIn[$1] ?? 0) } >= downloadRate }
     }
 
+    /// The group's bytes coming in, in one reading.
+    public static func rate(group: Set<pid_t>, in s: Sample) -> Double { group.reduce(0) { $0 + (s.bytesIn[$1] ?? 0) } }
+
+    /// At the click on Pause until you plug in: sound is read again then, since it can start between readings; for a
+    /// download, the latest reading at the download rate is enough, as there's no time to wait for 10 seconds of them
+    /// and pausing a download is the worse mistake.
+    public static func atClick(group: Set<pid_t>, playing: Set<pid_t>?, soundOpen: Set<pid_t>, downloadingNow: Bool) -> BusyWith? {
+        if playingSound(group: group, playing: playing, soundOpen: soundOpen) { return .sound }
+        return downloadingNow ? .download : nil
+    }
+
     /// Adds a reading and forgets old ones.
     public static func remember(_ s: Sample, in samples: [Sample]) -> [Sample] {
         (samples + [s]).filter { s.at.timeIntervalSince($0.at) <= keep }
@@ -89,6 +100,12 @@ public enum BusyWith: Equatable {
     /// The processes macOS's sound service holds the Mac awake for: sound open, playing or not.
     public static func soundOpen(_ holds: [PowerState.Hold]) -> Set<pid_t> {
         Set(holds.filter { $0.name == "coreaudiod" }.compactMap { $0.forPID })
+    }
+
+    /// The same, read now (`pmset -g assertions`); only needed where CoreAudio's list isn't available.
+    public static func soundOpenNow() -> Set<pid_t> {
+        guard let d = Hardware.run("/usr/bin/pmset", ["-g", "assertions"]) else { return [] }
+        return soundOpen(PowerState.parseAssertions(String(decoding: d, as: UTF8.self)))
     }
 
     /// The processes playing sound right now, from CoreAudio; nil where macOS doesn't offer the list.
@@ -149,5 +166,18 @@ public enum BusyWith: Equatable {
             out[pid, default: 0] += bytes
         }
         return out
+    }
+}
+
+extension Card {
+    /// This card while what it's about is playing sound or downloading: Pause until you plug in isn't offered, and the
+    /// card says why. It's offered again on the next reading once that stops.
+    public func busyWith(_ r: BusyWith) -> Card {
+        guard fixes.contains(where: { $0.kind == .pauseJob }) else { return self }
+        var c = Card(state: state, headline: headline, explanation: explanation + " " + r.cardLine,
+                     fixes: fixes.filter { $0.kind != .pauseJob })
+        c.names = names; c.facts = facts; c.cardID = cardID; c.choice = choice; c.diagnosis = diagnosis
+        c.optionFacts = optionFacts.filter { $0.key != "pausejob" }
+        return c
     }
 }

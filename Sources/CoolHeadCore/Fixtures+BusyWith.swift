@@ -72,6 +72,26 @@ extension Fixture {
         let open = BusyWith.soundOpen(PowerState.parseAssertions(pmset))
         review.append(("busy-with-sound-open", open == [85607], "sound open in \(open.sorted())"))
 
+        // on a card: a job on battery is offered Pause until you plug in; while it plays sound, that's taken away and the
+        // card says why; a card with no pause is left as it is
+        let job = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
+                                  start: now.addingTimeInterval(-2 * 3600), cores: 2)
+        let offered = Card.make(job, now: now, busySince: now.addingTimeInterval(-900), battery: 80)
+        let held = offered.busyWith(.sound)
+        let plugged = Card.make(job, now: now, busySince: now.addingTimeInterval(-900))
+        let offeredBefore = offered.fixes.contains { $0.kind == .pauseJob }
+        let cardOK = offeredBefore && !held.fixes.contains { $0.kind == .pauseJob } && held.explanation.hasSuffix(BusyWith.sound.cardLine)
+            && held.headline == offered.headline && held.fixes.count == offered.fixes.count - 1
+            && plugged.busyWith(.download).explanation == plugged.explanation
+        review.append(("busy-with-card", cardOK, "offered before \(offeredBefore); after: \(held.explanation)"))
+
+        // at the click: sound read again then; a download from the latest reading alone
+        let clickSound = BusyWith.atClick(group: app, playing: [503], soundOpen: [], downloadingNow: false)
+        let clickDownload = BusyWith.atClick(group: app, playing: [], soundOpen: [501], downloadingNow: true)
+        let clickNothing = BusyWith.atClick(group: app, playing: [], soundOpen: [501], downloadingNow: false)
+        review.append(("busy-with-at-click", clickSound == .sound && clickDownload == .download && clickNothing == nil,
+                       "sound \(String(describing: clickSound)); downloading now \(String(describing: clickDownload)); neither \(String(describing: clickNothing))"))
+
         // the words
         let words = BusyWith.sound.cardLine == "Not paused while it's playing sound."
             && BusyWith.download.cardLine == "Not paused while it's downloading."
