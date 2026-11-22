@@ -3,7 +3,7 @@ import Security
 
 public enum CoolHead {
     /// Kept in step with the VERSION file; scripts/build-app.sh checks they match.
-    public static let version = "0.17.0"
+    public static let version = "0.18.0"
     /// The day this version was released, as CHANGELOG.md dates it (scripts/check-version.sh checks they match); shown
     /// in Settings under the version, so it's clear how old the version is.
     public static let released = "2026-11-21"

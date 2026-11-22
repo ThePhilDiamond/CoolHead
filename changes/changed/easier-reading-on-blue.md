@@ -1,1 +1,0 @@
-- The recommended option is easier to read: a deeper blue with full-strength white text, in light and dark (7.4:1, up from 4.0:1 for its description line), and it no longer fades when you point at it.

@@ -1,1 +1,0 @@
-- Cool Head for Chrome installed from the Chrome Web Store links with Cool Head, as well as a copy added by hand. If you already set it up, Cool Head updates the link for you when it opens.
