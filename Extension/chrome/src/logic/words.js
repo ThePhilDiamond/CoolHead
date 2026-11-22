@@ -87,6 +87,14 @@ export const GET_COOL_HEAD_LABEL = 'Get Cool Head, opens its website in a new ta
 // ---- levels ----
 export const LEVEL_NAME = { auto: 'Auto', light: 'Light', balanced: 'Balanced', focus: 'Focus' };
 export const LEVEL_LABEL = 'Effort';
+// One line each, under its name in the Effort choices.
+export const LEVEL_SHORT = {
+  auto: 'Tabs sleep only when Cool Head says memory is slowing your Mac.',
+  light: 'Your 5 most used tabs stay loaded; others sleep after you leave them.',
+  balanced: 'Your 3 most used tabs stay loaded; others sleep after you leave them.',
+  focus: "Only the tab you're on stays loaded; others sleep after you leave them.",
+};
+export function levelSetTo(level) { return `Set to ${LEVEL_NAME[level]}`; }
 
 function leaving(delayMs) {
   return delayMs > 0
@@ -272,10 +280,10 @@ export const DONE = {
 // ---- settings ----
 export const SETTINGS = 'Settings';
 export const BACK = 'Back';
-export const LEAVE_TITLE = 'When you leave a tab';
-export const LEAVE_30 = 'After 30 seconds';
+export const LEAVE_TITLE = 'How soon a tab you leave sleeps';
+export const LEAVE_30 = '30 seconds after you leave';
 export const LEAVE_30_WHY = 'Going back and forth within half a minute never reloads.';
-export const LEAVE_0 = 'At once';
+export const LEAVE_0 = 'As soon as you leave';
 export const LEAVE_0_WHY = 'Frees memory sooner, but a tab you go back to reloads.';
 export const LEAVE_NOTE = 'Applies to Light, Balanced, and Focus.';
 
@@ -283,6 +291,7 @@ export const SITES_TITLE = 'Unsent typing and calls';
 export const SITES_ON = "On: tabs with unsent typing, or using the camera, microphone, or screen sharing, don't sleep on their own, so you don't lose what you typed or drop out of a call.";
 export const SITES_OFF = 'Off: a tab with unsent typing can sleep, and what you typed is lost when it reloads. A call that has been quiet for 10 minutes can sleep too, which ends it.';
 export const SITES_HOW = 'Turning it on lets Cool Head for Chrome check, on each site, whether a text box has been typed in and whether the camera, microphone, or screen sharing is on. It never reads what you type, and nothing leaves your computer. Chrome will ask you to allow it to "read and change all your data on all websites", which is how Chrome words any access to every site.';
+export const SITES_ON_HOW = 'To notice them, it checks each site for a text box with typing in it and for the camera, microphone, or screen sharing. It never reads what you type, and nothing leaves your computer.';
 export const TURN_ON = 'Turn on';
 export const TURN_OFF = 'Turn off';
 

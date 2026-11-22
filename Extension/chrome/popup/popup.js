@@ -12,6 +12,7 @@ const ui = {
   screen: 'home',
   levelOpen: false, // the effort choices, opened from their tool in the bottom bar
   levelOpening: false,
+  levelSet: null, // the level just chosen, said on its row until the drawer closes
   confirm: null,
   ending: false,
   groupName: null,
@@ -23,6 +24,7 @@ const ui = {
   safe: null,
 };
 let view = null;
+let closeLevels = null;
 
 function ask(msg) {
   return chrome.runtime.sendMessage(msg).then((r) => {
@@ -91,7 +93,7 @@ const on = {
   openSettings() { openTool('settings').catch(console.error); },
   openProtected() { openTool('protected').catch(console.error); },
   // The effort choices slide down as they open; later redraws draw them still.
-  toggleLevel() { ui.levelOpen = !ui.levelOpen; ui.levelOpening = ui.levelOpen; draw(); ui.levelOpening = false; },
+  toggleLevel() { clearTimeout(closeLevels); ui.levelSet = null; ui.levelOpen = !ui.levelOpen; ui.levelOpening = ui.levelOpen; draw(); ui.levelOpening = false; },
   // Back home from a tool, by the band's pill, the band, or the open tool again; focus goes to the tool that was open.
   home() {
     const from = ui.screen;
@@ -101,7 +103,25 @@ const on = {
     draw();
     root.querySelector(`[data-key="${from}"]`)?.focus({ preventScroll: true });
   },
-  async level(id) { const r = await act({ action: 'level', level: id }); announce(`${r.said} ${r.view.levels.line}`); },
+  // A click sets the level at once; its row says so, and a moment later the drawer closes, focus going back to the
+  // Effort tool if it was in the drawer. Choosing the level already set just closes it the same way.
+  async level(id) {
+    clearTimeout(closeLevels);
+    if (id !== view.levels.chosen) {
+      const r = await act({ action: 'level', level: id });
+      announce(`${r.said} ${r.view.levels.line}`);
+    }
+    ui.levelSet = id;
+    draw();
+    closeLevels = setTimeout(() => {
+      ui.levelSet = null;
+      if (!ui.levelOpen) return;
+      const inDrawer = Boolean(document.activeElement?.closest('#levels'));
+      ui.levelOpen = false;
+      draw();
+      if (inDrawer) root.querySelector('[data-key="level"]')?.focus({ preventScroll: true });
+    }, 1500);
+  },
   keep(tabId, keep) { ui.confirm = null; act({ action: 'keep', tabId, on: keep }); },
   sleep(row) { tryRisky(row, 'sleep'); },
   close(row) { tryRisky(row, 'close'); },

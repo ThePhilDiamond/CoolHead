@@ -153,6 +153,15 @@ function protectedScreen(view, ui, on) {
     tabs.append(h('p', { class: 'lede', text: W.PROTECTED_LEDE }),
       h('ul', { class: 'tabs', 'aria-labelledby': 'p-tabs' }, view.held.tabs.map((r) => heldRow(r, ui, on))));
   }
+  // What keeps tabs with typing or on a call awake, here because it decides what's protected; it's also a site
+  // permission, so it says what it looks at.
+  const st = view.settings;
+  tabs.append(h('div', { class: 'sites', role: 'group', 'aria-labelledby': 'sites-h' },
+    h('h4', { id: 'sites-h', text: W.SITES_TITLE }),
+    h('p', { text: st.sitesGranted ? W.SITES_ON : W.SITES_OFF }),
+    h('p', { class: 'note', text: st.sitesGranted ? W.SITES_ON_HOW : W.SITES_HOW }),
+    h('div', { class: 'row' }, h('button', { class: st.sitesGranted ? 'btn tall' : 'btn primary', 'data-key': 'sites', onclick: () => on.sites(!st.sitesGranted) },
+      st.sitesGranted ? W.TURN_OFF : W.TURN_ON))));
   const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, screenTitle(W.PROTECTED), tabs, extensionsPart(view, ui, on));
   return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
@@ -190,40 +199,46 @@ function duplicatesCard(view, on) {
     h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'dups', onclick: on.closeDuplicates }, d.button)));
 }
 
-function levels(view, on, opening = false) {
+// The Effort choices: one row each, its name and what it does. A click sets it at once; the row says so, and the
+// drawer closes a moment later (popup.js). Arrow keys move between rows; Enter or Space chooses, so moving along
+// with the keyboard doesn't change the level on the way.
+function levels(view, ui, on, opening = false) {
   const l = view.levels;
   const enabled = l.options.filter((o) => !o.disabled);
-  const choose = (id) => { if (id !== l.chosen) on.level(id); };
-  // One tab stop, arrow keys move and choose, as a radio group does.
   const keydown = (e) => {
     const i = enabled.findIndex((o) => o.id === e.currentTarget.dataset.level);
     let next = null;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = enabled[(i + 1) % enabled.length];
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = enabled[(i - 1 + enabled.length) % enabled.length];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = enabled[(i + 1) % enabled.length];
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = enabled[(i - 1 + enabled.length) % enabled.length];
     if (e.key === 'Home') next = enabled[0];
     if (e.key === 'End') next = enabled[enabled.length - 1];
     if (next) {
       e.preventDefault();
-      // Focus moves with the choice, so the redraw puts it back on the newly chosen level.
       e.currentTarget.parentElement.querySelector(`[data-level="${next.id}"]`)?.focus();
-      choose(next.id);
     }
   };
   const chosenEnabled = enabled.some((o) => o.id === l.chosen);
-  const buttons = l.options.map((o) => {
+  const rows = l.options.map((o) => {
     const on_ = o.id === l.chosen;
+    const justSet = on_ && ui.levelSet === o.id;
     const tabbable = on_ || (!chosenEnabled && o === enabled[0]);
     return h('button', {
+      class: `levelrow${on_ ? ' chosen' : ''}`,
       role: 'radio', 'aria-checked': on_ ? 'true' : 'false', tabindex: tabbable ? '0' : '-1',
       'aria-disabled': o.disabled ? 'true' : null, 'aria-describedby': o.disabled && l.needs ? 'auto-needs' : null,
       'data-level': o.id, 'data-key': `level-${o.id}`,
-      onclick: () => { if (!o.disabled) choose(o.id); }, onkeydown: keydown,
-    }, on_ ? icon('check') : null, o.label);
+      onclick: () => { if (!o.disabled) on.level(o.id); }, onkeydown: keydown,
+    },
+    h('span', { class: 'mark', 'aria-hidden': 'true' }, on_ ? icon('check') : null),
+    h('span', { class: 'levelmain' },
+      h('span', { class: 'levelname' }, o.label, justSet ? h('span', { class: 'setnow', text: W.levelSetTo(o.id) }) : null),
+      h('span', { class: 'why', text: o.what })));
   });
+  // What the chosen level is doing right now, when that's more than its line says (view.js).
+  const status = l.status;
   return h('div', { class: `levels${opening ? ' opening' : ''}`, id: 'levels' },
-    h('p', { class: 'label', id: 'lvl', text: l.label }),
-    h('div', { class: 'seg', role: 'radiogroup', 'aria-labelledby': 'lvl' }, buttons),
-    h('p', { class: 'what', text: l.line }),
+    h('div', { class: 'levelrows', role: 'radiogroup', 'aria-label': W.LEVEL_LABEL }, rows),
+    status ? h('p', { class: 'what', text: status }) : null,
     l.needs ? h('p', { class: 'what', id: 'auto-needs', text: l.needs }) : null);
 }
 
@@ -236,7 +251,8 @@ function toolbar(view, ui, on) {
   const chosen = l.options.find((o) => o.id === l.chosen)?.label || W.LEVEL_LABEL;
   const tool = (key, ico, label, open, props) => h('button', { class: `tool${open ? ' open' : ''}`, 'data-key': key, ...props },
     h('span', { class: 'toolicon' }, icon(ico)), h('span', { class: 'toolname', text: label }));
-  const effort = `${W.LEVEL_LABEL}: ${chosen}`;
+  // open, just "Effort": the level chosen shows below
+  const effort = ui.levelOpen ? W.LEVEL_LABEL : `${W.LEVEL_LABEL}: ${chosen}`;
   const count = view.held.count ? h('span', { class: 'badge', 'aria-hidden': 'true', text: String(view.held.count) }) : null;
   const shield = tool('protected', 'shield', W.PROTECTED, ui.screen === 'protected', {
     'aria-current': ui.screen === 'protected' ? 'page' : null, 'aria-label': `${W.PROTECTED}, ${view.held.countText}`, onclick: on.openProtected,
@@ -245,14 +261,14 @@ function toolbar(view, ui, on) {
   return h('footer', { class: `bottom tone-${l.tone}` },
     h('nav', { class: 'tools', 'aria-label': W.NAME },
       tool('level', 'gauge', effort, ui.levelOpen, {
-        'aria-expanded': ui.levelOpen ? 'true' : 'false', 'aria-controls': 'levels', onclick: on.toggleLevel,
+        'aria-expanded': ui.levelOpen ? 'true' : 'false', 'aria-controls': 'levels', 'aria-label': `${W.LEVEL_LABEL}: ${chosen}`, onclick: on.toggleLevel,
       }),
       shield,
       tool('settings', 'gear', W.SETTINGS, ui.screen === 'settings', {
         'aria-current': ui.screen === 'settings' ? 'page' : null, onclick: on.openSettings,
       })),
     // drawn only when open; it slides only as it opens (ui.levelOpening), not on every redraw
-    ui.levelOpen ? levels(view, on, ui.levelOpening) : null);
+    ui.levelOpen ? levels(view, ui, on, ui.levelOpening) : null);
 }
 
 function home(view, ui, on) {
@@ -335,12 +351,6 @@ function settingsScreen(view, ui, on) {
         radio('leave', 30000, st.leaveDelayMs === 30000, W.LEAVE_30, W.LEAVE_30_WHY, () => on.leaveDelay(30000)),
         radio('leave', 0, st.leaveDelayMs === 0, W.LEAVE_0, W.LEAVE_0_WHY, () => on.leaveDelay(0))),
       h('p', { class: 'note', text: W.LEAVE_NOTE })),
-    h('section', { class: 'card', 'aria-labelledby': 'sites-h' },
-      h('h2', { id: 'sites-h', text: W.SITES_TITLE }),
-      h('p', { text: st.sitesGranted ? W.SITES_ON : W.SITES_OFF }),
-      st.sitesGranted ? null : h('p', { class: 'note', text: W.SITES_HOW }),
-      h('div', { class: 'row' }, h('button', { class: st.sitesGranted ? 'btn tall' : 'btn primary', 'data-key': 'sites', onclick: () => on.sites(!st.sitesGranted) },
-        st.sitesGranted ? W.TURN_OFF : W.TURN_ON))),
     h('section', { class: 'card', 'aria-labelledby': 'rest-h' },
       h('h2', { id: 'rest-h', text: W.REST_TITLE }),
       h('label', { class: 'choice' },

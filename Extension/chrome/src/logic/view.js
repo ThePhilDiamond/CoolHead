@@ -180,7 +180,7 @@ export function buildView(i) {
     tone: band.tone,
     options: ['auto', 'light', 'balanced', 'focus']
       .filter((l) => l !== 'auto' || isMac)
-      .map((l) => ({ id: l, label: W.LEVEL_NAME[l], disabled: l === 'auto' && !linked })),
+      .map((l) => ({ id: l, label: W.LEVEL_NAME[l], what: W.LEVEL_SHORT[l], disabled: l === 'auto' && !linked })),
     line: W.levelLine(s.level, {
       delayMs: s.leaveDelayMs,
       autoMode: s.auto?.mode,
@@ -190,6 +190,10 @@ export function buildView(i) {
     }),
     needs: isMac && !linked && s.level !== 'auto' ? W.AUTO_NEEDS : null,
   };
+  // Under the Effort choices, what the level is doing now, only when its row's line doesn't already say it: a session
+  // pausing it, or Auto at work, waiting for Cool Head, or turned off there.
+  const autoUnusual = s.level === 'auto' && (!(linked && memory !== null) || s.link?.state?.auto === false || (s.auto?.mode && s.auto.mode !== 'off'));
+  levels.status = inSession || autoUnusual ? levels.line : null;
 
   return {
     version: i.version,
