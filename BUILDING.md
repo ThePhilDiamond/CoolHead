@@ -24,7 +24,7 @@ swift build -c release
 scripts/build-app.sh
 ```
 
-This builds `build/Cool Head.app`, ad-hoc signed. Open it from Finder; it appears in the menu bar, not the Dock. Because the build is not notarized by Apple, macOS may ask you to confirm the first time you open it.
+This builds `build/Cool Head.app`, ad-hoc signed, with the command-line tool in `Contents/MacOS` beside the app and the helper that links it with Cool Head for Chrome, `coolhead-chrome-host`, in `Contents/Helpers`. Open it from Finder; it appears in the menu bar, not the Dock. Because the build is not notarized by Apple, macOS may ask you to confirm the first time you open it.
 
 To see the panel without clicking (for screenshots or checks), this waits 25 seconds and writes `/tmp/panel-light.png`, `/tmp/panel-dark.png` and `/tmp/panel-menu.png` (the menu bar icons), then quits. The value of `COOLHEAD_SNAPSHOT`, here `/tmp/panel`, is the prefix: the start of each file's path, which the settings below call `<prefix>`.
 
@@ -81,5 +81,7 @@ The menu bar icon, a snowflake, is drawn in `Sources/CoolHeadApp/CoolHeadApp.swi
 
 - `Sources/CoolHeadCore`: everything that reads the Mac and decides what a card says. `Proc.swift` (kernel calls), `MacState.swift` (heat, power, battery, memory), `Evidence.swift` (the facts about one process, including games and browser parts), `Progress.swift` (reading a job's own progress lines), `Catalogue.swift` (known patterns), `Card.swift` (the decision, and the order of options), `MemoryAdvice.swift` (the memory card), `Protected.swift` (security software and sync apps), `Trust.swift` (Always trust and its limits), `Pauses.swift` (paused jobs and sync reminders), `CaseReport.swift` and `ProblemReport.swift` (the anonymised reports), `Watcher.swift` (sampling, in memory only), `Fixtures.swift` (examples for selftest).
 - `Sources/coolhead`: the command-line tool.
+- `Sources/CoolHeadChromeLink`: the link with Cool Head for Chrome: how messages are framed, what they hold, the socket, and the file that tells Chrome where the helper is.
+- `Sources/coolhead-chrome-host`: that helper, which Chrome starts and which relays messages between Chrome and Cool Head.
 - `Sources/CoolHeadApp`: the SwiftUI menu bar app, including `Updater.swift` (signed updates).
 - `scripts`: packaging and icon drawing.

@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import AppKit
+import CoolHeadChromeLink
 import Observation
 
 /// A card on screen, with the facts behind it.
@@ -778,7 +779,13 @@ public final class Watcher {
             let saver = chromeParts != nil ? ChromeMemorySaver.read() : nil
             let offerSaver = chromeParts != nil && ChromeMemorySaver.shouldOffer(saver, week: week, memoryGB: s.memoryGB,
                                                                                  setAt: UserDefaults.standard.object(forKey: ChromeMemorySaver.setKey) as? Date, now: now)
-            let context = MemoryContext(slowed: slowed, week: week, chrome: chromeParts, memorySaver: saver, offerSaverMaximum: offerSaver)
+            let context = MemoryContext(slowed: slowed, week: week, chrome: chromeParts, memorySaver: saver, offerSaverMaximum: offerSaver,
+                                        companion: chromeParts != nil ? ChromeCompanion.status : nil)
+            // Cool Head's reading for the extension, when one is linked (see ChromeLinkServer)
+            let chromeBytes = groups.first { $0.name == "Google Chrome" && $0.kind == .browser }?.bytes ?? 0
+            ChromeLinkServer.shared.publish(ChromeLink.State(memory: ChromeLinkServer.memory(s, slowed: slowed), freeMB: ChromeLinkServer.freeMB(),
+                                                             chromeMB: Int(chromeBytes / 1_048_576), hiddenTabsMB: chromeParts.flatMap { $0.markWorks ? Int($0.hiddenBytes / 1_048_576) : nil },
+                                                             extensionsMB: chromeParts.map { Int($0.extensionBytes / 1_048_576) }, auto: ChromeLinkServer.auto))
             let card = MemoryAdvice.card(groups, mac: s, now: now, context: context, leak: groups.first?.bundle.flatMap { leaks.leak($0) }, models: models,
                                          buildData: MemoryAdvice.lowDisk(s) ? Leftovers.buildDataSize(now: now) : nil)
             let top = groups.first
@@ -801,8 +808,10 @@ public final class Watcher {
                 }
             }
             out.append(mc)
-        } else if PressureHistory.note(&pressure, tight: nil, slowed: false, top: nil, swapOutPages: s.swapOutPages, now: now) {
-            PressureHistory.save(pressure, now: now)
+        } else {
+            ChromeLinkServer.shared.publish(ChromeLink.State(memory: .fine, freeMB: ChromeLinkServer.freeMB(), chromeMB: 0, hiddenTabsMB: nil,
+                                                             extensionsMB: nil, auto: ChromeLinkServer.auto))
+            if PressureHistory.note(&pressure, tight: nil, slowed: false, top: nil, swapOutPages: s.swapOutPages, now: now) { PressureHistory.save(pressure, now: now) }
         }
         return out
     }

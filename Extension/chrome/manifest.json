@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Cool Head for Chrome",
+  "short_name": "Cool Head",
+  "version": "1.0.0",
+  "description": "Puts tabs you aren't using to sleep, so Chrome holds less memory. Works on its own, or with Cool Head on a Mac.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAugwqCqihzQk5qKxsMjwYH7qMrxvOuAzBAkQpwhuZzp/gqu9YfjnPgXH2itsW9nE7APFOhyMC2eS4a3KLJVeBChLBKZVccfE+kNyCJurbcBcGyc0f28On8ZrocaLEBExMwjfKv+z1W++Amsv2hcwgiApQjLLj/xO8kvTcGV/KuTbqilLKENx/ZYCEqy5lcP5WseFPqEuY2JW3jPg060it3Lw4D/s2bljhF3uIWcbQvPcxbz/VNJC78JSOsrc9mKbLTPGcKLkvEywYx8NiTVv9sh1c0tuimbEdjuXWo6naJ1gvGbUCds6+8TwtXe2ltWnEgYkODUbW5k8+debdReqs1wIDAQAB",
+  "minimum_chrome_version": "123",
+  "background": { "service_worker": "src/worker.js", "type": "module" },
+  "action": {
+    "default_title": "Cool Head for Chrome",
+    "default_popup": "popup/popup.html",
+    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png" }
+  },
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "permissions": ["tabs", "tabGroups", "storage", "nativeMessaging", "alarms", "contextMenus", "scripting", "favicon", "system.memory"],
+  "optional_permissions": ["management"],
+  "optional_host_permissions": ["<all_urls>"],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  }
+}

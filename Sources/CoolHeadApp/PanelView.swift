@@ -1,6 +1,7 @@
 import AppKit
 import CoolHeadCore
 import SwiftUI
+import CoolHeadChromeLink
 
 struct PanelView: View {
     let watcher: Watcher
@@ -497,6 +498,24 @@ struct CardView: View {
             show(watcher.forceQuit(live))
         case .stopAgent, .stopAndTrash, .deleteBuildData:
             confirmStop = fix
+        case .chromeCompanion(let action):
+            if action == "setup" {
+                // the one file Chrome needs to start Cool Head's helper for the extension, then how to add the extension
+                let ok = ChromeCompanion.installHostFile()
+                NSWorkspace.shared.open(URL(string: ChromeCompanion.getPage)!)
+                note = ok ? "Set up. Add \(ChromeCompanion.name) to Chrome from the page that opened; it links to Cool Head by itself."
+                          : "That didn't work: Cool Head couldn't write Chrome's file for its helper."
+                noteFailed = !ok; acted = ok
+                watcher.log("Set up Cool Head for Chrome pressed: " + (ok ? "done" : "failed"))
+            } else if let a = ChromeLink.Action(rawValue: action) {
+                // asked of the extension, which says what it did (see ChromeLinkServer)
+                note = "Asked \(ChromeCompanion.name)."; noteFailed = false; acted = true
+                Task {
+                    let r = await withCheckedContinuation { c in ChromeLinkServer.shared.request(a) { c.resume(returning: $0) } }
+                    note = r.map { $0.done } ?? "\(ChromeCompanion.name) didn't answer. Is Chrome open?"
+                    noteFailed = r?.ok != true; acted = r?.ok == true
+                }
+            }
         case .unloadModels(let names):
             show(watcher.unloadModels(names))
         case .keepOutOfBackup(let path):
@@ -537,7 +556,7 @@ struct CardView: View {
             if saver { whileClosed = { SaverResult.write(into: wrote) } }
             Task {
                 let w = watcher
-                let o = await BrowserRestart.restart(bundle: bundle, whileClosed: whileClosed) { step in w.log("Restart \(name) pressed: \(step)") }
+                let o = await BrowserRestart.restart(bundle: bundle, whileClosed: whileClosed, log: { step in w.log("Restart \(name) pressed: \(step)") })
                 var n = BrowserRestart.note(o, name: name)
                 if saver, !n.failed {
                     if wrote.value == .set { n.text += " Memory Saver is now at Maximum; change it any time in Chrome's Performance settings." }
@@ -555,7 +574,7 @@ struct CardView: View {
             note = "Asked \(name) to quit. It opens again once it has closed."; noteFailed = false; acted = true
             Task {
                 let w = watcher
-                let o = await BrowserRestart.restart(bundle: bundle, arguments: []) { step in w.log("Quit and reopen \(name) pressed: \(step)") }
+                let o = await BrowserRestart.restart(bundle: bundle, arguments: [], log: { step in w.log("Quit and reopen \(name) pressed: \(step)") })
                 let n: (text: String, failed: Bool) = {
                     if case .restarted = o { return ("Reopened \(name). The memory it had built up is free.", false) }
                     if case .stillOpen = o { return ("\(name) is still open after \(Int(BrowserRestart.wait)) seconds, so it wasn't reopened. It may be asking you something.", true) }
@@ -961,6 +980,9 @@ struct WelcomeCard: View {
             IconStylePicker(style: $iconStyle)
                 .onChange(of: iconStyle) { NotificationCenter.default.post(name: MenuIcon.changed, object: nil) }
             SettingSwitch(title: "Open at login", detail: nil, on: Binding(get: { login }, set: { LoginItem.set($0); login = LoginItem.on }))
+            // offered at the start to people who use Chrome (Phil, 21 November 2026: "We should add the extension as a
+            // suggestion on install")
+            if ChromeCompanion.status == .notInstalled { CompanionRow() }
             Text("Click the snowflake to open. Change these and more any time with the gear below.")
                 .font(.callout).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             Button("Got it", action: done).buttonStyle(.borderedProminent).controlSize(.small)
@@ -1798,6 +1820,7 @@ struct FixRow: View {
         case .restartApp: return "arrow.clockwise.circle"
         case .stopAgent: return "power.circle"
         case .unloadModels: return "memorychip"
+        case .chromeCompanion: return "arrow.triangle.2.circlepath"   // the sign that Cool Head and its Chrome extension work together
         case .deleteBuildData: return "trash"
         case .stopAndTrash: return "trash"
         case .keepOutOfBackup: return "clock.arrow.circlepath"

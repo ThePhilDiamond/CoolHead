@@ -59,6 +59,10 @@ struct SettingsView: View {
                 }
                 .padding(.vertical, 2)
             }
+            if ChromeCompanion.status != .noChrome {
+                Text("Chrome").font(.caption.weight(.semibold)).foregroundStyle(Ink.muted)
+                group { CompanionRow() }
+            }
             Text("Look").font(.caption.weight(.semibold)).foregroundStyle(Ink.muted)
             group {
                 Text("Menu bar icon").font(.callout)
@@ -172,3 +176,44 @@ struct IconStylePicker: View {
         }
     }
 }
+
+/// Cool Head for Chrome: whether it's working with Cool Head, or how to set it up (see ChromeCompanion). The two-arrow
+/// sign is the one Chrome's one-click options carry too, so "working together" reads the same everywhere (Phil,
+/// 21 November 2026: "have a sync icon somewhere for users who do have it to show that they're working together").
+struct CompanionRow: View {
+    @State private var status = ChromeCompanion.status
+    @State private var setUp = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: status == .connected ? "arrow.triangle.2.circlepath" : "puzzlepiece.extension")
+                .foregroundStyle(Ink.accent).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ChromeCompanion.name).font(.callout)
+                Text(status == .connected ? "Working with Cool Head: tabs you aren't using sleep when memory is tight."
+                     : setUp ? "Set up. Add it to Chrome from the page that opened; it links by itself."
+                     : "Sleeps Chrome tabs you aren't using when memory is tight.")
+                    .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            if status == .connected {
+                Label("Connected", systemImage: "checkmark.circle.fill").font(.caption.weight(.medium)).foregroundStyle(Ink.text)
+                    .accessibilityLabel("\(ChromeCompanion.name) is connected")
+            } else {
+                // the one file Chrome needs to start Cool Head's helper for the extension, then how to add the extension
+                Button("Set up") {
+                    setUp = ChromeCompanion.installHostFile()
+                    NSWorkspace.shared.open(URL(string: ChromeCompanion.getPage)!)
+                }
+                .controlSize(.small)
+                .help("Lets Chrome start Cool Head's helper for this extension only, then opens how to add the extension to Chrome.")
+                .accessibilityLabel("Set up \(ChromeCompanion.name)")
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .contain)
+        // it links within 10 seconds of being added, so the row looks again while it's on screen
+        .task { while !Task.isCancelled { status = ChromeCompanion.status; try? await Task.sleep(for: .seconds(3)) } }
+    }
+}
+
