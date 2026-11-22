@@ -1,0 +1,17 @@
+:root { color-scheme: light dark; --ink: light-dark(#1D1D1F, #F5F5F7); --muted: light-dark(#55555C, #B4B4BA); --line: light-dark(#D8D8DD, #3A3A3F); --bg: light-dark(#FFFFFF, #1E1E20); --accent: light-dark(#1769D1, #6CA8F5); --err: light-dark(#B3261E, #FF8A80); }
+body { margin: 0; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: var(--ink); background: var(--bg); }
+header { position: sticky; top: 0; background: var(--bg); padding: 16px 20px 10px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 18px; margin: 0 0 4px; }
+#about { margin: 0 0 10px; color: var(--muted); }
+.bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+button, select { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+#said { color: var(--muted); }
+main { padding: 0 20px 20px; }
+table { border-collapse: collapse; width: 100%; }
+th { text-align: left; color: var(--muted); font-weight: 600; padding: 8px 8px 4px 0; }
+td { padding: 4px 12px 4px 0; border-top: 1px solid var(--line); vertical-align: top; }
+td.time { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+td.kind { white-space: nowrap; font-weight: 600; }
+tr.error td.kind, tr.error td.text { color: var(--err); }
+td .data { display: block; color: var(--muted); font: 11px/1.4 ui-monospace, Menlo, monospace; word-break: break-all; }

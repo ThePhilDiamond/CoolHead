@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <title>Cool Head for Chrome: test log</title>
+  <link rel="stylesheet" href="log.css">
+</head>
+<body>
+  <header>
+    <h1>Test log</h1>
+    <p id="about">What this test build did and why, newest first. It stays in this Chrome profile; sites show by host name only.</p>
+    <div class="bar">
+      <label>Show <select id="kind"><option value="">everything</option></select></label>
+      <button id="copy" type="button">Copy</button>
+      <button id="save" type="button">Save as a file</button>
+      <button id="clear" type="button">Clear</button>
+      <span id="said" role="status" aria-live="polite"></span>
+    </div>
+  </header>
+  <main>
+    <table>
+      <thead><tr><th scope="col">Time</th><th scope="col">What</th><th scope="col">Detail</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p id="empty" hidden>Nothing logged yet. Use Chrome as usual, then come back.</p>
+  </main>
+  <script type="module" src="log.js"></script>
+</body>
+</html>

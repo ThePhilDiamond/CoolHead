@@ -56,6 +56,17 @@ Cool Head places a file named `io.github.thephildiamond.coolhead.json` in Chrome
 
 For testing, [tools/mock-host.mjs](tools/mock-host.mjs) stands in for the helper and for Cool Head: it speaks Chrome's framing and plays a scenario from a JSON file (memory state, Cool Head open or not, requests). [tools/run-browser-tests.mjs](tools/run-browser-tests.mjs) shows how to point a test profile at it.
 
+## The test build
+
+For trying the extension day to day with a record of what it did. `scripts/make-extension-test-build.sh` (from the repository's top folder) writes a copy to `build/chrome-test`, named Cool Head for Chrome (test), with the test log on. Load that folder unpacked; it has the same ID as a copy loaded by hand, so it links to Cool Head. After running the script again, press the reload arrow on `chrome://extensions`.
+
+- **What it records:** each check's sentence (the level, and how many tabs are in front, asleep, held and why, kept as most used, waiting, or due), each tab it sleeps and why, each it meant to but didn't, tabs unloaded by Chrome or another extension, tabs waking, the link to Cool Head, Cool Head's memory readings and requests, extensions turned off and on, what you press in the popup, typing and calls seen on a page, and errors. A check that says the same as the last one isn't written again.
+- **What it never records:** a full address, a page title, or anything typed. Sites appear by host name only, such as `mail.example.com`.
+- **Where:** in this Chrome profile's storage, the last 2,000 entries. Nothing leaves the computer.
+- **Reading it:** right-click the toolbar button and choose Open the test log. The page shows the newest first, can show one kind at a time, and has Copy, Save as a file, and Clear.
+
+The store build has the same code with the log off (`src/build.js`), so it records nothing.
+
 ## Tests
 
 - `node --test` (Node 22 or later): the rules (which tabs sleep at each level, Auto, sessions, keep after a restart, duplicates, held reasons, the safe list), what the popup says alone, together, and after the link drops, the link's messages and both framings against a mock port and a real mock host process, the voice (no em dashes or exclamation marks, the Oxford comma, times as 2:15pm), and every color pair's contrast in light and dark.
@@ -84,9 +95,10 @@ In a separate Chrome profile (or Chrome for Testing), never your everyday one:
 - `src/logic/`: the rules as pure functions with no Chrome calls, tested in Node. `words.js` holds every word on screen.
 - `src/link-client.js`: the extension's end of the link; `src/sites.js`: registers the two content scripts in `content/` only when access to all sites is allowed.
 - `popup/`: the popup (`render.js` draws it from a view; `popup.js` talks to the worker). `setup/`: the page shown once at install.
+- `src/log.js` and `src/logic/explain.js`: the test log and its words, on only in the test build (`src/build.js`); `log/`: the Log page, left out of the store upload.
 - `dev/`: the preview page and render script. `tools/`: the mock host and the browser test runner. `test/`: the Node tests.
 
-For the Chrome Web Store, `scripts/package-extension.sh` builds the upload, leaving out the manifest's `key`, `dev/`, `tools/`, `test/`, `store/`, `package.json`, and this README. [store/listing.md](store/listing.md) has everything the store's dashboard asks for, and [docs/CHROME-PRIVACY.md](../../docs/CHROME-PRIVACY.md) is the privacy policy.
+For the Chrome Web Store, `scripts/package-extension.sh` builds the upload, leaving out the manifest's `key`, `log/`, `dev/`, `tools/`, `test/`, `store/`, `package.json`, and this README. [store/listing.md](store/listing.md) has everything the store's dashboard asks for, and [docs/CHROME-PRIVACY.md](../../docs/CHROME-PRIVACY.md) is the privacy policy.
 
 ## Not in version 1
 
