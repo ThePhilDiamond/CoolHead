@@ -4,7 +4,7 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 
 ## Color
 
-**Cool Head blue** is the color of what Cool Head does and offers: the recommended option, switches that are on, the selected tool, links (including a card's Explore fixes, even on a warning), work under way such as the network test's dashes, and focus rings. It's Cool Head's own, not the Mac's accent color, which differs on each Mac and which Chrome hides from extensions. A blue also keeps "do this" apart from the yellow, orange, and red that say "watch out".
+**Cool Head blue** is the color of what Cool Head does and offers: the recommended option, switches that are on, the selected tool, links (including a card's Explore fixes, even on a warning), and focus rings. It's Cool Head's own, not the Mac's accent color, which differs on each Mac and which Chrome hides from extensions. A blue also keeps "do this" apart from the yellow, orange, and red that say "watch out".
 
 | Use | Light | Dark |
 |---|---|---|
@@ -16,6 +16,8 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under the 4.5:1 text needs, and was harder to read. Text goes on the deeper blue instead, at full strength.
 
 **At night** Cool Head stays blue and leaves warmth to the Mac's Night Shift, which warms the whole screen, Cool Head included. I considered an orange night mode and decided against it: orange already means "watch out" on the same cards, and white text on it measured 4.7:1, against the deep blue's 7.4:1.
+
+**The network test's dashes** are the one place Cool Head uses other colors for itself: while a test runs, they circle the Network tool's globe as a small neon rainbow, a quiet nod to pride. They aren't orange, which would say "watch out", and moving through every color, they don't read as any one status.
 
 **Status colors** say how the Mac is, and never mean "click here":
 
