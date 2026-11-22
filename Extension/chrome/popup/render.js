@@ -358,6 +358,8 @@ export function render(root, view, ui, on) {
     // The control may be gone (a closed tab's row, an answered question): focus goes to the section it was in,
     // or the first control, never lost to the page.
     const fallback = focusKey.match(/^(keep|sleep|close)-/) ? root.querySelector('[data-key="held"]') : null;
-    (again || fallback || root.querySelector('main button, main input'))?.focus();
+    // Without scrolling: focus() alone brings the control into view, which jumped the list back to the top whenever
+    // the focused control was above where the person had scrolled.
+    (again || fallback || root.querySelector('main button, main input'))?.focus({ preventScroll: true });
   }
 }
