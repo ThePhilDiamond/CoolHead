@@ -1,1 +1,1 @@
-The open tool along the bottom is white on Cool Head's deep blue, easier to read than blue on pale blue, the top and bottom bars have a denser frost, so their text stays readable over a bright desktop, and a network test's rainbow shows while the Network tool is open too.
+- The open tool along the bottom is white on Cool Head's deep blue, easier to read than blue on pale blue; the top and bottom bars have a denser frost, so their text stays readable over a bright desktop; and a network test's rainbow shows while the Network tool is open too.
