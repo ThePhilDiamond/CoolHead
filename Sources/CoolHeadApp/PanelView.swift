@@ -338,11 +338,12 @@ struct CardView: View {
             }
             if canOpen && !open {
                 // a warning offers fixes; a calm card only explains, with options if you want them anyway. Worth
-                // watching (stuck, unexplained, or a cause of heat you can act on) says Explore fixes, in orange. A
+                // watching (stuck, unexplained, or a cause of heat you can act on) says Explore fixes. Both are in Cool
+                // Head blue, like every link: orange means "watch out", and the headline already says that. A
                 // click anywhere on the card opens it and another closes it; this label says so in words with an arrow
                 // pointing the way it opens, and is itself a button for the keyboard and VoiceOver.
                 let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
-                Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open, tint: watch ? .orange : Ink.accentText) { toggle() }
+                Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open) { toggle() }
             }
             if open {
                 if !live.card.explanation.isEmpty {
@@ -395,11 +396,10 @@ struct CardView: View {
                     }
                     .onTapGesture {}              // selecting text here doesn't close the card
                 }
-                // the same color as the label that opened it, apart from Nerdy stuff by a line and space, so the two
+                // in blue like the label that opened it, apart from Nerdy stuff by a line and space, so the two
                 // aren't mistaken for each other; close together and styled alike, they were hard to click apart
-                let watch = live.needsLook || (live.heatCause && !watcher.isCooled(live))
                 Divider().padding(.top, 4)
-                Disclosure(title: "Show less", open: open, tint: watch ? .orange : Ink.accentText) { toggle() }
+                Disclosure(title: "Show less", open: open) { toggle() }
             }
         }
         .padding(12)
@@ -1032,7 +1032,6 @@ struct UpdateBanner: View {
 struct Disclosure: View {
     let title: String
     let open: Bool
-    let tint: Color
     let action: () -> Void
     var body: some View {
         Button(action: action) {
@@ -1041,7 +1040,7 @@ struct Disclosure: View {
                 Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
             }
             .font(.callout.weight(.semibold))
-            .foregroundStyle(tint)
+            .foregroundStyle(Ink.accentText)          // a link, so always Cool Head blue, never a status color
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

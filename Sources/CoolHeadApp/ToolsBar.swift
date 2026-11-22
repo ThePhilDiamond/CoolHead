@@ -255,7 +255,7 @@ struct ToolButton: View {
     let tip: String
     let labels: Bool
     let on: Bool
-    /// Something of the tool's is under way: dashes fly around the icon's equator, orange while the tool is closed and gray
+    /// Something of the tool's is under way: dashes fly around the icon's equator, a rainbow while the tool is closed and gray
     /// while it's open, when the icon itself takes the accent color.
     var ring = false
     /// A small mark at the icon's corner, results ready to look at: their symbol, in their color.
@@ -299,8 +299,9 @@ struct ToolButton: View {
 }
 
 /// Half of a flat ring around an icon's equator, its dashes moving along it like data going around the world: the near
-/// half passes in front, the far half behind and fainter. Orange, so the data stands apart from the icon, moving left to
-/// right across the front. With Reduce motion on, the dashes stay still.
+/// half passes in front, the far half behind and fainter. A small neon rainbow, so the data stands apart from the gray
+/// icon, moving left to right across the front, and a quiet nod to pride. Not orange, which says "watch out": a test
+/// running is Cool Head at work, not a warning. With Reduce motion on, the dashes stay still.
 struct Orbit: View {
     let near: Bool
     let still: Bool
@@ -308,6 +309,11 @@ struct Orbit: View {
     var on = false
     var hovering = false
     @Environment(\.barWash) private var wash
+    /// Red, orange, yellow, green, blue, and violet, bright enough to read as neon on both the light and dark bar.
+    static let rainbow = LinearGradient(colors: [Color(red: 1, green: 0.18, blue: 0.33), Color(red: 1, green: 0.58, blue: 0),
+                                                 Color(red: 1, green: 0.84, blue: 0.04), Color(red: 0.19, green: 0.82, blue: 0.35),
+                                                 Color(red: 0.04, green: 0.52, blue: 1), Color(red: 0.75, green: 0.35, blue: 0.95)],
+                                        startPoint: .leading, endPoint: .trailing)
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: still)) { t in
             // one dash length and its gap travel every 0.4 seconds, left to right across the near half
@@ -324,7 +330,15 @@ struct Orbit: View {
                     if on { half.stroke(Ink.accent.opacity(0.16), style: gap) }
                     else if hovering { half.stroke(Color.primary.opacity(0.07), style: gap) }
                 }
-                half.stroke(on ? Ink.muted : Color.orange, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+                let dashes = StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase)
+                if on {
+                    half.stroke(Ink.muted, style: dashes)
+                } else {
+                    // a neon rainbow fixed across the ring, so each dash changes color as it travels through it, with a
+                    // soft glow of the same colors over it
+                    half.stroke(Orbit.rainbow, style: dashes)
+                        .overlay { half.stroke(Orbit.rainbow, style: dashes).blur(radius: 1.6).opacity(0.9) }
+                }
             }
             .opacity(near ? 1 : 0.4)
         }
