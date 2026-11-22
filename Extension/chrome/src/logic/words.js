@@ -142,6 +142,7 @@ export const REASON_TEXT = {
   soundRecent: 'Played sound recently',
   typing: 'Unsent typing',
   kept: 'Kept by you',
+  site: 'Site kept awake',
   pinned: 'Pinned',
   session: 'In the session',
 };
@@ -229,6 +230,7 @@ const STAY_WHY = {
   sound: ['is playing sound', 'are playing sound'],
   typing: ['has unsent typing', 'have unsent typing'],
   kept: ['is kept by you', 'are kept by you'],
+  site: ['is on a site you keep awake', 'are on sites you keep awake'],
   pinned: ['is pinned', 'are pinned'],
   active: ['is in front in another window', 'are in front in other windows'],
 };
@@ -328,7 +330,7 @@ export const ABOUT_TITLE = 'About';
 export const EXT_OPEN = 'Has tabs open, so it stays on';
 export const SHORTCUT_COMMAND = 'Put this tab to sleep';
 export const SHORTCUT_TITLE = 'Keyboard shortcut';
-export const SHORTCUT_WHAT = "Puts the tab you're on to sleep and shows the one you used before it.";
+export const SHORTCUT_WHAT = "The tab you're on gives way to the one you used before it. Other tabs keep their protections.";
 export const SHORTCUT_NONE = 'Not set';
 export const SHORTCUT_SET = 'Choose a key';
 export const SHORTCUT_CHANGE = 'Change or remove';
@@ -368,3 +370,20 @@ export const SETUP_NEXT = 'Open Cool Head for Chrome from the puzzle piece in th
 
 // ---- the right-click menu ----
 export const MENU_KEEP = 'Keep this tab loaded';
+export function menuSite(host) { return `Keep every ${host} tab loaded`; }
+
+export const SITES_PART = 'Sites';
+export const SITES_LEDE = 'Every tab from these sites stays awake.';
+export const SITES_NONE = 'None yet.';
+export function siteAdd(host) { return `Keep ${host} awake`; }
+export const SITE_REMOVE = 'Remove';
+
+export const OFFLINE_TITLE = 'Offline';
+export const OFFLINE_TOGGLE = "Don't sleep tabs while you're offline";
+export const OFFLINE_WHY = "A sleeping tab can't reload until you're back online.";
+export const OFFLINE_CARD_TITLE = "You're offline, so tabs aren't sleeping";
+export const OFFLINE_CARD_LINE = "Memory is low. Sleeping tabs would free it, but they couldn't reload until you're back online. You can let them sleep anyway in Settings.";
+export const OFFLINE_CARD_BUTTON = 'Open Settings';
+
+export const SHORTCUT_THIS = 'This tab';
+export const SHORTCUT_OTHERS = 'Other tabs in this window';

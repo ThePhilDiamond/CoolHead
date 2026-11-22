@@ -44,6 +44,7 @@ const s = {
   ...structuredClone(LOCAL_DEFAULTS),
   ...structuredClone(SESSION_DEFAULTS),
   level: 'auto',
+  keepSites: q.get('sites') ? q.get('sites').split(',') : [],
   use,
   asleep: asleep.map((t) => t.id),
   kept: [{ tabId: tracker.id, url: tracker.url, title: tracker.title, index: tracker.index, windowOrdinal: 0 }],
@@ -80,7 +81,7 @@ if (screen === 'confirm') ui.confirm = { tabId: form.id, action: 'close' };
 const view = buildView({
   tabs: sessionTabs, s, now: NOW, focusedWindowId: 1, isMac: q.get('os') !== 'other',
   memInfo: { capacity: 16 * 1024 ** 3, availableCapacity: 2.5 * 1024 ** 3 }, version: '1.0.0',
-  sitesGranted: true, managementGranted: protectedScreen, shortcut: q.get('key') || '',
+  sitesGranted: true, managementGranted: protectedScreen, shortcuts: { tab: q.get('key') || '', others: '' }, online: q.get('offline') !== '1',
 });
 
 if (screen === 'start') {
@@ -107,8 +108,8 @@ const noop = () => {};
 const on = new Proxy({}, { get: () => noop });
 const root = document.getElementById('app');
 render(root, view, ui, on);
-// ?scroll=end shows the bottom of a long screen
-if (q.get('scroll') === 'end') { const m = root.querySelector('main'); if (m) m.scrollTop = m.scrollHeight; }
+// ?scroll=end, or a number of pixels, or the id of a part to show at the top
+{ const m = root.querySelector('main'); const v = q.get('scroll'); if (m && v) m.scrollTop = v === 'end' ? m.scrollHeight : /^\d+$/.test(v) ? Number(v) : (root.querySelector(`#${v}`)?.offsetTop ?? 0) - m.offsetTop; }
 
 if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
 if (screen === 'protected-ext') {

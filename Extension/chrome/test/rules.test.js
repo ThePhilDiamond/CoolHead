@@ -272,3 +272,15 @@ test('a suspended tab gives up its real address, whichever way the suspender wri
   assert.deepEqual(plan.map((p) => p.tabId), [1, 3, 4]);
   assert.deepEqual(suspenders(plan), [id, other]);
 });
+
+test('a site kept awake holds every tab from it and its subdomains, and reports to Cool Head as kept', async () => {
+  const { heldReasons, siteOf, siteRuleFor, heldCounts } = await import('../src/logic/reasons.js');
+  assert.equal(siteOf('https://www.Example.com/a'), 'example.com');
+  assert.equal(siteOf('chrome://settings'), null);
+  assert.equal(siteRuleFor('https://mail.example.com/x', ['example.com']), 'example.com');
+  assert.equal(siteRuleFor('https://notexample.com/', ['example.com']), null);
+  const ctx = { now: 0, keepSites: ['example.com'] };
+  assert.deepEqual(heldReasons({ id: 1, url: 'https://docs.example.com/d' }, ctx), ['site']);
+  assert.deepEqual(heldReasons({ id: 2, url: 'https://other.org/' }, ctx), []);
+  assert.equal(heldCounts([{ id: 1, url: 'https://example.com/' }], ctx).kept, 1);
+});

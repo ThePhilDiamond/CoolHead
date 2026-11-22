@@ -168,6 +168,8 @@ const on = {
 
   leaveDelay(ms) { act({ action: 'leaveDelay', ms }); },
   // Chrome keeps the keys for every extension on one page of its own; an extension can open it but not set a key.
+  keepSite(host, on) { act({ action: 'keepSite', host, on }); },
+  offlineHold(on) { act({ action: 'offlineHold', on }); },
   openMigrate() { ui.screen = 'migrate'; draw(); },
   migrate() { act({ action: 'migrate' }); },
   async migrateLater() {

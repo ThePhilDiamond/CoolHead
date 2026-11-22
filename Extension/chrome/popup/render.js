@@ -153,8 +153,25 @@ function protectedScreen(view, ui, on) {
     tabs.append(h('p', { class: 'lede', text: W.PROTECTED_LEDE }),
       h('ul', { class: 'tabs', 'aria-labelledby': 'p-tabs' }, view.held.tabs.map((r) => heldRow(r, ui, on))));
   }
-  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, screenTitle(W.PROTECTED, 'shield', on), tabs, extensionsPart(view, ui, on));
+  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, screenTitle(W.PROTECTED, 'shield', on), tabs, sitesPart(view, on), extensionsPart(view, ui, on));
   return [band(view, ui, on), main, toolbar(view, ui, on)];
+}
+
+// Sites whose every tab stays awake: the list, each with Remove, and the site you're on, to add it.
+function sitesPart(view, on) {
+  const sites = view.sites || { list: [], add: null };
+  const part = h('section', { class: 'part', 'aria-labelledby': 'p-sites' },
+    h('h3', { class: 'parthead', id: 'p-sites' }, W.SITES_PART, h('span', { class: 'count', text: String(sites.list.length) })),
+    h('p', { class: 'lede', text: sites.list.length ? W.SITES_LEDE : W.SITES_NONE }));
+  if (sites.list.length) {
+    part.append(h('ul', { class: 'sitelist', 'aria-labelledby': 'p-sites' }, sites.list.map((host) => h('li', { class: 'ext' },
+      h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', text: host })),
+      h('button', { class: 'btn', 'data-key': `site-${host}`, 'aria-label': `${W.SITE_REMOVE}: ${host}`, onclick: () => on.keepSite(host, false) }, W.SITE_REMOVE)))));
+  }
+  if (sites.add) {
+    part.append(h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'site-add', onclick: () => on.keepSite(sites.add, true) }, icon('globe'), W.siteAdd(sites.add))));
+  }
+  return part;
 }
 
 // The design drew two columns; a 360 px popup has room for one, so the two lists stack, each named. The switch that
@@ -268,6 +285,10 @@ function toolbar(view, ui, on) {
 function home(view, ui, on) {
   const main = h('main', { class: 'middle', 'aria-label': W.NAME },
     ui.laterNote ? h('p', { class: 'note laternote', role: 'status', text: W.MIGRATE_LATER_NOTE }) : null,
+    view.offline ? h('section', { class: 'card', 'aria-labelledby': 'off-h' },
+      h('h2', { id: 'off-h', text: view.offline.title }),
+      h('p', { text: view.offline.line }),
+      h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'offline-settings', onclick: on.openSettings }, view.offline.button))) : null,
     notice(view, on),
     questions(view, on),
     view.session ? sessionCard(view, ui, on) : startBlock(view, on),
@@ -363,11 +384,18 @@ function settingsScreen(view, ui, on) {
       st.sitesGranted ? null : h('p', { class: 'note', text: W.SITES_ASKS })),
     h('section', { class: 'card', 'aria-labelledby': 'key-h' },
       h('h2', { id: 'key-h', text: W.SHORTCUT_TITLE }),
+      h('dl', { class: 'keys' },
+        ...[[W.SHORTCUT_THIS, st.shortcuts.tab], [W.SHORTCUT_OTHERS, st.shortcuts.others]].flatMap(([name, key]) => [
+          h('dt', { text: name }), h('dd', {}, key ? h('kbd', { text: key }) : h('span', { class: 'muted', text: W.SHORTCUT_NONE }))])),
       h('p', { class: 'why', text: W.SHORTCUT_WHAT }),
-      h('div', { class: 'row keyrow' },
-        st.shortcut ? h('kbd', { text: st.shortcut }) : h('span', { class: 'muted', text: W.SHORTCUT_NONE }),
-        h('button', { class: 'btn', 'data-key': 'shortcut', onclick: on.shortcut }, st.shortcut ? W.SHORTCUT_CHANGE : W.SHORTCUT_SET)),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn', 'data-key': 'shortcut', onclick: on.shortcut }, st.shortcuts.tab || st.shortcuts.others ? W.SHORTCUT_CHANGE : W.SHORTCUT_SET)),
       h('p', { class: 'note', text: W.SHORTCUT_PAGE })),
+    h('section', { class: 'card', 'aria-labelledby': 'off-set-h' },
+      h('h2', { id: 'off-set-h', text: W.OFFLINE_TITLE }),
+      h('label', { class: 'choice' },
+        h('input', { type: 'checkbox', checked: st.offlineHold, 'data-key': 'offline', onchange: (e) => on.offlineHold(e.target.checked) }),
+        h('span', {}, h('b', { text: W.OFFLINE_TOGGLE }), h('span', { class: 'why', text: W.OFFLINE_WHY })))),
     h('section', { class: 'card', 'aria-labelledby': 'about-h' },
       h('h2', { id: 'about-h', text: W.ABOUT_TITLE }),
       h('p', { text: st.about })));

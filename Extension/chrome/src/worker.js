@@ -11,7 +11,7 @@ import { startPlan, join, leave, groupPlan } from './logic/session.js';
 import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
 import { restPlan, shouldWake, columns, move, withOpenTabs } from './logic/extensions.js';
 import { migrationPlan, suspenders } from './logic/migrate.js';
-import { heldCounts } from './logic/reasons.js';
+import { heldCounts, siteOf, siteRuleFor } from './logic/reasons.js';
 import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol.js';
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
 import { LinkClient } from './link-client.js';
@@ -98,7 +98,9 @@ async function sweep() {
     const sentence = checkSentence(explainCheck(tabs, pc), pc);
     if (sentence !== lastCheck) { lastCheck = sentence; log('check', sentence); }
   }
-  const ids = planSleep(tabs, pc);
+  // While Chrome is offline a sleeping tab couldn't reload, so nothing sleeps on its own (Settings, Offline).
+  const held = s.offlineHold !== false && self.navigator.onLine === false;
+  const ids = held ? [] : planSleep(tabs, pc);
   if (ids.length) await sleepMany(ids, { why: (t) => sleepWhy(pc, t, now) });
   const due = nextDueAt(tabs, pc);
   if (due != null) sweepSoon(due - Date.now() + 500);
@@ -130,6 +132,7 @@ function ensureMenu() {
     // Install and a new run of Chrome can both ask for the menu at once; the second create is then a duplicate,
     // which is harmless, so its error is read and dropped.
     chrome.contextMenus.create({ id: 'keep', title: W.MENU_KEEP, type: 'checkbox', contexts: ['page', 'frame', 'action'] }, () => void chrome.runtime.lastError);
+    chrome.contextMenus.create({ id: 'site', title: W.menuSite('this site'), type: 'checkbox', contexts: ['page', 'frame', 'action'] }, () => void chrome.runtime.lastError);
     // The test build only: the Log page, from the toolbar button's right-click menu.
     if (testBuild) chrome.contextMenus.create({ id: 'log', title: 'Open the test log', contexts: ['action'] }, () => void chrome.runtime.lastError);
   });
@@ -141,6 +144,9 @@ async function refreshMenu(tab) {
   const kept = s.kept.some((r) => r.tabId === tab.id);
   // Hidden for a pinned tab, as in the popup: pinned tabs stay loaded already.
   chrome.contextMenus.update('keep', { checked: kept, visible: !tab.pinned }, () => void chrome.runtime.lastError);
+  // The site's own name in the item, for web pages only.
+  const host = siteOf(tab.url);
+  chrome.contextMenus.update('site', { title: W.menuSite(host || 'this site'), checked: Boolean(siteRuleFor(tab.url, s.keepSites)), visible: Boolean(host) }, () => void chrome.runtime.lastError);
 }
 
 // ---------- keep ----------
@@ -492,14 +498,14 @@ async function checkBrowserRun() {
 
 async function viewFor() {
   const { tabs, s, now, focusedWindowId } = await gather();
-  const [isMac, memInfo, sitesGranted, managementGranted, shortcut] = await Promise.all([
+  const [isMac, memInfo, sitesGranted, managementGranted, shortcuts] = await Promise.all([
     chrome.runtime.getPlatformInfo().then((p) => p.os === 'mac'),
     chrome.system.memory.getInfo().catch(() => null),
     chrome.permissions.contains(ALL_SITES),
     hasManagement(),
-    chrome.commands.getAll().then((cs) => cs.find((c) => c.name === 'sleep-tab')?.shortcut || '').catch(() => ''),
+    chrome.commands.getAll().then((cs) => ({ tab: cs.find((c) => c.name === 'sleep-tab')?.shortcut || '', others: cs.find((c) => c.name === 'sleep-others')?.shortcut || '' })).catch(() => ({ tab: '', others: '' })),
   ]);
-  const view = buildView({ tabs, s, now, focusedWindowId, isMac, memInfo, version: VERSION, sitesGranted, managementGranted, favicon, shortcut });
+  const view = buildView({ tabs, s, now, focusedWindowId, isMac, memInfo, version: VERSION, sitesGranted, managementGranted, favicon, shortcuts, online: self.navigator.onLine !== false });
   view.migrate = await migrateView(tabs, s, managementGranted);
   view.openScreen = s.popupScreen;
   if (s.popupScreen) await store.save({ popupScreen: null });
@@ -583,6 +589,17 @@ async function act(m) {
     case 'safeMove':
       await store.change((s) => ({ safeList: move(s.safeList, m.id, m.toAlwaysOn) }));
       return '';
+    case 'keepSite': {
+      const host = String(m.host || '').toLowerCase();
+      if (!host) return W.DONE.failed;
+      await store.change((s) => ({ keepSites: m.on ? [...new Set([...(s.keepSites || []), host])] : (s.keepSites || []).filter((x) => x !== host) }));
+      sweepSoon(0);
+      return '';
+    }
+    case 'offlineHold':
+      await store.change(() => ({ offlineHold: Boolean(m.on) }));
+      sweepSoon(0);
+      return '';
     case 'migrate':
       // Minutes for many tabs, so it runs on after this answer; the popup follows it through storage.
       runMigration().catch(oops);
@@ -609,6 +626,8 @@ function actLine(m, tab) {
     case 'sleep': return `Slept ${site} from the popup`;
     case 'close': return `Closed ${site} from the popup`;
     case 'leaveDelay': return `Set the delay after leaving a tab to ${m.ms / 1000} seconds`;
+    case 'keepSite': return `${m.on ? 'Kept' : 'Stopped keeping'} the site ${m.host}`;
+    case 'offlineHold': return `Don't sleep while offline: ${m.on ? 'on' : 'off'}`;
     case 'sites': return `Access to all sites: ${m.on ? 'on' : 'off'}`;
     case 'restEnabled': return `Rest extensions: ${m.on ? 'on' : 'off'}`;
     default: return `Pressed ${m.action}`;
@@ -839,6 +858,12 @@ chrome.tabs.onAttached.addListener(() => refreshKeptPositions().catch(oops));
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'log') { chrome.tabs.create({ url: chrome.runtime.getURL('log/log.html') }); return; }
+  if (info.menuItemId === 'site' && tab) {
+    const host = siteOf(tab.url);
+    if (!host) return;
+    store.load().then((s) => { const rule = siteRuleFor(tab.url, s.keepSites); return act({ action: 'keepSite', host: rule || host, on: !rule }); }).then(() => refreshMenu(tab)).then(() => maybeReport()).catch(oops);
+    return;
+  }
   if (info.menuItemId !== 'keep' || !tab) return;
   // From the stored state, not the menu's tick, which can be out of date after a switch between windows.
   store.load().then((s) => setKeep(tab.id, !s.kept.some((r) => r.tabId === tab.id))).then(() => maybeReport()).catch(oops);
@@ -858,11 +883,23 @@ async function sleepFrontTab(tab) {
   await refreshBadge();
 }
 
+// The other shortcut: every other tab in this window that could sleep on its own, keeping their protections.
+async function sleepOtherTabs(tab) {
+  if (!tab) return;
+  const { tabs, s, now, ctx } = await gather();
+  const ids = planSleepHidden(tabs.filter((t) => t.windowId === tab.windowId && t.id !== tab.id), planCtx(s, ctx, now));
+  await sleepMany(ids, { why: () => 'the keyboard shortcut for other tabs' });
+  await refreshBadge();
+}
+
 chrome.commands.onCommand.addListener((command, tab) => {
-  if (command !== 'sleep-tab') return;
+  const run = { 'sleep-tab': sleepFrontTab, 'sleep-others': sleepOtherTabs }[command];
+  if (!run) return;
   const front = tab ? Promise.resolve(tab) : chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([t]) => t);
-  front.then(sleepFrontTab).catch(oops);
+  front.then(run).catch(oops);
 });
+
+self.addEventListener('online', () => sweepSoon(0));
 
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) return;

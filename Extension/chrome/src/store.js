@@ -17,6 +17,8 @@ export const LOCAL_DEFAULTS = {
   restEnabled: false,
   rest: { ids: [], session: false, memory: false },
   setupDone: false,
+  keepSites: [],            // sites whose every tab stays awake, as host names without www (logic/reasons.js)
+  offlineHold: true,         // no tab sleeps on its own while Chrome is offline, since a sleeping tab can't reload then
   migrateLater: false,       // the person chose "Do it later" for moving a suspender's tabs (Settings still has it)
 };
 

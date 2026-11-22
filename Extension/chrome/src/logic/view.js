@@ -1,7 +1,7 @@
 // What the popup shows, built from the tabs and the stored state. Pure, so the worker builds it from Chrome and
 // the preview page (dev/preview.html) builds the same thing from made-up data.
 import * as W from './words.js';
-import { heldReasons, primaryReason, risk, isWebPage, REASON_ORDER } from './reasons.js';
+import { heldReasons, primaryReason, risk, isWebPage, REASON_ORDER, siteOf, siteRuleFor } from './reasons.js';
 import { currentMemory } from './auto.js';
 import { findDuplicates } from './duplicates.js';
 import { canSleepOnItsOwn } from './plan.js';
@@ -25,6 +25,7 @@ export function contextFrom(s, tabs, focusedWindowId, now) {
     leaveDelayMs: s.leaveDelayMs,
     use: s.use || {},
     kept: new Set((s.kept || []).map((r) => r.tabId)),
+    keepSites: s.keepSites || [],
     sessionIds: s.session?.active ? new Set(s.session.tabIds) : null,
     audibleAt: s.audibleAt || {},
     media: anyFrame(s.media),
@@ -106,6 +107,11 @@ export function buildView(i) {
       link: null,
     };
   }
+
+  // ---- offline with memory low: say why nothing is sleeping, and where to change it ----
+  const low = memory ? memory !== 'fine' : Boolean(i.memInfo && i.memInfo.availableCapacity / i.memInfo.capacity < 0.15);
+  const offline = i.online === false && s.offlineHold !== false && low
+    ? { title: W.OFFLINE_CARD_TITLE, line: W.OFFLINE_CARD_LINE, button: W.OFFLINE_CARD_BUTTON } : null;
 
   let notice = null;
   if (isMac && !linked && status !== 'connecting' && !inSession) {
@@ -202,6 +208,13 @@ export function buildView(i) {
     questions,
     session,
     held: { count: held.length, countText: W.plural(held.length, 'tab'), tabs: held },
+    sites: (() => {
+      const list = [...(s.keepSites || [])].sort();
+      const front = tabs.find((t) => t.id === ctx.frontTabId);
+      const host = front && !siteRuleFor(front.url, list) ? siteOf(front.url) : null;
+      return { list, add: host };
+    })(),
+    offline,
     duplicates,
     start: { label: W.START, note: W.START_NOTE },
     levels,
@@ -212,7 +225,8 @@ export function buildView(i) {
       managementGranted: Boolean(i.managementGranted),
       restingText: W.restingNow(s.rest?.ids?.length || 0),
       about: W.about(i.version),
-      shortcut: i.shortcut || '',
+      shortcuts: i.shortcuts || { tab: '', others: '' },
+      offlineHold: s.offlineHold !== false,
     },
   };
 }
