@@ -81,7 +81,7 @@ extension Fixture {
                     "renamed column: \(renamed?.users.count ?? -1) users, \(renamed?.wakes.count ?? -1) wakes; no wake table: "
                     + "\(noWakes?.users.count ?? -1) users, \(noWakes?.wakes.count ?? -1) wakes; not a database: \(notADatabase == nil ? "nothing" : "something")"))
 
-        // 4. Wake reasons as macOS 26.6.2 records them (research node N-018, N-007), in plain words
+        // 4. Wake reasons as macOS 26.6.2 records them, in plain words
         let reasons: [(String, PowerHistory.Cause)] = [
             ("NUB.SPMI0.SW3 nub-spmi0.0x02 rtc", .schedule),
             ("smc.sysState.Wake(0x70070000) lid SMC.OutboxNotEmpty RTP.multi-touch", .lid),

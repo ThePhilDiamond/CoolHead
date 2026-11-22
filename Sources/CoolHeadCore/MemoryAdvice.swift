@@ -346,7 +346,7 @@ public enum MemoryAdvice {
     /// source: a high bar so it shows only for heavy swapping.
     public static let heavySwapMB = 1024.0
     /// Free space on the startup disk below which tight memory also mentions the disk. Not from a source: Howard
-    /// Oakley advises keeping 50 GB free; macOS warns near 1 GB and purges toward about 10 to 15 GB (research node N-006).
+    /// Oakley advises keeping 50 GB free; macOS warns near 1 GB and purges toward about 10 to 15 GB.
     public static let lowDiskBytes: UInt64 = 20_000_000_000
     public static func lowDisk(_ s: MacState) -> Bool { s.diskFreeBytes.map { $0 < lowDiskBytes } ?? false }
 

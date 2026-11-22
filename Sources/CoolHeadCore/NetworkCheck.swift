@@ -15,7 +15,7 @@ import SystemConfiguration
 /// minute under load, "RPM"). That test fills the connection for up to `testSeconds` and uses data, so it never runs
 /// by itself.
 ///
-/// Sources (research node N-020, 16 November 2026): the RPM bands are from the IETF responsiveness draft by Apple's
+/// Sources: the RPM bands are from the IETF responsiveness draft by Apple's
 /// authors (draft-ietf-ippm-responsiveness-08: 300 or fewer is poor, 1,000 or more is good); the weak-signal line is
 /// Apple's own: a Mac looks for a better access point once the signal drops to -75 dBm (Apple Platform Deployment,
 /// "Wi-Fi roaming support in Apple devices"). Two causes are weaker and are worded as such: AWDL stutter (reported by
@@ -37,7 +37,7 @@ public enum NetworkCheck {
     /// What the button says it will do, before it is pressed.
     public static let explainer = "Runs Apple's network test. It uses your whole connection for up to \(testSeconds) seconds, so it runs only when you press it."
     /// How much data the test can use: about the connection's speed times the run time, so a few gigabytes on a fast
-    /// line (an estimate, as in research node N-020; Apple doesn't say).
+    /// line (an estimate; Apple doesn't say).
     public static let dataNote = "Uses your whole connection for up to \(testSeconds) seconds: on a fast line, a few gigabytes of data."
     /// Said before the test on a connection macOS marks as metered, or one that isn't Wi-Fi or cable (a phone, say).
     public static let meteredNote = "This looks like a phone or metered connection, where the test could use a gigabyte or more of your data allowance."

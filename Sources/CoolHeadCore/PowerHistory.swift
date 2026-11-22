@@ -6,7 +6,7 @@ import SQLite3
 ///
 /// It comes from macOS's own power log, `/private/var/db/powerlog/Library/BatteryLife/CurrentPowerlog.PLSQL` and its
 /// daily archives beside it (gzipped copies, one a day, about a week of them). macOS writes them; they are SQLite, and
-/// readable by every user without a password (tested on macOS 26.6.2; research node N-018). Cool Head keeps no copy:
+/// readable by every user without a password (tested on macOS 26.6.2). Cool Head keeps no copy:
 /// it reads them when the history is shown and keeps only the totals, in memory.
 ///
 /// Privacy, a firm rule for this feature: the same database records which app was in front and when (app usage). Cool

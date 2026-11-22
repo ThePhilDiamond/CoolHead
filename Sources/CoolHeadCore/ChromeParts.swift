@@ -3,8 +3,8 @@ import Foundation
 /// Chrome's memory by part, read from outside with no permission: tabs Chrome marks as hidden, tabs on screen, Chrome's
 /// own program, and its graphics process, and when Chrome was opened: advice that needs nothing installed.
 ///
-/// Chrome puts a tab process with nothing on screen in macOS's background band (scheduling priority 4; research node
-/// N-029 F1), and Cool Head already reads that priority for Run it cooler (Proc.schedulingPriority). Seen on one Mac,
+/// Chrome puts a tab process with nothing on screen in macOS's background band (scheduling priority 4),
+/// and Cool Head already reads that priority for Run it cooler (Proc.schedulingPriority). Seen on one Mac,
 /// 21 November 2026: 9 tab processes at 4, others at 46, 47, and 97. So the memory of the processes at 4 is memory in tabs
 /// the person isn't looking at, which unloading or closing those tabs gives back without touching the one they're on.
 /// Known errors, said in Nerdy stuff: a hidden tab playing sound or using the camera stays out of the band, and several

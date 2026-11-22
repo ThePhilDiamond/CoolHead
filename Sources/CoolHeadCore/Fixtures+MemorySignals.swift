@@ -1,7 +1,7 @@
 import Foundation
 
 /// Checks for the memory signals beyond macOS's pressure level: memory moved to the disk, and free space on the
-/// startup disk (research nodes N-002 and N-006).
+/// startup disk.
 extension Fixture {
     static func memorySignalsChecks(_ now: Date) -> [(String, Bool, String)] {
         var review: [(String, Bool, String)] = []

@@ -6,7 +6,7 @@ import Foundation
 ///
 /// Memory that falls when windows or documents close was work; memory that rises steadily while the same windows stay
 /// open is a leak, and quitting and reopening the app gives it back (Howard Oakley, "What can you do when an app uses
-/// too much memory?", 19 June 2026; version-specific reports in research node N-002). The method rests on one expert,
+/// too much memory?", 19 June 2026). The method rests on one expert,
 /// and the thresholds below are Cool Head's own, not from a source: at least two hours; grown by 2 GB or more and to at
 /// least twice the first reading; never more than 10% lower than the reading before; the same number of windows
 /// throughout (counted from macOS's window list by owner, which needs no permission and reads no window names).
