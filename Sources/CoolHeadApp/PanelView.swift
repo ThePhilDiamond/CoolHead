@@ -1865,6 +1865,10 @@ struct FixRow: View {
     /// Once it is already running cooler, "Back to full speed" isn't the recommendation.
     var recommended: Bool { fix.kind == .cooler && cooled ? false : fix.recommended }
     var title: String { fix.kind == .cooler && cooled ? "Back to full speed" : fix.title }
+    /// The recommended option Cool Head does itself, filled with blue: its text at full strength, since dimmed white on
+    /// blue measured 4.0:1, under the 4.5:1 text needs (Phil, 21 November 2026: "I find the text on the blue a bit harder
+    /// to read. Can we measure the contrast and find a way to make it as easy to read as possible?").
+    var filledTile: Bool { recommended && fix.doer == .coolHead }
     var line: String { fix.kind == .cooler && cooled ? "Runs at normal speed again." : fix.consequence }
 
     // Each option is its own bordered tile, title and what it does inside it, with an arrow at the end: plainly a
@@ -1913,7 +1917,7 @@ struct FixRow: View {
                                 // the last line keeps room for the corner label, so the label never covers words
                                 (Text(ui: line) + (tag.map { OptionTag.room($0.words) } ?? Text("")))
                                     .accessibilityLabel(Fmt.plain(line))
-                                    .font(.callout).opacity(0.8).fixedSize(horizontal: false, vertical: true)
+                                    .font(.callout).opacity(filledTile ? 1 : 0.8).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         Spacer(minLength: 6)
@@ -1981,7 +1985,7 @@ struct OptionStyle: ButtonStyle {
                 .foregroundStyle(filled ? Ink.onAccent : Ink.text)
                 .padding(.horizontal, 11).padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(shape.fill(filled ? AnyShapeStyle(Ink.accent.opacity(configuration.isPressed ? 0.75 : hovering ? 0.9 : 1))
+                .background(shape.fill(filled ? AnyShapeStyle(Ink.fill.opacity(configuration.isPressed ? 0.85 : 1))
                                        : yours ? AnyShapeStyle(Color.primary.opacity(configuration.isPressed ? 0.12 : hovering ? 0.05 : 0))
                                        : AnyShapeStyle(Color.primary.opacity(wash))))
                 .overlay {
@@ -2060,8 +2064,9 @@ struct RecommendedTag: View {
             .font(.caption2.weight(.semibold))
             .fixedSize()
             .padding(.horizontal, 6).padding(.vertical, 1.5)
-            .foregroundStyle(onAccent ? Ink.accentText : Ink.onAccent)
-            .background(Capsule().fill(onAccent ? Color.white.opacity(0.92) : Ink.accent))
+            // on the blue option it's the option's text color with the blue as its text; elsewhere, the blue with that text
+            .foregroundStyle(onAccent ? Ink.fill : Ink.onAccent)
+            .background(Capsule().fill(onAccent ? Ink.onAccent : Ink.fill))
     }
 }
 
@@ -2113,6 +2118,10 @@ enum Ink {
     /// text on it 7.6:1 and as text 6.1:1. A blue also keeps "do this" apart from the yellow, orange, and red that say
     /// "watch out". See docs/BRAND.md.
     static let accent = dynamic(0x1769D1, 0x4A9EFF)
+    /// Blue behind text (the recommended option, the Recommended pill): deeper in light mode, lighter in dark, so its
+    /// text is as easy to read as the panel's own (white on #0F52AD 7.4:1; near-black on #5AA9FF 7.4:1). For renders,
+    /// COOLHEAD_SNAPSHOT_FILL=accent draws it in the accent instead, to compare.
+    static let fill = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FILL"] == "accent" ? accent : dynamic(0x0F52AD, 0x5AA9FF)
     /// Text on a filled accent: white in light mode, near-black in dark, where the lighter blue needs it.
     static let onAccent = Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(0x1A1A1A) : .white })
     /// Text in the accent color on the panel.
