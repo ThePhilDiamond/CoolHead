@@ -125,6 +125,8 @@ struct PanelView: View {
         .frame(width: PanelView.width + extra)
         // macOS's own controls (filled buttons) in Cool Head blue too, not the Mac's accent color (see Ink.accent)
         .tint(Ink.accent)
+        // the panel's window takes exactly this size, growing and shrinking with it (see PanelSize)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { PanelSize.report?($0) }
     }
 
     /// For screenshots: COOLHEAD_SNAPSHOT_ONLY shows only cards whose headline contains that phrase (or any of several, separated by |),
@@ -1047,6 +1049,14 @@ struct Disclosure: View {
         .accessibilityValue(open ? "Open" : "Closed")
         .frame(maxWidth: .infinity)          // centered under the card's text
     }
+}
+
+/// The panel's size, as SwiftUI lays it out: its width (wider by the scroll bar's room while the middle scrolls) and its
+/// height. The window takes it each time it changes. The hosting controller's `preferredContentSize` was observed for
+/// this, but it never reported a change, so after opening, the window followed Auto Layout alone, which could leave it
+/// wider than its content once the middle stopped scrolling, with the panel's edge showing at the sides.
+@MainActor enum PanelSize {
+    static var report: ((CGSize) -> Void)?
 }
 
 /// A card or line that opens on a click shows it: a light wash and the pointing-hand cursor under the mouse.
