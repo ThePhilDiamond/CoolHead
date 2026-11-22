@@ -39,7 +39,7 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 
 **Graphic assets:**
 - Store icon, 128 by 128: `Extension/chrome/icons/icon128.png`, the melting snowflake, the same as the package's.
-- Screenshots, 1280 by 800, in this order: `1-tabs.png`, `2-extensions.png`, `3-held.png`, `4-session.png`, `5-alone.png`.
+- Screenshots, 1280 by 800, in this order: `1-tabs.png`, `2-extensions.png`, `3-protected.png`, `4-session.png`, `5-alone.png`.
 - Small promo tile, 440 by 280: `promo-tile.png`.
 - Marquee promo tile, 1400 by 560: `marquee-tile.png`.
 

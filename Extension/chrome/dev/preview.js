@@ -108,6 +108,8 @@ const noop = () => {};
 const on = new Proxy({}, { get: () => noop });
 const root = document.getElementById('app');
 render(root, view, ui, on);
+// How tall the drawn popup is, for the store images (store/make-images.py)
+document.body.dataset.height = String(Math.ceil(root.getBoundingClientRect().bottom));
 // ?scroll=end, or a number of pixels, or the id of a part to show at the top
 { const m = root.querySelector('main'); const v = q.get('scroll'); if (m && v) m.scrollTop = v === 'end' ? m.scrollHeight : /^\d+$/.test(v) ? Number(v) : (root.querySelector(`#${v}`)?.offsetTop ?? 0) - m.offsetTop; }
 
