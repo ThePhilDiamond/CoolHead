@@ -248,8 +248,12 @@ extension Fixture {
             let state = ChromeLink.encode(ChromeLink.State(memory: .tight, freeMB: 900, chromeMB: 3000, hiddenTabsMB: 700, extensionsMB: nil, auto: false))
             var written = ChromeLink.writeAll(conn, appHello + bytes("\r\n\n") + Array(state[0 ..< 10]))
             usleep(50_000)
-            written = written && ChromeLink.writeAll(conn, Array(state[10...]) + [0x0A]
-                                                     + [UInt8](repeating: 0x78, count: ChromeLink.maxMessageBytes + 1) + [0x0A] + appHello + [0x0A])
+            // built in steps: as one expression it was too slow for the build machine's type checker
+            let lf: [UInt8] = [0x0A]
+            let tooBig = [UInt8](repeating: 0x78, count: ChromeLink.maxMessageBytes + 1)
+            var rest: [UInt8] = Array(state[10...])
+            rest += lf; rest += tooBig; rest += lf; rest += appHello; rest += lf
+            written = written && ChromeLink.writeAll(conn, rest)
             let m1 = run.receive(), m2 = run.receive(), m3 = run.receive()
             let toChrome = written && m1 == appHello && m2 == state && m3 == appHello
             if !toChrome { notes.append("to Chrome: \([m1, m2, m3].map { $0.map { String(decoding: $0, as: UTF8.self) } ?? "nothing" })") }
