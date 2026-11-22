@@ -1,6 +1,6 @@
 # Cool Head's look and voice
 
-One look and one voice for the Mac app, its Chrome extension, and these pages, on every platform (Phil, 21 November 2026: "set and stick to Cool Head blue with brand guidelines, fonts, etc. for consistent experience across platforms", then "Cool Head blue"). Contrast figures are WCAG 2.2 ratios; AA asks 4.5:1 for text and 3:1 for icons and control edges.
+One look and one voice for the Mac app, its Chrome extension, and these pages, on every platform. Cool Head uses its own blue rather than each computer's accent color, so it looks the same everywhere. Contrast figures are WCAG 2.2 ratios; AA asks 4.5:1 for text and 3:1 for icons and control edges.
 
 ## Color
 
@@ -8,9 +8,14 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 
 | Use | Light | Dark |
 |---|---|---|
-| Blue, fills and text | `#1769D1` | `#4A9EFF` |
-| Text on a blue fill | white, 5.3:1 | near-black `#1A1A1A`, 7.6:1 |
+| Blue for marks: links, switches, the selected tool, icons | `#1769D1` | `#4A9EFF` |
+| Blue behind text: the recommended option, the Recommended pill | `#0F52AD` | `#0F52AD`, with a `#4A9EFF` edge (5.1:1 against the dark card) |
+| Text on the blue behind text | white, 7.4:1 (AAA) | white, 7.4:1 (AAA) |
 | Blue text on the panel | 4.9:1 on the light panel | 6.1:1 on `#1E1E1E` |
+
+Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under the 4.5:1 text needs, and was harder to read. Text goes on the deeper blue instead, at full strength.
+
+**At night** Cool Head stays blue and leaves warmth to the Mac's Night Shift, which warms the whole screen, Cool Head included. I considered an orange night mode and decided against it: orange already means "watch out" on the same cards, and white text on it measured 4.7:1, against the deep blue's 7.4:1.
 
 **Status colors** say how the Mac is, and never mean "click here":
 
@@ -31,7 +36,7 @@ The system font everywhere, so each feels native: SF Pro on the Mac (SwiftUI's d
 
 ## Icons
 
-- The app's icon: the menu bar's melting snowflake, in white on Cool Head blue, its drops and puddle a paler white so the flake leads (docs/images/logo.png, drawn by scripts/make-icon.swift). It replaced a smiling face with snowflakes on 21 November 2026, so the app icon and the menu bar are one family (Phil, 21 November 2026: "I lean toward Melting snowflake for the icon with the badge on that for the shapes and colors badges menu icon option."; then "For the icon the quiet puddle is nice, but in the menu it's harder to see so we should keep the current design in the menu for greater contrast/visibility."; then "For the app icon keep the larger droplets and puddle size, but render the droplets and the puddle in the color of the "quiet puddle" which is more subtle").
+- The app's icon: the menu bar's melting snowflake, in white on Cool Head blue, its drops and puddle a paler white so the flake leads (docs/images/logo.png, drawn by scripts/make-icon.swift). It replaced a smiling face with snowflakes in 0.17.0, so the app icon and the menu bar are one family.
 - The menu bar, in two styles (docs/images/menu-icons.png): the Status badge, one melting snowflake with ice-blue drops and puddle, the same at every level, with a green circle, yellow triangle, or red octagon; and the Melting Snowflake, whole, melting, or in flames. The menu bar keeps the bolder ice-blue drops, which show better at its size than the app icon's pale ones.
 - Inside the app: SF Symbols, in the text color or Cool Head blue. Two arrows in a circle mean Cool Head and its Chrome extension are working together, wherever that shows.
 
