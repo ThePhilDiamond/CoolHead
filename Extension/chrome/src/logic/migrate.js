@@ -18,20 +18,33 @@ function decoded(v) {
   return WEB.test(out) ? out : null;
 }
 
-// The real address behind a tab on another extension's page, or null when it isn't a suspended page. Checked against
-// the shapes the most used suspenders write (test/rules.test.js); Workona's, on a web page of its own, isn't known yet.
-export function suspendedAt(tabUrl, selfId) {
-  const m = EXT_PAGE.exec(tabUrl || '');
-  if (!m || m[1] === selfId) return null;
-  const rest = m[2];
+// Suspenders that park a tab on a web page of their own rather than an extension page: Workona's, whose code builds
+// https://workona.com/suspended/#title=…&url=<encoded>&favIconUrl=…, every value encoded.
+const WEB_SUSPENDERS = [{ page: /^https:\/\/workona\.com\/suspended\/?([?#].*)$/i, extId: 'kkahjkjjcepelnnikconblkonolboiok' }];
+
+function addressIn(rest) {
   for (const key of KEYS) {
     const at = new RegExp(`[?#&]${key}=`, 'i').exec(rest);
     if (!at) continue;
     const value = rest.slice(at.index + at[0].length);
     const url = key === 'uri' && WEB.test(value) ? value : decoded(value.split(/[&#]/)[0]);
-    if (url) return { extId: m[1], url };
+    if (url) return url;
   }
   return null;
+}
+
+// The real address behind a tab on another extension's page, or null when it isn't a suspended page. Checked against
+// the shapes the most used suspenders write (test/rules.test.js), each also run in a test browser on 22 November 2026.
+export function suspendedAt(tabUrl, selfId) {
+  for (const w of WEB_SUSPENDERS) {
+    const wm = w.page.exec(tabUrl || '');
+    const url = wm && addressIn(wm[1]);
+    if (url) return { extId: w.extId, url };
+  }
+  const m = EXT_PAGE.exec(tabUrl || '');
+  if (!m || m[1] === selfId) return null;
+  const url = addressIn(`/${m[2]}`);
+  return url ? { extId: m[1], url } : null;
 }
 
 // Every tab a suspender holds: { tabId, extId, url, active }.

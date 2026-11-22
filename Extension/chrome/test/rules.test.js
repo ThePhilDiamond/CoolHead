@@ -295,6 +295,17 @@ test('the most used suspenders each give up the real address (shapes from their 
     'https://example.com/docs?a=1&b=2#section');
   assert.equal(suspendedAt('chrome-extension://noogafoofpebimajpfpamcfhoaifemoa/suspended.html#ttl=Notes&pos=0&uri=file:///Users/someone/notes.html', 'self').url,
     'file:///Users/someone/notes.html');
+  // The Great Suspender 2026: The Marvellous Suspender's shape, under html/
+  assert.equal(suspendedAt('chrome-extension://hlofigcdgjlnalbkeeinfcjceabpamci/html/suspended.html#ttl=Alpha%20page&pos=0&uri=http://127.0.0.1:8765/a.html?x=1&y=2#part', 'self').url,
+    'http://127.0.0.1:8765/a.html?x=1&y=2#part');
+  // tabssuspender.com: suspended.html, title first, the address encoded; about:blank isn't a page to move
+  assert.equal(suspendedAt('chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Bravo%20%26%20co&url=http%3A%2F%2F127.0.0.1%3A8765%2Fb.html%3Fq%3Dhello%2520world&time=1795366555013', 'self').url,
+    'http://127.0.0.1:8765/b.html?q=hello%20world');
+  assert.equal(suspendedAt('chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=about%3Ablank&url=about%3Ablank&time=1', 'self'), null);
+  // Workona: a web page of its own, the address encoded after #
+  assert.deepEqual(suspendedAt('https://workona.com/suspended/#title=Alpha%20page&url=https%3A%2F%2Fexample.com%2Fa%3Fx%3D1%26y%3D2&favIconUrl=https%3A%2F%2Fexample.com%2Ff.ico', 'self'),
+    { extId: 'kkahjkjjcepelnnikconblkonolboiok', url: 'https://example.com/a?x=1&y=2' });
+  assert.equal(suspendedAt('https://workona.com/pricing?url=https%3A%2F%2Fexample.com', 'self'), null);
   // Tiny Suspender: suspend.html, the address first and encoded, with favIconUrl after it
   assert.equal(suspendedAt('chrome-extension://bbomjaikkcabgmfaomdichgcodnaeecf/suspend.html?url=https%3A%2F%2Fexample.com%2Fdocs%3Fa%3D1%26b%3D2&title=Example%20Page&favIconUrl=https%3A%2F%2Fexample.com%2Ffavicon.ico&scroll_x=0&scroll_y=640', 'self').url,
     'https://example.com/docs?a=1&b=2');
