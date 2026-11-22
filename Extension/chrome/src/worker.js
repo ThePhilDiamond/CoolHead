@@ -4,12 +4,12 @@
 import * as store from './store.js';
 import * as W from './logic/words.js';
 import { planSleep, planSleepHidden, nextDueAt, canSleepOnItsOwn, LEVELS, LEAVE_DELAYS_MS } from './logic/plan.js';
-import { recordActivation, pruneUse, replaceId, lastUsed } from './logic/usage.js';
+import { recordActivation, pruneUse, replaceId, lastUsed, tabToShowInstead } from './logic/usage.js';
 import { nextAuto, autoAllowed, AUTO_OFF } from './logic/auto.js';
 import { findDuplicates, duplicateCount } from './logic/duplicates.js';
 import { startPlan, join, leave, groupPlan } from './logic/session.js';
 import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
-import { restPlan, shouldWake, columns, move } from './logic/extensions.js';
+import { restPlan, shouldWake, columns, move, withOpenTabs } from './logic/extensions.js';
 import { heldCounts } from './logic/reasons.js';
 import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol.js';
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
@@ -238,8 +238,11 @@ async function hasManagement() {
 async function restExtensions(reason) {
   if (!(await hasManagement())) return { ok: false, count: 0, done: W.DONE.restNeedsYes };
   const s = await store.load();
-  const exts = await chrome.management.getAll();
-  const ids = restPlan(exts, s.safeList, chrome.runtime.id);
+  const [exts, tabs] = await Promise.all([chrome.management.getAll(), chrome.tabs.query({})]);
+  const open = withOpenTabs(tabs);
+  const ids = restPlan(exts, s.safeList, chrome.runtime.id, open);
+  const spared = restPlan(exts, s.safeList, chrome.runtime.id).filter((id) => !ids.includes(id));
+  if (spared.length) log('rest', `Left on ${exts.filter((e) => spared.includes(e.id)).map((e) => e.name).join(', ')}: its tabs are open`);
   // Recorded before any is turned off, so a worker stopped halfway still knows to turn them back on. Turning on
   // one that was never turned off does nothing, so recording too many is harmless; recording too few isn't.
   await store.change((st) => ({ rest: { ids: [...new Set([...st.rest.ids, ...ids])], session: st.rest.session || reason === 'session', memory: st.rest.memory || reason === 'memory' } }));
@@ -488,13 +491,14 @@ async function checkBrowserRun() {
 
 async function viewFor() {
   const { tabs, s, now, focusedWindowId } = await gather();
-  const [isMac, memInfo, sitesGranted, managementGranted] = await Promise.all([
+  const [isMac, memInfo, sitesGranted, managementGranted, shortcut] = await Promise.all([
     chrome.runtime.getPlatformInfo().then((p) => p.os === 'mac'),
     chrome.system.memory.getInfo().catch(() => null),
     chrome.permissions.contains(ALL_SITES),
     hasManagement(),
+    chrome.commands.getAll().then((cs) => cs.find((c) => c.name === 'sleep-tab')?.shortcut || '').catch(() => ''),
   ]);
-  const view = buildView({ tabs, s, now, focusedWindowId, isMac, memInfo, version: VERSION, sitesGranted, managementGranted, favicon });
+  const view = buildView({ tabs, s, now, focusedWindowId, isMac, memInfo, version: VERSION, sitesGranted, managementGranted, favicon, shortcut });
   view.openScreen = s.popupScreen;
   if (s.popupScreen) await store.save({ popupScreen: null });
   return view;
@@ -601,8 +605,8 @@ function actLine(m, tab) {
 
 async function safeColumns() {
   if (!(await hasManagement())) return null;
-  const [exts, s] = await Promise.all([chrome.management.getAll(), store.load()]);
-  return columns(exts, s.safeList, chrome.runtime.id);
+  const [exts, s, tabs] = await Promise.all([chrome.management.getAll(), store.load(), chrome.tabs.query({})]);
+  return columns(exts, s.safeList, chrome.runtime.id, withOpenTabs(tabs));
 }
 
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
@@ -757,6 +761,26 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'keep' || !tab) return;
   // From the stored state, not the menu's tick, which can be out of date after a switch between windows.
   store.load().then((s) => setKeep(tab.id, !s.kept.some((r) => r.tabId === tab.id))).then(() => maybeReport()).catch(oops);
+});
+
+// The keyboard shortcut (no key until the person picks one in Chrome's shortcuts page): the tab in front sleeps
+// whatever keeps it awake otherwise, since the person asked while looking at it. Chrome can't unload the tab in
+// front, so the one they used before it comes to the front first.
+async function sleepFrontTab(tab) {
+  if (!tab || tab.discarded) return;
+  const s = await store.load();
+  const tabs = await chrome.tabs.query({ windowId: tab.windowId });
+  const show = tabToShowInstead(tabs, tab.id, s.use);
+  if (show == null) { log('spared', `Didn't sleep ${host(tab.url)}: it's the only tab in its window`, { tab: tab.id }); return; }
+  await chrome.tabs.update(show, { active: true });
+  await sleepMany([tab.id], { force: true, why: () => 'the keyboard shortcut' });
+  await refreshBadge();
+}
+
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command !== 'sleep-tab') return;
+  const front = tab ? Promise.resolve(tab) : chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([t]) => t);
+  front.then(sleepFrontTab).catch(oops);
 });
 
 chrome.windows.onFocusChanged.addListener((windowId) => {

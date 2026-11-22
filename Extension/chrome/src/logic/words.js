@@ -301,7 +301,7 @@ export const TURN_OFF = 'Turn off';
 
 export const REST_TITLE = 'Pause extensions';
 export const REST_TOGGLE = 'Pause extensions when memory is very tight or a session runs';
-export const REST_WHY = 'They turn back on afterward. Pausing one closes its open pages.';
+export const REST_WHY = 'They turn back on afterward. One with tabs open stays on.';
 export const REST_NEEDS = 'Chrome asks you to allow this once.';
 export const PAUSE_REFUSED = "Pausing extensions stays off, since Chrome's permission wasn't given.";
 export const REST_SET_UP = 'Choose which stay on';
@@ -325,6 +325,13 @@ export const EXT_WHY = {
 export function restingNow(n) { return n === 0 ? '' : `${plural(n, 'extension is', 'extensions are')} paused now.`; }
 
 export const ABOUT_TITLE = 'About';
+export const EXT_OPEN = 'Has tabs open, so it stays on';
+export const SHORTCUT_COMMAND = 'Put this tab to sleep';
+export const SHORTCUT_TITLE = 'Keyboard shortcut';
+export const SHORTCUT_WHAT = "Puts the tab you're on to sleep and shows the one you used before it.";
+export const SHORTCUT_NONE = 'Not set';
+export const SHORTCUT_SET = 'Choose a key';
+export const SHORTCUT_CHANGE = 'Change';
 export function about(version) {
   return `Version ${version}. Free and open source under the AGPL. Nothing leaves your computer: no network use and no analytics.`;
 }

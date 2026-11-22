@@ -15,6 +15,9 @@
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
   "permissions": ["tabs", "tabGroups", "storage", "nativeMessaging", "alarms", "contextMenus", "scripting", "favicon", "system.memory"],
   "optional_permissions": ["management"],
+  "commands": {
+    "sleep-tab": { "description": "Put this tab to sleep" }
+  },
   "optional_host_permissions": ["<all_urls>"],
   "content_security_policy": {
     "extension_pages": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"

@@ -161,6 +161,8 @@ const on = {
   async endWithout() { ui.ending = false; await act({ action: 'endSession', save: false }); root.querySelector('[data-key="start"]')?.focus(); },
 
   leaveDelay(ms) { act({ action: 'leaveDelay', ms }); },
+  // Chrome keeps the keys for every extension on one page of its own; an extension can open it but not set a key.
+  shortcut() { chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }).catch(console.error); window.close(); },
   async sites(turnOn) {
     if (turnOn) {
       // Chrome shows its own question; the worker also hears of the answer if this popup closes meanwhile.

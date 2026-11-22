@@ -1,0 +1,1 @@
+- Cool Head for Chrome has a keyboard shortcut that puts the tab you're on to sleep and shows the one you used before it. It has no key until you choose one in Settings.

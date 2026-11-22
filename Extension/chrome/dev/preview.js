@@ -80,7 +80,7 @@ if (screen === 'confirm') ui.confirm = { tabId: form.id, action: 'close' };
 const view = buildView({
   tabs: sessionTabs, s, now: NOW, focusedWindowId: 1, isMac: q.get('os') !== 'other',
   memInfo: { capacity: 16 * 1024 ** 3, availableCapacity: 2.5 * 1024 ** 3 }, version: '1.0.0',
-  sitesGranted: true, managementGranted: protectedScreen,
+  sitesGranted: true, managementGranted: protectedScreen, shortcut: q.get('key') || '',
 });
 
 if (screen === 'start') {
@@ -93,14 +93,16 @@ if (protectedScreen) {
   const ext = (name, permissions = [], over = {}) => ({ id: name, name, type: 'extension', enabled: true, mayDisable: true, installType: 'normal', permissions, ...over });
   ui.safe = columns([
     ext('Vaultly Password Manager'), ext('Quiet Ad Blocker', ['declarativeNetRequest']), ext('Company sign-in', [], { installType: 'admin', mayDisable: false }),
-    ext('Writing helper'), ext('Coupon finder'), ext('Screenshot tool'), ext('Read later'),
-  ], null, 'self');
+    ext('Writing helper'), ext('Coupon finder'), ext('Screenshot tool'), ext('Read later'), ext('Tab napper'),
+  ], null, 'self', new Set(['Tab napper']));
 }
 
 const noop = () => {};
 const on = new Proxy({}, { get: () => noop });
 const root = document.getElementById('app');
 render(root, view, ui, on);
+// ?scroll=end shows the bottom of a long screen
+if (q.get('scroll') === 'end') { const m = root.querySelector('main'); if (m) m.scrollTop = m.scrollHeight; }
 
 if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
 if (screen === 'protected-ext') {

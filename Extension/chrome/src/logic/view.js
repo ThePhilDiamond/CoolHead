@@ -212,6 +212,7 @@ export function buildView(i) {
       managementGranted: Boolean(i.managementGranted),
       restingText: W.restingNow(s.rest?.ids?.length || 0),
       about: W.about(i.version),
+      shortcut: i.shortcut || '',
     },
   };
 }

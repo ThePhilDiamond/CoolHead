@@ -202,3 +202,8 @@ button { font: inherit; color: inherit; }
 
 /* no motion in the popup; if any is added, it stops for people who ask for less motion */
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Settings: the keyboard shortcut, as Chrome shows it, beside the button that opens Chrome's shortcuts page */
+.keyrow { align-items: center; justify-content: space-between; }
+.keyrow kbd { font: 600 13px/1 system-ui, sans-serif; padding: 6px 8px; border: 1px solid var(--control); border-radius: 6px; background: var(--fill); }
+.keyrow .muted { color: var(--muted); font-size: 13px; }

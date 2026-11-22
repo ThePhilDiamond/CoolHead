@@ -356,6 +356,12 @@ function settingsScreen(view, ui, on) {
         h('input', { type: 'checkbox', checked: st.sitesGranted, 'data-key': 'sites', onchange: (e) => on.sites(e.target.checked) }),
         h('span', {}, h('b', { text: W.SITES_TOGGLE }), h('span', { class: 'why', text: W.SITES_TOGGLE_WHY }))),
       st.sitesGranted ? null : h('p', { class: 'note', text: W.SITES_ASKS })),
+    h('section', { class: 'card', 'aria-labelledby': 'key-h' },
+      h('h2', { id: 'key-h', text: W.SHORTCUT_TITLE }),
+      h('p', { class: 'why', text: W.SHORTCUT_WHAT }),
+      h('div', { class: 'row keyrow' },
+        st.shortcut ? h('kbd', { text: st.shortcut }) : h('span', { class: 'muted', text: W.SHORTCUT_NONE }),
+        h('button', { class: 'btn', 'data-key': 'shortcut', onclick: on.shortcut }, st.shortcut ? W.SHORTCUT_CHANGE : W.SHORTCUT_SET))),
     h('section', { class: 'card', 'aria-labelledby': 'about-h' },
       h('h2', { id: 'about-h', text: W.ABOUT_TITLE }),
       h('p', { text: st.about })));
@@ -365,7 +371,8 @@ function settingsScreen(view, ui, on) {
 function extRow(e, toOn, on) {
   return h('li', { class: 'ext' },
     h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', title: e.name, text: e.name }),
-      W.EXT_WHY[e.kind] ? h('span', { class: 'why', text: e.kind === 'admin' ? W.SAFE_ADMIN : W.EXT_WHY[e.kind] }) : null),
+      e.open ? h('span', { class: 'why', text: W.EXT_OPEN })
+        : W.EXT_WHY[e.kind] ? h('span', { class: 'why', text: e.kind === 'admin' ? W.SAFE_ADMIN : W.EXT_WHY[e.kind] }) : null),
     e.kind === 'admin' ? null : h('button', {
       class: 'btn', 'data-key': `move-${e.id}`, 'aria-label': `${toOn ? W.MOVE_TO_ON : W.MOVE_TO_REST}: ${e.name}`,
       onclick: () => on.safeMove(e.id, toOn),

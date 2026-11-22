@@ -225,3 +225,26 @@ test('rested extensions wake only when no reason to rest is left', () => {
   assert.equal(shouldWake({ ids: ['a'], session: false, memory: false }), true);
   assert.equal(shouldWake({ ids: [], session: false, memory: false }), false);
 });
+
+test('an extension with its own tabs open is never paused, since Chrome would close those tabs', async () => {
+  const { withOpenTabs } = await import('../src/logic/extensions.js');
+  const napper = 'abcdefghijklmnopabcdefghijklmnop';
+  const exts = [...EXTS, { id: napper, name: 'Tab napper', type: 'extension', enabled: true, mayDisable: true, installType: 'normal', permissions: [] }];
+  const open = withOpenTabs([{ url: `chrome-extension://${napper}/suspended.html#uri=https://example.com` }, { url: 'https://example.com' }, { url: '' }]);
+  assert.deepEqual([...open], [napper]);
+  assert.deepEqual(restPlan(exts, null, 'self', open), ['grammar']);
+  assert.deepEqual(restPlan(exts, null, 'self').sort(), [napper, 'grammar'].sort());
+  assert.equal(columns(exts, null, 'self', open).rest.find((e) => e.id === napper).open, true);
+});
+
+test('the shortcut shows the tab used before the one put to sleep, or else its neighbor, in the same window', async () => {
+  const { tabToShowInstead } = await import('../src/logic/usage.js');
+  const tabs = [
+    { id: 1, windowId: 1, index: 0 }, { id: 2, windowId: 1, index: 1 }, { id: 3, windowId: 1, index: 2 },
+    { id: 9, windowId: 2, index: 0 },
+  ];
+  assert.equal(tabToShowInstead(tabs, 2, { 1: { last: 100, left: 200, switches: [] }, 3: { last: 50, left: 60, switches: [] }, 9: { last: 900, left: 950, switches: [] } }), 1);
+  assert.equal(tabToShowInstead(tabs, 2, {}), 3);
+  assert.equal(tabToShowInstead(tabs, 3, {}), 2);
+  assert.equal(tabToShowInstead(tabs, 9, {}), null);
+});
