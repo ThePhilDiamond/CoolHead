@@ -33,6 +33,8 @@ No tabs, no tables, no process list. Anyone who wants the raw list has Activity 
 
 System font, system colors, generous spacing, one accent color for "needs a look". Light and dark follow macOS. Icons only where they carry meaning (heat, battery, a process's own app icon).
 
+The logo and app icon are the menu bar's melting snowflake in white on Cool Head blue, its drops and puddle a paler white; the menu bar's Status badge style is one melting snowflake, with ice-blue drops and puddle, the same at every level, and only the badge changes. Both since 21 November 2026, replacing the smiling face and the plain snowflake (Phil: "I lean toward Melting snowflake for the icon with the badge on that for the shapes and colors badges menu icon option."; then "For the icon the quiet puddle is nice, but in the menu it's harder to see so we should keep the current design in the menu for greater contrast/visibility."; then "For the app icon keep the larger droplets and puddle size, but render the droplets and the puddle in the color of the "quiet puddle" which is more subtle"). Details in docs/BRAND.md.
+
 ## Build language
 
 **Swift with SwiftUI (recommended).** Native menu bar app, small (a few MB), lowest overhead, direct access to the system facts (process info, battery, thermal state). Every sentence is written by hand; Apple's on-device model was considered and dropped on 15 November 2026, since hand-written wording does as well without needing Apple Intelligence turned on (which takes up to 8 GB of storage) and without the risk of a rewording changing a fact. Builds on this Mac with the installed Command Line Tools. Weakest point: Mac-only, which is the point.

@@ -1,6 +1,7 @@
 // Draws Cool Head's logo options as PNGs, and the app icon set.
-// Usage: swift scripts/make-icon.swift <output folder> [app|ice|flat|line|all|sheet|linesheet|facesheet|facesheet2]
-// "app" draws the chosen logo (a smiley with snowflakes behind, chosen 15 November 2026) and its icon set.
+// Usage: swift scripts/make-icon.swift <output folder> [app|face|ice|flat|line|all|sheet|linesheet|facesheet|facesheet2]
+// "app" draws the chosen logo (the melting snowflake on Cool Head blue, chosen 21 November 2026) and its icon set;
+// "face" draws the logo before it (a smiley with snowflakes behind, chosen 15 November 2026).
 import AppKit
 
 let args = CommandLine.arguments
@@ -418,6 +419,72 @@ func face2(_ s: CGFloat, style: String, line: Bool = false) {
 
 let face2Options = ["icicles", "sweat", "flurry", "ch"]
 
+// MARK: - The melting snowflake: Cool Head's logo and app icon since 21 November 2026
+
+/// The menu bar's drooping snowflake, copied from `MenuIcon.droopingFlake` in Sources/CoolHeadApp/CoolHeadApp.swift
+/// (a script can't import the app), in the menu bar's 20 by 18 point box. Keep the two the same.
+@discardableResult
+func droopingFlake(center c: NSPoint, r: CGFloat, width: CGFloat = 1.4, color: NSColor = .labelColor, sagScale: CGFloat = 1) -> [NSPoint] {
+    color.setStroke()
+    var lowerTips: [NSPoint] = []
+    for i in 0..<6 {
+        let a = CGFloat(i) * .pi / 3 + .pi / 2
+        let lower = sin(a) < -0.1
+        let len = r * (lower ? 0.78 : 0.95)
+        let sag: CGFloat = (lower ? 1.9 : 0.9) * sagScale
+        let end = NSPoint(x: c.x + cos(a) * len, y: c.y + sin(a) * len - sag)
+        let control = NSPoint(x: c.x + cos(a) * len * 0.55, y: c.y + sin(a) * len * 0.55)
+        let arm = NSBezierPath()
+        arm.move(to: c)
+        arm.curve(to: end, controlPoint1: control, controlPoint2: control)
+        // side branches, also sagging
+        let mid = NSPoint(x: c.x + cos(a) * len * 0.58, y: c.y + sin(a) * len * 0.58 - sag * 0.45)
+        for side in [-1.0, 1.0] as [CGFloat] {
+            let b = a + side * .pi / 4
+            arm.move(to: mid)
+            arm.line(to: NSPoint(x: mid.x + cos(b) * len * 0.34, y: mid.y + sin(b) * len * 0.34 - sag * 0.5))
+        }
+        arm.lineWidth = width
+        arm.lineCapStyle = .round
+        arm.stroke()
+        if lower { lowerTips.append(end) }
+    }
+    return lowerTips
+}
+
+/// A falling drop: round at the bottom, pointed at the top. Copied from `MenuIcon.drop`.
+func drop(at p: NSPoint, size d: CGFloat) {
+    let path = NSBezierPath()
+    path.move(to: NSPoint(x: p.x, y: p.y + d * 1.4))
+    path.curve(to: NSPoint(x: p.x, y: p.y - d * 0.5), controlPoint1: NSPoint(x: p.x - d * 0.9, y: p.y), controlPoint2: NSPoint(x: p.x - d * 0.6, y: p.y - d * 0.5))
+    path.curve(to: NSPoint(x: p.x, y: p.y + d * 1.4), controlPoint1: NSPoint(x: p.x + d * 0.6, y: p.y - d * 0.5), controlPoint2: NSPoint(x: p.x + d * 0.9, y: p.y))
+    path.fill()
+}
+
+/// The app icon: the menu bar's melting snowflake in pure white on a Cool Head blue tile, its drops and puddle the size
+/// of the Melting Snowflake's but pale, so the flake leads. The tile is a rounded square on the macOS icon grid, shaded
+/// from #4A9EFF at the top through #1769D1 to #0F4FA8; the snowflake's 20 by 18 point box is fitted inside the tile
+/// less 3% of the canvas on each side. Chosen by Phil, 21 November 2026: "For the icon the quiet puddle is nice, but in
+/// the menu it's harder to see so we should keep the current design in the menu for greater contrast/visibility.",
+/// then "For the app icon keep the larger droplets and puddle size, but render the droplets and the puddle in the color
+/// of the "quiet puddle" which is more subtle" (notes/brand-mark.md).
+func drawMelting(_ s: CGFloat) {
+    let t = tile(s)
+    NSGradient(colors: [color(0x4A9EFF), color(0x1769D1), color(0x0F4FA8)])!
+        .draw(in: NSBezierPath(roundedRect: t, xRadius: s * 0.18, yRadius: s * 0.18), angle: -90)
+    let box = t.insetBy(dx: s * 0.03, dy: s * 0.03)
+    let k = min(box.width / 20, box.height / 18)
+    NSGraphicsContext.saveGraphicsState()
+    let m = NSAffineTransform(); m.translateX(by: box.midX - 10 * k, yBy: box.midY - 9 * k); m.scale(by: k); m.concat()
+    let tips = droopingFlake(center: NSPoint(x: 10, y: 10.3), r: 7.2, width: 1.5, color: .white)
+    // the drops and puddle at the Melting Snowflake's middle-state sizes (MenuIcon.melting(.warning)), in the quiet
+    // puddle's pale white
+    NSColor.white.withAlphaComponent(0.35).setFill()
+    for (i, tip) in tips.enumerated() { drop(at: NSPoint(x: tip.x, y: tip.y - 2.4 - CGFloat(i % 2) * 0.8), size: 1.1) }
+    NSBezierPath(ovalIn: NSRect(x: 4.5, y: 0.4, width: 11, height: 2.0)).fill()
+    NSGraphicsContext.restoreGraphicsState()
+}
+
 let faceOptions = ["calm", "snowflake-mind", "frosty", "shades", "cube"]
 
 func render(_ draw: (CGFloat) -> Void, size: Int) -> Data { render(draw, width: size, height: size, scale: CGFloat(size)) }
@@ -436,7 +503,7 @@ func render(_ draw: (CGFloat) -> Void, width: Int, height: Int, scale: CGFloat =
 
 let options: [(String, (CGFloat) -> Void)] = [("ice", drawIce), ("flat", drawFlat), ("line", drawLine)]
 for (name, draw) in options where which == "all" || which == name {
-    if ["sheet", "linesheet", "facesheet", "facesheet2", "app"].contains(which) { break }
+    if ["sheet", "linesheet", "facesheet", "facesheet2", "app", "face"].contains(which) { break }
     try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo-\(name).png"))
     // the app icon set, for iconutil
     let set = out.appendingPathComponent("AppIcon-\(name).iconset")
@@ -562,10 +629,13 @@ if which == "sheet" {
         }
     }, width: w, height: h).write(to: out.appendingPathComponent("logo-options.png"))
 }
-if which == "app" {
-    let draw: (CGFloat) -> Void = { face2($0, style: "flurry") }
-    try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo.png"))
-    let set = out.appendingPathComponent("AppIcon.iconset")
+// "app": the chosen logo, the melting snowflake (21 November 2026), and its icon set. "face": the logo before it, the
+// smiley with snowflakes behind (chosen 15 November 2026), as logo-face.png and AppIcon-face.iconset.
+if which == "app" || which == "face" {
+    let draw: (CGFloat) -> Void = which == "app" ? drawMelting : { face2($0, style: "flurry") }
+    let suffix = which == "app" ? "" : "-face"
+    try! render(draw, size: 1024).write(to: out.appendingPathComponent("logo\(suffix).png"))
+    let set = out.appendingPathComponent("AppIcon\(suffix).iconset")
     try? FileManager.default.createDirectory(at: set, withIntermediateDirectories: true)
     for base in [16, 32, 128, 256, 512] {
         try! render(draw, size: base).write(to: set.appendingPathComponent("icon_\(base)x\(base).png"))

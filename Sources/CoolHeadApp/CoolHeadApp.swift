@@ -215,14 +215,14 @@ enum LoginItem {
     }
 }
 
-/// The menu bar icon: a snowflake with a status badge at its top right. The badge's shape and color both carry the
-/// meaning, for people who can't tell the colors apart: green circle, all well; yellow triangle, something needs a
+/// The menu bar icon: a melting snowflake with a status badge at its top right. The badge's shape and color both carry
+/// the meaning, for people who can't tell the colors apart: green circle, all well; yellow triangle, something needs a
 /// look; red octagon, a problem. The flake is drawn in the menu bar's text color at draw time, so it follows light
 /// and dark menu bars even though the image isn't a template (templates can't hold color).
 enum MenuIcon {
     /// Posted when the icon's style changes, so the menu bar redraws it.
     static let changed = Notification.Name("CoolHeadMenuIconChanged")
-    /// "badge": the snowflake with a status badge. "melting": the snowflake itself melts as things get worse.
+    /// "badge": the melting snowflake with a status badge. "melting": the snowflake itself melts as things get worse.
     static var style: String {
         get { UserDefaults.standard.string(forKey: "iconStyle") ?? "badge" }
         set { UserDefaults.standard.set(newValue, forKey: "iconStyle") }
@@ -263,8 +263,17 @@ enum MenuIcon {
         }
     }
 
+    /// The Status badge style: one melting snowflake, the Melting Snowflake's middle drawing with its ice-blue drops and
+    /// puddle, the same at every level, so only the badge changes. It ties the style to the app icon's melting snowflake
+    /// (Phil, 21 November 2026: "I lean toward Melting snowflake for the icon with the badge on that for the shapes and
+    /// colors badges menu icon option."). The app icon's paler drops and quieter puddle were not used here (Phil, 21
+    /// November 2026: "For the icon the quiet puddle is nice, but in the menu it's harder to see so we should keep the
+    /// current design in the menu for greater contrast/visibility."). Notes: notes/brand-mark.md.
     static func badged(_ level: Watcher.Level) {
-        flake(center: NSPoint(x: 8.5, y: 8.5), r: 7)
+        let tips = droopingFlake(center: NSPoint(x: 8.5, y: 10.2), r: 6.4)
+        ice.setFill()
+        for (k, t) in tips.enumerated() { drop(at: NSPoint(x: t.x, y: t.y - 2.2 - CGFloat(k % 2) * 0.7), size: 1.0) }
+        NSBezierPath(ovalIn: NSRect(x: 3.5, y: 0.4, width: 10, height: 1.8)).fill()
         // clear a ring for the badge so it stands apart from the flake
         let box = NSRect(x: 12, y: 10.5, width: 7.5, height: 7.5)
         NSGraphicsContext.current?.compositingOperation = .clear
