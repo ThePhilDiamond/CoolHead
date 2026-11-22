@@ -120,6 +120,7 @@ struct PanelView: View {
             // the same wash of the level's color as the top, so the two bars match as the frame outside the active
             // items in the middle
             .background(Color(nsColor: Badge.color(level)).opacity(0.10))
+            .background(BarFrost.bar)
             .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(0.10))
         }
         .frame(width: PanelView.width + extra)
@@ -2100,6 +2101,13 @@ struct IconButton: View {
         }
         .accessibilityLabel(tip)
     }
+}
+
+/// A denser frost behind the top and bottom bars: the window's own color, part see-through, under the level's wash. The
+/// panel's frost alone turns mid-gray over a bright desktop, where gray text on it measured about 3:1.
+enum BarFrost {
+    // at 75%, gray text on it measured 5:1 in dark over a bright desktop, where 60% gave 4.3:1
+    static let bar = Color(nsColor: .windowBackgroundColor).opacity(0.75)
 }
 
 /// Text and surface colors chosen for contrast in both light and dark, instead of macOS's paler secondary greys.
