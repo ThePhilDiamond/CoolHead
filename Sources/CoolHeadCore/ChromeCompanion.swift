@@ -15,8 +15,11 @@ public enum ChromeCompanion {
     /// How to get it: until it's in the Chrome Web Store, its page in Cool Head's repository says how to add it by hand.
     public static let getPage = "https://github.com/ThePhilDiamond/CoolHead/tree/main/Extension/chrome#readme"
     public static let chromeApp = "/Applications/Google Chrome.app"
-    /// The extension's ID while it's added by hand, fixed by the key in its manifest (Extension/chrome/README.md).
-    public static let extensionID = "idncmcjhcnoknfiomdkjidgmjkglmghl"
+    /// The extension's ID in the Chrome Web Store, and its ID while it's added by hand, fixed by the key in its manifest
+    /// (Extension/chrome/README.md). Cool Head's helper answers either.
+    public static let storeID = "pobnaljpjmpbpokcdbjpmlkdaljhhcfm"
+    public static let handID = "idncmcjhcnoknfiomdkjidgmjkglmghl"
+    public static let extensionIDs = [storeID, handID]
     /// Chrome's own folder for the files that name native messaging helpers.
     public static let hostsFolder = NSHomeDirectory() + "/Library/Application Support/Google/Chrome/NativeMessagingHosts"
 
@@ -35,16 +38,17 @@ public enum ChromeCompanion {
     /// of Cool Head (so it must be written again if Cool Head moves). Only that one file, in Chrome's own folder for it.
     @discardableResult
     public static func installHostFile(folder: String = hostsFolder, helper: String = Bundle.main.bundlePath + "/Contents/Helpers/coolhead-chrome-host") -> Bool {
-        guard FileManager.default.isExecutableFile(atPath: helper), let json = ChromeLink.manifest(hostPath: helper, extensionID: extensionID) else { return false }
+        guard FileManager.default.isExecutableFile(atPath: helper), let json = ChromeLink.manifest(hostPath: helper, extensionIDs: extensionIDs) else { return false }
         try? FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
         let path = folder + "/" + ChromeLink.hostName + ".json"
         return FileManager.default.createFile(atPath: path, contents: Data(json), attributes: [.posixPermissions: 0o644])
     }
 
-    /// Whether that file is there and names this copy's helper.
+    /// Whether that file is there, names this copy's helper, and allows every ID this version knows, so a Cool Head that
+    /// moved, or an update that knows a new ID, writes it again.
     public static func hostFileInstalled(folder: String = hostsFolder, helper: String = Bundle.main.bundlePath + "/Contents/Helpers/coolhead-chrome-host") -> Bool {
         guard let d = FileManager.default.contents(atPath: folder + "/" + ChromeLink.hostName + ".json"),
               let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return false }
-        return j["path"] as? String == helper
+        return j["path"] as? String == helper && j["allowed_origins"] as? [String] == ChromeLink.origins(extensionIDs)
     }
 }

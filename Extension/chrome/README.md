@@ -48,11 +48,11 @@ If the link drops at any moment, the extension carries on alone with nothing los
 2. Click Load unpacked and choose this folder, `Extension/chrome`.
 3. A setup tab opens once and asks about unsent typing and calls.
 
-**The fixed ID** is `idncmcjhcnoknfiomdkjidgmjkglmghl`. The `key` in manifest.json fixes it while the extension is loaded by hand, so Cool Head's helper can name it in its `allowed_origins`. The Chrome Web Store will give its own ID later. The key's private half isn't needed to load unpacked and isn't in the repository.
+**The IDs.** Loaded by hand, the extension's ID is `idncmcjhcnoknfiomdkjidgmjkglmghl`, fixed by the `key` in manifest.json; the key's private half isn't needed to load unpacked and isn't in the repository. From the Chrome Web Store, its ID is `pobnaljpjmpbpokcdbjpmlkdaljhhcfm`. Cool Head's helper allows both.
 
 ## Link it to Cool Head
 
-Cool Head places a file named `io.github.thephildiamond.coolhead.json` in Chrome's `NativeMessagingHosts` folder (for a test profile, `<user-data-dir>/NativeMessagingHosts/`), naming its helper inside Cool Head.app and allowing `chrome-extension://idncmcjhcnoknfiomdkjidgmjkglmghl/`. That step waits on Phil's yes (design, stage 3). Until then the extension shows "Not linked to Cool Head" and works alone.
+Cool Head places a file named `io.github.thephildiamond.coolhead.json` in Chrome's `NativeMessagingHosts` folder (for a test profile, `<user-data-dir>/NativeMessagingHosts/`), naming its helper inside Cool Head.app and allowing both IDs. Cool Head writes it when you press Set up in its Settings, and writes it again if Cool Head moves or an update allows a new ID. Until then the extension shows "Not linked to Cool Head" and works alone.
 
 For testing, [tools/mock-host.mjs](tools/mock-host.mjs) stands in for the helper and for Cool Head: it speaks Chrome's framing and plays a scenario from a JSON file (memory state, Cool Head open or not, requests). [tools/run-browser-tests.mjs](tools/run-browser-tests.mjs) shows how to point a test profile at it.
 

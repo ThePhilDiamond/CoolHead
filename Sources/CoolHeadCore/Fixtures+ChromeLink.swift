@@ -103,14 +103,16 @@ extension Fixture {
         // Chrome's manifest: its name, stdio, the host's absolute path, and only our extension
         let id = "abcdefghijklmnopabcdefghijklmnop"
         let hostPath = "/Applications/Cool Head.app/Contents/Helpers/coolhead-chrome-host"
-        let manifest = ChromeLink.manifest(hostPath: hostPath, extensionID: id)
+        let id2 = "pobnaljpjmpbpokcdbjpmlkdaljhhcfm"
+        let manifest = ChromeLink.manifest(hostPath: hostPath, extensionIDs: [id, id2])
         let parsed = manifest.flatMap { try? JSONSerialization.jsonObject(with: Data($0)) as? [String: Any] }
         review.append(("chrome-link-manifest", parsed?["name"] as? String == "io.github.thephildiamond.coolhead" && parsed?["type"] as? String == "stdio"
-                       && parsed?["path"] as? String == hostPath && parsed?["allowed_origins"] as? [String] == ["chrome-extension://\(id)/"]
+                       && parsed?["path"] as? String == hostPath && parsed?["allowed_origins"] as? [String] == ["chrome-extension://\(id)/", "chrome-extension://\(id2)/"]
                        && !(parsed?["description"] as? String ?? "").isEmpty && parsed?.count == 5
-                       && ChromeLink.manifest(hostPath: "Cool Head.app/Contents/Helpers/coolhead-chrome-host", extensionID: id) == nil
-                       && ChromeLink.manifest(hostPath: hostPath, extensionID: "ABCDEFGHIJKLMNOPABCDEFGHIJKLMNOP") == nil
-                       && ChromeLink.manifest(hostPath: hostPath, extensionID: "abcdefghijklmnopabcdefghijklmnoq") == nil,
+                       && ChromeLink.manifest(hostPath: "Cool Head.app/Contents/Helpers/coolhead-chrome-host", extensionIDs: [id]) == nil
+                       && ChromeLink.manifest(hostPath: hostPath, extensionIDs: []) == nil
+                       && ChromeLink.manifest(hostPath: hostPath, extensionIDs: [id, "ABCDEFGHIJKLMNOPABCDEFGHIJKLMNOP"]) == nil
+                       && ChromeLink.manifest(hostPath: hostPath, extensionIDs: ["abcdefghijklmnopabcdefghijklmnoq"]) == nil,
                        manifest.map { String(decoding: $0, as: UTF8.self).replacingOccurrences(of: "\n", with: " ") } ?? "no manifest"))
 
         // the socket: Cool Head's own folder, unless the selftest gives one; the quick retry only with the selftest's socket
