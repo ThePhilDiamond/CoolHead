@@ -15,6 +15,8 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 
 Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under the 4.5:1 text needs (Phil, 21 November 2026: "I find the text on the blue a bit harder to read. Can we measure the contrast and find a way to make it as easy to read as possible?", then "Deep blue, white text").
 
+**At night** Cool Head stays blue and leaves warmth to the Mac's Night Shift, which warms the whole screen, Cool Head included. An orange "night owl" mode was rendered and set aside: orange already means "watch out" on the same cards, and white text on it measured 4.7:1 against the deep blue's 7.4:1 (Phil, 21 November 2026: "Keep blue, use Night Shift"; renders in notes/night-owl-renders).
+
 **Status colors** say how the Mac is, and never mean "click here":
 
 | Status | Color | Used for |
