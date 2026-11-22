@@ -20,7 +20,7 @@ export const PATHS = {
   bolt: '<path d="M9 1.5L3.5 9h4L7 14.5 12.5 7h-4z"/>',
   shield: '<path d="M8 1.8l5.2 2v4c0 3.1-2.2 5.4-5.2 6.4-3-1-5.2-3.3-5.2-6.4v-4z"/><path d="M5.7 8.1l1.6 1.6 3-3.1"/>',
   gauge: '<path d="M2.4 11.8a5.8 5.8 0 1 1 11.2 0"/><path d="M8 10l2.8-3.3"/><path d="M8 10h.01"/>',
-  gear: '<path d="M2 4.5h6.5M12.5 4.5H14M2 11.5h1.5M7.5 11.5H14"/><circle cx="10.5" cy="4.5" r="2"/><circle cx="5.5" cy="11.5" r="2"/>',
+  gear: '<path d="M12.96 6.81L14.64 7.11V8.89L12.96 9.19L12.35 10.66L13.33 12.06L12.06 13.33L10.66 12.35L9.19 12.96L8.89 14.64H7.11L6.81 12.96L5.34 12.35L3.94 13.33L2.67 12.06L3.65 10.66L3.04 9.19L1.36 8.89V7.11L3.04 6.81L3.65 5.34L2.67 3.94L3.94 2.67L5.34 3.65L6.81 3.04L7.11 1.36H8.89L9.19 3.04L10.66 3.65L12.06 2.67L13.33 3.94L12.35 5.34Z"/><circle cx="8" cy="8" r="2.2"/>',
 };
 
 export const REASON_ICON = { call: 'camera', screen: 'screen', typing: 'pencil', sound: 'speaker', kept: 'bookmark', pinned: 'pin', session: 'bookmark' };
