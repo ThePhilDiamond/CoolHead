@@ -6,6 +6,16 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.19.0] - 2026-11-22
+
+### Changed
+
+- A card's Explore fixes and Show less are in Cool Head blue, like every link, rather than orange, which means "watch out". While a network test runs, the dashes around the Network tool's globe are a small neon rainbow.
+
+### Fixed
+
+- With scroll bars that take room, the panel no longer stays wider than its content after a long section closes, which showed the panel's edge at the sides.
+
 ## [0.18.0] - 2026-11-21
 
 ### Changed
@@ -429,7 +439,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.15.0...v0.16.0

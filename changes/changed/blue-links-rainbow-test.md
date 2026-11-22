@@ -1,1 +1,0 @@
-- A card's Explore fixes and Show less are in Cool Head blue, like every link, rather than orange, which means "watch out". While a network test runs, the dashes around the Network tool's globe are a small neon rainbow.

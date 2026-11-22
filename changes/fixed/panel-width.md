@@ -1,1 +1,0 @@
-- With scroll bars that take room, the panel no longer stays wider than its content after a long section closes, which showed the panel's edge at the sides.

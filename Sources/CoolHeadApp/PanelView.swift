@@ -825,6 +825,10 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.19.0": [
+            "Explore fixes and Show less are in Cool Head blue, like every link, and a network test shows a small neon rainbow while it runs.",
+            "The panel no longer stays wider than its content after a long section closes.",
+        ],
         "0.18.0": [
             "The recommended option is easier to read: a deeper blue with full-strength white text, in light and dark.",
             "Cool Head for Chrome installed from the Chrome Web Store links with Cool Head too. If you set it up before, the link updates by itself.",
