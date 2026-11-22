@@ -48,14 +48,14 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 **Single purpose:**
 
 ```
-Reduces the memory Chrome holds, by putting tabs the person isn't using to sleep and, if they choose, turning off extensions they don't need for a while, while keeping awake what they need (calls, sound, unsent typing, and tabs and extensions they choose). Every feature serves that: choosing which tabs sleep, showing which tabs hold memory and why, sessions that keep only a task's tabs loaded, closing duplicate tabs, resting extensions not on the safe list, and optionally linking to the Cool Head Mac app, which reports when the computer's memory is short.
+Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep and, if the user turns it on, temporarily turns off extensions they don't need, while keeping awake what they need: calls, sound, unsent typing, and the tabs and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, closing duplicate tabs, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
 ```
 
 **Permission justifications:**
 
 | Permission | Justification to paste |
 |---|---|
-| tabs | Reads each tab's address, title, and state to choose which tabs to put to sleep, to find pages open twice, and to list the tabs it keeps loaded and why. Puts tabs to sleep with chrome.tabs.discard. |
+| tabs | Reads each tab's address, title, and state (loaded, asleep, playing sound, pinned) to choose which tabs to put to sleep, to find pages open twice, and to list the tabs it keeps loaded and why. Puts tabs to sleep with chrome.tabs.discard. |
 | tabGroups | When a session ends, the person can save its tabs as a named tab group; Cool Head can also ask it to collapse groups the person isn't using. |
 | storage | Keeps settings, the tabs the person chose to keep, the session, and the safe list in chrome.storage on the computer, because a Manifest V3 service worker stops when idle. |
 | nativeMessaging | Optionally links to Cool Head, a Mac app, through its helper, so tabs sleep only when the Mac's memory is short. Only counts are sent (tabs asleep, tabs held by reason), never addresses or titles, and only on the Mac. |
