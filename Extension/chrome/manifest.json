@@ -3,7 +3,7 @@
   "name": "Cool Head for Chrome",
   "short_name": "Cool Head",
   "version": "1.0.0",
-  "description": "Sleeps tabs you aren't using and turns off extensions you don't need, so Chrome holds less memory. Works alone or with Cool Head.",
+  "description": "Sleeps unused tabs and temporarily turns off extensions you don't need, so Chrome holds less memory. Works alone or with Cool Head.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAugwqCqihzQk5qKxsMjwYH7qMrxvOuAzBAkQpwhuZzp/gqu9YfjnPgXH2itsW9nE7APFOhyMC2eS4a3KLJVeBChLBKZVccfE+kNyCJurbcBcGyc0f28On8ZrocaLEBExMwjfKv+z1W++Amsv2hcwgiApQjLLj/xO8kvTcGV/KuTbqilLKENx/ZYCEqy5lcP5WseFPqEuY2JW3jPg060it3Lw4D/s2bljhF3uIWcbQvPcxbz/VNJC78JSOsrc9mKbLTPGcKLkvEywYx8NiTVv9sh1c0tuimbEdjuXWo6naJ1gvGbUCds6+8TwtXe2ltWnEgYkODUbW5k8+debdReqs1wIDAQAB",
   "minimum_chrome_version": "123",
   "background": { "service_worker": "src/worker.js", "type": "module" },

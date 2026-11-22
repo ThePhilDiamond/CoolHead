@@ -30,7 +30,7 @@ p{font-size:24px;line-height:1.45;color:#3A3A3A}
 # 404 wide; Home ends at 1115 pixels, so it's cut there rather than showing empty space.
 SHOTS = [
     ("1-tabs", "home-light.png", 673 * 1115 / 1200, "Tabs you aren't using go to sleep, so Chrome holds less memory.", "A sleeping tab stays in your tab bar and reloads when you click it. Nothing closes."),
-    ("2-extensions", "safe-list-light.png", 674, "Extensions you don't need can rest during a session, or when memory is tight.", "Password managers, blockers, VPNs, and security tools stay on. You choose the rest, and they come back on when the session ends or memory clears."),
+    ("2-extensions", "safe-list-light.png", 674, "Extensions you don't need turn off for a while, then back on by themselves.", "Nothing is removed. During a session, or when memory is tight, they give back their memory. Password managers, blockers, VPNs, and security tools stay on."),
     ("3-held", "held-open-light.png", 674, "Calls, sound, and unsent typing stay awake.", "It shows each tab it keeps loaded and why, so you choose: keep it, sleep it, or close it."),
     ("4-session", "start-session-light.png", 674, "Start a session for the task in front of you.", "Tick the tabs a meeting or project needs. The rest sleep until you want them back."),
     ("5-alone", "alone-dark.png", 674, "Works on its own, or with Cool Head on a Mac.", "On its own, you choose how hard it works. With Cool Head, a free Mac app, tabs sleep only when memory is actually short."),
@@ -42,7 +42,7 @@ body{width:440px;height:280px;overflow:hidden;background:#0F52AD;color:#fff;font
 img{width:112px;height:112px;border-radius:24px}
 h1{font-size:30px;line-height:1.1;font-weight:700;margin-bottom:12px}
 p{font-size:17px;line-height:1.35}
-</style></head><body><img src=logo.png alt=""><div><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and turns off extensions you don't need.</p></div></body></html>"""
+</style></head><body><img src=logo.png alt=""><div><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and temporarily turns off extensions you don't need.</p></div></body></html>"""
 
 
 def main():

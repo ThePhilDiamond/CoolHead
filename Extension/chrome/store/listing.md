@@ -8,12 +8,12 @@ Run `scripts/package-extension.sh` and upload the zip it names (`build/cool-head
 
 ## Store listing tab
 
-**Name and summary** come from the manifest: "Cool Head for Chrome", and "Sleeps tabs you aren't using and turns off extensions you don't need, so Chrome holds less memory. Works alone or with Cool Head." (129 of the 132 characters allowed)
+**Name and summary** come from the manifest: "Cool Head for Chrome", and "Sleeps unused tabs and temporarily turns off extensions you don't need, so Chrome holds less memory. Works alone or with Cool Head." (131 of the 132 characters allowed)
 
 **Description:**
 
 ```
-Cool Head for Chrome puts tabs you aren't using to sleep and turns off extensions you don't need, so Chrome holds less memory and your computer stays quick. A sleeping tab stays in your tab bar and reloads when you click it, and a resting extension comes back on by itself. Nothing closes unless you choose.
+Cool Head for Chrome puts tabs you aren't using to sleep and temporarily turns off extensions you don't need, so Chrome holds less memory and your computer stays quick. A sleeping tab stays in your tab bar and reloads when you click it. A resting extension isn't removed: it's switched off for a while and comes back on by itself. Nothing closes unless you choose.
 
 What it does
 • Sleeps tabs once you leave them. You choose how hard it works: Light keeps your 5 most used tabs loaded, Balanced your 3, and Focus only the tab you're on.
@@ -21,7 +21,7 @@ What it does
 • Shows each tab it's keeping loaded and why, so you can keep it, sleep it, or close it.
 • Start a session: tick the tabs a task needs, like a meeting or a project, and the rest sleep until you want them back. When it ends, you can save its tabs as a tab group.
 • Finds pages open twice and closes the extra copy, keeping the one you used last.
-• Rests extensions you don't need during a session, or, with Cool Head, when memory is very tight, and turns them back on afterward. Password managers, ad blockers, VPNs, and security tools stay on, and you choose the rest. It's off until you turn it on.
+• Temporarily turns off extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. They give back their memory without you removing anything or remembering to switch them on again. Password managers, ad blockers, VPNs, and security tools stay on, and you choose the rest. It's off until you turn it on.
 
 Works on its own, or with Cool Head
 Cool Head is a free Mac app that keeps an eye on your Mac's memory, heat, and battery. Linked to it, the extension's Auto level puts tabs to sleep only when memory is actually short, so they reload less, and Cool Head's advice can act in Chrome with one click. Without it, the extension works on its own at the level you choose.
