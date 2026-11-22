@@ -6,6 +6,13 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.18.0] - 2026-11-21
+
+### Changed
+
+- The recommended option is easier to read: a deeper blue with full-strength white text, in light and dark (7.4:1, up from 4.0:1 for its description line), and it no longer fades when you point at it.
+- Cool Head for Chrome installed from the Chrome Web Store links with Cool Head, as well as a copy added by hand. If you already set it up, Cool Head updates the link for you when it opens.
+
 ## [0.17.0] - 2026-11-21
 
 ### Added
@@ -422,7 +429,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.1...v0.15.0
