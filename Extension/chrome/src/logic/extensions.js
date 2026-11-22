@@ -1,6 +1,6 @@
-// Rest extensions: turns off extensions not in use, during a session or more broadly, sparing a safe list (README,
+// Pausing extensions: turns off extensions not in use, during a session or more broadly, sparing those kept on (README,
 // "What it does"). Chrome tells an extension nothing about when another was last used or what memory it holds, so
-// "not in use" means "not on your safe list".
+// "not in use" means "not kept on".
 
 const BLOCKER_PERMS = ['declarativeNetRequest', 'declarativeNetRequestWithHostAccess', 'declarativeNetRequestFeedback', 'webRequestBlocking'];
 const VPN_PERMS = ['proxy', 'vpnProvider'];
@@ -65,7 +65,7 @@ export function move(safeList, id, toAlwaysOn) {
   return { decided: true, alwaysOn, rest };
 }
 
-// Which extensions to turn off now: on, not on the safe list, ones Chrome lets the person turn off, and none with
+// Which extensions to turn off now: on, not kept on, ones Chrome lets the person turn off, and none with
 // its own tabs open (withOpenTabs).
 export function restPlan(exts, safeList, selfId, open = new Set()) {
   return exts.filter((e) => restable(e, selfId) && e.enabled && !isAlwaysOn(e, safeList) && !open.has(e.id)).map((e) => e.id);

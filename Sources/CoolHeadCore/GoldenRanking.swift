@@ -37,6 +37,7 @@ enum GoldenRanking {
     catalogue-local-ai-model-long · catalogue · unknown · → advice · advice, lookup, share
     memory-chrome-companion · - · unknown · → sleep · sleep, extensions, groups, duplicates, restart, quit, saver, tabmemory
     memory-chrome-get-companion · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory, extensions, groups, companion
+    memory-chrome-second-companion · - · unknown · → sleep · sleep, restart, quit2
     memory-chrome-saver-max · - · unknown · → tabs · tabs, saver-max, restart, quit, tabmemory
     memory-chrome-hidden-tabs · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory, extensions, groups
     memory-chrome-grown · - · unknown · → restart · restart, tabs, quit, saver, tabmemory

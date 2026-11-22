@@ -1,0 +1,1 @@
+- Cool Head for Chrome's menu stays where you scrolled it. It jumped back to the top whenever a tab changed while it was open. Version 1.0.1.
