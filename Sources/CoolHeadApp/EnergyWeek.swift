@@ -34,7 +34,7 @@ struct EnergyWeek: View {
                         Divider()
                         Disclosure(title: more ? "Show only the top three"
                                                : "Show everything that used 5% or more this week (\(split.more.count) more)",
-                                   open: more, tint: Ink.accent) { withAnimation(.easeOut(duration: 0.15)) { more.toggle() } }
+                                   open: more) { withAnimation(.easeOut(duration: 0.15)) { more.toggle() } }
                     }
                 }
                 .padding(12)

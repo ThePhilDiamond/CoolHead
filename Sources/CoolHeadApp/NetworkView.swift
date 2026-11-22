@@ -171,7 +171,7 @@ struct NetworkView: View {
 
     // MARK: pieces
 
-    // poor is red, as at the menu bar's worst level, and apart from the orange dashes of a test running
+    // poor is red, as at the menu bar's worst level
     static func color(_ level: Int) -> Color { [Color.green, .yellow, .red][min(max(level, 0), 2)] }
     /// A result's mark, in the top line and on the Network tool when results wait: good, fair, or poor.
     static func mark(_ level: Int) -> String { ["checkmark.circle.fill", "minus.circle.fill", "exclamationmark.triangle.fill"][min(max(level, 0), 2)] }

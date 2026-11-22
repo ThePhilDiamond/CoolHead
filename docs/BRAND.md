@@ -4,7 +4,7 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 
 ## Color
 
-**Cool Head blue** is the color of what Cool Head does and offers: the recommended option, switches that are on, the selected tool, links, and focus rings. It's Cool Head's own, not the Mac's accent color, which differs on each Mac and which Chrome hides from extensions. A blue also keeps "do this" apart from the yellow, orange, and red that say "watch out".
+**Cool Head blue** is the color of what Cool Head does and offers: the recommended option, switches that are on, the selected tool, links (including a card's Explore fixes, even on a warning), work under way such as the network test's dashes, and focus rings. It's Cool Head's own, not the Mac's accent color, which differs on each Mac and which Chrome hides from extensions. A blue also keeps "do this" apart from the yellow, orange, and red that say "watch out".
 
 | Use | Light | Dark |
 |---|---|---|
@@ -24,7 +24,7 @@ Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under th
 | All good | macOS green | the top row's wash, gauges, the menu bar badge |
 | Worth watching | yellow `#FFBD00` | the same |
 | Problem | macOS red | the same; "ends without saving" on options |
-| Caution | macOS orange | warnings on cards, the network test's dashes |
+| Caution | macOS orange | warnings on cards |
 
 Status colors always come with words or a shape (the Melting Snowflake icon works without color), never color alone. As text on the light panel they fall short of 4.5:1, so they're used for fills, washes, and marks, with the words in the text color.
 

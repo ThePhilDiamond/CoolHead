@@ -309,7 +309,7 @@ struct CleanerView: View {
     /// A list with its items under 50 MB folded into one line that opens them ("17 smaller items under 50 MB each, 87 MB
     /// in total"), so the big ones, which free the most, stand out.
     /// The folded small items are one line laid out like the list's others (`summary`: its name, their total, how many
-    /// are ticked, and whether it's open), so it reads as part of the list, with "Show each one" in orange where the
+    /// are ticked, and whether it's open), so it reads as part of the list, with "Show each one" in blue where the
     /// others have their detail. Opened, the items follow it.
     func folding<Item: Identifiable, Row: View, Summary: View>(_ key: String, _ items: [Item], bytes: KeyPath<Item, UInt64?>,
                                                ticked: ((Item) -> Bool)? = nil, @ViewBuilder row: @escaping (Item) -> Row,
@@ -326,7 +326,7 @@ struct CleanerView: View {
         }
     }
 
-    /// The orange words that open the folded small items, in place of a line's detail.
+    /// The blue words that open the folded small items, in place of a line's detail.
     func eachOne(_ open: Binding<Bool>) -> some View {
         disclosure(open.wrappedValue ? "Hide them" : "Show each one", open: open)
     }

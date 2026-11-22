@@ -255,7 +255,7 @@ struct ToolButton: View {
     let tip: String
     let labels: Bool
     let on: Bool
-    /// Something of the tool's is under way: dashes fly around the icon's equator, orange while the tool is closed and gray
+    /// Something of the tool's is under way: dashes fly around the icon's equator, blue while the tool is closed and gray
     /// while it's open, when the icon itself takes the accent color.
     var ring = false
     /// A small mark at the icon's corner, results ready to look at: their symbol, in their color.
@@ -299,8 +299,9 @@ struct ToolButton: View {
 }
 
 /// Half of a flat ring around an icon's equator, its dashes moving along it like data going around the world: the near
-/// half passes in front, the far half behind and fainter. Orange, so the data stands apart from the icon, moving left to
-/// right across the front. With Reduce motion on, the dashes stay still.
+/// half passes in front, the far half behind and fainter. Cool Head blue, so the data stands apart from the gray icon,
+/// moving left to right across the front; blue rather than orange, because a test running is Cool Head at work, not a
+/// warning. With Reduce motion on, the dashes stay still.
 struct Orbit: View {
     let near: Bool
     let still: Bool
@@ -324,7 +325,7 @@ struct Orbit: View {
                     if on { half.stroke(Ink.accent.opacity(0.16), style: gap) }
                     else if hovering { half.stroke(Color.primary.opacity(0.07), style: gap) }
                 }
-                half.stroke(on ? Ink.muted : Color.orange, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
+                half.stroke(on ? Ink.muted : Ink.accent, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase))
             }
             .opacity(near ? 1 : 0.4)
         }
