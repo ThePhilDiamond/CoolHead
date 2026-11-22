@@ -255,8 +255,8 @@ struct ToolButton: View {
     let tip: String
     let labels: Bool
     let on: Bool
-    /// Something of the tool's is under way: dashes fly around the icon's equator, a rainbow while the tool is closed and gray
-    /// while it's open, when the icon itself takes the accent color.
+    /// Something of the tool's is under way: rainbow dashes fly around the icon's equator, whether the tool is open or
+    /// closed.
     var ring = false
     /// A small mark at the icon's corner, results ready to look at: their symbol, in their color.
     var badge: (symbol: String, color: Color)? = nil
@@ -287,11 +287,12 @@ struct ToolButton: View {
             // rather than shrinking to make the room
             .padding(.horizontal, labels ? 5 : 2)
             .padding(.vertical, labels ? 5 : 6)
-            .background(RoundedRectangle(cornerRadius: 7).fill(on ? Ink.accent.opacity(0.16) : hovering ? Color.primary.opacity(0.07) : .clear))
+            // the open tool in white on the deep blue, 7.4:1 (see Ink.fill), where blue on a pale blue measured 3:1 to 4.4:1
+            .background(RoundedRectangle(cornerRadius: 7).fill(on ? Ink.fill : hovering ? Color.primary.opacity(0.07) : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(on ? Ink.accent : hovering ? Ink.text : Ink.muted)
+        .foregroundStyle(on ? Ink.onFill : hovering ? Ink.text : Ink.muted)
         .onHover { hovering = $0 }
         .help(tip)
         .accessibilityLabel(tip)
@@ -305,7 +306,7 @@ struct ToolButton: View {
 struct Orbit: View {
     let near: Bool
     let still: Bool
-    /// The tool is open: the globe takes the accent color, so the dashes take the gray the icon has when closed.
+    /// The tool is open: the gaps the dashes cut take the open button's highlight.
     var on = false
     var hovering = false
     @Environment(\.barWash) private var wash
@@ -327,18 +328,14 @@ struct Orbit: View {
                     let gap = StrokeStyle(lineWidth: 3.9, lineCap: .round, dash: [2.5, 3], dashPhase: phase)
                     half.stroke(Color(nsColor: .windowBackgroundColor), style: gap)
                     half.stroke(wash, style: gap)
-                    if on { half.stroke(Ink.accent.opacity(0.16), style: gap) }
+                    if on { half.stroke(Ink.fill, style: gap) }
                     else if hovering { half.stroke(Color.primary.opacity(0.07), style: gap) }
                 }
                 let dashes = StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [2.5, 3], dashPhase: phase)
-                if on {
-                    half.stroke(Ink.muted, style: dashes)
-                } else {
-                    // a neon rainbow fixed across the ring, so each dash changes color as it travels through it, with a
-                    // soft glow of the same colors over it
-                    half.stroke(Orbit.rainbow, style: dashes)
-                        .overlay { half.stroke(Orbit.rainbow, style: dashes).blur(radius: 1.6).opacity(0.9) }
-                }
+                // a neon rainbow fixed across the ring, so each dash changes color as it travels through it, with a soft
+                // glow of the same colors over it; the same whether the tool is open or closed, so a test always looks the same
+                half.stroke(Orbit.rainbow, style: dashes)
+                    .overlay { half.stroke(Orbit.rainbow, style: dashes).blur(radius: 1.6).opacity(0.9) }
             }
             .opacity(near ? 1 : 0.4)
         }
