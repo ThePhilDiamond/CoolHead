@@ -6,6 +6,18 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.17.0] - 2026-11-21
+
+### Added
+
+- Cool Head links with Cool Head for Chrome when both are installed: Settings and the welcome card offer Set up, which lets Chrome start Cool Head's helper and opens how to add the extension. Linked, Chrome's memory card can sleep tabs you aren't looking at, close duplicate tabs, hide unused tab groups, and open the extension's list of extensions, each in one click, and the extension's Auto level follows Cool Head's reading of memory. Each works alone too.
+- Cool Head for Chrome, a companion extension in `Extension/chrome/`, loaded by hand for now: it puts tabs you aren't using to sleep so Chrome holds less memory; lists the tabs held in memory and why (a call, sound, unsent typing, pinned, or kept by you), with Keep, Sleep, or Close for each; starts a session that keeps only the tabs a task needs; closes duplicate tabs; and can rest extensions you choose. It works on its own, and with Cool Head it sleeps tabs only when memory is short.
+- Cool Head for Chrome's link: a small helper inside the app, `coolhead-chrome-host`, that Chrome can start to pass messages between the Cool Head for Chrome extension and Cool Head on this Mac, adding nothing and using no network. Nothing sets it up in Chrome yet.
+
+### Changed
+
+- A new app icon: the menu bar's melting snowflake in white on Cool Head blue, in place of the smiling face. The Status badge menu bar icon now shows one melting snowflake, the same at every level, with the badge (green circle, yellow triangle, or red octagon) as the only change.
+
 ## [0.16.0] - 2026-11-21
 
 ### Added
@@ -410,7 +422,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.14.0...v0.14.1

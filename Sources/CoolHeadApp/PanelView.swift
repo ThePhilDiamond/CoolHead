@@ -828,6 +828,11 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.17.0": [
+            "A new icon: Cool Head's own melting snowflake. The Status badge menu bar icon shows it too, with only the badge changing.",
+            "Cool Head for Chrome, a free companion extension, puts Chrome tabs you aren't using to sleep. Set it up from Settings.",
+            "With it, Chrome's memory card works in one click, and the extension follows Cool Head's reading of your Mac's memory.",
+        ],
         "0.16.0": [
             "Cool Head has a color of its own now, Cool Head blue, the same on every Mac and easier to read.",
             "Chrome's memory card says how much is in tabs you aren't looking at and in its extensions, and when a restart would help.",
