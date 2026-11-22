@@ -4,7 +4,7 @@ Everything the Chrome Web Store dashboard asks for, ready to paste, in the dashb
 
 ## Package
 
-Run `scripts/package-extension.sh` and upload the zip it names (`build/cool-head-for-chrome-1.0.0.zip`). It leaves out the manifest's `key`, which the store refuses, and the tests and developer tools.
+Run `scripts/package-extension.sh`. It builds `build/cool-head-for-chrome-1.0.0.zip` and, signed with the key in `.secrets/chrome-extension-key.pem`, `build/cool-head-for-chrome-1.0.0.crx`. Both leave out the manifest's `key`, which the store refuses, and the tests and developer tools. Verified CRX uploads is on for this item, so upload the `.crx`; the store rejects anything not signed with that key. Keep a backup of the key outside this Mac: without it, updates wait until Chrome Web Store support replaces it, which can take a week.
 
 ## Store listing tab
 
