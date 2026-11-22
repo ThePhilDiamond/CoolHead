@@ -25,5 +25,7 @@ shot "session-ending-light" ending light
 shot "session-running-dark" session dark
 shot "alone-dark" alone dark
 shot "settings-light" settings light
-shot "safe-list-light" safe light
+shot "protected-extensions-light" protected-ext light
+shot "protected-extensions-dark" protected-ext dark
+shot "settings-dark" settings dark
 ls "$OUT"

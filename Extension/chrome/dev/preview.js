@@ -71,14 +71,15 @@ if (screen === 'alone') {
   s.link = { status: 'notInstalled', app: '', state: null, stateAt: null, attemptAt: null };
   s.level = 'balanced';
 }
-if (screen === 'held' || screen === 'confirm') ui.screen = 'protected';
+const protectedScreen = ['held', 'confirm', 'protected-ext'].includes(screen);
+if (protectedScreen) { ui.screen = 'protected'; s.restEnabled = true; }
 if (screen === 'levels') ui.levelOpen = true;
 if (screen === 'confirm') ui.confirm = { tabId: form.id, action: 'close' };
 
 const view = buildView({
   tabs: sessionTabs, s, now: NOW, focusedWindowId: 1, isMac: q.get('os') !== 'other',
   memInfo: { capacity: 16 * 1024 ** 3, availableCapacity: 2.5 * 1024 ** 3 }, version: '1.0.0',
-  sitesGranted: true, managementGranted: false,
+  sitesGranted: true, managementGranted: protectedScreen,
 });
 
 if (screen === 'start') {
@@ -87,8 +88,7 @@ if (screen === 'start') {
   ui.ticked = new Set(ui.start.suggested);
 }
 if (screen === 'settings') ui.screen = 'settings';
-if (screen === 'safe') {
-  ui.screen = 'safe';
+if (protectedScreen) {
   const ext = (name, permissions = [], over = {}) => ({ id: name, name, type: 'extension', enabled: true, mayDisable: true, installType: 'normal', permissions, ...over });
   ui.safe = columns([
     ext('Vaultly Password Manager'), ext('Quiet Ad Blocker', ['declarativeNetRequest']), ext('Company sign-in', [], { installType: 'admin', mayDisable: false }),
@@ -102,4 +102,8 @@ const root = document.getElementById('app');
 render(root, view, ui, on);
 
 if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
+if (screen === 'protected-ext') {
+  const main = root.querySelector('main');
+  main.scrollTop = root.querySelector('#p-ext-part').offsetTop - main.offsetTop - 6;
+}
 document.body.dataset.ready = 'yes';

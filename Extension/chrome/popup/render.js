@@ -46,11 +46,16 @@ function band(view, ui, on) {
     brand.append(h('span', { class: `link${b.link.state === 'linked' ? '' : ' off'}` },
       icon(b.link.state === 'linked' ? 'sync' : 'syncOff'), h('span', { text: b.link.text })));
   }
-  return h('header', { class: `band tone-${b.tone}` }, brand,
+  // With a tool open (Protected or Settings), a pill under the title goes back home, saying what waits there, and the
+  // whole band goes back on a click, as in Cool Head.
+  const toolOpen = ui.screen === 'protected' || ui.screen === 'settings';
+  const pill = toolOpen ? h('button', { class: `pill tone-${b.tone}`, 'data-key': 'home', onclick: on.home },
+    icon('chevLeft'), W.backTo({ suggestions: view.questions.length + (view.duplicates ? 1 : 0), session: Boolean(view.session) })) : null;
+  return h('header', { class: `band tone-${b.tone}${toolOpen ? ' goes-home' : ''}`, onclick: toolOpen ? on.home : null }, brand,
     // Not a live region itself: it is redrawn often, and a fresh live region is not reliably read. popup.js says a
     // change in memory through the one lasting live region instead.
     h('div', { class: 'status' }, flake(b.melting),
-      h('div', {}, h('h1', { text: b.title }), h('p', { text: b.line }))));
+      h('div', {}, h('h1', { text: b.title }), h('p', { text: b.line }), pill)));
 }
 
 // ---------- home ----------
@@ -138,15 +143,42 @@ function heldRow(row, ui, on) {
   return h('li', { class: 'tab' }, fav(row), main);
 }
 
-// Protected: the tabs that stay awake and why, opened from the bottom bar as Trusted is in Cool Head.
+// Protected, opened from the bottom bar as Trusted is in Cool Head: what stays on, in two parts. Tabs: the tabs that
+// stay awake and why. Extensions: the ones that stay on when extensions pause (once pausing is on and allowed).
 function protectedScreen(view, ui, on) {
-  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, backHead(W.PROTECTED, on));
-  if (view.held.tabs.length === 0) main.append(h('p', { class: 'lede', text: W.PROTECTED_EMPTY }));
+  const tabs = h('section', { class: 'part', 'aria-labelledby': 'p-tabs' },
+    h('h3', { class: 'parthead', id: 'p-tabs' }, W.PROTECTED_TABS, h('span', { class: 'count', text: view.held.countText })));
+  if (view.held.tabs.length === 0) tabs.append(h('p', { class: 'lede', text: W.PROTECTED_EMPTY }));
   else {
-    main.append(h('p', { class: 'lede', text: W.PROTECTED_LEDE }),
-      h('ul', { class: 'tabs', 'aria-label': W.PROTECTED }, view.held.tabs.map((r) => heldRow(r, ui, on))));
+    tabs.append(h('p', { class: 'lede', text: W.PROTECTED_LEDE }),
+      h('ul', { class: 'tabs', 'aria-labelledby': 'p-tabs' }, view.held.tabs.map((r) => heldRow(r, ui, on))));
   }
+  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, screenTitle(W.PROTECTED), tabs, extensionsPart(view, ui, on));
   return [band(view, ui, on), main, toolbar(view, ui, on)];
+}
+
+// The design drew two columns; a 360 px popup has room for one, so the two lists stack, each named.
+function extensionsPart(view, ui, on) {
+  const st = view.settings;
+  const cols = ui.safe;
+  const part = h('section', { class: 'part', id: 'p-ext-part', 'aria-labelledby': 'p-ext' },
+    h('h3', { class: 'parthead', id: 'p-ext' }, W.SAFE_TITLE));
+  if (!st.restEnabled) {
+    part.append(h('p', { class: 'lede', text: W.PAUSE_OFF }),
+      h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'to-settings', onclick: on.openSettings }, W.OPEN_SETTINGS)));
+  } else if (!st.managementGranted) {
+    part.append(h('p', { class: 'lede', text: W.REST_NEEDS }),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', 'data-key': 'allow', onclick: on.openSafe }, W.PAUSE_ALLOW)));
+  } else if (!cols || (cols.alwaysOn.length === 0 && cols.rest.length === 0)) {
+    part.append(h('p', { class: 'lede', text: W.SAFE_EMPTY }));
+  } else {
+    part.append(h('p', { class: 'lede', text: W.SAFE_LEDE }),
+      h('section', { 'aria-labelledby': 'on-h' }, h('p', { class: 'sub', id: 'on-h', text: `${W.SAFE_ON} · ${cols.alwaysOn.length}` }),
+        h('ul', { class: 'tabs' }, cols.alwaysOn.map((e) => extRow(e, false, on)))),
+      h('section', { 'aria-labelledby': 'rest-h2' }, h('p', { class: 'sub', id: 'rest-h2', text: `${W.SAFE_REST} · ${cols.rest.length}` }),
+        h('ul', { class: 'tabs' }, cols.rest.map((e) => extRow(e, true, on)))));
+  }
+  return part;
 }
 
 function duplicatesCard(view, on) {
@@ -158,7 +190,7 @@ function duplicatesCard(view, on) {
     h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'dups', onclick: on.closeDuplicates }, d.button)));
 }
 
-function levels(view, on) {
+function levels(view, on, opening = false) {
   const l = view.levels;
   const enabled = l.options.filter((o) => !o.disabled);
   const choose = (id) => { if (id !== l.chosen) on.level(id); };
@@ -188,7 +220,7 @@ function levels(view, on) {
       onclick: () => { if (!o.disabled) choose(o.id); }, onkeydown: keydown,
     }, on_ ? icon('check') : null, o.label);
   });
-  return h('div', { class: 'levels', id: 'levels' },
+  return h('div', { class: `levels${opening ? ' opening' : ''}`, id: 'levels' },
     h('p', { class: 'label', id: 'lvl', text: l.label }),
     h('div', { class: 'seg', role: 'radiogroup', 'aria-labelledby': 'lvl' }, buttons),
     h('p', { class: 'what', text: l.line }),
@@ -198,27 +230,29 @@ function levels(view, on) {
 // ---------- the bottom bar ----------
 
 // As in Cool Head's own bottom bar: each tool is an icon over its name, and the open one is white on Cool Head blue.
-// The level's tool is named by the level chosen, so it can be read without opening; it opens its choices above the bar.
+// The level's tool reads "Effort: Auto", so the level can be read without opening; its choices slide down below the bar.
 function toolbar(view, ui, on) {
   const l = view.levels;
   const chosen = l.options.find((o) => o.id === l.chosen)?.label || W.LEVEL_LABEL;
   const tool = (key, ico, label, open, props) => h('button', { class: `tool${open ? ' open' : ''}`, 'data-key': key, ...props },
     h('span', { class: 'toolicon' }, icon(ico)), h('span', { class: 'toolname', text: label }));
+  const effort = `${W.LEVEL_LABEL}: ${chosen}`;
   const count = view.held.count ? h('span', { class: 'badge', 'aria-hidden': 'true', text: String(view.held.count) }) : null;
   const shield = tool('protected', 'shield', W.PROTECTED, ui.screen === 'protected', {
     'aria-current': ui.screen === 'protected' ? 'page' : null, 'aria-label': `${W.PROTECTED}, ${view.held.countText}`, onclick: on.openProtected,
   });
   if (count) shield.querySelector('.toolicon').append(count);
   return h('footer', { class: `bottom tone-${l.tone}` },
-    ui.levelOpen ? levels(view, on) : null,
     h('nav', { class: 'tools', 'aria-label': W.NAME },
-      tool('level', 'gauge', chosen, ui.levelOpen, {
-        'aria-expanded': ui.levelOpen ? 'true' : 'false', 'aria-controls': 'levels', 'aria-label': `${W.LEVEL_LABEL}: ${chosen}`, onclick: on.toggleLevel,
+      tool('level', 'gauge', effort, ui.levelOpen, {
+        'aria-expanded': ui.levelOpen ? 'true' : 'false', 'aria-controls': 'levels', onclick: on.toggleLevel,
       }),
       shield,
       tool('settings', 'gear', W.SETTINGS, ui.screen === 'settings', {
         'aria-current': ui.screen === 'settings' ? 'page' : null, onclick: on.openSettings,
-      })));
+      })),
+    // drawn only when open; it slides only as it opens (ui.levelOpening), not on every redraw
+    ui.levelOpen ? levels(view, on, ui.levelOpening) : null);
 }
 
 function home(view, ui, on) {
@@ -280,10 +314,9 @@ function startScreen(view, ui, on) {
 
 // ---------- settings ----------
 
-function backHead(title, on) {
-  return h('div', { class: 'screenhead' },
-    h('button', { class: 'iconbtn', 'aria-label': W.BACK, title: W.BACK, 'data-key': 'back', onclick: on.back }, icon('chevLeft')),
-    h('h2', { text: title }));
+// A tool's title. The way back is the pill in the band, or the tool again, as in Cool Head.
+function screenTitle(title) {
+  return h('div', { class: 'screenhead' }, h('h2', { text: title }));
 }
 
 function radio(name, value, checked, title, why, onchange) {
@@ -295,7 +328,7 @@ function radio(name, value, checked, title, why, onchange) {
 function settingsScreen(view, ui, on) {
   const st = view.settings;
   const main = h('main', { class: 'middle', 'aria-label': W.SETTINGS },
-    backHead(W.SETTINGS, on),
+    screenTitle(W.SETTINGS),
     h('section', { class: 'card', 'aria-labelledby': 'leave-h' },
       h('h2', { id: 'leave-h', text: W.LEAVE_TITLE }),
       h('div', { role: 'radiogroup', 'aria-labelledby': 'leave-h', style: 'margin-top:6px' },
@@ -315,7 +348,7 @@ function settingsScreen(view, ui, on) {
         h('span', {}, h('b', { text: W.REST_TOGGLE }), h('span', { class: 'why', text: W.REST_WHY }))),
       st.managementGranted ? null : h('p', { class: 'note', text: W.REST_NEEDS }),
       st.restingText ? h('p', { class: 'note', text: st.restingText }) : null,
-      h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'safe', onclick: on.openSafe }, W.REST_SET_UP))),
+      h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'safe', onclick: on.openProtected }, W.REST_SET_UP))),
     h('section', { class: 'card', 'aria-labelledby': 'about-h' },
       h('h2', { id: 'about-h', text: W.ABOUT_TITLE }),
       h('p', { text: st.about })));
@@ -332,27 +365,10 @@ function extRow(e, toOn, on) {
     }, toOn ? W.MOVE_TO_ON : W.MOVE_TO_REST));
 }
 
-// The design draws two columns; a 360 px popup has room for one, so the two lists stack, each named.
-function safeScreen(view, ui, on) {
-  const cols = ui.safe;
-  const main = h('main', { class: 'middle', 'aria-label': W.SAFE_TITLE }, backHead(W.SAFE_TITLE, on), h('p', { class: 'lede', text: W.SAFE_LEDE }));
-  if (!cols || (cols.alwaysOn.length === 0 && cols.rest.length === 0)) {
-    main.append(h('p', { class: 'lede strong', text: W.SAFE_EMPTY }));
-  } else {
-    main.append(
-      h('section', { 'aria-labelledby': 'on-h' }, h('p', { class: 'sub', id: 'on-h', text: `${W.SAFE_ON} · ${cols.alwaysOn.length}` }),
-        h('ul', { class: 'tabs' }, cols.alwaysOn.map((e) => extRow(e, false, on)))),
-      h('section', { 'aria-labelledby': 'rest-h2' }, h('p', { class: 'sub', id: 'rest-h2', text: `${W.SAFE_REST} · ${cols.rest.length}` }),
-        h('ul', { class: 'tabs' }, cols.rest.map((e) => extRow(e, true, on)))));
-  }
-  const footer = h('footer', { class: 'pinned' }, h('button', { class: 'btn primary wide', 'data-key': 'safe-done', onclick: on.back }, W.SAFE_DONE));
-  return [band(view, ui, on), main, footer];
-}
-
 // ---------- the whole popup ----------
 
 export function render(root, view, ui, on) {
-  const screens = { home, start: startScreen, settings: settingsScreen, safe: safeScreen, protected: protectedScreen };
+  const screens = { home, start: startScreen, settings: settingsScreen, protected: protectedScreen };
   const parts = (screens[ui.screen] || home)(view, ui, on);
   // Keep the person's place: the focused control and the scroll position survive a redraw.
   const focusKey = document.activeElement?.dataset?.key;

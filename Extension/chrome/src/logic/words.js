@@ -86,7 +86,7 @@ export const GET_COOL_HEAD_LABEL = 'Get Cool Head, opens its website in a new ta
 
 // ---- levels ----
 export const LEVEL_NAME = { auto: 'Auto', light: 'Light', balanced: 'Balanced', focus: 'Focus' };
-export const LEVEL_LABEL = 'How hard it works';
+export const LEVEL_LABEL = 'Effort';
 
 function leaving(delayMs) {
   return delayMs > 0
@@ -116,6 +116,15 @@ export const AUTO_NEEDS = 'Auto needs Cool Head, which knows when memory is shor
 
 // ---- held in memory ----
 export const PROTECTED = 'Protected';
+export const PROTECTED_TABS = 'Tabs';
+export const PAUSE_OFF = 'Pausing extensions is off, so they all stay on. Turn it on in Settings to choose which pause when memory is tight.';
+export const PAUSE_ALLOW = 'Allow';
+export const OPEN_SETTINGS = 'Open Settings';
+// The pill under the band's title that goes back home from a tool, saying what waits there, as Cool Head's does.
+export function backTo({ suggestions = 0, session = false } = {}) {
+  if (suggestions > 0) return plural(suggestions, 'suggestion');
+  return session ? 'Your session' : 'Start a session';
+}
 export const PROTECTED_LEDE = "These tabs stay awake, so they hold memory. Each says why; choose what happens to it.";
 export const PROTECTED_EMPTY = 'No tabs are protected right now. A tab playing sound, on a call, with unsent typing, pinned, or kept by you would show here.';
 export const REASON_TEXT = {
@@ -202,7 +211,7 @@ export function startNote(sleepCount, stayLoaded, resting) {
       parts.push(`${head}: ${list([...counts].map(([reason, k]) => `${k} ${STAY_WHY[reason][k === 1 ? 0 : 1]}`), 9)}.`);
     }
   }
-  if (resting) parts.push('Extensions not on your safe list rest until it ends.');
+  if (resting) parts.push("Extensions that aren't protected pause until it ends.");
   return parts.join(' ');
 }
 // What keeps an unticked tab loaded, said of one tab and of several.
@@ -251,8 +260,8 @@ export const DONE = {
   foldedGroups: (g, t) => (g === 0
     ? "No tab groups to fold: you've used each one today."
     : `Folded ${plural(g, 'tab group')} you haven't used today and put ${plural(t, 'tab')} in them to sleep.`),
-  rested: (n) => (n === 0 ? 'No extensions to turn off: the rest are on your safe list.' : `Turned off ${plural(n, 'extension')} until memory clears.`),
-  restNeedsYes: 'Cool Head for Chrome needs your yes before it can turn extensions off. Open it from the toolbar to allow that.',
+  rested: (n) => (n === 0 ? 'No extensions to pause: the rest are protected.' : `Paused ${plural(n, 'extension')} until memory clears.`),
+  restNeedsYes: 'Cool Head for Chrome needs your yes before it can pause extensions. Open it from the toolbar to allow that.',
   started: (n, s) => `Session started with ${plural(n, 'tab')}. ${s === 0 ? 'No other tabs needed to sleep.' : `${plural(s, 'other tab')} ${s === 1 ? 'is' : 'are'} asleep.`}`,
   ended: 'Session ended. Nothing reloaded.',
   saved: (n, name, already) => `Session ended. Saved ${plural(n, 'tab')} as ${quoted(name)}.${already > 0 ? ` ${plural(already, 'tab was', 'tabs were')} already in a group, so ${already === 1 ? 'it stays' : 'they stay'} there.` : ''}`,
@@ -277,20 +286,20 @@ export const SITES_HOW = 'Turning it on lets Cool Head for Chrome check, on each
 export const TURN_ON = 'Turn on';
 export const TURN_OFF = 'Turn off';
 
-export const REST_TITLE = 'Rest extensions';
-export const REST_TOGGLE = 'Rest extensions during a session and when memory is very tight';
-export const REST_WHY = 'Extensions not on your safe list turn off, and back on when the session ends or memory clears. Turning one off closes its open pages and stops what it is doing until then.';
-export const REST_NEEDS = 'Chrome asks you to allow "Manage your apps, extensions, and themes" the first time, since that is what turning extensions off needs.';
-export const REST_SET_UP = 'Choose the safe list';
-export const SAFE_TITLE = 'Your extensions safe list';
-export const SAFE_LEDE = "Resting turns an extension off until the session ends or memory clears, which closes its pages and stops what it's doing. So password managers, blockers, VPNs, and security tools start as Always on: resting them would lock your passwords, let ads and trackers through, or drop your VPN.";
+export const REST_TITLE = 'Pause extensions';
+export const REST_TOGGLE = 'Pause extensions during a session and when memory is very tight';
+export const REST_WHY = "Extensions that aren't protected turn off, and back on when the session ends or memory clears. Pausing one closes its open pages and stops what it is doing until then.";
+export const REST_NEEDS = 'Chrome asks you to allow "Manage your apps, extensions, and themes" the first time, since that is what pausing extensions needs.';
+export const REST_SET_UP = 'Choose which stay on';
+export const SAFE_TITLE = 'Extensions';
+export const SAFE_LEDE = "Pausing turns an extension off until the session ends or memory clears, which closes its pages and stops what it's doing. So password managers, blockers, VPNs, and security tools start as Always on: pausing them would lock your passwords, let ads and trackers through, or drop your VPN.";
 export const SAFE_ON = 'Always on';
-export const SAFE_REST = 'Rest when memory is tight';
-export const MOVE_TO_REST = 'Rest it';
+export const SAFE_REST = 'Pause when needed';
+export const MOVE_TO_REST = 'Let it pause';
 export const MOVE_TO_ON = 'Keep on';
 export const SAFE_ADMIN = 'Installed by your organization, so Chrome keeps it on.';
 export const SAFE_DONE = 'Done';
-export const SAFE_EMPTY = 'You have no other extensions, so there is nothing to rest.';
+export const SAFE_EMPTY = 'You have no other extensions, so there is nothing to pause.';
 export const EXT_WHY = {
   admin: 'Installed by your organization',
   password: 'Password manager',
@@ -299,7 +308,7 @@ export const EXT_WHY = {
   security: 'Security tool',
   other: '',
 };
-export function restingNow(n) { return n === 0 ? '' : `${plural(n, 'extension is', 'extensions are')} resting now.`; }
+export function restingNow(n) { return n === 0 ? '' : `${plural(n, 'extension is', 'extensions are')} paused now.`; }
 
 export const ABOUT_TITLE = 'About';
 export function about(version) {

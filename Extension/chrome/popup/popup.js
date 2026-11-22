@@ -10,7 +10,8 @@ const ALL_SITES = { origins: ['<all_urls>'] };
 
 const ui = {
   screen: 'home',
-  levelOpen: false, // the level's choices, opened from its tool in the bottom bar
+  levelOpen: false, // the effort choices, opened from their tool in the bottom bar
+  levelOpening: false,
   confirm: null,
   ending: false,
   groupName: null,
@@ -46,13 +47,11 @@ async function refresh() {
   view = await ask({ type: 'view' });
   // A change in memory while the popup is open is said aloud, once, through the lasting live region.
   if (before && before.band.title !== view.band.title) announce(`${view.band.title}. ${view.band.line}`);
-  // Cool Head's "Turn off extensions" opens the safe list; Chrome only asks for a permission after a click, so
-  // without it yet, Settings opens with its Choose the safe list button.
+  // Cool Head's "Turn off extensions" opens Protected, at its extensions; Chrome only asks for a permission after a
+  // click, so without it yet, the part shows its Allow button.
   if (view.openScreen === 'safe') {
-    if (view.settings.managementGranted) {
-      ui.safe = await ask({ type: 'safe' });
-      ui.screen = 'safe';
-    } else ui.screen = 'settings';
+    await loadSafe();
+    ui.screen = 'protected';
   }
   draw();
 }
@@ -65,24 +64,42 @@ async function act(m) {
   return r;
 }
 
+// Protected's extensions, read when pausing is on and Chrome allows reading them.
+async function loadSafe() {
+  ui.safe = view.settings.restEnabled && view.settings.managementGranted ? await ask({ type: 'safe' }) : null;
+}
+
 async function openSafe() {
   // Chrome's "Manage your apps, extensions, and themes" permission is asked for only here, when first used.
   const granted = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
   if (!granted) { announce(W.REST_NEEDS); return; }
-  ui.safe = await ask({ type: 'safe' });
-  ui.screen = 'safe';
+  view = await ask({ type: 'view' });
+  await loadSafe();
+  ui.screen = 'protected';
+}
+
+// A tool in the bottom bar: pressing the open one again goes back home, as in Cool Head. Focus stays on the tool.
+async function openTool(screen) {
+  if (ui.screen === screen) { on.home(); return; }
+  if (screen === 'protected') await loadSafe();
+  ui.screen = screen;
+  ui.confirm = null;
+  draw();
 }
 
 const on = {
-  // The bottom bar's tools: pressing the open one again goes back home, as in Cool Head.
-  openSettings() { if (ui.screen === 'settings') { on.back(); return; } ui.screen = 'settings'; ui.confirm = null; draw(); root.querySelector('[data-key="back"]')?.focus(); },
-  openProtected() { if (ui.screen === 'protected') { on.back(); return; } ui.screen = 'protected'; ui.confirm = null; draw(); root.querySelector('[data-key="back"]')?.focus(); },
-  toggleLevel() { ui.levelOpen = !ui.levelOpen; draw(); },
-  back() {
+  openSettings() { openTool('settings').catch(console.error); },
+  openProtected() { openTool('protected').catch(console.error); },
+  // The effort choices slide down as they open; later redraws draw them still.
+  toggleLevel() { ui.levelOpen = !ui.levelOpen; ui.levelOpening = ui.levelOpen; draw(); ui.levelOpening = false; },
+  // Back home from a tool, by the band's pill, the band, or the open tool again; focus goes to the tool that was open.
+  home() {
     const from = ui.screen;
-    ui.screen = from === 'safe' ? 'settings' : 'home';
+    if (from === 'home') return;
+    ui.screen = 'home';
+    ui.confirm = null;
     draw();
-    root.querySelector(`[data-key="${from === 'safe' ? 'safe' : from}"]`)?.focus();
+    root.querySelector(`[data-key="${from}"]`)?.focus({ preventScroll: true });
   },
   async level(id) { const r = await act({ action: 'level', level: id }); announce(`${r.said} ${r.view.levels.line}`); },
   keep(tabId, keep) { ui.confirm = null; act({ action: 'keep', tabId, on: keep }); },
@@ -146,7 +163,7 @@ const on = {
       if (!granted) { await act({ action: 'restEnabled', on: false }); announce(W.REST_NEEDS); }
     }
   },
-  async openSafe() { await openSafe(); draw(); root.querySelector('[data-key="back"]')?.focus(); },
+  async openSafe() { await openSafe(); draw(); },
   async safeMove(id, toAlwaysOn) {
     await act({ action: 'safeMove', id, toAlwaysOn });
     ui.safe = await ask({ type: 'safe' });
