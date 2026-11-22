@@ -267,6 +267,7 @@ function toolbar(view, ui, on) {
 
 function home(view, ui, on) {
   const main = h('main', { class: 'middle', 'aria-label': W.NAME },
+    ui.laterNote ? h('p', { class: 'note laternote', role: 'status', text: W.MIGRATE_LATER_NOTE }) : null,
     notice(view, on),
     questions(view, on),
     view.session ? sessionCard(view, ui, on) : startBlock(view, on),
@@ -343,6 +344,10 @@ function settingsScreen(view, ui, on) {
   const st = view.settings;
   const main = h('main', { class: 'middle', 'aria-label': W.SETTINGS },
     screenTitle(W.SETTINGS, 'gear', on),
+    view.migrate?.count ? h('section', { class: 'card', 'aria-labelledby': 'mig-h' },
+      h('h2', { id: 'mig-h', text: W.MIGRATE_SETTINGS }),
+      h('p', { text: W.migrateHead(view.migrate.count, view.migrate.from) }),
+      h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'open-migrate', onclick: on.openMigrate }, W.MIGRATE_TITLE))) : null,
     h('section', { class: 'card', 'aria-labelledby': 'leave-h' },
       h('h2', { id: 'leave-h', text: W.LEAVE_TITLE }),
       h('div', { role: 'radiogroup', 'aria-labelledby': 'leave-h', style: 'margin-top:6px' },
@@ -361,7 +366,8 @@ function settingsScreen(view, ui, on) {
       h('p', { class: 'why', text: W.SHORTCUT_WHAT }),
       h('div', { class: 'row keyrow' },
         st.shortcut ? h('kbd', { text: st.shortcut }) : h('span', { class: 'muted', text: W.SHORTCUT_NONE }),
-        h('button', { class: 'btn', 'data-key': 'shortcut', onclick: on.shortcut }, st.shortcut ? W.SHORTCUT_CHANGE : W.SHORTCUT_SET))),
+        h('button', { class: 'btn', 'data-key': 'shortcut', onclick: on.shortcut }, st.shortcut ? W.SHORTCUT_CHANGE : W.SHORTCUT_SET)),
+      h('p', { class: 'note', text: W.SHORTCUT_PAGE })),
     h('section', { class: 'card', 'aria-labelledby': 'about-h' },
       h('h2', { id: 'about-h', text: W.ABOUT_TITLE }),
       h('p', { text: st.about })));
@@ -379,10 +385,46 @@ function extRow(e, toOn, on) {
     }, toOn ? W.MOVE_TO_ON : W.MOVE_TO_REST));
 }
 
+// ---------- moving a suspender's tabs ----------
+
+// Shown once when the popup first finds tabs a suspender holds, and from Settings after. Three states: the offer,
+// the move under way, and its result, with the suspender's removal offered once its tabs are safe.
+function migrateScreen(view, ui, on) {
+  const m = view.migrate || { count: 0 };
+  const body = [];
+  if (m.running) {
+    body.push(h('h2', { text: W.migrateProgress(m.done, m.total) }),
+      h('progress', { max: String(m.total || 1), value: String(m.done), 'aria-label': W.migrateProgress(m.done, m.total) }),
+      h('p', { class: 'note', text: W.MIGRATE_KEEP_GOING }));
+  } else if (m.result) {
+    body.push(h('h2', { text: W.migrateDone(m.result.moved) }));
+    if (m.result.failed) body.push(h('p', { text: W.migrateFailed(m.result.failed) }));
+    if (m.result.removeId && !m.count) {
+      body.push(h('p', { text: W.migrateRemove(m.result.removeName) }),
+        h('div', { class: 'row' },
+          h('button', { class: 'btn primary', 'data-key': 'mig-remove', onclick: () => on.migrateRemove(m.result.removeId) }, W.MIGRATE_REMOVE),
+          h('button', { class: 'btn', 'data-key': 'mig-close', onclick: on.migrateClose }, W.MIGRATE_NOT_NOW)));
+    } else {
+      body.push(h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'mig-close', onclick: on.migrateClose }, W.CLOSE_TOOL)));
+    }
+  } else {
+    body.push(h('h2', { text: W.migrateHead(m.count, m.from) }),
+      h('p', { text: W.MIGRATE_HOW }),
+      h('p', { class: 'warnline', text: W.MIGRATE_WARN }),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', 'data-key': 'mig-go', onclick: on.migrate }, W.migrateGo(m.count)),
+        h('button', { class: 'btn', 'data-key': 'mig-later', onclick: on.migrateLater }, W.MIGRATE_LATER)));
+  }
+  const main = h('main', { class: 'middle', 'aria-label': W.MIGRATE_TITLE },
+    screenTitle(W.MIGRATE_TITLE, 'tray', { home: m.running || m.result ? on.migrateClose : on.migrateLater }),
+    h('section', { class: 'card migrate' }, ...body));
+  return [band(view, ui, on), main, toolbar(view, ui, on)];
+}
+
 // ---------- the whole popup ----------
 
 export function render(root, view, ui, on) {
-  const screens = { home, start: startScreen, settings: settingsScreen, protected: protectedScreen, effort: effortScreen };
+  const screens = { home, start: startScreen, settings: settingsScreen, protected: protectedScreen, effort: effortScreen, migrate: migrateScreen };
   const parts = (screens[ui.screen] || home)(view, ui, on);
   // Keep the person's place: the focused control and the scroll position survive a redraw.
   const focusKey = document.activeElement?.dataset?.key;

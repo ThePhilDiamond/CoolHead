@@ -248,3 +248,27 @@ test('the shortcut shows the tab used before the one put to sleep, or else its n
   assert.equal(tabToShowInstead(tabs, 3, {}), 2);
   assert.equal(tabToShowInstead(tabs, 9, {}), null);
 });
+
+test('a suspended tab gives up its real address, whichever way the suspender writes it', async () => {
+  const { suspendedAt, migrationPlan, suspenders } = await import('../src/logic/migrate.js');
+  const id = 'noogafoofpebimajpfpamcfhoaifemoa';
+  // The Great Suspender's family: the address last, unencoded, with its own query and hash
+  assert.deepEqual(suspendedAt(`chrome-extension://${id}/suspended.html#ttl=Inbox&pos=0&uri=https://mail.example.com/a?b=1&c=2#inbox`, 'self'),
+    { extId: id, url: 'https://mail.example.com/a?b=1&c=2#inbox' });
+  // an encoded address in the query, followed by other values
+  assert.equal(suspendedAt(`chrome-extension://${id}/park.html?title=Docs&url=https%3A%2F%2Fdocs.example.com%2Fd%3Fx%3D1&tabId=4`, 'self').url, 'https://docs.example.com/d?x=1');
+  // not suspended: this extension's own page, a web page, an extension page with no address
+  assert.equal(suspendedAt(`chrome-extension://${id}/options.html`, 'self'), null);
+  assert.equal(suspendedAt(`chrome-extension://${id}/suspended.html#uri=https://a.example`, id), null);
+  assert.equal(suspendedAt('https://example.com/?url=https://b.example', 'self'), null);
+  assert.equal(suspendedAt(`chrome-extension://${id}/x.html?url=javascript%3Aalert(1)`, 'self'), null);
+  const other = 'abcdefghijklmnopabcdefghijklmnop';
+  const plan = migrationPlan([
+    { id: 1, url: `chrome-extension://${id}/suspended.html#uri=https://a.example` },
+    { id: 2, url: 'https://b.example' },
+    { id: 3, url: `chrome-extension://${other}/p.html?url=https%3A%2F%2Fc.example`, active: true },
+    { id: 4, url: `chrome-extension://${id}/suspended.html#uri=https://d.example` },
+  ], 'self');
+  assert.deepEqual(plan.map((p) => p.tabId), [1, 3, 4]);
+  assert.deepEqual(suspenders(plan), [id, other]);
+});

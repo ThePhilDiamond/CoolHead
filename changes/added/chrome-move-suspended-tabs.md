@@ -1,0 +1,1 @@
+- Cool Head for Chrome can take over tabs a tab suspender holds: each opens once and goes straight to sleep, one at a time, so the suspender can then be removed without losing them. It's offered when first found, with Do it later, and stays in Settings.

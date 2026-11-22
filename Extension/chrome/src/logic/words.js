@@ -331,7 +331,24 @@ export const SHORTCUT_TITLE = 'Keyboard shortcut';
 export const SHORTCUT_WHAT = "Puts the tab you're on to sleep and shows the one you used before it.";
 export const SHORTCUT_NONE = 'Not set';
 export const SHORTCUT_SET = 'Choose a key';
-export const SHORTCUT_CHANGE = 'Change';
+export const SHORTCUT_CHANGE = 'Change or remove';
+export const SHORTCUT_PAGE = "Keys are set on Chrome's shortcuts page.";
+
+export const MIGRATE_TITLE = 'Move suspended tabs';
+export const MIGRATE_SETTINGS = 'Tabs from a tab suspender';
+export function migrateHead(n, name) { return `${plural(n, 'tab is', 'tabs are')} suspended by ${name || 'another extension'}`; }
+export const MIGRATE_HOW = 'Cool Head can take them over. Each opens once and goes straight to sleep, one at a time, so memory never jumps.';
+export const MIGRATE_WARN = 'Move them before you remove the suspender: removing it first closes these tabs.';
+export function migrateGo(n) { return `Move ${plural(n, 'tab')}`; }
+export const MIGRATE_LATER = 'Do it later';
+export const MIGRATE_LATER_NOTE = 'You can move your suspended tabs any time from Settings.';
+export function migrateProgress(done, total) { return `Moving ${done} of ${total}`; }
+export const MIGRATE_KEEP_GOING = 'You can close this; it keeps going.';
+export function migrateDone(n) { return `${plural(n, 'tab')} moved. Each is asleep and wakes when you click it.`; }
+export function migrateFailed(n) { return `${plural(n, "tab couldn't", "tabs couldn't")} be moved and ${n === 1 ? 'stays' : 'stay'} with the suspender.`; }
+export function migrateRemove(name) { return `Remove ${name || 'the suspender'} now, so it can't suspend them again.`; }
+export const MIGRATE_REMOVE = 'Remove it';
+export const MIGRATE_NOT_NOW = 'Not now';
 export function about(version) {
   return `Version ${version}. Free and open source under the AGPL. Nothing leaves your computer: no network use and no analytics.`;
 }

@@ -89,6 +89,12 @@ if (screen === 'start') {
   ui.ticked = new Set(ui.start.suggested);
 }
 if (screen === 'settings') ui.screen = 'settings';
+// Moving a suspender's tabs (made-up suspender and counts): ?screen=migrate, migrate-running, migrate-done, home-later
+view.migrate = { count: 37, from: 'Tab Napper', later: false, running: false, done: 0, total: 0, result: null };
+if (screen === 'migrate') ui.screen = 'migrate';
+if (screen === 'migrate-running') { ui.screen = 'migrate'; Object.assign(view.migrate, { running: true, done: 12, total: 37 }); }
+if (screen === 'migrate-done') { ui.screen = 'migrate'; Object.assign(view.migrate, { count: 0, result: { moved: 36, failed: 1, removeId: 'x', removeName: 'Tab Napper' } }); }
+if (screen === 'home-later') ui.laterNote = true;
 if (protectedScreen) {
   const ext = (name, permissions = [], over = {}) => ({ id: name, name, type: 'extension', enabled: true, mayDisable: true, installType: 'normal', permissions, ...over });
   ui.safe = columns([

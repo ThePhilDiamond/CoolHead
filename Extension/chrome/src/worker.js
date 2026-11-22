@@ -10,6 +10,7 @@ import { findDuplicates, duplicateCount } from './logic/duplicates.js';
 import { startPlan, join, leave, groupPlan } from './logic/session.js';
 import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
 import { restPlan, shouldWake, columns, move, withOpenTabs } from './logic/extensions.js';
+import { migrationPlan, suspenders } from './logic/migrate.js';
 import { heldCounts } from './logic/reasons.js';
 import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol.js';
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
@@ -499,6 +500,7 @@ async function viewFor() {
     chrome.commands.getAll().then((cs) => cs.find((c) => c.name === 'sleep-tab')?.shortcut || '').catch(() => ''),
   ]);
   const view = buildView({ tabs, s, now, focusedWindowId, isMac, memInfo, version: VERSION, sitesGranted, managementGranted, favicon, shortcut });
+  view.migrate = await migrateView(tabs, s, managementGranted);
   view.openScreen = s.popupScreen;
   if (s.popupScreen) await store.save({ popupScreen: null });
   return view;
@@ -581,6 +583,16 @@ async function act(m) {
     case 'safeMove':
       await store.change((s) => ({ safeList: move(s.safeList, m.id, m.toAlwaysOn) }));
       return '';
+    case 'migrate':
+      // Minutes for many tabs, so it runs on after this answer; the popup follows it through storage.
+      runMigration().catch(oops);
+      return '';
+    case 'migrateLater':
+      await store.change(() => ({ migrateLater: true }));
+      return '';
+    case 'migrateClose':
+      await store.change(() => ({ migrated: null }));
+      return '';
     case 'openCoolHead':
       await chrome.tabs.create({ url: W.COOL_HEAD_URL });
       return '';
@@ -658,6 +670,75 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
   })().then(reply, (e) => reply({ error: String(e?.message || e) }));
   return true; // replies later
 });
+
+// ---------- moving a suspender's tabs ----------
+
+async function extensionNames(ids) {
+  if (!ids.length || !(await hasManagement())) return {};
+  const all = await chrome.management.getAll().catch(() => []);
+  return Object.fromEntries(all.filter((e) => ids.includes(e.id)).map((e) => [e.id, e.name]));
+}
+
+async function migrateView(tabs, s, managementGranted) {
+  const plan = migrationPlan(tabs, chrome.runtime.id);
+  const from = suspenders(plan);
+  const doneFrom = s.migrated?.extIds || [];
+  const names = await extensionNames([...new Set([...from, ...doneFrom])]);
+  // A suspender still installed after the move, which could suspend the tabs again; known only with the permission.
+  const installed = managementGranted ? doneFrom.filter((id) => names[id]) : doneFrom;
+  return {
+    count: plan.length, from: from[0] ? names[from[0]] || null : null, later: Boolean(s.migrateLater),
+    running: Boolean(s.migrating?.running), done: s.migrating?.done || 0, total: s.migrating?.total || 0,
+    result: s.migrated ? { moved: s.migrated.moved, failed: s.migrated.failed, removeId: installed[0] || null, removeName: names[installed[0]] || null } : null,
+  };
+}
+
+// Resolves when the tab has finished loading, is closed, or after the time given.
+function loaded(tabId, ms) {
+  return new Promise((done) => {
+    const finish = () => { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(upd); chrome.tabs.onRemoved.removeListener(rem); done(); };
+    const upd = (id, change) => { if (id === tabId && change.status === 'complete') finish(); };
+    const rem = (id) => { if (id === tabId) finish(); };
+    const timer = setTimeout(finish, ms);
+    chrome.tabs.onUpdated.addListener(upd);
+    chrome.tabs.onRemoved.addListener(rem);
+  });
+}
+
+// One tab at a time: open its real address, wait for it to load (so it keeps its title and icon), then unload it.
+// The tab in front only opens. Picked up again by the alarm if Chrome stops the worker partway.
+let migrating = false;
+async function runMigration() {
+  if (migrating) return;
+  migrating = true;
+  try {
+    const first = migrationPlan(await chrome.tabs.query({}), chrome.runtime.id);
+    const extIds = suspenders(first);
+    const s0 = await store.load();
+    const resumed = s0.migrating?.running ? s0.migrating : null;
+    let { total, done, failed } = resumed || { total: first.length, done: 0, failed: 0 };
+    await store.save({ migrating: { running: true, total, done, failed }, migrated: null });
+    log('migrate', `Moving ${first.length} tabs from ${extIds.length} suspender(s)`);
+    const moved = [];
+    for (const p of first) {
+      const ok = await chrome.tabs.update(p.tabId, { url: p.url }).then(() => true, () => false);
+      if (ok && !p.active) {
+        await loaded(p.tabId, 15000);
+        const r = await sleepTab(p.tabId, { force: true });
+        if (r.id != null) moved.push(r.id);
+      }
+      if (ok) done++; else failed++;
+      await store.save({ migrating: { running: true, total, done, failed } });
+    }
+    if (moved.length) await store.change((s) => ({ asleep: [...new Set([...s.asleep, ...moved])] }));
+    const doneFrom = [...new Set([...(s0.migrated?.extIds || []), ...extIds])];
+    await store.save({ migrating: null, migrated: { moved: done, failed, extIds: doneFrom } });
+    log('migrate', `Moved ${done} tabs${failed ? `; ${failed} couldn't be moved` : ''}`);
+    await refreshBadge();
+  } finally {
+    migrating = false;
+  }
+}
 
 // ---------- Chrome's events ----------
 
@@ -798,6 +879,7 @@ chrome.alarms.onAlarm.addListener((a) => {
       }
       await connectLink();
       await sweep();
+      if (s.migrating?.running) runMigration().catch(oops);
     }).catch(oops);
   } else if (a.name === 'sweep') {
     sweep().catch(oops);

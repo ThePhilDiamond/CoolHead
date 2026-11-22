@@ -17,6 +17,7 @@ export const LOCAL_DEFAULTS = {
   restEnabled: false,
   rest: { ids: [], session: false, memory: false },
   setupDone: false,
+  migrateLater: false,       // the person chose "Do it later" for moving a suspender's tabs (Settings still has it)
 };
 
 export const SESSION_DEFAULTS = {
@@ -32,6 +33,8 @@ export const SESSION_DEFAULTS = {
   lastReport: null,
   lastReportAt: null,
   popupScreen: null,         // a screen for the popup to open on, set by Cool Head's "openExtensionsList"
+  migrating: null,           // { running, total, done, failed }: moving a suspender's tabs (logic/migrate.js)
+  migrated: null,            // { moved, failed, extIds }: the last move, until the person closes its result
 };
 
 const LOCAL_KEYS = Object.keys(LOCAL_DEFAULTS);

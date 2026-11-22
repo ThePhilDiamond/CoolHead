@@ -16,7 +16,7 @@
   "permissions": ["tabs", "tabGroups", "storage", "nativeMessaging", "alarms", "contextMenus", "scripting", "favicon", "system.memory"],
   "optional_permissions": ["management"],
   "commands": {
-    "sleep-tab": { "description": "Put this tab to sleep" }
+    "sleep-tab": { "description": "Put this tab to sleep", "suggested_key": { "default": "Ctrl+Shift+S", "mac": "Command+Shift+S" } }
   },
   "optional_host_permissions": ["<all_urls>"],
   "content_security_policy": {

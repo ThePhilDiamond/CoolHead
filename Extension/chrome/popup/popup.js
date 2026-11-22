@@ -20,6 +20,8 @@ const ui = {
   beforeWindowOnly: null,
   showAllOthers: false,
   safe: null,
+  laterNote: false, // after "Do it later": home says where to find the move again, until the popup closes
+  offered: false,   // the move was offered on this opening already
 };
 let view = null;
 let closeLevels = null;
@@ -53,6 +55,10 @@ async function refresh() {
     await loadSafe();
     ui.screen = 'protected';
   }
+  // Tabs a suspender holds are offered once, when the popup first finds them, unless the person put it off; a move
+  // under way, or its result, shows whenever the popup opens.
+  const m = view.migrate;
+  if (!before && m && ui.screen === 'home' && (m.running || m.result || (m.count && !m.later))) ui.screen = 'migrate';
   draw();
 }
 
@@ -162,6 +168,23 @@ const on = {
 
   leaveDelay(ms) { act({ action: 'leaveDelay', ms }); },
   // Chrome keeps the keys for every extension on one page of its own; an extension can open it but not set a key.
+  openMigrate() { ui.screen = 'migrate'; draw(); },
+  migrate() { act({ action: 'migrate' }); },
+  async migrateLater() {
+    await act({ action: 'migrateLater' });
+    ui.screen = 'home';
+    ui.laterNote = true;
+    draw();
+    announce(W.MIGRATE_LATER_NOTE);
+  },
+  async migrateClose() { await act({ action: 'migrateClose' }); ui.screen = 'home'; draw(); },
+  // Chrome asks the person to confirm; the permission is asked for here, on the click, if it isn't given yet.
+  async migrateRemove(id) {
+    const ok = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
+    if (!ok) return;
+    await chrome.management.uninstall(id, { showConfirmDialog: true }).catch(() => {});
+    await refresh();
+  },
   shortcut() { chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }).catch(console.error); window.close(); },
   async sites(turnOn) {
     if (turnOn) {
@@ -207,7 +230,7 @@ let pending = null;
 function soon() {
   clearTimeout(pending);
   // Not while the group name is being typed: a redraw would move the caret and break input methods.
-  pending = setTimeout(() => { if ((ui.screen === 'home' && !ui.ending) || ['settings', 'protected', 'effort'].includes(ui.screen)) refresh().catch(console.error); }, 200);
+  pending = setTimeout(() => { if ((ui.screen === 'home' && !ui.ending) || ['settings', 'protected', 'effort', 'migrate'].includes(ui.screen)) refresh().catch(console.error); }, 200);
 }
 chrome.storage.onChanged.addListener(soon);
 for (const ev of [chrome.tabs.onUpdated, chrome.tabs.onRemoved, chrome.tabs.onCreated, chrome.tabs.onActivated]) ev.addListener(soon);
