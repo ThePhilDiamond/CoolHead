@@ -8,9 +8,12 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 
 | Use | Light | Dark |
 |---|---|---|
-| Blue, fills and text | `#1769D1` | `#4A9EFF` |
-| Text on a blue fill | white, 5.3:1 | near-black `#1A1A1A`, 7.6:1 |
+| Blue for marks: links, switches, the selected tool, icons | `#1769D1` | `#4A9EFF` |
+| Blue behind text: the recommended option, the Recommended pill | `#0F52AD` | `#0F52AD`, with a `#4A9EFF` edge (5.1:1 against the dark card) |
+| Text on the blue behind text | white, 7.4:1 (AAA) | white, 7.4:1 (AAA) |
 | Blue text on the panel | 4.9:1 on the light panel | 6.1:1 on `#1E1E1E` |
+
+Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under the 4.5:1 text needs (Phil, 21 November 2026: "I find the text on the blue a bit harder to read. Can we measure the contrast and find a way to make it as easy to read as possible?", then "Deep blue, white text").
 
 **Status colors** say how the Mac is, and never mean "click here":
 

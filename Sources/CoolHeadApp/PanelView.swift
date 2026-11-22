@@ -2118,17 +2118,14 @@ enum Ink {
     /// text on it 7.6:1 and as text 6.1:1. A blue also keeps "do this" apart from the yellow, orange, and red that say
     /// "watch out". See docs/BRAND.md.
     static let accent = dynamic(0x1769D1, 0x4A9EFF)
-    /// Blue behind text (the recommended option, the Recommended pill): deeper in light mode, lighter in dark, so its
-    /// text is as easy to read as the panel's own (white on #0F52AD 7.4:1; near-black on #5AA9FF 7.4:1). For renders,
-    /// COOLHEAD_SNAPSHOT_FILL=accent draws it in the accent instead, to compare.
-    static let fillChoice = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FILL"]
-    static let fill = fillChoice == "accent" ? accent : dynamic(0x0F52AD, fillChoice == "deep" ? 0x0F52AD : 0x8EC5FF)
-    /// Text on that fill: white, and in dark mode near-black on the lighter blue.
-    static let onFill = Color(nsColor: NSColor(name: nil) { a in
-        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua && fillChoice != "deep" ? rgb(0x1A1A1A) : .white })
-    /// The deep blue on a dark card needs an edge to stand apart (1.9:1 without, the accent edge 5.1:1).
-    static let fillEdge = Color(nsColor: NSColor(name: nil) { a in
-        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua && fillChoice == "deep" ? rgb(0x4A9EFF) : .clear })
+    /// Blue behind text (the recommended option, the Recommended pill): one deep blue with white text in light and dark,
+    /// 7.4:1, the stricter AAA level, where the accent with dimmed text measured 4.0:1 (Phil, 21 November 2026: "I find
+    /// the text on the blue a bit harder to read. Can we measure the contrast and find a way to make it as easy to read as
+    /// possible?", then, of the renders, "Deep blue, white text").
+    static let fill = Color(nsColor: rgb(0x0F52AD))
+    static let onFill = Color.white
+    /// On a dark card the deep blue stands apart only 1.9:1, so it gets an edge in the accent there (5.1:1).
+    static let fillEdge = Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(0x4A9EFF) : .clear })
     /// Text on a filled accent: white in light mode, near-black in dark, where the lighter blue needs it.
     static let onAccent = Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(0x1A1A1A) : .white })
     /// Text in the accent color on the panel.
