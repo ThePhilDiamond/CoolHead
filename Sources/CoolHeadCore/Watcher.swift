@@ -89,6 +89,12 @@ public final class Watcher {
         public var rule: String? = nil
         /// What identifies it for trusting and for rules (Trust.key), so a rule added later can take it over.
         public var trustKey: String? = nil
+
+        public init(key: String, pid: pid_t, start: Date?, name: String, reportSubject: String, since: Date, before: Int?, after: Int?,
+                    rule: String? = nil, trustKey: String? = nil) {
+            self.key = key; self.pid = pid; self.start = start; self.name = name; self.reportSubject = reportSubject
+            self.since = since; self.before = before; self.after = after; self.rule = rule; self.trustKey = trustKey
+        }
     }
     public var cooledList: [CooledItem] { cooled.values.sorted { $0.since < $1.since } }
 
