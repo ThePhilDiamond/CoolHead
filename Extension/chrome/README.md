@@ -86,7 +86,7 @@ In a separate Chrome profile (or Chrome for Testing), never your everyday one:
 - `popup/`: the popup (`render.js` draws it from a view; `popup.js` talks to the worker). `setup/`: the page shown once at install.
 - `dev/`: the preview page and render script. `tools/`: the mock host and the browser test runner. `test/`: the Node tests.
 
-When it goes to the Chrome Web Store, the package leaves out `dev/`, `tools/`, `test/`, `package.json`, and this README.
+For the Chrome Web Store, `scripts/package-extension.sh` builds the upload, leaving out the manifest's `key`, `dev/`, `tools/`, `test/`, `store/`, `package.json`, and this README. [store/listing.md](store/listing.md) has everything the store's dashboard asks for, and [docs/CHROME-PRIVACY.md](../../docs/CHROME-PRIVACY.md) is the privacy policy.
 
 ## Not in version 1
 

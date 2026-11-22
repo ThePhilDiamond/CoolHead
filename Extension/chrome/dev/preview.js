@@ -90,7 +90,7 @@ if (screen === 'safe') {
   ui.screen = 'safe';
   const ext = (name, permissions = [], over = {}) => ({ id: name, name, type: 'extension', enabled: true, mayDisable: true, installType: 'normal', permissions, ...over });
   ui.safe = columns([
-    ext('1Password: Password Manager'), ext('uBlock Origin Lite', ['declarativeNetRequest']), ext('Company sign-in', [], { installType: 'admin', mayDisable: false }),
+    ext('Vaultly Password Manager'), ext('Quiet Ad Blocker', ['declarativeNetRequest']), ext('Company sign-in', [], { installType: 'admin', mayDisable: false }),
     ext('Writing helper'), ext('Coupon finder'), ext('Screenshot tool'), ext('Read later'),
   ], null, 'self');
 }
