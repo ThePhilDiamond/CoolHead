@@ -541,7 +541,6 @@ final class MenuPanel: NSPanel {
     private let effect = NSVisualEffectView()
     private var host: NSHostingController<PanelView>?
     private var monitor: Any?
-    private var sizeObservation: NSKeyValueObservation?
     private weak var anchor: NSStatusBarButton?
 
     /// Showing now, so a window opened from it goes in front (`.abovePanel`).
@@ -585,9 +584,7 @@ final class MenuPanel: NSPanel {
             controller.view.bottomAnchor.constraint(equalTo: effect.bottomAnchor),
         ])
         // keep the top edge under the icon as the content grows or shrinks
-        sizeObservation = controller.observe(\.preferredContentSize, options: [.new]) { [weak self] c, _ in
-            Task { @MainActor in self?.fit(c.preferredContentSize) }
-        }
+        PanelSize.report = { [weak self] size in self?.fit(size) }
     }
 
     func show(under button: NSStatusBarButton) {
