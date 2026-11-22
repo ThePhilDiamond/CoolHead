@@ -15,6 +15,8 @@ import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
 import { LinkClient } from './link-client.js';
 import * as sites from './sites.js';
+import { log, oops, testBuild } from './log.js';
+import { host, explainCheck, checkSentence, ago } from './logic/explain.js';
 
 const VERSION = chrome.runtime.getManifest().version;
 const ALL_SITES = { origins: ['<all_urls>'] };
@@ -43,19 +45,33 @@ function planCtx(s, ctx, now) {
 // since the plan was made. Every sleep is chrome.tabs.discard, never a stand-in page, so a tab keeps its place,
 // title, and icon, and still works if this extension is removed. Extensions that swap in a page of their own, as The
 // Marvellous Suspender does, leave tabs pointing at a page that's gone once the extension is removed or broken.
+// Tabs this worker is unloading right now, so the test log can tell its own sleeps from Chrome's.
+const unloading = new Set();
+
 async function sleepTab(tabId, { force = false } = {}) {
   const t = await chrome.tabs.get(tabId).catch(() => null);
-  if (!t || t.active || t.discarded) return null;
-  if (!force && t.audible) return null;
+  if (!t) return { why: 'it closed meanwhile' };
+  if (t.active) return { why: 'it came to the front', t };
+  if (t.discarded) return { why: 'it was already asleep', t };
+  if (!force && t.audible) return { why: 'it started playing sound', t };
+  unloading.add(tabId);
+  setTimeout(() => unloading.delete(tabId), 5000);
   const d = await chrome.tabs.discard(tabId).catch(() => null);
-  return d && d.discarded !== false ? d.id : null;
+  return d && d.discarded !== false ? { id: d.id, t } : { why: 'Chrome refused', t };
 }
 
-async function sleepMany(ids, opts) {
+// opts.why(tab): the test log's reason for each sleep.
+async function sleepMany(ids, opts = {}) {
   const slept = [];
   for (const id of ids) {
-    const newId = await sleepTab(id, opts);
-    if (newId != null) slept.push(newId);
+    const r = await sleepTab(id, opts);
+    const site = r.t ? host(r.t.url) : 'a tab';
+    if (r.id != null) {
+      slept.push(r.id);
+      log('slept', `Slept ${site}: ${opts.why ? opts.why(r.t) : 'asked'}`, { tab: r.id });
+    } else {
+      log('spared', `Didn't sleep ${site}: ${r.why}`, { tab: id });
+    }
   }
   if (slept.length) {
     await store.change((s) => ({ asleep: [...new Set([...s.asleep, ...slept])] }));
@@ -67,19 +83,33 @@ let sweepTimer = null;
 function sweepSoon(ms) {
   clearTimeout(sweepTimer);
   // setTimeout covers the usual case while the worker is awake; the alarm covers a worker that stopped meanwhile.
-  sweepTimer = setTimeout(() => sweep().catch(console.error), Math.max(0, ms));
+  sweepTimer = setTimeout(() => sweep().catch(oops), Math.max(0, ms));
   chrome.alarms.create('sweep', { when: Date.now() + Math.max(ms, 30000) });
 }
+
+// The last check's sentence in the test log, so an unchanged check isn't written again every minute.
+let lastCheck = '';
 
 async function sweep() {
   const { tabs, s, now, ctx } = await gather();
   const pc = planCtx(s, ctx, now);
+  if (testBuild) {
+    const sentence = checkSentence(explainCheck(tabs, pc), pc);
+    if (sentence !== lastCheck) { lastCheck = sentence; log('check', sentence); }
+  }
   const ids = planSleep(tabs, pc);
-  if (ids.length) await sleepMany(ids);
+  if (ids.length) await sleepMany(ids, { why: (t) => sleepWhy(pc, t, now) });
   const due = nextDueAt(tabs, pc);
   if (due != null) sweepSoon(due - Date.now() + 500);
   await refreshBadge();
   await maybeReport();
+}
+
+function sleepWhy(pc, t, now) {
+  const used = `last used ${ago(lastUsed(t, pc.use), now)}`;
+  if (pc.sessionIds) return `outside the session, ${used}`;
+  if (pc.level === 'auto') return `Auto with memory ${pc.autoMode}, ${used}`;
+  return `${pc.level}, not among the most used, ${used}`;
 }
 
 // ---------- the badge and the right-click item ----------
@@ -99,6 +129,8 @@ function ensureMenu() {
     // Install and a new run of Chrome can both ask for the menu at once; the second create is then a duplicate,
     // which is harmless, so its error is read and dropped.
     chrome.contextMenus.create({ id: 'keep', title: W.MENU_KEEP, type: 'checkbox', contexts: ['page', 'frame', 'action'] }, () => void chrome.runtime.lastError);
+    // The test build only: the Log page, from the toolbar button's right-click menu.
+    if (testBuild) chrome.contextMenus.create({ id: 'log', title: 'Open the test log', contexts: ['action'] }, () => void chrome.runtime.lastError);
   });
 }
 
@@ -163,7 +195,8 @@ async function startSession(tabIds) {
   const { tabs, s, now, ctx } = await gather();
   const plan = startPlan(tabs, tabIds, ctx);
   await store.change(() => ({ session: { active: true, tabIds: plan.sessionIds, startedAt: now } }));
-  const slept = await sleepMany(plan.sleep);
+  const slept = await sleepMany(plan.sleep, { why: () => 'outside the session you started' });
+  log('you', `Started a session with ${plan.sessionIds.length} tabs; ${slept.length} slept`);
   if (s.restEnabled) await restExtensions('session');
   await refreshBadge();
   await maybeReport(true);
@@ -188,6 +221,7 @@ async function endSession(save, name) {
     }
     message = W.DONE.saved(grouped, title, plan.alreadyGrouped.length);
   }
+  log('you', save ? `Ended the session and saved it as a group` : 'Ended the session');
   await store.change(() => ({ session: null }));
   await store.change((st) => ({ rest: { ...st.rest, session: false } }));
   await wakeExtensionsIfDone();
@@ -216,6 +250,8 @@ async function restExtensions(reason) {
       rested.push(id);
     } catch { /* Chrome refused (it may be required by policy): leave it on */ }
   }
+  const names = exts.filter((e) => rested.includes(e.id)).map((e) => e.name);
+  log('rest', `Turned off ${rested.length} of ${ids.length} extensions (${reason === 'session' ? 'a session' : 'memory'})${names.length ? `: ${names.join(', ')}` : ''}`);
   await maybeReport();
   return { ok: true, count: rested.length, done: W.DONE.rested(rested.length) };
 }
@@ -232,6 +268,7 @@ async function wakeExtensionsIfDone() {
     await chrome.management.setEnabled(id, true).catch(() => {});
     woken.push(id);
   }
+  if (woken.length) log('rest', `Turned ${woken.length} extensions back on`);
   // Only the ones turned back on leave the list: a rest that started meanwhile keeps its own.
   await store.change((st) => ({ rest: { ...st.rest, ids: st.rest.ids.filter((id) => !woken.includes(id)) } }));
   await maybeReport();
@@ -243,7 +280,7 @@ const link = new LinkClient({
   connect: (name) => chrome.runtime.connectNative(name),
   lastError: () => chrome.runtime.lastError?.message,
   helloInfo: () => ({ version: VERSION, level: cachedLevel }),
-  onStatus: (status, app) => onLinkStatus(status, app).catch(console.error),
+  onStatus: (status, app) => onLinkStatus(status, app).catch(oops),
   onState: (state) => onLinkState(state),
   onRequest: (req) => onLinkRequest(req),
 });
@@ -251,6 +288,7 @@ let cachedLevel = 'balanced';
 
 async function onLinkStatus(status, app) {
   const s = await store.change((st) => {
+    if (st.link.status !== status) log('link', `Link to Cool Head: ${status}${app ? ` (${app})` : ''}`);
     const patch = { link: { ...st.link, status, app: app || st.link.app } };
     if (status !== 'linked') {
       // Carry on alone, with nothing lost: Auto stops acting on an old reading, the level stays as chosen,
@@ -282,10 +320,14 @@ async function onLinkState(state) {
   let before;
   const s = await store.change((st) => {
     before = st.auto?.mode || 'off';
+    if (st.link.state?.memory !== state.memory || st.link.state?.auto !== state.auto) {
+      log('memory', `Cool Head says memory is ${state.memory}${state.auto === false ? ', and Auto may not follow it' : ''}`, state);
+    }
     return { link: { ...st.link, state, stateAt: now }, auto: nextAuto(st.auto, state.memory, now) };
   });
   const after = s.auto.mode;
   if (after !== before) {
+    log('memory', `Auto went from ${before} to ${after}`);
     // Resting on tight memory is part of Auto, and only when the person lets Auto follow Cool Head.
     if (after === 'veryTight' && s.restEnabled && s.level === 'auto' && autoAllowed(s.link, now)) await restExtensions('memory');
     // Memory has cleared: extensions rested for memory come back, whoever asked (Auto or Cool Head's card).
@@ -299,11 +341,18 @@ async function onLinkState(state) {
   else await maybeReport();
 }
 
-async function onLinkRequest({ action }) {
+async function onLinkRequest(req) {
+  log('coolHead', `Cool Head asked: ${req.action}`);
+  const r = await answerLinkRequest(req);
+  log('coolHead', `Answered ${req.action}: ${r.ok ? 'done' : 'not done'}, ${r.count}${r.done ? `. ${r.done}` : ''}`);
+  return r;
+}
+
+async function answerLinkRequest({ action }) {
   const { tabs, s, now, ctx } = await gather();
   switch (action) {
     case 'sleepHidden': {
-      const slept = await sleepMany(planSleepHidden(tabs, planCtx(s, ctx, now)));
+      const slept = await sleepMany(planSleepHidden(tabs, planCtx(s, ctx, now)), { why: () => "Cool Head's card asked to sleep tabs you aren't looking at" });
       await refreshBadge();
       return { ok: true, count: slept.length, done: W.DONE.sleptMany(slept.length) };
     }
@@ -351,7 +400,7 @@ async function hideUnusedGroups(tabs, ctx) {
     } catch { continue; }
     toSleep.push(...inGroup.filter((t) => canSleepOnItsOwn(t, ctx)).map((t) => t.id));
   }
-  const slept = await sleepMany(toSleep);
+  const slept = await sleepMany(toSleep, { why: () => 'in a group not used today' });
   await refreshBadge();
   return { ok: true, count: slept.length, done: W.DONE.foldedGroups(folded, slept.length) };
 }
@@ -360,11 +409,12 @@ async function closeDuplicates() {
   const { tabs, ctx } = await gather();
   const ids = findDuplicates(tabs, ctx).flatMap((g) => g.closeIds);
   if (ids.length) await chrome.tabs.remove(ids).catch(() => {});
+  if (ids.length) log('closed', `Closed ${ids.length} duplicate tabs`);
   return ids.length;
 }
 
 function scheduleReconnect(ms) {
-  setTimeout(() => connectLink().catch(console.error), ms);
+  setTimeout(() => connectLink().catch(oops), ms);
 }
 
 // The host isn't there on Windows or Linux, or before Cool Head sets up the link, so a missing host is tried again
@@ -395,7 +445,7 @@ async function maybeReport(force = false) {
   // On change, at most every 10 seconds (protocol, "report").
   if (!force && !reportDue(s.lastReportAt, now)) {
     clearTimeout(reportTimer);
-    reportTimer = setTimeout(() => maybeReport().catch(console.error), REPORT_EVERY_MS - (now - s.lastReportAt));
+    reportTimer = setTimeout(() => maybeReport().catch(oops), REPORT_EVERY_MS - (now - s.lastReportAt));
     return;
   }
   if (link.send(r)) await store.save({ lastReport: r, lastReportAt: now });
@@ -425,6 +475,8 @@ async function checkBrowserRun() {
     rest: { ...st.rest, memory: false, session: Boolean(st.session?.active && st.session.tabIds.some((id) => live.has(id))) },
   }));
   await findKeptAgain();
+  const after = await store.load();
+  log('chrome', `A new run of Chrome: ${tabs.length} tabs, ${after.kept.length} kept tabs found again, ${after.keepQuestions.length} to ask about`);
   chrome.alarms.create('find-kept', { delayInMinutes: 1 });
   await wakeExtensionsIfDone();
   await sites.ensure({ injectOpenPages: true });
@@ -458,6 +510,7 @@ function favicon(url) {
 
 async function act(m) {
   const tab = m.tabId != null ? await chrome.tabs.get(m.tabId).catch(() => null) : null;
+  log('you', actLine(m, tab));
   switch (m.action) {
     case 'level': {
       if (!LEVELS.includes(m.level)) return W.DONE.failed;
@@ -532,6 +585,20 @@ async function act(m) {
   }
 }
 
+function actLine(m, tab) {
+  const site = tab ? host(tab.url) : 'a tab';
+  switch (m.action) {
+    case 'level': return `Chose ${m.level}`;
+    case 'keep': return `${m.on ? 'Kept' : 'Stopped keeping'} ${site}`;
+    case 'sleep': return `Slept ${site} from the popup`;
+    case 'close': return `Closed ${site} from the popup`;
+    case 'leaveDelay': return `Set the delay after leaving a tab to ${m.ms / 1000} seconds`;
+    case 'sites': return `Access to all sites: ${m.on ? 'on' : 'off'}`;
+    case 'restEnabled': return `Rest extensions: ${m.on ? 'on' : 'off'}`;
+    default: return `Pressed ${m.action}`;
+  }
+}
+
 async function safeColumns() {
   if (!(await hasManagement())) return null;
   const [exts, s] = await Promise.all([chrome.management.getAll(), store.load()]);
@@ -550,6 +617,13 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       // Most pages report "nothing" when they start; with nothing on record, there is nothing to write.
       const off = key === 'typing' ? !m.dirty : !(m.call || m.screen);
       if (off && !s[key]?.[tabId]?.[frame]) return null;
+      const was = s[key]?.[tabId]?.[frame];
+      const now = key === 'typing' ? Boolean(m.dirty) : (m.call || m.screen ? { call: Boolean(m.call), screen: Boolean(m.screen) } : undefined);
+      if (JSON.stringify(was) !== JSON.stringify(now)) {
+        const what = key === 'typing' ? (m.dirty ? 'unsent typing seen' : 'typing sent or cleared')
+          : (m.call || m.screen ? `${m.call ? 'call' : ''}${m.call && m.screen ? ' and ' : ''}${m.screen ? 'screen sharing' : ''} seen` : 'call ended');
+        log('page', `${host(sender.tab.url)}: ${what}`, { tab: tabId, frame });
+      }
       const byTab = { ...(s[key] || {}) };
       const frames = { ...(byTab[tabId] || {}) };
       if (key === 'typing') { if (m.dirty) frames[frame] = true; else delete frames[frame]; }
@@ -557,7 +631,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       else delete frames[frame];
       if (Object.keys(frames).length) byTab[tabId] = frames; else delete byTab[tabId];
       return { [key]: byTab };
-    }).then(() => maybeReport()).catch(console.error);
+    }).then(() => maybeReport()).catch(oops);
     return false;
   }
   if (!ownPage) return false;
@@ -597,7 +671,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
     chrome.tabs.get(tabId).then(refreshMenu).catch(() => {});
     sweepSoon(s.leaveDelayMs + 250);
     await refreshBadge();
-  }).catch(console.error);
+  }).catch(oops);
 });
 
 chrome.tabs.onCreated.addListener((tab) => {
@@ -608,7 +682,7 @@ chrome.tabs.onCreated.addListener((tab) => {
     // Opening a tab counts as using it, so one opened in the background isn't taken for long idle and put to
     // sleep while it is still loading.
     use: s.use[tab.id] ? s.use : { ...s.use, [tab.id]: { last: null, left: now, switches: [] } },
-  })).catch(console.error);
+  })).catch(oops);
 });
 
 chrome.tabs.onRemoved.addListener((tabId, info) => {
@@ -622,7 +696,7 @@ chrome.tabs.onRemoved.addListener((tabId, info) => {
       // restart. A kept tab closed on its own was closed on purpose.
       kept: info.isWindowClosing ? s.kept : s.kept.filter((r) => r.tabId !== tabId),
     };
-  }).then(() => refreshBadge()).then(() => maybeReport()).catch(console.error);
+  }).then(() => refreshBadge()).then(() => maybeReport()).catch(oops);
 });
 
 // Chrome can swap a tab for a new one with a new ID (when it unloads or prerenders a page). Everything
@@ -640,7 +714,7 @@ chrome.tabs.onReplaced.addListener((addedId, removedId) => {
       asleep: [...new Set(s.asleep.map(swap))],
       kept: s.kept.map((r) => ({ ...r, tabId: swap(r.tabId) })),
     };
-  }).catch(console.error);
+  }).catch(oops);
 });
 
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
@@ -659,6 +733,8 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
         // keeping its draft or call. Each new document's content script reports its own state when it starts.
         patch.kept = s.kept.map((r) => (r.tabId === tabId ? { ...r, url: change.url, title: tab.title || r.title } : r));
       }
+      if (change.discarded === true && !unloading.has(tabId)) log('chrome', `${host(tab.url)} was unloaded by Chrome or another extension`, { tab: tabId });
+      if (change.discarded === false && s.asleep.includes(tabId)) log('woke', `${host(tab.url)} woke`, { tab: tabId });
       if (change.discarded === true) {
         // An unloaded page has no typing or call left; holding on to them would keep the tab held after it wakes.
         const typing = { ...s.typing }; delete typing[tabId];
@@ -668,18 +744,19 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
       }
       if (change.discarded === false) patch.asleep = s.asleep.filter((id) => id !== tabId);
       return patch;
-    }).then(() => refreshBadge()).then(() => maybeReport()).catch(console.error);
+    }).then(() => refreshBadge()).then(() => maybeReport()).catch(oops);
   }
   if ('pinned' in change && tab.active) refreshMenu(tab).catch(() => {});
 });
 
-chrome.tabs.onMoved.addListener(() => refreshKeptPositions().catch(console.error));
-chrome.tabs.onAttached.addListener(() => refreshKeptPositions().catch(console.error));
+chrome.tabs.onMoved.addListener(() => refreshKeptPositions().catch(oops));
+chrome.tabs.onAttached.addListener(() => refreshKeptPositions().catch(oops));
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'log') { chrome.tabs.create({ url: chrome.runtime.getURL('log/log.html') }); return; }
   if (info.menuItemId !== 'keep' || !tab) return;
   // From the stored state, not the menu's tick, which can be out of date after a switch between windows.
-  store.load().then((s) => setKeep(tab.id, !s.kept.some((r) => r.tabId === tab.id))).then(() => maybeReport()).catch(console.error);
+  store.load().then((s) => setKeep(tab.id, !s.kept.some((r) => r.tabId === tab.id))).then(() => maybeReport()).catch(oops);
 });
 
 chrome.windows.onFocusChanged.addListener((windowId) => {
@@ -697,18 +774,19 @@ chrome.alarms.onAlarm.addListener((a) => {
       }
       await connectLink();
       await sweep();
-    }).catch(console.error);
+    }).catch(oops);
   } else if (a.name === 'sweep') {
-    sweep().catch(console.error);
+    sweep().catch(oops);
   } else if (a.name === 'find-kept') {
-    findKeptAgain().catch(console.error);
+    findKeptAgain().catch(oops);
   }
 });
 
-chrome.permissions.onAdded.addListener(() => sites.ensure().catch(console.error));
-chrome.permissions.onRemoved.addListener(() => sites.ensure().catch(console.error));
+chrome.permissions.onAdded.addListener(() => sites.ensure().catch(oops));
+chrome.permissions.onRemoved.addListener(() => sites.ensure().catch(oops));
 
-chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+chrome.runtime.onInstalled.addListener(async ({ reason, previousVersion }) => {
+  log('chrome', reason === 'update' ? `Updated from ${previousVersion} to ${VERSION}` : `${reason}: version ${VERSION}`);
   ensureMenu();
   await sites.ensure();
   if (reason === 'install') {
@@ -724,14 +802,17 @@ chrome.runtime.onStartup.addListener(() => {
     .then(() => store.change((s) => ({ session: null, asleep: [], rest: { ...s.rest, session: false, memory: false } })))
     .then(() => wakeExtensionsIfDone())
     .then(() => refreshBadge())
-    .catch(console.error);
+    .catch(oops);
 });
 
 // ---------- every time the worker starts ----------
 
+// Anything that fails without a catch of its own still reaches the test log.
+self.addEventListener('unhandledrejection', (e) => oops(e.reason));
+
 chrome.alarms.get('tick').then((a) => { if (!a) chrome.alarms.create('tick', { periodInMinutes: 1 }); });
 store.load().then((s) => { cachedLevel = s.level; }).catch(() => {});
-newBrowserRun().then(() => connectLink()).catch(console.error);
+newBrowserRun().then(() => connectLink()).catch(oops);
 
 // For the browser tests (test/browser/run.mjs), which drive the worker through Chrome's debugging protocol.
 globalThis.coolHead = { sweep, gather, act, store, link, viewFor };
