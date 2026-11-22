@@ -35,9 +35,10 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 **Category:** Productivity, then Tools (or the closest the dashboard offers). **Language:** English (United States).
 
 **Graphic assets:**
-- Store icon: comes from the package (`icons/icon128.png`).
+- Store icon, 128 by 128: `Extension/chrome/icons/icon128.png`, the melting snowflake, the same as the package's.
 - Screenshots, 1280 by 800, in this order: `1-tabs.png`, `2-extensions.png`, `3-held.png`, `4-session.png`, `5-alone.png`.
-- Small promo tile, 440 by 280: `promo-tile.png`. No marquee tile.
+- Small promo tile, 440 by 280: `promo-tile.png`.
+- Marquee promo tile, 1400 by 560: `marquee-tile.png`.
 
 **Homepage URL:** https://github.com/ThePhilDiamond/CoolHead/tree/main/Extension/chrome
 **Support URL:** https://github.com/ThePhilDiamond/CoolHead/issues
@@ -93,5 +94,4 @@ No account or sign-in is needed.
 
 ## After it's approved
 
-1. From the Package tab, copy the item ID (and the public key, for local builds to share the ID).
-2. Add the ID to Cool Head's helper allowlist (`ChromeCompanion.extensionID`, `ChromeLink.manifest`) in the next Cool Head release, so the store copy links to the Mac app. Until then the store copy works on its own.
+The store's ID is `pobnaljpjmpbpokcdbjpmlkdaljhhcfm`. Cool Head's helper allows it from the release after 0.17.0, so the store copy links to the Mac app; until then the store copy works on its own. A copy loaded by hand keeps its own ID, `idncmcjhcnoknfiomdkjidgmjkglmghl`, from the manifest's key, and the helper allows both.

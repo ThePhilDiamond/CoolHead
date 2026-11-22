@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Makes the Chrome Web Store images in store/images: five 1280 by 800 screenshots and the 440 by 280 promo tile.
+"""Makes the Chrome Web Store images in store/images: five 1280 by 800 screenshots, the 440 by 280 small promo
+tile, and the 1400 by 560 marquee tile.
 
 It renders the popup with made-up data (dev/render-previews.sh), places each render beside a headline, and screenshots
 the result with a Chrome kept apart from your own, on a scratch data folder.
@@ -44,6 +45,17 @@ h1{font-size:30px;line-height:1.1;font-weight:700;margin-bottom:12px}
 p{font-size:17px;line-height:1.35}
 </style></head><body><img src=logo.png alt=""><div><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and temporarily turns off extensions you don't need.</p></div></body></html>"""
 
+MARQUEE = """<!doctype html><html><head><meta charset=utf-8><style>
+*{margin:0;box-sizing:border-box}
+body{width:1400px;height:560px;overflow:hidden;background:#0F52AD;color:#fff;font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;padding-left:80px;gap:36px}
+.logo{width:230px;height:230px;flex:none;margin-left:-24px}
+.text{width:560px;flex:none}
+h1{font-size:60px;line-height:1.08;font-weight:700;letter-spacing:-0.5px;margin-bottom:20px}
+p{font-size:28px;line-height:1.4}
+.shot{flex:none;width:404px;height:500px;margin-top:120px;border-radius:14px 14px 0 0;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.shot img{display:block;width:404px}
+</style></head><body><img class=logo src=logo.png alt=""><div class=text><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and temporarily turns off extensions you don't need, so Chrome holds less memory.</p></div><div class=shot><img src=home-light.png alt=""></div></body></html>"""
+
 
 def main():
     if len(sys.argv) != 3:
@@ -70,6 +82,7 @@ def main():
 <div class=text><div class=brand><img src=logo.png alt="">Cool Head for Chrome</div><h1>{title}</h1><p>{line}</p></div>
 <div class=shot style="width:404px;height:{int(height)}px"><img src="{render}" alt=""></div></body></html>""", "1280,800")
     shoot("promo-tile", TILE, "440,280")
+    shoot("marquee-tile", MARQUEE, "1400,560")
     print(os.path.join(STORE, "images"))
 
 
