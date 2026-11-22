@@ -1133,9 +1133,15 @@ enum FrozenItem: Identifiable {
         }
         // slowed just this once, and the rest of what's held back, first; what rules slow after, as its own group
         let cooled = split(w.cooledList)
-        return cooled.once + w.pausedJobs.map { .paused($0) } + w.syncPauses.map { .sync($0) }
-            + (w.chromeLimitMB.map { [.chrome($0)] } ?? [])
-            + w.agentsOff.map { .agent($0) } + w.backupExcluded.map { .backup($0) } + cooled.rules
+        // built a step at a time: one long chain of + is too slow for the compiler to type-check
+        var items: [FrozenItem] = cooled.once
+        items += w.pausedJobs.map { FrozenItem.paused($0) }
+        items += w.syncPauses.map { FrozenItem.sync($0) }
+        if let mb = w.chromeLimitMB { items.append(.chrome(mb)) }
+        items += w.agentsOff.map { FrozenItem.agent($0) }
+        items += w.backupExcluded.map { FrozenItem.backup($0) }
+        items += cooled.rules
+        return items
     }
     /// For screenshots: COOLHEAD_SNAPSHOT_SAMPLES naming "held-back" shows a made-up turned-off helper and a made-up
     /// folder left out of Time Machine, so the lines can be seen without changing anything on this Mac.
