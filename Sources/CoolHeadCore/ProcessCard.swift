@@ -2,10 +2,10 @@ import Foundation
 
 // Cards about one busy process: each kind of card is its own file in Sources/CoolHeadCore/Cards (<Name>Card.swift,
 // declaring `<Name>Card`), and the build lists them (Plugins/Lists), so a new card is one new file. Every card that
-// matches a process is made, and the ranker below chooses one: rules first, then weights (Phil, 17 November 2026:
-// "Rules, then weights"; notes/card-architecture-design.md). Extras (<Name>Extra.swift) add a sentence or an option
-// to whichever card wins. Nothing is loaded or chosen from outside while the app runs: the lists are fixed when it's
-// built.
+// matches a process is made, and the ranker below chooses one: rules first, then weights, not positions set by hand, so
+// cards order themselves and a new one can't conflict with the rest. Extras (<Name>Extra.swift) add a sentence or an
+// option to whichever card wins. Nothing is loaded or chosen from outside while the app runs: the lists are fixed when
+// it's built.
 
 /// What a card about one busy process is given: the process, what's around it, and what every card works out from
 /// them, worked out once.
@@ -140,7 +140,7 @@ public protocol ProcessCard {
     /// What it's about, in a few plain words, for the reason a card was chosen: "a web page in an app".
     static var name: String { get }
     static var kind: CardKind { get }
-    /// Where the card comes from: a research rule, or Phil's decision and its date.
+    /// Where the card comes from: a research rule or a design decision.
     static var rule: String { get }
     /// Samples (`Wording.samples`) this card must win: the selftest checks each, and that every card has one.
     static var samples: [String] { get }
@@ -159,9 +159,9 @@ public protocol CardExtra {
     static func add(to c: Card, _ s: Situation) -> Card?
 }
 
-/// Chooses one card for a busy process (Phil, 17 November 2026: "prioritized in order of some aggregate of highest
-/// impact, lowest risk, highest confidence, lowest effort"). Every card that fits is scored on four factors, from its
-/// own data, and the highest total wins:
+/// Chooses one card for a busy process: the one with the most impact, the least risk, the most confidence, and the least
+/// effort, taken together. Every card that fits is scored on those four factors, from its own data, and the highest
+/// total wins:
 ///
 /// - Confidence (0 to 3), how surely it fits, counted twice: a choice made against the samples, not a measured truth.
 ///   Counted once, a Chromium-style helper inside security software, a sync app or a game gets the browser-tab card,
@@ -194,8 +194,8 @@ public enum Ranker {
         /// "Chosen over job: …", for `coolhead cards`.
         public var reasons: [String]
         /// Cards with the winner's score, that nothing told apart: the selftest fails on any. A tie is settled by merging
-        /// the two cards where they share the fix (Phil, 17 November 2026: "whenever there's a tie, as the tied items
-        /// should be merged"), otherwise by changing a card's confidence or options, with the reason.
+        /// the two cards where they share the fix, as tied cards should be, otherwise by changing a card's confidence or
+        /// options, with the reason.
         public var ties: [String]
         /// The other cards that fitted, by name ("a busy program"), the closest first.
         public var others: [String] = []

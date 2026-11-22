@@ -2,7 +2,7 @@
 
 Cool Head's companion extension for Google Chrome, version 1. It puts tabs you aren't using to sleep, so Chrome holds less memory and your Mac stays quick. A sleeping tab stays in your tab bar with its title and icon, and reloads when you click it. Free and open source under the AGPL, like Cool Head.
 
-The design is in Cool Head's notes/chrome-extension-design.md; the link to Cool Head is in [PROTOCOL.md](PROTOCOL.md).
+The link to Cool Head is in [PROTOCOL.md](PROTOCOL.md).
 
 ## What it does
 

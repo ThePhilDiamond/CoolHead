@@ -1,10 +1,9 @@
 import Foundation
 
-// Menu items, buttons, headings and addresses named in steps are underlined in the panel, so the words to look for
-// stand out from the words around them (Phil, 18 November 2026: "when we give a path like that perhaps we should
-// underline each menu item/address so it's more clear"). The text carries two invisible marks around each name; the
-// app draws what's between them underlined, and everything printed as plain text (`coolhead`, reports, checks) drops
-// them with `Fmt.plain`.
+// Menu items, buttons, headings, and addresses named in steps are underlined in the panel, so the words to look for
+// stand out from the words around them and a path through menus is clear. The text carries two invisible marks around
+// each name; the app draws what's between them underlined, and everything printed as plain text (`coolhead`, reports,
+// checks) drops them with `Fmt.plain`.
 extension Fmt {
     static let uiOpen: Character = "\u{E000}", uiClose: Character = "\u{E001}"
 
@@ -31,10 +30,10 @@ extension Fmt {
     }
 }
 
-/// Steps for a browser's own list of what each tab is using: Task Manager in Chrome and the browsers built like it
-/// (Phil, 18 November 2026, of "Choose Window ▸ Task Manager, then click Memory to put the biggest first": "I got
-/// feedback that this manual task wasn't clear"). No URL or AppleScript command opens Chrome's Task Manager, and
-/// clicking its menu for you would need the Accessibility permission, which Cool Head doesn't ask for.
+/// Steps for a browser's own list of what each tab is using: Task Manager in Chrome and the browsers built like it. A
+/// single line, "Choose Window ▸ Task Manager, then click Memory to put the biggest first", proved unclear in use. No
+/// URL or AppleScript command opens Chrome's Task Manager, and clicking its menu for you would need the Accessibility
+/// permission, which Cool Head doesn't ask for.
 public enum TaskManager {
     /// How to open it, as a sentence. Safari's Activity window may no longer list what each tab uses (not yet checked).
     static func open(_ browser: String) -> String {

@@ -569,7 +569,7 @@ public enum NetworkCheck {
     static let hdVideoMbps = 5.0
 
     /// The result in one plain sentence: what the connection is fine for, then only what isn't and what it affects, at
-    /// most two things (Phil, 16 November 2026: "only share key info "everything is good except..."").
+    /// most two things, so it reads as "everything is good except..." and gives only the key facts.
     public static func summary(_ r: Result, _ link: Link) -> String {
         var problems: [String] = []
         if case .wifi(let w) = link, w.rssi <= weakSignal { problems.append("the Wi-Fi signal is weak") }

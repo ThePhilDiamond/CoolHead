@@ -1,7 +1,7 @@
 import Foundation
 
-// The decision record (Phil, 17 November 2026: "we're converting data/facts into a fixed structure of human-readable
-// text"): facts about the problem, written by each card, and facts about each option, written once per kind of option
+// The decision record, which turns facts into human-readable text through a fixed structure: facts about the problem,
+// written by each card, and facts about each option, written once per kind of option
 // or by a card where its option needs its own words, each a clause written by hand for one role in one fixed template.
 // The comparison between the recommended option and the strongest alternative records which factor decided, and the
 // text says that factor. Nothing is reworded by a model, and no sentence is joined from words written for somewhere

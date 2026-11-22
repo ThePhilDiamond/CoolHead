@@ -45,7 +45,7 @@ struct HardwareView: View {
                 Button(action: close) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
             }
-            // which Mac, and its serial number with a copy button (Phil, 20 November 2026); on the page only
+            // which Mac, and its serial number with a copy button; on the page only
             if model != nil || serial != nil {
                 HStack(spacing: 6) {
                     Text([model, serial.map { "Serial \($0)" }].compactMap { $0 }.joined(separator: " · "))
@@ -119,15 +119,14 @@ struct HardwareView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.edge, lineWidth: 1))
     }
 
-    /// One part: its icon in its level's colour, its name, how it is, then its figures and details, with room between
-    /// them; whether the drive is backed up is its own row, the words at the left and the button to act at the right, as
-    /// elsewhere on the page (Phil, 17 November 2026: "text on the left, button to act on the right"; "improve the
-    /// spacing so it doesn't look so cramped").
+    /// One part: its icon in its level's color, its name, how it is, then its figures and details, with room between
+    /// them so it doesn't look cramped; whether the drive is backed up is its own row, the words at the left and the
+    /// button to act at the right, as elsewhere on the page.
     /// How full the startup disk is, under the verdict.
     @ViewBuilder var storage: some View {
         if let space {
-            // how full the startup disk is, and macOS's own breakdown one click away (Phil, 20 November 2026: "In the
-            // short term, show free / total and a button to the macOS storage settings"); low space points to the Cleaner
+            // how full the startup disk is, free of total, and macOS's own breakdown one click away in its storage
+            // settings, for now; low space points to the Cleaner
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "internaldrive").foregroundStyle(space.low ? NetworkView.color(1) : Ink.text).frame(width: 18)
@@ -204,11 +203,10 @@ struct HardwareView: View {
     }
 }
 
-/// How the Mac is running, at the top of the panel whenever it opens (Phil, 16 November 2026: "Maybe the temperature
-/// panes from the hardware screen renders should be persistent in the main pane instead?"; "Is there also a useful way to
-/// clearly and concisely portray heavy resource use? ... simple intuitive visual cues without being busy or
-/// confusing"): the menu bar icon's snowflake (whole, melting, in flames) with a few words, and two small gauges, the
-/// chip and memory, coloured by level. Numbers and meanings are in the tooltips.
+/// How the Mac is running, at the top of the panel whenever it opens, rather than only on the Hardware page: simple
+/// visual cues for heat and heavy use that aren't busy or confusing. The menu bar icon's snowflake (whole, melting, in
+/// flames) with a few words, and two small gauges, the chip and memory, colored by level. Numbers and meanings are in
+/// the tooltips.
 struct RunningStrip: View {
     let watcher: Watcher
     /// The cards on screen, so the snowflake shows the same level as the menu bar icon.
@@ -221,9 +219,8 @@ struct RunningStrip: View {
     /// With a tool open, the way back to the cards in a few words (PanelView.backTo); nil hides the pill.
     var back: String? = nil
     @ObservedObject private var load = ChipLoad.shared
-    /// The gauges are a setting, off to start: the snowflake and its words say how the Mac is without them (Phil, 19
-    /// November 2026: "make the gauges in the top pane optional as a setting for users who don't know what it means or
-    /// care, it just gives them less data/clutter. By default it should be off").
+    /// The gauges are a setting, off to start: the snowflake and its words say how the Mac is without them, and someone
+    /// who doesn't know or care what the figures mean gets less clutter.
     nonisolated static let gaugesKey = "showGauges"
     @AppStorage(RunningStrip.gaugesKey) private var showGauges = false
 
@@ -297,7 +294,7 @@ struct RunningStrip: View {
                     .font(.headline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 Text(meaning(r)).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 // a pill back to the cards, tinted with their level, with dark text so it reads on yellow; the whole row
-                // already goes back on a click (Phil, 20 November 2026: "Way back: pill")
+                // already goes back on a click
                 if let back {
                     Label(back, systemImage: "chevron.left")
                         .font(.caption.weight(.semibold)).foregroundStyle(Ink.text)
@@ -308,9 +305,8 @@ struct RunningStrip: View {
                 }
             }
             Spacer(minLength: 6)
-            // two groups, each titled, with a line between: how busy the chip and memory are, then whose heat (Phil,
-            // 19 November 2026: "Should we add a "usage" and "heat" title above the gauges with a vertical divider between
-            // the usage and heat? Might be cleaner and more clear")
+            // two groups, each titled, with a line between, which is cleaner and clearer: how busy the chip and memory
+            // are, then whose heat
             if showGauges {
                 let all = gauges
                 gaugeGroup("Usage", all.filter { !$0.isTemperature })
@@ -322,9 +318,8 @@ struct RunningStrip: View {
         }
         .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
         .padding(.trailing, extra)
-        // a gentle wash of the level's colour, never the only sign: the snowflake's shape (whole, melting, in flames)
-        // and the title's words say the same (Phil, 17 November 2026: "a gentle background tint to the top bar for
-        // green / yellow / red")
+        // a gentle wash of the level's color (green, yellow, or red), never the only sign: the snowflake's shape
+        // (whole, melting, in flames) and the title's words say the same
         .background(Color(nsColor: Badge.color(level)).opacity(0.10))
         .onAppear { load.start() }
         .onDisappear { load.stop() }
@@ -339,9 +334,8 @@ struct RunningStrip: View {
         }
     }
 
-    /// A gauge: a ring filled to its share in its level's colour, the percentage inside and the name under it, larger
-    /// than the bars it replaced (Phil, 17 November 2026: "make the bars/text on the right a little bigger, maybe put the
-    /// labels below and the percentage inside"). macOS's own gauge, so VoiceOver reads it as one.
+    /// A gauge: a ring filled to its share in its level's color, the percentage inside and the name under it, larger
+    /// and easier to read than the bars it replaced. macOS's own gauge, so VoiceOver reads it as one.
     func gauge(_ g: HardwarePage.Gauge) -> some View {
         VStack(spacing: 3) {
             Gauge(value: Double(g.percent), in: 0...100) {
@@ -373,9 +367,9 @@ struct RunningStrip: View {
 /// panel is open and not at all while it's closed.
 @MainActor
 final class ChipLoad: ObservableObject {
-    /// One reading for the Temperature ring and the Hardware page's chip tile, so the two always agree (Phil, 19 November 2026:
-    /// "the temp in the top bar doesn't match any of the temps in the hardware scan": the page showed the reading from its
-    /// report, up to 10 minutes old, and the hottest sensor moves several degrees in seconds).
+    /// One reading for the Temperature ring and the Hardware page's chip tile, so the two always agree. They didn't
+    /// when the page showed the reading from its report, up to 10 minutes old, since the hottest sensor moves several
+    /// degrees in seconds.
     static let shared = ChipLoad()
     @Published var busy = 0.0
     @Published var memoryFree = 100

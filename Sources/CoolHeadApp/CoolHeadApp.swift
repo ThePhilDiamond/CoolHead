@@ -34,9 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         // a screenshot copy draws off screen and quits; it never appears in the menu bar, where it could be mistaken for
-        // the real one (its panel hides every card but the demo; Phil saw "Running warm" with nothing listed, 15 November 2026).
+        // the real one (its panel hides every card but the demo, so it showed "Running warm" with nothing listed).
         // It hides under its own name: macOS saves a status item's visibility by name for every copy of the app, and
-        // hiding the usual one hid Phil's installed Cool Head too (15 November 2026).
+        // hiding the usual one hid the installed Cool Head too.
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] != nil { item.autosaveName = "snapshot"; item.isVisible = false }
 
         let host = NSHostingController(rootView: PanelView(watcher: watcher))
@@ -84,15 +84,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let event = NSApp.currentEvent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
             panel.close()
-            // a shortcut menu, short: every setting, the version and updates are on the Settings page in the panel,
-            // behind the gear at the right of the toolbar (Phil, 17 November 2026: "or we put back the settings icon in
-            // the tool bar and limit right click to quit")
+            // a shortcut menu, short: every setting, the version, and updates are on the Settings page in the panel,
+            // behind the gear at the right of the toolbar
             let menu = NSMenu()
             menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
             menu.addItem(.separator())
             menu.addItem(withTitle: "About Cool Head", action: #selector(about), keyEquivalent: "").target = self
             // Cool Head's own action, not NSApplication's terminate:, for which macOS 26 adds an icon that sets this one
-            // item apart from the rest (Phil, 16 November 2026: "Remove the quit icon so all menu items are justified")
+            // item apart from the rest; without it, all the menu's items line up
             menu.addItem(withTitle: "Quit Cool Head", action: #selector(quit), keyEquivalent: "q").target = self
             item.menu = menu
             button.performClick(nil)          // shows the menu under the icon
@@ -193,10 +192,9 @@ enum About {
         // macOS shows the version and then the build number in brackets; they're the same here, so the build is left out
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Cool Head",
                                                      .applicationVersion: "Version \(CoolHead.version)", .version: ""])
-        // in front of the panel, which floats at the menus' level, when it's open (Phil, 18 November 2026: "the About
-        // pane and the "select a folder" to check for duplicates spawn and sit behind the Cool Head pane")
+        // in front of the panel, which floats at the menus' level, when it's open; otherwise About opens behind it
         // `NSApp.windows`, not `orderedWindows`, which is empty for an app without a Dock icon, so 0.11.0 found nothing
-        // to raise (Phil, 19 November 2026: "About panel still renders behind cool head pane"; tested in a throwaway app)
+        // to raise and About still opened behind the panel (tested in a throwaway app)
         if MenuPanel.isOpen {
             for w in NSApp.windows where w is NSPanel && !(w is MenuPanel) && w.isVisible && w.level < .abovePanel { w.level = .abovePanel }
         }
@@ -264,11 +262,9 @@ enum MenuIcon {
     }
 
     /// The Status badge style: one melting snowflake, the Melting Snowflake's middle drawing with its ice-blue drops and
-    /// puddle, the same at every level, so only the badge changes. It ties the style to the app icon's melting snowflake
-    /// (Phil, 21 November 2026: "I lean toward Melting snowflake for the icon with the badge on that for the shapes and
-    /// colors badges menu icon option."). The app icon's paler drops and quieter puddle were not used here (Phil, 21
-    /// November 2026: "For the icon the quiet puddle is nice, but in the menu it's harder to see so we should keep the
-    /// current design in the menu for greater contrast/visibility."). Notes: notes/brand-mark.md.
+    /// puddle, the same at every level, so only the badge changes. It ties the style to the app icon's melting snowflake.
+    /// The app icon's paler drops and quieter puddle were not used here: they're harder to see at the menu bar's size, so
+    /// the ice-blue ones keep the contrast. See docs/BRAND.md.
     static func badged(_ level: Watcher.Level) {
         let tips = droopingFlake(center: NSPoint(x: 8.5, y: 10.2), r: 6.4)
         ice.setFill()
@@ -285,8 +281,7 @@ enum MenuIcon {
     /// Calm: a whole snowflake. Worth watching (something slowing the Mac or needing a look): its lower half has melted,
     /// dripping into a small puddle. A serious problem: it bursts into flames. The level is `Watcher.level(_:)`.
     /// Each drawing fills the whole icon. A yellow or red bar underneath was tried and dropped, because making room for
-    /// it shrank the drawings (Phil, 16 November 2026: "The colored bars on the melting snowflake icon set make it too
-    /// small, so let's drop the yellow and red bars so they can be bigger.").
+    /// it shrank the drawings too much; without it they can be bigger.
     static func melting(_ level: Watcher.Level) {
         switch level {
         case .good:
@@ -303,9 +298,8 @@ enum MenuIcon {
         }
     }
 
-    /// Problem: it got so hot the snowflake burst into flames. A flame with a wide base, a curving main tip and two
-    /// smaller licks, and inside it the white snowflake it used to be. (Chosen by Phil, 15 November 2026, after
-    /// several other ideas.)
+    /// Problem: it got so hot the snowflake burst into flames. A flame with a wide base, a curving main tip, and two
+    /// smaller licks, and inside it the white snowflake it used to be, chosen over several other ideas.
     static func onFire() {
         let f = NSBezierPath()
         f.move(to: NSPoint(x: 10, y: 0.6))
@@ -553,8 +547,7 @@ final class MenuPanel: NSPanel {
     /// Showing now, so a window opened from it goes in front (`.abovePanel`).
     static var isOpen: Bool { NSApp.windows.contains { $0 is MenuPanel && $0.isVisible } }
     /// While a window opened from the panel is up (the folder chooser), clicks in it don't close the panel: macOS draws
-    /// the chooser in its own process, so they arrive as clicks elsewhere (Phil, 19 November 2026: "clicking to choose in
-    /// that window closes the Cool Head pane").
+    /// the chooser in its own process, so they arrive as clicks elsewhere, and choosing a folder would close the panel.
     static var keepOpen = false
 
     init() {

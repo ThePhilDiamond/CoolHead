@@ -47,9 +47,9 @@ public struct Fix: Identifiable {
         case cooler              // background priority: slower CPU and disk access, less heat
         case lookUp(String)      // a web search for this process name only
         case quitApp(String)     // a normal quit of the app at this bundle path, so it can ask to save
-        // Every option is a button (Phil, 15 November 2026: "It's incongruous and unintuitive to have a mix of buttons and
-        // non-buttons. If I click something, even if it just navigates to a guide or explanation how to do the task, it
-        // would be better than a non-button."). What Cool Head can't do itself, it takes you to, or shows how:
+        // Every option is a button, since a mix of buttons and plain text is confusing: even an option that only leads
+        // to a guide, or explains how to do the task, is something to click. What Cool Head can't do itself, it takes
+        // you to, or shows how:
         case openApp(String, String)    // bring this app (bundle path) forward, then say these steps
         case reveal(String, String)     // show this folder in Finder, then say these steps
         case guide([String])            // a mini-guide: these steps, numbered, under the option
@@ -95,8 +95,8 @@ public struct Fix: Identifiable {
     static let activityMonitor = "/System/Applications/Utilities/Activity Monitor.app"
 
     /// Who does the work when this option is pressed: Cool Head itself, or you, with Cool Head opening the place or
-    /// showing the steps. The two look different in the panel (Phil, 16 November 2026: "I want a clear visual cue for
-    /// 'buttons' that are a task for the user versus an automated action done by Cool Head.").
+    /// showing the steps. The two look different in the panel, so it's clear at a glance which options are a task for
+    /// you and which Cool Head does itself.
     public enum Doer { case coolHead, you }
     public var doer: Doer {
         // one kind per line, with no default, so a new kind can't be added without saying who does it
@@ -128,7 +128,7 @@ public struct Fix: Identifiable {
 
     /// What pressing it does about the problem: ends the cause, eases it, or only tells you more. Options are ordered
     /// by this within their group, and a task that fixes the cause says so beside a one-click recommendation that
-    /// doesn't (Phil, 16 November 2026: "we need to make it clear when a manual task would have better results").
+    /// doesn't, so it's clear when doing something yourself would work better.
     public enum Result: Int, Comparable {
         case informs = 0, eases = 1, fixesCause = 2
         public static func < (a: Result, b: Result) -> Bool { a.rawValue < b.rawValue }
@@ -195,9 +195,8 @@ public struct Fix: Identifiable {
     }
 
     /// Has consequences that are unknown or can't be undone, so there is risk: labelled Caution, with a warning sign, in
-    /// its group (Phil, 16 November 2026: "CAUTION recommendations should still be in the two groups, just with a
-    /// large/clear label and warning icon", and "Caution should be reserved for actions like killing a process with
-    /// unknown and/or irreversible consequences. There is risk attached. Whereas quitting Slack is not risky...").
+    /// its group, not moved apart from the others. Caution is kept for real risk, such as ending a process with unknown
+    /// or irreversible consequences; quitting an app like Slack isn't risky.
     public var caution: Bool {
         if let cautionOverride { return cautionOverride }
         switch kind {
@@ -229,10 +228,8 @@ public struct Fix: Identifiable {
 
 extension Fix {
     /// Why an option is marked Caution, in one sentence, shown on the option at the first click, which asks for a
-    /// second to go ahead (Phil, 17 November 2026); nil when it isn't
-    /// (Phil, 16 November 2026: "perhaps the description should explain why there's the caution warning? If not, mousing
-    /// over the caution label should explain why it's got the warning"). One kind per line, with no default, so a new
-    /// kind says its reason.
+    /// second to go ahead, so the warning always says why; nil when it isn't. One kind per line, with no default, so a
+    /// new kind says its reason.
     public var cautionReason: String? {
         guard caution else { return nil }
         switch kind {
@@ -287,18 +284,17 @@ public struct Card {
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation
         // Waiting isn't an option in the list: each card has a clock in its corner for that (10 minutes, 30 minutes or
-        // an hour, never "until it's done"). The rest in one fixed order (Phil, 15 November 2026).
+        // an hour, never "until it's done"). The rest in one fixed order.
         var seen = false
         var kept = fixes.filter { if case .wait = $0.kind { return false }; return true }.map { f -> Fix in
             var f = f
             if f.recommended { if seen { f.recommended = false }; seen = true }    // one recommendation at most
             return f
         }
-        // One click first (Phil, 16 November 2026: "I think one click first is right, but we need to make it clear when
-        // a manual task would have better results"): where a card recommends something, and that is a task for you, an
-        // option Cool Head can do in one click without interrupting anything is recommended instead, the one that does
-        // most about the problem. A task that does more says so ("Fixes the cause"). A recommendation that interrupts
-        // (stopping a stuck job) was chosen for its card's reason, and stays.
+        // One click first, since it's the least effort: where a card recommends something, and that is a task for you,
+        // an option Cool Head can do in one click without interrupting anything is recommended instead, the one that
+        // does most about the problem. A task that does more says so ("Fixes the cause"). A recommendation that
+        // interrupts (stopping a stuck job) was chosen for its card's reason, and stays.
         if let rec = kept.first(where: \.recommended), rec.doer == .you, !rec.caution,
            let i = kept.indices.filter({ kept[$0].doer == .coolHead && !kept[$0].interrupts && !kept[$0].holdBack && kept[$0].result >= .eases })
                 .max(by: { (kept[$0].result, -Card.rank(kept[$0]), -$0) < (kept[$1].result, -Card.rank(kept[$1]), -$1) }) {
@@ -438,11 +434,11 @@ public struct Card {
     }
 }
 
-/// Formats in Phil's style: 4:50pm, 3 hours 20 minutes.
+/// Formats in Cool Head's house style: 4:50pm, 3 hours 20 minutes.
 public enum Fmt {
-    /// A list in a sentence, in US style with the Oxford comma from three items (Phil, 18 November 2026: "in all copy
-    /// that lists things in sentences, please use oxford commas for lists of three or more"): "A", "A and B",
-    /// "A, B, and C". Not ListFormatter, which follows the Mac's region and drops the comma in British English.
+    /// A list in a sentence, in US style with the Oxford comma from three items, as in all of Cool Head's copy:
+    /// "A", "A and B", "A, B, and C". Not ListFormatter, which follows the Mac's region and drops the comma in British
+    /// English.
     public static func list(_ items: [String], or: Bool = false) -> String {
         let word = or ? "or" : "and"
         switch items.count {
@@ -453,9 +449,9 @@ public enum Fmt {
         }
     }
 
-    /// A temperature, given in °C, in the unit this Mac is set to (Phil, 17 November 2026: "we should inherit the unit
-    /// from the macOS region settings"): System Settings ▸ General ▸ Language & Region ▸ Temperature where it's been
-    /// chosen, otherwise the region's usual unit. Cool Head's own limits stay in °C.
+    /// A temperature, given in °C, in the unit this Mac is set to, taken from its region settings: System Settings ▸
+    /// General ▸ Language & Region ▸ Temperature where it's been chosen, otherwise the region's usual unit. Cool Head's
+    /// own limits stay in °C.
     public static func temperature(_ celsius: Double, fahrenheit: Bool = Fmt.fahrenheit) -> String {
         fahrenheit ? "\(Int((celsius * 9 / 5 + 32).rounded()))°F" : "\(Int(celsius.rounded()))°C"
     }
@@ -530,8 +526,8 @@ public enum Fmt {
         return g >= 1 ? String(format: "%.1f GB", g) : "\(Int(Double(b) / 1_048_576)) MB"
     }
 
-    /// A file's size the way Finder shows it, in thousands: "512 B", "48 KB", "3.2 MB", "14 GB" (Phil, 18 November 2026:
-    /// "when we show the number of files moved, we also need to show the file size (B/KB/MB/GB)").
+    /// A file's size the way Finder shows it, in thousands: "512 B", "48 KB", "3.2 MB", "14 GB". Shown beside a count
+    /// of files moved, so the count comes with how much space they take.
     public static func fileSize(_ b: UInt64) -> String {
         var v = Double(b), unit = 0
         while v >= 999.5 && unit < 3 { v /= 1000; unit += 1 }

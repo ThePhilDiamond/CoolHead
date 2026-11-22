@@ -2,9 +2,9 @@ import AppKit
 import CoolHeadCore
 import SwiftUI
 
-/// The Power tool's page (Battery until 20 November 2026): the battery's health and what it's doing now, what else helps the battery last, and the
-/// week's energy use, all in one place (Phil, 16 November 2026: "that keeps it organized and tidy and succinct, rather
-/// than having mixed data in mixed places"). A battery problem still gets its own card in the list as well.
+/// The Power tool's page (Battery until 20 November 2026): the battery's health and what it's doing now, what else
+/// helps the battery last, and the week's energy use, all in one place, which keeps it tidy and succinct rather than
+/// spread across places. A battery problem still gets its own card in the list as well.
 struct BatteryView: View {
     let watcher: Watcher
     /// Whether the past week's energy use can be shown: this Mac's power log can be read, or it's a screenshot.
@@ -70,8 +70,8 @@ struct BatteryView: View {
             }
             // the week's energy use, here rather than in a Trends tool of its own (see EnergyWeek)
             if energy { EnergyWeek(sample: PanelView.sampleSnapshot ? .sample() : nil) }
-            // no Nerdy stuff: every figure the hardware check reads is already in the sentences above (Phil, 16 November
-            // 2026: "does the nerdy stuff section add detail? ... Otherwise can remove it"). No Battery Saver switch: a
+            // no Nerdy stuff: every figure the hardware check reads is already in the sentences above, so it added
+            // nothing. No Battery Saver switch: a
             // hungry job on battery gets its card instead (see Pauses.swift)
         }
         .font(.callout)
@@ -101,10 +101,10 @@ struct FigureTile: View {
     }
 }
 
-/// A switch drawn by Cool Head, its label first, filled with the accent colour when on. macOS's own switch draws "on" in
-/// grey unless its window belongs to the app in front, and the panel never makes Cool Head the app in front (it opens
-/// without taking focus from what you're using), so the system switch looks off when it's on (Phil, 16 November 2026:
-/// "the toggles seem to not show the fill when toggled \"on\""). Every switch in the panel uses this one.
+/// A switch drawn by Cool Head, its label first, filled with the accent color when on. macOS's own switch draws "on" in
+/// gray unless its window belongs to the app in front, and the panel never makes Cool Head the app in front (it opens
+/// without taking focus from what you're using), so the system switch looks off when it's on, with no fill. Every
+/// switch in the panel uses this one.
 struct PanelSwitch: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         let on = configuration.isOn

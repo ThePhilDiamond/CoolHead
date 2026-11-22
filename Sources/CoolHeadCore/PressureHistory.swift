@@ -1,11 +1,10 @@
 import Foundation
 
 /// Spells of tight memory on this Mac, kept 30 days in Cool Head's preferences for one purpose: to tell whether memory is
-/// what slows this Mac, and how often, so its memory advice shows when it helps and says how often it has happened
-/// (Phil, 21 November 2026: "The history can be stored locally and for a very clear specific purpose, so we should
-/// disclose that but still include it."). Each spell keeps when it began and ended, how tight it got, how much was moved
-/// to disk, whether the Mac was slowed (see MemoryGate), and the kind of program using the most. No names, and nothing
-/// leaves the Mac. Listed in SECURITY.md under what Cool Head stores.
+/// what slows this Mac, and how often, so its memory advice shows when it helps and says how often it has happened. It's
+/// Cool Head's one record of the past, so it's disclosed. Each spell keeps when it began and ended, how tight it got, how
+/// much was moved to disk, whether the Mac was slowed (see MemoryGate), and the kind of program using the most. No names,
+/// and nothing leaves the Mac. Listed in SECURITY.md under what Cool Head stores.
 public enum PressureHistory {
     public struct Episode: Codable, Equatable {
         public var start: Date

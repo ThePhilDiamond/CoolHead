@@ -12,9 +12,8 @@ public struct PausedJob: Codable, Identifiable {
     public let since: Date
 }
 
-/// A reminder to resume a sync app the person paused (Phil, 15 November 2026: "pausing sync should be temporary and
-/// we should make sure to write to a reminder file somewhere to resume it later"). Cool Head can't pause or resume
-/// the app itself; it opens it and reminds.
+/// A reminder to resume a sync app the person paused, written to a file, since pausing sync should be temporary. Cool
+/// Head can't pause or resume the app itself; it opens it and reminds.
 public struct SyncPause: Codable, Identifiable {
     public var id: String { name }
     public let name: String
@@ -37,6 +36,5 @@ enum PauseStore {
 }
 
 // Battery Saver was a switch (stored as "saveBatteryUnplugged", now unread); since 19 November 2026 there's none: on
-// battery a heavy job always gets its card, with Pause until you plug in, and Trust quiets a job that's meant to run
-// (Phil: "Maybe our battery saver option should be dropped from the power tool and instead display as a card for when
-// we see the issue?", then "Yes, drop the switch").
+// battery a heavy job always gets its card, with Pause until you plug in, and Trust quiets a job that's meant to run. A
+// card when the problem is seen does the switch's job without a setting to find.

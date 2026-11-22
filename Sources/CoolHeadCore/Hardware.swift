@@ -154,7 +154,7 @@ public struct DriveHealth: Equatable {
               let plugIn, let table = plugIn.pointee?.pointee else { return nil }
         // IODestroyPlugInInterface stops the plug-in, which closes the drive's record, then releases it. Releasing alone
         // left the record open, and the drive lets only one program open it, so every later read failed until Cool
-        // Head quit (Phil, 17 November 2026: "there's zero drive info").
+        // Head quit, and the page showed nothing about the drive.
         defer { IODestroyPlugInInterface(plugIn) }
         var raw: LPVOID?
         guard table.QueryInterface(plugIn, CFUUIDGetUUIDBytes(interfaceID), &raw) == S_OK, let raw else { return nil }
@@ -335,8 +335,8 @@ public struct CrashRestarts: Equatable {
     }
 
     /// What the cause means, in plain words, for the crash card and the Hardware page alike: what stopped and whether
-    /// that's usually software or hardware (Phil, 16 November 2026: "if we tell them there was an issue such as
-    /// "WindowServer stopped responding" we need to explain what it means and what to do about it").
+    /// that's usually software or hardware, since a bare "WindowServer stopped responding" needs explaining, along with
+    /// what to do about it.
     public static func plainCause(_ c: Cause) -> String {
         switch c {
         case .stoppedResponding(let name):
@@ -506,8 +506,8 @@ extension HardwareReport {
             }
         }
 
-        // heat beyond the battery's or drive's own line needs a look, as the temperature ring shows it (Phil, 19 November 2026:
-        // "Yes, warn on it"); the battery's says when it has paused charging, in place of that card
+        // heat beyond the battery's or drive's own line needs a look, so it's warned on, as the temperature ring shows it;
+        // the battery's says when it has paused charging, in place of that card
         if let b = battery, let t = b.temperatureC, HardwarePage.batteryHeatLevel(t, charging: b.charging) > 0 {
             let hot = HardwarePage.batteryHeatLevel(t, charging: b.charging) == 2
             let paused = b.notCharging.map { if case .tooWarm = $0 { return true }; return false } ?? false
@@ -661,8 +661,8 @@ func sysctlString(_ name: String) -> String? {
 /// The hottest of the chip's own temperature sensors, the "PMU tdie" sensors on Apple silicon, read through macOS's
 /// sensor service (`IOHIDEventSystemClient`), which Apple doesn't document: its functions are looked up by name when
 /// first used, as for `SLSEventIsAppUnresponsive` (see SECURITY.md). Read-only, and no permission is needed. If a
-/// future macOS renames or removes them, this returns nil and the chip's temperature simply isn't shown (Phil, 17
-/// November 2026: "Yes, read it", on those conditions). It never decides a card: macOS's own four thermal steps do.
+/// future macOS renames or removes them, this returns nil and the chip's temperature simply isn't shown, which is what
+/// makes it safe to read. It never decides a card: macOS's own four thermal steps do.
 public enum ChipTemperature {
     private typealias Create = @convention(c) (CFAllocator?) -> Unmanaged<AnyObject>?
     private typealias SetMatching = @convention(c) (AnyObject, CFDictionary) -> Int32

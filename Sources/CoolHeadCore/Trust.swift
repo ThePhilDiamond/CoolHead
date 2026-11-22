@@ -1,8 +1,7 @@
 import Foundation
 
-/// Apps and jobs the person has chosen to trust: Cool Head stops flagging them for ordinary heat or busyness, but
-/// still flags them past a limit, so nothing can be hidden indefinitely (Phil, 15 November 2026: "My worry is that
-/// they could end up having hidden something dangerous indefinitely").
+/// Apps and jobs the person has chosen to trust: Cool Head stops flagging them for ordinary heat or busyness, but still
+/// flags them past a limit, so nothing, something dangerous included, can stay hidden indefinitely.
 ///
 /// The one thing Cool Head keeps between launches besides its settings: the list itself, on this Mac only (an app's
 /// bundle identifier, or a script's or program's location, with the name to show). Nothing about what happened.

@@ -1,21 +1,18 @@
 import AppKit
 import Foundation
 
-/// The Cleaner tool: things left behind that can go to the Trash (Phil, 18 November 2026: "Can we add a broom "cleaner"
-/// tool that does a quick scan for things like orphaned preference panes where the app was already uninstalled but the
-/// prefs still show in System Settings?"). The research behind each rule is in the side-session notes,
-/// research_graph/cleaner-leftovers/synthesis.md (18 November 2026).
+/// The Cleaner tool: things left behind that can go to the Trash, found by a quick scan, such as a preference pane that
+/// still shows in System Settings after its app was uninstalled.
 ///
 /// Every find moves to the Trash, never deleted outright, and Cool Head keeps its own list of what it moved so it can
 /// put each back (Finder's Put Back is unreliable for items an app moves: an open Apple bug). Nothing Apple signed,
 /// nothing in macOS's own folders, and nothing inside an app is ever offered. A find Cool Head can't be sure of is
 /// marked Caution and never ticked for the person.
 public enum Cleaner {
-    /// Where a find sits on the page (Phil, 18 November 2026: "The first section one-button should be stuff that
-    /// definitely isn't needed and has no impact, trash. Then the second section, something like "Deep Clean", where you
-    /// can select things should auto-check the stuff that rebuilds and have the "check these first" as options to
-    /// check."; "things that would need to rebuild could be inaccessible if needed without network (e.g.,
-    /// homebrew/xcode), so they go in the advanced/deep clean section").
+    /// Where a find sits on the page. Quick clean holds only what definitely isn't needed and has no effect when cleared,
+    /// so one button does it. Deep clean is for choosing, with what rebuilds itself ticked and what to check first left
+    /// unticked. What rebuilds goes in Deep clean, not Quick clean, since rebuilding can need the internet (Homebrew's or
+    /// Xcode's files, for example), and without it they'd be out of reach when needed.
     public enum Group: String, CaseIterable {
         /// Quick clean: nothing uses it and nothing has to rebuild it; done with one click.
         case quick
@@ -366,8 +363,7 @@ public enum Cleaner {
 
     // MARK: a folder the person chooses, Downloads to start
 
-    /// In a folder the person chose, anywhere (Phil, 19 November 2026: "word it more openly to check anywhere for
-    /// duplicates, and then just default to the downloads folder"): identical copies ("Report (1).pdf" or "Report
+    /// In a folder the person chose, anywhere, with Downloads to start: identical copies ("Report (1).pdf" or "Report
     /// copy.pdf" beside "Report.pdf"), which go in Quick clean because the original stays; and installers (.dmg, .pkg)
     /// not changed for 30 days and not open now, which Cool Head can't tell are installed, so they're for the person to
     /// check.
@@ -375,10 +371,9 @@ public enum Cleaner {
         scanFolder(folder, now: now, mounted: mounted, limit: limit).finds
     }
 
-    /// The folder and every folder inside it (Phil, 19 November 2026: "Please add searching in child folders"), but not
-    /// hidden files, not inside apps and other packages, and not through a link to a folder elsewhere. A copy is only
-    /// ever matched with an original in its own folder. Stops after `limit` files, and says so, so choosing a huge folder
-    /// can't run for ever.
+    /// The folder and every folder inside it, but not hidden files, not inside apps and other packages, and not through a
+    /// link to a folder elsewhere. A copy is only ever matched with an original in its own folder. Stops after `limit`
+    /// files, and says so, so choosing a huge folder can't run for ever.
     public static func scanFolder(_ folder: String, now: Date = Date(), mounted: Set<String>? = nil, limit: Int = 100_000) -> (finds: [Find], stopped: Bool) {
         let folder = folder.count > 1 && folder.hasSuffix("/") ? String(folder.dropLast()) : folder
         let fm = FileManager.default
@@ -557,8 +552,7 @@ public enum Cleaner {
         return done
     }
 
-    /// Under this, an item folds with the other small ones (Phil, 18 November 2026: "I think we should group items under
-    /// 50MB by default and have an expand button"; then "Maybe make the cutoff for small items 20MB?").
+    /// Under this, an item folds with the other small ones, so the big ones, which free the most, stand out.
     public static let smallItem: UInt64 = 20_000_000
 
     /// A list split into what shows and what folds into one line: items under 20 MB (or of no known size) fold when
@@ -569,9 +563,8 @@ public enum Cleaner {
         return (items.filter { (bytes($0) ?? 0) >= smallItem }, small)
     }
 
-    /// The folded line's name, a line in the list like the others with the total beside it: "17 smaller items, each
-    /// under 20 MB" (Phil, 18 November 2026: "The smaller items folded together should be a single line item that
-    /// matches the rest of the list unless expanded").
+    /// The folded line's name, a line in the list like the others, with the total beside it, until it's opened:
+    /// "17 smaller items, each under 20 MB".
     public static func foldedLine(_ n: Int) -> String { "\(n) smaller items, each under \(Fmt.fileSize(smallItem))" }
 
     /// "3 items (1.2 GB)", or "1 item" when no size is known: what a count of moved things says, everywhere it's shown.

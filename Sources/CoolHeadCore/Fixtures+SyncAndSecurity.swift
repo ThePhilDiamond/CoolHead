@@ -5,8 +5,8 @@ import Foundation
 extension Fixture {
     static func syncAndSecurityChecks(_ now: Date) -> [(String, Bool, String)] {
         var review: [(String, Bool, String)] = []
-        // Security software is never stopped, slowed or quit; sync apps offer pausing (System Sentinel review,
-        // 15 November 2026), after Run it cooler under One Click First (16 November 2026)
+        // Security software is never stopped, slowed, or quit; sync apps offer pausing, after Run it cooler under One
+        // Click First
         let falcon = Evidence.sample(name: "falcond", path: "/Library/CS/falcond", start: now.addingTimeInterval(-3600), cores: 1)
         let warp = Evidence.sample(name: "Cloudflare WARP", path: "/Applications/Cloudflare WARP.app/Contents/MacOS/Cloudflare WARP", start: now, cores: 0.8)
         let reset = Evidence.sample(name: "Reset", path: "/Users/x/bin/Reset", start: now, cores: 1)
@@ -24,7 +24,7 @@ extension Fixture {
         let syncOK = gdWarm.headline == "Google Drive is syncing your files." && gdWarm.recommended?.id == "cooler"
             && gdWarm.fixes.map(\.id) == ["cooler", "quit", "pause"] && gdCool.recommended == nil && !gdWarm.fixes.contains { $0.id == "stop" }
         review.append(("protected-and-sync", secOK && syncOK, "security \(secOK), sync \(syncOK): \(gdWarm.fixes.map(\.id))"))
-        // a build writing into a folder the sync app syncs (Phil's Google Drive errors, 15 November 2026): its own folder
+        // a build writing into a folder the sync app syncs (the Google Drive upload errors in SyncFeed): its own folder
         // is certain; Documents and Desktop only "may" be backed up; anything else isn't its business
         let home = "/Users/x"
         let ownFolder = SyncFeed.place(home + "/Library/CloudStorage/GoogleDrive-x@example.com/My Drive/App", sync: "Google Drive", home: home)

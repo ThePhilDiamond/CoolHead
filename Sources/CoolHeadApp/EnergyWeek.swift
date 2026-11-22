@@ -2,12 +2,11 @@ import AppKit
 import CoolHeadCore
 import SwiftUI
 
-/// The past week's energy use, from macOS's own power log, on the Power page (Phil, 19 November 2026: "The energy usage
-/// can move into the power/battery tool", then, of the Trends tool and its wake history, "Yes, drop Trends"). The three
-/// that used the most show without a click; one line opens the others at 5% or more in place; Nerdy stuff lists every
-/// one (Phil, 20 November 2026; see PowerHistory.energySplit). Read when the page opens, off the main thread, never on
-/// the refresh loop; nothing is kept but the totals. Every sentence comes from PowerHistory, so `coolhead history`
-/// prints the same words, and the wake history is still there for anyone who wants it.
+/// The past week's energy use, from macOS's own power log, on the Power page, where it replaced the separate Trends
+/// tool and its wake history. The three that used the most show without a click; one line opens the others at 5% or
+/// more in place; Nerdy stuff lists every one (see PowerHistory.energySplit). Read when the page opens, off the main
+/// thread, never on the refresh loop; nothing is kept but the totals. Every sentence comes from PowerHistory, so
+/// `coolhead history` prints the same words, and the wake history is still there for anyone who wants it.
 struct EnergyWeek: View {
     /// Made-up history for screenshots; nil reads this Mac's power log.
     var sample: PowerHistory? = nil
@@ -30,8 +29,7 @@ struct EnergyWeek: View {
                     ForEach(Array((split.top + (more ? split.more : [])).enumerated()), id: \.offset) { _, row in
                         Row(row: row, sample: sample != nil)
                     }
-                    // the line says what it opens (Phil, 20 November 2026: "Wording 1 can stay"); none when nothing else
-                    // reached 5%
+                    // the line says what it opens; none when nothing else reached 5%
                     if !split.more.isEmpty {
                         Divider()
                         Disclosure(title: more ? "Show only the top three"
@@ -86,8 +84,8 @@ struct EnergyWeek: View {
     }
 
     /// An app or program, or macOS itself: its icon, its name (and what it is, if not an app), its share and a bar out
-    /// of the whole, with what the share means and whether to do anything under it (Phil, 17 November 2026: "clicking an
-    /// item in the trends tool tells the user more about it"; shown without a click since 19 November 2026).
+    /// of the whole, with what the share means and whether to do anything under it, shown without a click, so each item
+    /// says more about itself.
     struct Row: View {
         let row: PowerHistory.EnergyRow
         let sample: Bool

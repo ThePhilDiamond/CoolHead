@@ -2,7 +2,7 @@ import CoolHeadChromeLink
 import Darwin
 import Foundation
 
-// Cool Head for Chrome's native messaging host (notes/chrome-link-protocol.md). Chrome starts a copy of this program
+// Cool Head for Chrome's native messaging host (Extension/chrome/PROTOCOL.md). Chrome starts a copy of this program
 // for each connection the extension opens, and closes its input when the extension disconnects or Chrome quits.
 //
 // It relays each message unchanged between Chrome (its input and output, in Chrome's framing) and the running Cool

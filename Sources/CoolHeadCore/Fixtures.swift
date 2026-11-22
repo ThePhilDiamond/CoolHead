@@ -113,10 +113,10 @@ public struct Fixture {
                        && browserCard.betterThanRecommended.isEmpty
                        && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("Closes all tabs") }
                        && browserCard.headline.contains("Google Chrome is using the most"), browserCard.headline))
-        // Chrome's memory limit, retired (Phil, 21 November 2026: "Do it all"): Chrome only applies it when an organization
-        // manages the Mac (see ChromeLimit), so it's no longer offered, for Chrome first or second, and what an earlier
-        // Cool Head wrote is removed, only when Cool Head wrote it. Written and removed for real on a scratch settings domain,
-        // never on Chrome's.
+        // Chrome's memory limit, retired: Chrome only applies it when an organization manages the Mac (see
+        // ChromeLimit), so it's no longer offered, for Chrome first or second, and what an earlier Cool Head wrote is
+        // removed, only when Cool Head wrote it. Written and removed for real on a scratch settings domain, never on
+        // Chrome's.
         let chromeGroup = [MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)]
         let driveFirst = MemoryAdvice.card([MemGroup(key: "g", name: "Google Drive", kind: .app, bundle: "/Applications/Google Drive.app", bytes: 4_700_000_000, count: 3)]
                                            + chromeGroup, mac: tight, now: now, tabMemoryOn: false)
@@ -179,8 +179,8 @@ public struct Fixture {
         let jobCard = MemoryAdvice.card([jobGroup], mac: tight, now: now)
         review.append(("memory-job-stop", jobCard.fixes.contains { $0.kind == .stop && $0.consequence.contains("Frees") && $0.consequence.contains("lose up to") },
                        "a memory-heavy job can be stopped, with what that frees and costs"))
-        // Phil's rule (15 November 2026): no warning offers only "wait". Every card that needs a look must have an
-        // option that does something (stop, slow, quit, look up or share).
+        // No warning offers only "wait". Every card that needs a look must have an option that does something (stop,
+        // slow, quit, look up, or share).
         func actionable(_ c: Card) -> Bool {
             c.fixes.contains { f in
                 switch f.kind { case .wait, .guide: return false; default: return true }      // showing how isn't doing
@@ -199,9 +199,9 @@ public struct Fixture {
         let memCrit = LiveCard(id: "memory-critical", pid: nil, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
         review.append(("wait-returns-only-if-worse", unknownCard.severity == 1 && stuckCard.severity == 2 && memWarn.severity == 1 && memCrit.severity == 2
                        && unknownCard.cause == stuckCard.cause, "waited at 1; returns at 2 for the same cause"))
-        // Phil (15 November 2026): "why is it green if it's running warm? We should be flagging causes if the heat is
-        // elevated." A busy job on a warm Mac says it's adding heat, offers running it cooler, and counts as a
-        // heat cause (severity 1), so the badge is yellow; the same job on a cool Mac stays calm (severity 0).
+        // A warm Mac isn't shown as green: what adds to the heat is flagged. A busy job on a warm Mac says it's adding
+        // heat, offers running it cooler, and counts as a heat cause (severity 1), so the badge is yellow; the same job
+        // on a cool Mac stays calm (severity 0).
         let job = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
                                   start: now.addingTimeInterval(-2 * 3600), cores: 2)
         let warmCard = Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
@@ -213,10 +213,10 @@ public struct Fixture {
         review.append(("heat-flags-causes", warmCard.explanation.contains("adding to the heat") && !coolCard.explanation.contains("heat")
                        && warmCard.fixes.contains { $0.kind == .cooler } && warmLive.severity == 1 && coolLive.severity == 0,
                        warmCard.explanation))
-        // The option order (Phil, 16 November 2026: "we could label risky actions while keeping them ordered by impact
-        // and grouped by action type which is more intuitive and consistent"): recommended first, and a task for you
-        // gives way to a safe one-click option (One Click First); then by result (fixes the cause, eases, informs); at
-        // equal result, Caution after the rest; then the older ranking. Waiting is not in the list (a clock instead).
+        // The option order: risky options are labelled, not moved, so the options stay grouped by who does them and
+        // ordered by impact, which is more intuitive and consistent. Recommended first, and a task for you gives way to
+        // a safe one-click option (One Click First); then by result (fixes the cause, eases, informs); at equal result,
+        // Caution after the rest; then the older ranking. Waiting is not in the list (a clock instead).
         let shuffled = Card(state: .unknown, headline: "", explanation: "", fixes: [
             Fix(id: "share", title: "", consequence: "", kind: .share),
             Fix(id: "stop", title: "", consequence: "", kind: .stop),
@@ -232,8 +232,8 @@ public struct Fixture {
             return keys == keys.sorted { $0.lexicographicallyPrecedes($1) } && !c.fixes.contains { if case .wait = $0.kind { return true }; return false }
                 && c.fixes.filter(\.recommended).count <= 1 }
         review.append(("option-order", order == "cooler quit stop find lookup share" && allSorted, order))
-        // Games are protected (Phil, 15 November 2026): a game is calm and never offered Run it cooler; while warm it
-        // recommends lower settings; quitting warns about unsaved progress; other busy work is offered to run cooler
+        // Games are protected: a game is calm and never offered Run it cooler; while warm it recommends lower settings;
+        // quitting warns about unsaved progress; other busy work is offered to run cooler
         let game = Evidence.sample(name: "BloonsTD6", path: "/Users/x/Library/Application Support/Steam/steamapps/common/BloonsTD6/BloonsTD6.app/Contents/MacOS/BloonsTD6",
                                    start: now.addingTimeInterval(-2 * 3600), cores: 0.6)
         let gameCalm = Card.make(game, now: now, busySince: now.addingTimeInterval(-7200))
@@ -245,9 +245,9 @@ public struct Fixture {
                        && rival.fixes.first { $0.kind == .cooler }?.consequence.contains("more power for BloonsTD6") == true
                        && rival.explanation.contains("competing with BloonsTD6"),
                        rival.explanation))
-        // Chrome without quitting (Phil, 15 November 2026): a tab, an extension and the graphics process are told apart
-        // by their launch arguments; a tab in the background is slowed, a tab in the browser you're using gets Energy
-        // Saver instead; Close just that tab comes before Quit; the graphics process is never slowed
+        // Chrome without quitting: a tab, an extension, and the graphics process are told apart by their launch
+        // arguments; a tab in the background is slowed, a tab in the browser you're using gets Energy Saver instead;
+        // Close just that tab comes before Quit; the graphics process is never slowed
         let chromeApp = "/Applications/Google Chrome.app"
         let tabExe = chromeApp + "/Contents/Frameworks/Google Chrome Framework.framework/Versions/157.0.8103.51/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
         let tabE = Evidence.sample(name: "Google Chrome Helper (Aperitif Renderer)", path: tabExe, args: [tabExe, "--type=renderer", "--renderer-client-id=5"], start: now.addingTimeInterval(-3600), cores: 1.5)
@@ -273,15 +273,15 @@ public struct Fixture {
         let gd = Evidence.sample(name: "Google Drive", path: "/Applications/Google Drive.app/Contents/MacOS/Google Drive",
                                  args: ["/Applications/Google Drive.app/Contents/MacOS/Google Drive", "--single_process"],
                                  start: now.addingTimeInterval(-3 * 3600), cores: 2)
-        // Battery (Phil, 15 November 2026): on battery, a heavy job (a script or tool, never an app) recommends Pause until
-        // you plug in and says it's draining the battery; plugged in, it doesn't; a stuck job isn't paused
+        // Battery: on battery, a heavy job (a script or tool, never an app) recommends Pause until you plug in and says
+        // it's draining the battery; plugged in, it doesn't; a stuck job isn't paused
         let heavy = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
                                     start: now.addingTimeInterval(-2 * 3600), cores: 2)
         let steady = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "index.py"], cwd: "/Users/x/Notes",
                                      start: now.addingTimeInterval(-2 * 3600), cores: 1.2)
         let min15 = now.addingTimeInterval(-900), hour = now.addingTimeInterval(-3600)
         func pauses(_ c: Card) -> Bool { c.recommended?.kind == Fix.Kind.pauseJob }
-        // Phil (15 November 2026): only the really hungry or long-running above 50% battery; any steady load below it
+        // Above 50% battery, only the really hungry or long-running are paused; below it, any steady load
         let hungryAt80 = Card.make(heavy, now: now, busySince: min15, battery: 80)          // 2 cores, 15 minutes: yes
         let steadyAt80 = Card.make(steady, now: now, busySince: min15, battery: 80)         // 1.2 cores, 15 minutes: no
         let longAt80 = Card.make(steady, now: now, busySince: hour, battery: 80)            // 1.2 cores, an hour: yes
@@ -312,8 +312,8 @@ public struct Fixture {
             sleeper.terminate()
             review.append(("pause-and-resume", paused && resumed, "paused \(paused), resumed \(resumed)"))
         }
-        // Trust (Phil, 15 November 2026): a trusted item is calm, but flagged anyway if it looks stuck, the Mac is hot,
-        // or it has been busy nonstop for 8 hours, so nothing is hidden indefinitely
+        // Trust: a trusted item is calm, but flagged anyway if it looks stuck, the Mac is hot, or it has been busy
+        // nonstop for 8 hours, so nothing is hidden indefinitely
         let scriptJob = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
                                         start: now.addingTimeInterval(-3600), cores: 2)
         let fooHelper = Evidence.sample(name: "Foo Helper", path: "/Applications/Foo.app/Contents/Frameworks/Foo Helper.app/Contents/MacOS/Foo Helper",

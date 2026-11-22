@@ -111,7 +111,7 @@ function heldRow(row, ui, on) {
   const confirming = ui.confirm && ui.confirm.tabId === row.id ? ui.confirm.action : null;
   const warnId = `warn-${row.id}`;
   const acts = h('span', { class: 'acts', role: 'group', 'aria-label': row.title });
-  // Keep is hidden on a pinned tab: pinned tabs stay loaded already, so it would add nothing (decided 21 November 2026).
+  // Keep is hidden on a pinned tab: pinned tabs stay loaded already, so it would add nothing.
   if (!row.pinned) {
     acts.append(h('button', {
       class: row.kept ? 'btn pressed' : 'btn',

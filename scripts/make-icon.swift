@@ -1,7 +1,7 @@
 // Draws Cool Head's logo options as PNGs, and the app icon set.
 // Usage: swift scripts/make-icon.swift <output folder> [app|face|ice|flat|line|all|sheet|linesheet|facesheet|facesheet2]
-// "app" draws the chosen logo (the melting snowflake on Cool Head blue, chosen 21 November 2026) and its icon set;
-// "face" draws the logo before it (a smiley with snowflakes behind, chosen 15 November 2026).
+// "app" draws the chosen logo (the melting snowflake on Cool Head blue) and its icon set;
+// "face" draws the logo before it (a smiley with snowflakes behind).
 import AppKit
 
 let args = CommandLine.arguments
@@ -464,10 +464,8 @@ func drop(at p: NSPoint, size d: CGFloat) {
 /// The app icon: the menu bar's melting snowflake in pure white on a Cool Head blue tile, its drops and puddle the size
 /// of the Melting Snowflake's but pale, so the flake leads. The tile is a rounded square on the macOS icon grid, shaded
 /// from #4A9EFF at the top through #1769D1 to #0F4FA8; the snowflake's 20 by 18 point box is fitted inside the tile
-/// less 3% of the canvas on each side. Chosen by Phil, 21 November 2026: "For the icon the quiet puddle is nice, but in
-/// the menu it's harder to see so we should keep the current design in the menu for greater contrast/visibility.",
-/// then "For the app icon keep the larger droplets and puddle size, but render the droplets and the puddle in the color
-/// of the "quiet puddle" which is more subtle" (notes/brand-mark.md).
+/// less 3% of the canvas on each side. The drops and puddle keep their larger size, in the paler color, which is more
+/// subtle on the icon; the menu bar keeps its bolder ones, which are easier to see at its size (docs/BRAND.md).
 func drawMelting(_ s: CGFloat) {
     let t = tile(s)
     NSGradient(colors: [color(0x4A9EFF), color(0x1769D1), color(0x0F4FA8)])!
@@ -629,8 +627,8 @@ if which == "sheet" {
         }
     }, width: w, height: h).write(to: out.appendingPathComponent("logo-options.png"))
 }
-// "app": the chosen logo, the melting snowflake (21 November 2026), and its icon set. "face": the logo before it, the
-// smiley with snowflakes behind (chosen 15 November 2026), as logo-face.png and AppIcon-face.iconset.
+// "app": the chosen logo, the melting snowflake, and its icon set. "face": the logo before it, the
+// smiley with snowflakes behind, as logo-face.png and AppIcon-face.iconset.
 if which == "app" || which == "face" {
     let draw: (CGFloat) -> Void = which == "app" ? drawMelting : { face2($0, style: "flurry") }
     let suffix = which == "app" ? "" : "-face"

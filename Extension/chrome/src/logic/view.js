@@ -95,8 +95,8 @@ export function buildView(i) {
       link: linkState ? { state: linkState, text: W.LINK_TEXT[linkState] } : null,
     };
   } else {
-    // Windows, Linux, and ChromeOS: no Cool Head there, so working alone is the whole product (Phil, 21 November
-    // 2026: "it works on Windows and Linux while the app is Mac only"). Chrome's own memory reading stands in.
+    // Windows, Linux, and ChromeOS: no Cool Head there (the app is Mac only), so working alone is the whole product.
+    // Chrome's own memory reading stands in.
     band = {
       tone: 'none',
       melting: false,
@@ -148,7 +148,7 @@ export function buildView(i) {
   }
 
   // ---- held in memory ----
-  // Session tabs show in the session card, not here (notes/chrome-extension-renders/README.md).
+  // During a session, its tabs show only in the session card, not here.
   const heldCtx = { ...ctx, sessionIds: null };
   const held = [];
   for (const t of tabs) {

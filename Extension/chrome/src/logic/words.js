@@ -21,7 +21,7 @@ export function quoted(title) {
   return `"${t.length > 60 ? t.slice(0, 57) + '...' : t}"`;
 }
 
-// Phil's time format: 8:45am, 2pm, 4:15pm (no leading zero, lowercase, no space).
+// Cool Head's time format: 8:45am, 2pm, 4:15pm (no leading zero, lowercase, no space).
 export function clock(date) {
   const h24 = date.getHours();
   const m = date.getMinutes();
@@ -133,7 +133,8 @@ export const KEPT = 'Kept';
 export const SLEEP = 'Sleep';
 export const CLOSE = 'Close';
 
-// Asked once, as in render 1f: the second press does it (Phil chose this on 21 November 2026, notes/chrome-extension-renders/README.md, choice 3).
+// Sleep or Close on a call or unsent typing would end the call or lose the typing, so it's asked once: the second
+// press does it.
 export function warning(action, risk) {
   const verb = action === 'close' ? 'Closing' : 'Sleeping';
   const again = action === 'close' ? 'Press Close again to close it anyway.' : 'Press Sleep again to sleep it anyway.';

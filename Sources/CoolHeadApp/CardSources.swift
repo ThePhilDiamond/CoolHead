@@ -21,6 +21,6 @@ extension Watcher {
 
 // Every card source is listed in `CardSources.all`, which the build writes from the file names (Plugins/Lists): each
 // <Name>Cards.swift file declares `<Name>Watch.shared`, a CardSource, so a new kind of card is one new file and no
-// edit anywhere else (Phil, 17 November 2026: "we need to make sure it doesn't compromise the architecture/security of
-// the app"). The list is fixed when the app is built: nothing is loaded or chosen while it runs. To see what starts at
-// launch, list the *Cards.swift files, or read the generated file in .build/plugins/outputs.
+// edit anywhere else. That ease costs nothing in the app's architecture or security: the list is fixed when the app is
+// built, and nothing is loaded or chosen while it runs. To see what starts at launch, list the *Cards.swift files, or
+// read the generated file in .build/plugins/outputs.

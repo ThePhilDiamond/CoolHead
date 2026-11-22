@@ -9,13 +9,12 @@ import Foundation
 /// private, because the issue will be public.
 public enum ProblemReport {
     /// The most the title's few words can be, counted as they're typed, so titles stay readable in GitHub's list of
-    /// issues (Phil, 19 November 2026: "Maybe limit the summary to characters? Show a character limit in the corner").
+    /// issues; a count in the corner shows what's left.
     public static let summaryLimit = 60
     /// What went wrong with something Cool Head was managing, each finishing the title's sentence after what Cool Head
-    /// did: "Chrome's memory limit caused an app to crash or quit" (Phil, 19 November 2026: "We can't word the report
-    /// title exactly as it's worded, because that makes what we're doing the problem rather than explaining what issue
-    /// occurred while doing that ... "[card type] caused [problem]" ... Might require more options for the type of issue
-    /// so it's clearer and more useful for troubleshooting"). The last asks for a few words instead.
+    /// did: "Chrome's memory limit caused an app to crash or quit". The title names what went wrong while Cool Head did
+    /// it, not what Cool Head did, which would read as if that were the problem; several kinds of problem make reports
+    /// clearer and more useful for troubleshooting. The last asks for a few words instead.
     public static let heldProblems = ["Caused an app to crash or quit", "Stopped something from working", "Caused lost work or data",
                                       "Didn't help", "Made my Mac slower", "Something else"]
     /// The title of a report about something Cool Head was managing: what it did, then what went wrong, in full; with
@@ -57,10 +56,8 @@ public enum ProblemReport {
         Date(timeIntervalSince1970: (d.timeIntervalSince1970 / 300).rounded() * 300)
     }
 
-    /// The issue's title: the person's few words, so reports don't all share one title (Phil, 19 November 2026: "Reporting
-    /// an issue maybe needs a "describe your issue in five words or less" to generate unique titles? Otherwise they'll all
-    /// be the same if there are multiple reports"). Spaces tidied, at most `summaryLimit` characters; the kind when
-    /// nothing was typed.
+    /// The issue's title: the person's few words, so reports don't all share one title. Spaces tidied, at most
+    /// `summaryLimit` characters; the kind when nothing was typed.
     public static func title(kind: String, summary: String) -> String {
         let s = tidy(summary)
         return "Problem: " + (s.isEmpty ? kind : s)

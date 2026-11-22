@@ -2,10 +2,9 @@ import AppKit
 import CoolHeadCore
 import SwiftUI
 
-/// Settings, in the panel like the other tools' pages, opened by the gear at the right end of the toolbar (Phil,
-/// 17 November 2026: "The settings icon should be the right-most."). What Cool Head does first, then how it looks
-/// (Phil, 16 November 2026: "icon style and labels are aesthetic choices, so should be grouped separately from the
-/// other settings"), then About and Quit, so everything is in the panel and the right-click menu is only a shortcut.
+/// Settings, in the panel like the other tools' pages, opened by the gear at the right end of the toolbar. What Cool Head
+/// does first, then how it looks, since the icon style and tool names are matters of taste and are grouped apart from the
+/// other settings; then About and Quit, so everything is in the panel and the right-click menu is only a shortcut.
 struct SettingsView: View {
     @ObservedObject var tools = Tools.shared
     @AppStorage("notifications") private var notifications = true
@@ -30,19 +29,15 @@ struct SettingsView: View {
                 Divider()
                 SettingSwitch(title: "Open at login", detail: nil, on: Binding(get: { login }, set: { LoginItem.set($0); login = LoginItem.on }))
                 Divider()
-                // each line under a setting is short, one line (Phil, 19 November 2026: "I don't like the many lines of text in
-                // the settings pane explaining things. Can we do the same with less words?")
-                // when it checks (Phil, 19 November 2026: "add a subtitle that "check for updates automatically" checks upon
-                // opening the app and once daily"); Updater.schedule: a minute after launch, then every 24 hours
+                // each line under a setting is short, one line, so the page isn't crowded with explanation
+                // when it checks, on opening and once a day; Updater.schedule: a minute after launch, then every 24 hours
                 SettingSwitch(title: "Check for updates automatically", detail: "When Cool Head opens, then daily.",
                               on: Binding(get: { automatic }, set: { updater.automatic = $0; automatic = $0 }))
                 Divider()
-                // the version, and checking now, here rather than in the toolbar (Phil, 17 November 2026: "the "Update"
-                // label should say "update" not the version number, and maybe put the version number inside the update
-                // icon? Or somewhere else?"; then, choosing between renders: "Update in Settings")
+                // the version, and checking now, here rather than as an Update button in the toolbar, which had no good
+                // place for the version number; the bar keeps its room for the tools' names
                 HStack {
-                    // what the number is, and how old (Phil, 19 November 2026: "Right now it just says the name and a number,
-                    // which might not be clear to everyone")
+                    // what the number is, and how old, since a name and a bare number might not be clear to everyone
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Cool Head version \(CoolHead.version)").font(.callout)
                         Text("Released \(CoolHead.releasedWords)").font(.caption).foregroundStyle(Ink.muted)
@@ -70,8 +65,8 @@ struct SettingsView: View {
                 Divider()
                 SettingSwitch(title: "Show tool names", detail: "Off: point at a tool to see its name.", on: $labels)
                 Divider()
-                // off to start, for less to read at the top (Phil, 19 November 2026: "make the gauges in the top pane
-                // optional as a setting for users who don't know what it means or care ... By default it should be off")
+                // off to start, for less to read at the top: the gauges are clutter to anyone who doesn't know or care
+                // what they mean
                 SettingSwitch(title: "Show usage and temperature",
                               detail: "Gauges at the top of the panel.", on: $gauges)
             }
@@ -125,19 +120,18 @@ struct SettingSwitch: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         // Cool Head's own switch, filled when on whether or not Cool Head is the app in front, like every other switch
-        // in the panel (Phil, 19 November 2026: "when it's not the focus pane, they're grey, but when focused, it should
-        // be colored")
+        // in the panel; macOS's own switch turns gray whenever another app is in front
         .toggleStyle(PanelSwitch())
     }
 }
 
-/// The two menu bar icons, each at all three levels, to pick one by sight rather than by name (Phil, 17 November
-/// 2026: "a welcome window that shows the user the different icon options"). The columns say what each level means.
+/// The two menu bar icons, each at all three levels, to pick one by sight rather than by name. The columns say what each
+/// level means.
 struct IconStylePicker: View {
     @Binding var style: String
     static let levels: [(Watcher.Level, String)] = [(.good, "All good"), (.warning, "Worth watching"), (.issue, "Problem")]
-    /// Each style's name, and how it shows the level besides color: both work without it (Phil, 19 November 2026: "add a
-    /// subtitle that the melting snowflake icon is also color-blind friendly"; the badge's shapes do the same).
+    /// Each style's name, and how it shows the level besides color: both work without it, the badge by its shapes and the
+    /// melting snowflake by its drawings, so each line says so.
     static let styles: [(String, String, String)] = [("badge", "Status badge", "Shapes and colors"),
                                                     ("melting", "Melting snowflake", "Color-blind friendly")]
 
@@ -178,8 +172,7 @@ struct IconStylePicker: View {
 }
 
 /// Cool Head for Chrome: whether it's working with Cool Head, or how to set it up (see ChromeCompanion). The two-arrow
-/// sign is the one Chrome's one-click options carry too, so "working together" reads the same everywhere (Phil,
-/// 21 November 2026: "have a sync icon somewhere for users who do have it to show that they're working together").
+/// sign is the one Chrome's one-click options carry too, so "working together" reads the same everywhere.
 struct CompanionRow: View {
     @State private var status = ChromeCompanion.status
     @State private var setUp = false

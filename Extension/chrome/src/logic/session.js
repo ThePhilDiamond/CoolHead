@@ -38,7 +38,7 @@ export function suggest(tabs, ctx) {
   return { suggested, others };
 }
 
-// "This window only" means use only this window: tick its tabs, untick the rest (decided 21 November 2026).
+// "This window only" means use only this window: tick its tabs, untick the rest.
 export function windowOnly(rows, windowId) {
   return new Set(rows.filter((r) => r.windowId === windowId).map((r) => r.id));
 }

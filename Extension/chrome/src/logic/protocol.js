@@ -1,4 +1,4 @@
-// The link to Cool Head, version 1: the extension's side of notes/chrome-link-protocol.md (copied to PROTOCOL.md).
+// The link to Cool Head, version 1: the extension's side of PROTOCOL.md.
 // Unknown message types and fields are ignored, so either side can be newer. Only counts and the person's
 // level cross the link: no addresses, titles, or extension names.
 import { PROTOCOL_REASONS } from './reasons.js';

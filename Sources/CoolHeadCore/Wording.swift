@@ -1,8 +1,7 @@
 import Foundation
 
 /// Every card Cool Head can show, from its recorded examples, so all the wording can be read in one place
-/// (`coolhead wording`). Hand-written wording (Phil, 15 November 2026: "Yes, hand-write it"): no model rewords anything,
-/// so this list is what people read.
+/// (`coolhead wording`). The wording is written by hand: no model rewords anything, so this list is what people read.
 public enum Wording {
     public static func samples(now: Date = Date()) -> [(String, Card)] {
         var out: [(String, Card)] = Fixture.all(now).map { f in

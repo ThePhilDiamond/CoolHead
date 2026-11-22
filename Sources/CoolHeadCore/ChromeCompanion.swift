@@ -1,11 +1,10 @@
 import Foundation
 import CoolHeadChromeLink
 
-/// Cool Head for Chrome, the extension that works with Cool Head (design: notes/chrome-extension-design.md; Phil,
-/// 21 November 2026: "We should add the extension as a suggestion on install, in the settings screen, and have a sync
-/// icon somewhere for users who do have it to show that they're working together."). Linked through Chrome's native
-/// messaging: Chrome starts Cool Head's helper only for this extension, named in a small file Cool Head places in
-/// Chrome's NativeMessagingHosts folder when the person presses Set up (see ChromeLinkServer).
+/// Cool Head for Chrome, the extension that works with Cool Head (Extension/chrome), offered on the Settings page and
+/// among the memory card's fixes, with a sign in Settings showing when the two are working together. Linked through
+/// Chrome's native messaging: Chrome starts Cool Head's helper only for this extension, named in a small file Cool Head
+/// places in Chrome's NativeMessagingHosts folder when the person presses Set up (see ChromeLinkServer).
 public enum ChromeCompanion {
     public enum Status: Equatable { case noChrome, notInstalled, connected }
 

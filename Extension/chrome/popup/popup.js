@@ -10,7 +10,7 @@ const ALL_SITES = { origins: ['<all_urls>'] };
 
 const ui = {
   screen: 'home',
-  heldOpen: false, // folded by default, showing its count, like Cool Head's folded groups (decided 21 November 2026)
+  heldOpen: false, // folded by default, showing its count, like Cool Head's folded groups
   confirm: null,
   ending: false,
   groupName: null,
@@ -153,7 +153,7 @@ const on = {
 };
 
 // Sleep or Close on a tab on a call, sharing the screen, or with unsent typing asks once; the second press does
-// it (render 1f, chosen 21 November 2026). Focus stays on the button, and the warning is said aloud.
+// it. Focus stays on the button, and the warning is said aloud.
 function tryRisky(row, action) {
   if (row.risk && !(ui.confirm && ui.confirm.tabId === row.id && ui.confirm.action === action)) {
     ui.confirm = { tabId: row.id, action };

@@ -92,9 +92,9 @@ public enum Leaks {
     }
 
     /// What the memory card says about a leaking app, anchored on what the same app used earlier with the same windows
-    /// open (Phil, 16 November 2026: "anchor against typical use ... make it easy to make a decision"): a verdict for
-    /// the headline, one sentence with the evidence and the advice, and the option, saving first. Caution only where
-    /// quitting loses work (see MemoryAdvice.quitRisks).
+    /// open, so it's measured against typical use and the decision is easy: a verdict for the headline, one sentence
+    /// with the evidence and the advice, and the option, saving first. Caution only where quitting loses work (see
+    /// MemoryAdvice.quitRisks).
     public static func addition(_ l: Leak, app: String, bundle: String, now: Date, losesWork: Bool) -> (headline: String, sentence: String, fix: Fix) {
         let h = max(2, Int(now.timeIntervalSince(l.since) / 3600))
         let headline = "\(app) is using more than it usually does."

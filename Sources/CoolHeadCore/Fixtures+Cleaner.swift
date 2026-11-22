@@ -109,11 +109,10 @@ extension Fixture {
         // same name pattern and same size, one byte different: compared byte for byte, so not offered
         fm.createFile(atPath: dl + "/Photo.jpg", contents: Data("abcdefgh".utf8)); fm.createFile(atPath: dl + "/Photo (1).jpg", contents: Data("abcdefgX".utf8))
         file(dl + "/Old.dmg", bytes: 100, daysOld: 40); file(dl + "/Open.dmg", bytes: 100, daysOld: 40); file(dl + "/New.pkg", bytes: 100)
-        // Finder's Duplicate names it "Budget copy.xlsx" (Phil, 19 November 2026: "check anywhere for duplicates")
+        // Finder's Duplicate names it "Budget copy.xlsx", so copies named that way are found too
         file(dl + "/Budget.xlsx", bytes: 3_000); file(dl + "/Budget copy.xlsx", bytes: 3_000)
-        // and the folders inside it (Phil, 19 November 2026: "Please add searching in child folders"): a copy beside its
-        // original in a child folder; not one whose original is in another folder; not in a hidden folder, nor through a
-        // link to a folder elsewhere
+        // and the folders inside it: a copy beside its original in a child folder; not one whose original is in another
+        // folder; not in a hidden folder, nor through a link to a folder elsewhere
         file(dl + "/Work/Plan.key", bytes: 700); file(dl + "/Work/Plan (1).key", bytes: 700)
         file(dl + "/Sub/Report (1).pdf", bytes: 5_000)
         file(dl + "/.cache/A.txt", bytes: 50); file(dl + "/.cache/A (1).txt", bytes: 50)
@@ -158,17 +157,16 @@ extension Fixture {
                        "moved \(t.moved.count) (a file and a link, its target kept; the file's size kept: \(sized)), refused \(t.failed.count) (through a linked folder), put back \(back)"))
         defaults.removePersistentDomain(forName: "coolhead-selftest-cleaner")
 
-        // sizes beside counts, in thousands like Finder (Phil, 18 November 2026: "when we show the number of files moved, we
-        // also need to show the file size (B/KB/MB/GB)"); a list saved before sizes were kept still loads
+        // sizes beside counts, in thousands like Finder, so a count of files moved says how much space they take; a
+        // list saved before sizes were kept still loads
         let sizes = [0, 999, 1_000, 48_200, 999_600, 3_210_000, 14_400_000_000].map { Fmt.fileSize(UInt64($0)) }
         let old = try? JSONDecoder().decode([Cleaner.Moved].self, from: Data(#"[{"from":"/a","to":"/b","admin":false,"at":0}]"#.utf8))
         review.append(("cleaner-sizes", sizes == ["0 B", "999 B", "1.0 KB", "48 KB", "1.0 MB", "3.2 MB", "14 GB"]
                        && Cleaner.count(1, bytes: 0) == "1 item" && Cleaner.count(3, bytes: 1_200_000_000) == "3 items (1.2 GB)"
                        && old?.first?.bytes == nil && old?.count == 1, "\(sizes)"))
 
-        // items under 20 MB fold into one line when there are two or more (Phil, 18 November 2026: "I think we should group
-        // items under 50MB by default and have an expand button"; "Maybe make the cutoff for small items 20MB?"); one
-        // alone shows
+        // items under 20 MB fold into one line that opens, when there are two or more, so small items don't crowd the
+        // list; one alone shows
         let mixed: [UInt64?] = [6_100_000_000, 12_000_000, nil, 2_400_000, 20_000_000]
         let (shown, folded) = Cleaner.split(mixed) { $0 }
         let lone = Cleaner.split([UInt64?(6_100_000_000), 9_000_000]) { $0 }
