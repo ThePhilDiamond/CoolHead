@@ -19,6 +19,7 @@ public final class ChromeLinkServer: @unchecked Sendable {
     public struct Summary: Equatable, Sendable {
         public var connected = false
         public var report: ChromeLink.Report?
+        public init(connected: Bool = false, report: ChromeLink.Report? = nil) { self.connected = connected; self.report = report }
     }
 
     private let queue = DispatchQueue(label: "coolhead.chrome-link")

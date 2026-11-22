@@ -13,7 +13,7 @@ let package = Package(
     targets: [
         .target(name: "CoolHeadCore", dependencies: ["CoolHeadChromeLink"], linkerSettings: [.linkedFramework("IOKit")], plugins: ["Lists"]),
         // the host is listed so building coolhead builds it too, for the selftest to run (it isn't linked in)
-        .executableTarget(name: "coolhead", dependencies: ["CoolHeadCore", "coolhead-chrome-host"]),
+        .executableTarget(name: "coolhead", dependencies: ["CoolHeadCore", "CoolHeadChromeLink", "coolhead-chrome-host"]),
         .executableTarget(name: "CoolHeadApp", dependencies: ["CoolHeadCore", "CoolHeadChromeLink"],
                           linkerSettings: [.linkedFramework("ServiceManagement"), .linkedFramework("UserNotifications")],
                           plugins: ["Lists"]),

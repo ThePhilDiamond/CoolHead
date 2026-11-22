@@ -156,7 +156,7 @@ public struct Fix: Identifiable {
         case .stopAndTrash: return .fixesCause     // it can't run or start again unless put back from the Trash
         case .restartApp: return .fixesCause       // the memory it had built up is given back
         case .unloadModels: return .fixesCause     // the model's memory is free at once
-        case .chromeCompanion: return .fixesCause
+        case .chromeCompanion(let a): return a == "setup" ? .informs : .fixesCause   // setting up the extension helps later, not now, so it's never promoted
         case .deleteBuildData: return .fixesCause  // the space is free at once
         }
     }

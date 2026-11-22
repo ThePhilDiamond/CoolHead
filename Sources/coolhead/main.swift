@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import CoolHeadCore
+import CoolHeadChromeLink
 
 // the selftest's throwaway app (a copy of this program in a bundle of its own): it records how it was opened, and
 // waits to be asked to quit, so the selftest can restart it the way Cool Head restarts a browser
@@ -205,6 +206,28 @@ case "network":
         let w = NetworkCheck.whereSaid(NetworkCheck.whereSeen(setup), setup.vpn)
         print("  Websites see you in: \(w.value). \(w.detail)")
     }
+case "link-test":
+    // For testing the link by hand: runs Cool Head's end of it at a socket the test names (never Cool Head's own while
+    // Cool Head runs), says memory is slowing the Mac, prints what the extension says, and after 20 seconds asks it to
+    // put hidden tabs to sleep. Usage: coolhead link-test <socket path> [seconds]
+    guard CommandLine.arguments.count > 2 else { print("Usage: coolhead link-test <socket path> [seconds]"); exit(2) }
+    let server = ChromeLinkServer()
+    guard server.start(path: CommandLine.arguments[2]) else { print("Couldn't listen there."); exit(1) }
+    let seconds = CommandLine.arguments.count > 3 ? Double(CommandLine.arguments[3]) ?? 60 : 60
+    let state = ChromeLink.State(memory: .slowed, freeMB: ChromeLinkServer.freeMB(), chromeMB: 0, hiddenTabsMB: nil, extensionsMB: nil, auto: true)
+    let started = Date()
+    var asked = false, last = ChromeLinkServer.Summary()
+    while Date().timeIntervalSince(started) < seconds {
+        server.publish(state)
+        let now = server.summary
+        if now != last { print("linked: \(now.connected); report: \(now.report.map { "asleep \($0.asleep), held \($0.held), level \($0.level.rawValue)" } ?? "none")"); last = now }
+        if !asked, now.connected, Date().timeIntervalSince(started) > 20 {
+            asked = true
+            server.request(.sleepHidden) { r in print("request answered: \(r.map { "\($0.ok) \($0.done)" } ?? "no answer")") }
+        }
+        usleep(2_000_000)
+    }
+    server.stop()
 case "history":
     guard let h = PowerHistory.read() else { print("No history: this Mac's power log couldn't be read."); exit(0) }
     print(h.text)
