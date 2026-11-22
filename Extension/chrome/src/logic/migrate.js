@@ -7,7 +7,8 @@ const EXT_PAGE = /^chrome-extension:\/\/([a-p]{32})\/(.*)$/;
 // The names suspenders give the real address in their page's link. "uri" is The Great Suspender's family, which puts
 // it last and unencoded, so everything after it is the address; the others are cut at the next "&" and decoded.
 const KEYS = ['uri', 'url', 'u', 'link', 'href', 'target', 'page', 'original'];
-const WEB = /^https?:\/\//i;
+// Web pages, and local files, which The Marvellous Suspender also suspends.
+const WEB = /^(https?|file):\/\//i;
 
 function decoded(v) {
   let out = v;
@@ -17,7 +18,8 @@ function decoded(v) {
   return WEB.test(out) ? out : null;
 }
 
-// The real address behind a tab on another extension's page, or null when it isn't a suspended web page.
+// The real address behind a tab on another extension's page, or null when it isn't a suspended page. Checked against
+// the shapes the most used suspenders write (test/rules.test.js); Workona's, on a web page of its own, isn't known yet.
 export function suspendedAt(tabUrl, selfId) {
   const m = EXT_PAGE.exec(tabUrl || '');
   if (!m || m[1] === selfId) return null;

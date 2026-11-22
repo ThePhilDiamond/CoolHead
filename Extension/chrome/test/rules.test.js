@@ -284,3 +284,18 @@ test('a site kept awake holds every tab from it and its subdomains, and reports 
   assert.deepEqual(heldReasons({ id: 2, url: 'https://other.org/' }, ctx), []);
   assert.equal(heldCounts([{ id: 1, url: 'https://example.com/' }], ctx).kept, 1);
 });
+
+test('the most used suspenders each give up the real address (shapes from their source, read 22 November 2026)', async () => {
+  const { suspendedAt } = await import('../src/logic/migrate.js');
+  // Tab Suspender: park.html, every value encoded, the address third
+  assert.equal(suspendedAt('chrome-extension://fiabciakcmgepblmdkmemdbbkilneeeh/park.html?tabId=412&title=Example%20Page&url=https%3A%2F%2Fexample.com%2Fdocs%3Fa%3D1%26b%3D2&sessionId=1732280000000&icon=https%3A%2F%2Fexample.com%2Ffavicon.ico#secondTime', 'self').url,
+    'https://example.com/docs?a=1&b=2');
+  // The Marvellous Suspender: suspended.html, the address last and unencoded, including a local file
+  assert.equal(suspendedAt('chrome-extension://noogafoofpebimajpfpamcfhoaifemoa/suspended.html#ttl=Example%20Page&pos=0&uri=https://example.com/docs?a=1&b=2#section', 'self').url,
+    'https://example.com/docs?a=1&b=2#section');
+  assert.equal(suspendedAt('chrome-extension://noogafoofpebimajpfpamcfhoaifemoa/suspended.html#ttl=Notes&pos=0&uri=file:///Users/someone/notes.html', 'self').url,
+    'file:///Users/someone/notes.html');
+  // Tiny Suspender: suspend.html, the address first and encoded, with favIconUrl after it
+  assert.equal(suspendedAt('chrome-extension://bbomjaikkcabgmfaomdichgcodnaeecf/suspend.html?url=https%3A%2F%2Fexample.com%2Fdocs%3Fa%3D1%26b%3D2&title=Example%20Page&favIconUrl=https%3A%2F%2Fexample.com%2Ffavicon.ico&scroll_x=0&scroll_y=640', 'self').url,
+    'https://example.com/docs?a=1&b=2');
+});
