@@ -802,6 +802,15 @@ public final class Watcher {
         onPublish?()
     }
 
+    /// Rules and limits applied once, now, from a fresh read of your own processes, outside the 10-second sample (on
+    /// the main thread, only while the sample isn't running). For notes/cpu-cap.md's live check, which needs only this,
+    /// not the whole sample. `cores`: what each process is using, for a limit measured fresh.
+    public func applyRulesNow(cores: [pid_t: Double] = [:]) {
+        let ruled = ruledProcesses(Proc.allPIDs(), me: getpid()).map { r -> Ruled in var r = r; r.cores = cores[r.pid] ?? 0; return r }
+        applyRules(ruled, Date())
+        applyLimits(ruled, Date())
+    }
+
     /// The This once | Every time switch on a Managed by Cool Head line. To Every time: a rule, carrying its level. To
     /// This once: the rule isn't kept, and what it slows stays as it is until it quits.
     public func setEveryTime(_ item: CooledItem, _ on: Bool) -> Outcome {
