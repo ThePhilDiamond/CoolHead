@@ -119,6 +119,7 @@ function heldRow(row, ui, on) {
       class: row.kept ? 'btn pressed' : 'btn',
       'aria-pressed': row.kept ? 'true' : 'false',
       'aria-label': `${row.kept ? W.KEPT : W.KEEP}: ${row.title}`,
+      title: row.kept ? W.KEPT_TIP : W.KEEP_TIP,
       'data-key': `keep-${row.id}`,
       onclick: () => on.keep(row.id, !row.kept),
     }, row.kept ? icon('check') : null, row.kept ? W.KEPT : W.KEEP));
@@ -205,12 +206,28 @@ function extensionsPart(view, ui, on) {
   return part;
 }
 
+// Each page open more than once, its title showing a copy that would close, so they can be checked first; after
+// closing, what closed, until Done.
 function duplicatesCard(view, on) {
+  const c = view.closedDups;
+  if (c?.length) {
+    const n = c.reduce((a, x) => a + x.n, 0);
+    return h('section', { class: 'card', 'aria-labelledby': 'dup-h', role: 'status' },
+      h('div', { class: 'head' }, h('h2', { id: 'dup-h' }, icon('check'), W.closedDupsTitle(n))),
+      h('ul', { class: 'duplist' }, c.map((x) => h('li', {}, h('span', { class: 'name', text: x.title }),
+        x.n > 1 ? h('span', { class: 'why', text: ` × ${x.n}` }) : null))),
+      h('p', { class: 'note', text: W.CLOSED_DUPS_NOTE }),
+      h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'dups-done', onclick: on.closedDupsSeen }, W.CLOSED_DUPS_DONE)));
+  }
   const d = view.duplicates;
   if (!d) return null;
   return h('section', { class: 'card', 'aria-labelledby': 'dup-h' },
     h('div', { class: 'head' }, h('h2', { id: 'dup-h', text: d.title })),
     h('p', { text: d.line }),
+    h('ul', { class: 'duplist' }, (d.items || []).map((x) => h('li', {},
+      h('button', { class: 'tabtitle show', title: `${W.SHOW}: ${x.title}`, 'aria-label': `${W.SHOW}: ${x.title}`,
+        'data-key': `dup-show-${x.showId}`, onclick: () => on.show(x.showId) }, h('span', { class: 'name', text: x.title }), icon('external')),
+      h('span', { class: 'why', text: W.dupExtra(x.extra) })))),
     h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'dups', onclick: on.closeDuplicates }, d.button)));
 }
 
@@ -378,11 +395,7 @@ function settingsScreen(view, ui, on) {
     : view.migrate?.count ? h('section', { class: 'card', 'aria-labelledby': 'mig-h' },
       h('h2', { id: 'mig-h', text: W.MIGRATE_SETTINGS }),
       h('p', { text: W.migrateHead(view.migrate.count, view.migrate.from) }),
-      h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'open-migrate', onclick: on.openMigrate }, W.MIGRATE_TITLE)),
-      stuckList(view.migrate.stuck, on))
-    : view.migrate?.stuck?.length ? h('section', { class: 'card', 'aria-labelledby': 'mig-h' },
-      h('h2', { id: 'mig-h', text: W.MIGRATE_SETTINGS }),
-      stuckList(view.migrate.stuck, on)) : null,
+      h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'open-migrate', onclick: on.openMigrate }, W.MIGRATE_TITLE))) : null,
     h('section', { class: 'card', 'aria-labelledby': 'leave-h' },
       h('h2', { id: 'leave-h', text: W.LEAVE_TITLE }),
       h('div', { role: 'radiogroup', 'aria-labelledby': 'leave-h', style: 'margin-top:6px' },
@@ -429,19 +442,6 @@ function extRow(e, toOn, on) {
 
 // ---------- moving a suspender's tabs ----------
 
-// Tabs left on a suspender's page because their address downloads a file: each title shows the tab, with Close.
-function stuckList(stuck, on) {
-  if (!stuck?.length) return null;
-  return h('div', {},
-    h('p', { text: W.migrateStuck(stuck.length) }),
-    h('p', { class: 'note', text: W.MIGRATE_STUCK_HOW }),
-    h('ul', { class: 'sitelist' }, stuck.map((t) => h('li', { class: 'ext' },
-      h('button', { class: 'tabtitle show', title: `${W.SHOW}: ${t.title}`, 'aria-label': `${W.SHOW}: ${t.title}`,
-        'data-key': `show-${t.id}`, onclick: () => on.show(t.id) }, h('span', { class: 'name', text: t.title }), icon('external')),
-      h('button', { class: 'btn danger', 'data-key': `close-${t.id}`, 'aria-label': `${W.CLOSE}: ${t.title}`,
-        onclick: () => on.closeStuck(t.id) }, W.CLOSE)))));
-}
-
 // Shown once when the popup first finds tabs a suspender holds, and from Settings after. Three states: the offer,
 // the move under way, and its result, with the suspender's removal offered once its tabs are safe.
 function migrateScreen(view, ui, on) {
@@ -454,7 +454,7 @@ function migrateScreen(view, ui, on) {
   } else if (m.result) {
     body.push(h('h2', { text: W.migrateDone(m.result.moved) }));
     if (m.result.failed) body.push(h('p', { text: W.migrateFailed(m.result.failed) }));
-    if (m.result.stuck) body.push(stuckList(m.stuck, on));
+    if (m.result.stuck) body.push(h('p', { text: W.migrateParked(m.result.stuck) }));
     if (m.result.removeId && !m.count) {
       body.push(h('p', { text: W.migrateRemove(m.result.removeName) }),
         h('div', { class: 'row' },

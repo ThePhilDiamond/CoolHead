@@ -133,7 +133,7 @@ export function backTo({ suggestions = 0, session = false } = {}) {
   if (suggestions > 0) return plural(suggestions, 'suggestion');
   return session ? 'Your session' : 'Start a session';
 }
-export const PROTECTED_LEDE = 'Each stays awake for the reason shown.';
+export const PROTECTED_LEDE = 'Each stays awake while the reason shown lasts. Keep awake keeps one awake after that too.';
 export const PROTECTED_EMPTY = 'None right now. Tabs on a call, playing sound, pinned, with unsent typing, or kept by you show here.';
 export const REASON_TEXT = {
   call: 'On a call',
@@ -146,8 +146,11 @@ export const REASON_TEXT = {
   pinned: 'Pinned',
   session: 'In the session',
 };
-export const KEEP = 'Keep';
-export const KEPT = 'Kept';
+// Keep makes a tab stay awake for good, not only while its reason lasts (a call, sound), so the button says so.
+export const KEEP = 'Keep awake';
+export const KEPT = 'Kept awake';
+export const KEEP_TIP = 'Keeps this tab awake even after its reason ends, until you press it again.';
+export const KEPT_TIP = 'Kept awake until you press this again.';
 export const SLEEP = 'Sleep';
 export const CLOSE = 'Close';
 export const SHOW = 'Show';
@@ -181,8 +184,14 @@ export function duplicatesCard(groups) {
     title,
     line: `${has} Closing keeps the copy you used last, so you keep your place.`,
     button: `Close ${plural(extra, 'duplicate')}`,
+    // each page, to see a copy that would close before closing them
+    items: groups.map((g) => ({ title: g.title || 'Untitled tab', showId: g.closeIds[0], extra: g.closeIds.length })),
   };
 }
+export function dupExtra(n) { return n === 1 ? '1 extra copy' : `${n} extra copies`; }
+export function closedDupsTitle(n) { return `Closed ${plural(n, 'duplicate tab')}`; }
+export const CLOSED_DUPS_NOTE = "Each page's copy you used last is still open. Chrome's History menu can reopen the ones closed.";
+export const CLOSED_DUPS_DONE = 'Done';
 
 // ---- sessions ----
 export const START = 'Start a session';
@@ -350,11 +359,15 @@ export function migrateProgress(done, total) { return `Moving ${done} of ${total
 export const MIGRATE_KEEP_GOING = 'You can close this; it keeps going.';
 export function migrateDone(n) { return `${plural(n, 'tab')} moved. Each is asleep and wakes when you click it.`; }
 export function migrateFailed(n) { return `${plural(n, "tab couldn't", "tabs couldn't")} be moved and ${n === 1 ? 'stays' : 'stay'} with the suspender.`; }
-export function migrateStuck(n) {
-  return n === 1 ? "1 tab can't be moved: its address downloads a file instead of opening a page, so it stays as it is."
-    : `${n} tabs can't be moved: their addresses download a file instead of opening a page, so they stay as they are.`;
+export function migrateParked(n) {
+  return n === 1 ? "1 tab's address downloads a file instead of opening a page, so it now shows a page of Cool Head for Chrome's with its address. Nothing needs the suspender any more."
+    : `${n} tabs' addresses download a file instead of opening a page, so they now show a page of Cool Head for Chrome's with their address. Nothing needs the suspender any more.`;
 }
-export const MIGRATE_STUCK_HOW = "Click one to see it, or close it if you don't need it.";
+export const PARKED_UNTITLED = 'A download';
+export const PARKED_WHY = "This tab's address downloads a file instead of opening a page, so Cool Head for Chrome keeps it here: the tab suspender that held it can be removed without losing it.";
+export const PARKED_ADDRESS = 'Its address:';
+export const PARKED_DOWNLOAD = 'Download it again';
+export const PARKED_CLOSE = 'Close this tab';
 export function migrateRemove(name) { return `Remove ${name || 'the suspender'} now, so it can't suspend them again.`; }
 export const MIGRATE_REMOVE = 'Remove it';
 export const MIGRATE_NOT_NOW = 'Not now';

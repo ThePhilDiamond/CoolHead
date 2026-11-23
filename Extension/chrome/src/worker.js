@@ -417,8 +417,11 @@ async function hideUnusedGroups(tabs, ctx) {
 
 async function closeDuplicates() {
   const { tabs, ctx } = await gather();
-  const ids = findDuplicates(tabs, ctx).flatMap((g) => g.closeIds);
+  const groups = findDuplicates(tabs, ctx);
+  const ids = groups.flatMap((g) => g.closeIds);
   if (ids.length) await chrome.tabs.remove(ids).catch(() => {});
+  // what closed, listed in the popup until the person presses Done
+  if (ids.length) await store.save({ closedDups: groups.map((g) => ({ title: g.title || 'Untitled tab', n: g.closeIds.length })) });
   if (ids.length) log('closed', `Closed ${ids.length} duplicate tabs`);
   return ids.length;
 }
@@ -553,6 +556,9 @@ async function act(m) {
     }
     case 'closeDuplicates':
       return W.DONE.closedDuplicates(await closeDuplicates());
+    case 'closedDupsSeen':
+      await store.save({ closedDups: null });
+      return '';
     case 'startSession':
       return startSession(m.tabIds || []);
     case 'endSession':
@@ -699,12 +705,7 @@ async function extensionNames(ids) {
 }
 
 async function migrateView(tabs, s, managementGranted) {
-  // a tab whose address downloads a file never leaves the suspender's page, so it isn't offered again; it's listed to
-  // show or close instead
-  const skip = new Set(s.migrateStuck || []);
-  const all = migrationPlan(tabs, chrome.runtime.id);
-  const plan = all.filter((p) => !skip.has(p.at));
-  const stuck = all.filter((p) => skip.has(p.at)).map((p) => ({ id: p.tabId, title: stuckTitle(p, tabs) }));
+  const plan = migrationPlan(tabs, chrome.runtime.id);
   const from = suspenders(plan);
   const doneFrom = s.migrated?.extIds || [];
   const names = await extensionNames([...new Set([...from, ...doneFrom])]);
@@ -713,16 +714,8 @@ async function migrateView(tabs, s, managementGranted) {
   return {
     count: plan.length, from: from[0] ? names[from[0]] || null : null, later: Boolean(s.migrateLater),
     running: Boolean(s.migrating?.running), done: s.migrating?.done || 0, total: s.migrating?.total || 0,
-    stuck,
     result: s.migrated ? { moved: s.migrated.moved, failed: s.migrated.failed, stuck: s.migrated.stuck || 0, removeId: installed[0] || null, removeName: names[installed[0]] || null } : null,
   };
-}
-
-// What to call a tab left on a suspender's page: the title the suspender gave it, else the page's address, short.
-function stuckTitle(p, tabs) {
-  const t = tabs.find((x) => x.id === p.tabId);
-  if (t?.title && !t.title.startsWith('chrome-extension://')) return t.title;
-  try { const u = new URL(p.url); return `${u.hostname}${u.pathname}`.slice(0, 80); } catch { return p.url.slice(0, 80); }
 }
 
 // Resolves when the tab has finished loading, is closed, or after the time given.
@@ -753,8 +746,7 @@ async function runMigration() {
     log('migrate', `Moving ${first.length} tabs from ${extIds.length} suspender(s)`);
     const moved = [];
     const stuckAt = [];
-    const skip = new Set(s0.migrateStuck || []);
-    for (const p of first.filter((x) => !skip.has(x.at))) {
+    for (const p of first) {
       const ok = await chrome.tabs.update(p.tabId, { url: p.url }).then(() => true, () => false);
       // checked after opening: an address that downloads a file leaves the tab on the suspender's page, so it isn't
       // counted as moved, and it's remembered so the next move doesn't download the file again
@@ -763,8 +755,12 @@ async function runMigration() {
         await loaded(p.tabId, 15000);
         const now = await chrome.tabs.get(p.tabId).catch(() => null);
         stayed = Boolean(now && suspendedAt(now.url || now.pendingUrl, chrome.runtime.id));
-        if (stayed) stuckAt.push(p.at);
-        else if (!p.active) {
+        // a page of this extension's own takes it over, holding its title and address, so the suspender can go
+        if (stayed) {
+          const title = (now.title && !now.title.startsWith('chrome-extension://')) ? now.title : '';
+          await chrome.tabs.update(p.tabId, { url: chrome.runtime.getURL(`parked/parked.html#${new URLSearchParams({ title, url: p.url })}`) }).catch(() => {});
+          stuckAt.push(p.at);
+        } else if (!p.active) {
           const r = await sleepTab(p.tabId, { force: true });
           if (r.id != null) moved.push(r.id);
         }
@@ -774,9 +770,8 @@ async function runMigration() {
     }
     if (moved.length) await store.change((s) => ({ asleep: [...new Set([...s.asleep, ...moved])] }));
     const doneFrom = [...new Set([...(s0.migrated?.extIds || []), ...extIds])];
-    await store.save({ migrating: null, migrateStuck: [...new Set([...(s0.migrateStuck || []), ...stuckAt])].slice(-200),
-      migrated: { moved: done, failed, stuck: stuckAt.length, extIds: doneFrom } });
-    log('migrate', `Moved ${done} tabs${failed ? `; ${failed} couldn't be moved` : ''}${stuckAt.length ? `; ${stuckAt.length} open a download` : ''}`);
+    await store.save({ migrating: null, migrated: { moved: done, failed, stuck: stuckAt.length, extIds: doneFrom } });
+    log('migrate', `Moved ${done} tabs${failed ? `; ${failed} couldn't be moved` : ''}${stuckAt.length ? `; ${stuckAt.length} open a download, now on a page of this extension's` : ''}`);
     await refreshBadge();
   } finally {
     migrating = false;

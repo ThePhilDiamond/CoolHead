@@ -1,1 +1,1 @@
-- Moving tabs from a tab suspender no longer counts a tab as moved when its address downloads a file instead of opening a page: the tab stays on the suspender's page, so it's listed in Settings to see or close, and it isn't moved, or downloaded, again.
+- Moving tabs from a tab suspender no longer counts a tab as moved when its address downloads a file instead of opening a page. That tab moves to a page of Cool Head for Chrome's own, with its title, its address, and Download it again, so nothing is left needing the suspender and removing it is offered.

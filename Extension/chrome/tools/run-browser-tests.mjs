@@ -315,20 +315,21 @@ const A = [
     await act(w, { action: 'keep', tabId: id, on: false });
     await cdp.send('Target.closeTarget', { targetId }).catch(() => {});
   }],
-  ['moving tabs: one whose address downloads a file stays, is listed, and is never moved (or downloaded) again', async ({ w }) => {
+  ['moving tabs: one whose address downloads a file moves to a page of the extension\'s own, so the suspender can go', async ({ w }) => {
     const fake = 'abcdefghijklmnopabcdefghijklmnop';
-    const ids = await openTabs(w, [`chrome-extension://${fake}/suspended.html#ttl=Dl&pos=0&uri=${BASE}/download`,
+    const ids = await openTabs(w, [`chrome-extension://${fake}/suspended.html#ttl=Q3%20pack&pos=0&uri=${BASE}/download`,
       `chrome-extension://${fake}/suspended.html#ttl=Web&pos=0&uri=${BASE}/page?n=web`]);
     await sleep(1000);
     await act(w, { action: 'migrate' });
     const done = await waitFor('the move to finish', async () => { const s = await state(w); return s.migrated && !s.migrating ? s.migrated : null; }, 60000);
     assert.equal(done.moved, 1, 'the page moved');
-    assert.equal(done.stuck, 1, 'the download is reported as not moved');
+    assert.equal(done.stuck, 1, 'the download is reported apart');
     const t = await tabsNow(w);
     assert.match(t.find((x) => x.id === ids[1]).url, /\/page\?n=web$/);
-    const view = await w('coolHead.viewFor()');
-    assert.equal(view.migrate.count, 0, 'nothing is offered to move again');
-    assert.deepEqual(view.migrate.stuck.map((x) => x.id), [ids[0]]);
+    const parked = t.find((x) => x.id === ids[0]).url;
+    assert.ok(parked.startsWith(`chrome-extension://${ID}/parked/parked.html#`), parked);
+    assert.match(decodeURIComponent(parked), /\/download/);
+    assert.equal((await w('coolHead.viewFor()')).migrate.count, 0, 'nothing is left on the suspender, so its removal can be offered');
     await w(`chrome.tabs.remove(${JSON.stringify(ids)})`);
     await act(w, { action: 'migrateClose' });
   }],

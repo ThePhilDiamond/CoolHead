@@ -216,6 +216,7 @@ export function buildView(i) {
     })(),
     offline,
     duplicates,
+    closedDups: s.closedDups || null,
     start: { label: W.START, note: W.START_NOTE },
     levels,
     settings: {

@@ -19,11 +19,11 @@ export const LOCAL_DEFAULTS = {
   setupDone: false,
   keepSites: [],            // sites whose every tab stays awake, as host names without www (logic/reasons.js)
   offlineHold: true,         // no tab sleeps on its own while Chrome is offline, since a sleeping tab can't reload then
-  migrateStuck: [],          // suspended pages whose address downloads a file instead of opening: never offered again
   migrateLater: false,       // the person chose "Do it later" for moving a suspender's tabs (Settings still has it)
 };
 
 export const SESSION_DEFAULTS = {
+  closedDups: null,          // [{ title, n }]: duplicates just closed, listed until the person presses Done
   run: false,                // set once per run of Chrome
   runStartedAt: null,
   use: {},
