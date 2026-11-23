@@ -17,17 +17,18 @@ Cool Head for Chrome puts tabs you aren't using to sleep and can pause extension
 
 What it does
 • Sleeps tabs once you leave them. Effort sets how many stay loaded: Light keeps your 5 most used tabs, Balanced your 3, and Focus only the tab you're on.
+• Back to sleep after a quick look: a sleeping tab you open and leave within 10 seconds sleeps again at once, so looking for a tab doesn't wake them all.
 • Keeps what matters awake: calls, sound, unsent typing, pinned tabs, any tab you keep, and every tab from a site you choose.
 • Protected shows each tab it's keeping loaded and why, so you can keep it, sleep it, or close it.
 • Start a session: tick the tabs a task needs, like a meeting or a project, and the rest sleep until you want them back. When it ends, you can save its tabs as a tab group.
 • Keyboard shortcuts: Command-Shift-S (Ctrl+Shift+S on Windows and Linux) sleeps the tab you're on, and another can sleep the rest of the window.
 • Doesn't sleep tabs while you're offline, when they couldn't reload, unless you choose otherwise.
-• Moving from another tab suspender: its tabs move over one at a time, each asleep at its real address, so you can remove the suspender without losing them.
+• Moving from another tab suspender: its tabs move over one at a time, each asleep at its real address, so you can remove the suspender without losing them. A tab whose address downloads a file moves to a page of its own, with Download it again.
 • Finds pages open twice and closes the extra copy, keeping the one you used last.
-• Pauses extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. Password managers, ad blockers, VPNs, and security tools stay on, and you choose the rest. It's off until you turn it on.
+• Pauses extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. Password managers, ad blockers, banking, VPN, security, work sign-in, and accessibility tools stay on, and one that runs on every site is listed first, since it adds memory to every tab. You choose the rest, and it's off until you turn it on.
 
 Works on its own, or with Cool Head
-Cool Head is a free Mac app that keeps an eye on your Mac's memory, heat, and battery. Linked to it, the extension's Auto level puts tabs to sleep only when memory is actually short, so they reload less, and Cool Head's advice can act in Chrome with one click. Without it, the extension works on its own at the level you choose.
+Cool Head is a free Mac app that keeps an eye on your Mac's memory, heat, and battery. Linked to it, the extension's Auto level puts tabs to sleep only when memory is actually short, so they reload less; its toolbar icon shows how tight memory is, like Cool Head's menu bar icon; and Cool Head's advice can act in Chrome with one click. Without it, the extension works on its own at the level you choose.
 
 Private
 Everything stays on your computer. There's no account, no analytics, and no ads, and it sends nothing over the internet.
