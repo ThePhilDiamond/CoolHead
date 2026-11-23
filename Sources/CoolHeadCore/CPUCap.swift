@@ -33,13 +33,16 @@ public enum CPUCap {
 
         /// What this level does, under the gauge. `limited` says whether it's already under a limit, so its pace is
         /// compared with before the limit rather than now.
-        public func line(before: Double, app: Bool, limited: Bool) -> String {
+        public func line(before: Double, app: Bool, limited: Bool) -> String { name + ": " + effect(before: before, app: app, limited: limited) }
+
+        /// The same without its name: "half its pace now, and about half the heat."
+        public func effect(before: Double, app: Bool, limited: Bool) -> String {
             let ref = limited ? "before the limit" : "now"
             switch self {
-            case .barely: return "Barely running: stays open with nothing lost, but its work all but stops, and it makes almost no heat."
-            case .steady: return "Slow and steady: about \(CPUCap.share(1 / max(before, 1))) of its pace \(ref), and about \(CPUCap.share(1 / max(before, 1))) of the heat."
-            case .half: return "Half speed: half its pace \(ref), and about half the heat."
-            case .full: return app ? "Full speed: no limit while you aren't using it; it still runs cooler." : "Full speed: no limit; it still runs cooler."
+            case .barely: return "stays open with nothing lost, but its work all but stops, and it makes almost no heat."
+            case .steady: return "about \(CPUCap.share(1 / max(before, 1))) of its pace \(ref), and about \(CPUCap.share(1 / max(before, 1))) of the heat."
+            case .half: return "half its pace \(ref), and about half the heat."
+            case .full: return app ? "no limit while you aren't using it; it still runs cooler." : "no limit; it still runs cooler."
             }
         }
     }

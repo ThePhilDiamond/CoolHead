@@ -31,21 +31,12 @@ struct LimitGauge: View {
                                 RoundedRectangle(cornerRadius: 3)
                                     .fill(filled(level) ? shade(level) : Color.primary.opacity(0.12))
                                     .frame(height: height(level))
-                                    // the recommended stop: a ring just outside the bar, so it shows on a filled stop too
-                                    .overlay(RoundedRectangle(cornerRadius: 5)
-                                        .stroke(level == offer.suggested && level != offer.current ? Ink.accent : .clear, lineWidth: 2)
-                                        .padding(-4))
                             }
                             .padding(.vertical, 4)
                             Text(level.name)
                                 .font(.caption.weight(level == offer.current ? .semibold : .regular))
                                 .foregroundStyle(level == offer.current ? Ink.text : Ink.muted)
                                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                            if level == offer.suggested && level != offer.current {
-                                Text("Recommended").font(.caption2.weight(.semibold)).foregroundStyle(Ink.accent)
-                            } else if level == offer.current {
-                                Text("Now").font(.caption2.weight(.semibold)).foregroundStyle(Ink.muted)
-                            }
                         }
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
@@ -53,13 +44,10 @@ struct LimitGauge: View {
                     .buttonStyle(.plain)
                     .onHover { pointed = $0 ? level : (pointed == level ? nil : pointed) }
                     .accessibilityLabel(level.name)
-                    .accessibilityValue(level == offer.current ? "Now" : level == offer.suggested ? "Recommended" : "")
+                    .accessibilityValue(level == offer.current ? "Selected" : "")
                 }
             }
-            if words {
-                Text((pointed ?? offer.suggested).line(before: offer.before, app: offer.app, limited: offer.current != .full))
-                    .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-            }
+            if words { advice }
         }
     }
 
@@ -82,6 +70,20 @@ struct LimitGauge: View {
     var wordsLine: some View {
         Text((pointed ?? offer.suggested).line(before: offer.before, app: offer.app, limited: offer.current != .full))
             .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+    }
+    /// The recommendation as text only, with what it does: the control itself shows only where it is now, since a
+    /// move takes effect at once. Once it's at the recommended stop, what that stop does.
+    var advice: some View {
+        let limited = offer.current != .full
+        return Group {
+            if offer.suggested != offer.current {
+                (Text("Recommended: \(offer.suggested.name), ").fontWeight(.semibold).foregroundColor(Ink.accent)
+                 + Text(offer.suggested.effect(before: offer.before, app: offer.app, limited: limited)).foregroundColor(Ink.muted))
+            } else {
+                Text(offer.current.line(before: offer.before, app: offer.app, limited: limited)).foregroundColor(Ink.muted)
+            }
+        }
+        .font(.caption).fixedSize(horizontal: false, vertical: true)
     }
     var recommendedLine: some View {
         HStack(spacing: 4) {
@@ -193,17 +195,13 @@ struct LimitGauge: View {
             GeometryReader { g in
                 let inset: CGFloat = 51
                 ForEach(Array(offer.levels.enumerated()), id: \.element) { i, l in
-                    Text(l.name).font(.caption2.weight(l == offer.suggested && l != offer.current ? .semibold : .regular))
-                        .foregroundStyle(l == offer.suggested && l != offer.current ? Ink.accent : Ink.muted)
+                    Text(l.name).font(.caption2).foregroundStyle(Ink.muted)
                         .multilineTextAlignment(.center).frame(width: 78)
                         .position(x: inset + (g.size.width - 2 * inset) * CGFloat(i) / n, y: 14)
                 }
             }
             .frame(height: 30)
-            if offer.suggested != offer.current {
-                Text("Recommended: \(offer.suggested.name)").font(.caption.weight(.semibold)).foregroundStyle(Ink.accent)
-            }
-            wordsLine
+            advice
         }
     }
 
@@ -217,8 +215,6 @@ struct LimitGauge: View {
                     let a0 = 180.0 + 180.0 * Double(i) / Double(count) + 1.5, a1 = 180.0 + 180.0 * Double(i + 1) / Double(count) - 1.5
                     DialArc(from: a0, to: a1)
                         .stroke(filled(l) ? shade(l) : Color.primary.opacity(0.12), style: StrokeStyle(lineWidth: 14, lineCap: .butt))
-                        .overlay(DialArc(from: a0, to: a1, outward: 11)
-                            .stroke(l == offer.suggested && l != offer.current ? Ink.accent : .clear, lineWidth: 2))
                         .contentShape(DialArc(from: a0, to: a1).stroke(style: StrokeStyle(lineWidth: 26)))
                         .onTapGesture { pick(l) }
                 }
@@ -227,20 +223,14 @@ struct LimitGauge: View {
                 DialNeedle(angle: 180 + 180 * (at + 0.5) / Double(count))
                     .stroke(Ink.text, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 Circle().fill(Ink.text).frame(width: 9, height: 9).offset(y: 40)
-                VStack(spacing: 1) {
-                    Text(offer.current.name).font(.callout.weight(.semibold))
-                    Text("Now").font(.caption2).foregroundStyle(Ink.muted)
-                }
-                .offset(y: 64)
+                Text(offer.current.name).font(.callout.weight(.semibold))
+                    .offset(y: 60)
                 Image(systemName: "tortoise.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(Ink.text).offset(x: -114, y: 36)
                 Image(systemName: "hare.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(Ink.text).offset(x: 114, y: 36)
             }
-            .frame(width: 260, height: 160)
+            .frame(width: 260, height: 150)
             .frame(maxWidth: .infinity)
-            if offer.suggested != offer.current {
-                Text("Recommended: \(offer.suggested.name)").font(.caption.weight(.semibold)).foregroundStyle(Ink.accent)
-            }
-            wordsLine
+            advice
         }
     }
 
