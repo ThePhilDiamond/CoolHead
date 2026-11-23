@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <title>Toolbar icon preview</title>
+  <!-- The toolbar icon at every level, on a light and a dark toolbar, at its real sizes and enlarged; for screenshots. -->
+  <style>
+    body { margin: 0; font: 13px -apple-system, system-ui, sans-serif; }
+    .bar { display: flex; gap: 28px; align-items: flex-end; padding: 18px 24px; }
+    .light { background: #F1F3F4; color: #3C4043; } .dark { background: #35363A; color: #E8EAED; }
+    figure { margin: 0; text-align: center; } figcaption { margin-top: 6px; }
+    canvas.big { width: 96px; height: 96px; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <div class="bar light" id="light"></div>
+  <div class="bar dark" id="dark"></div>
+  <script type="module">
+    import { drawToolbarIcon } from '../src/logic/toolbar-icon.js';
+    const levels = [[null, 'Not linked'], ['good', 'Fine'], ['warning', 'Tight'], ['issue', 'Very tight']];
+    for (const dark of [false, true]) {
+      const bar = document.getElementById(dark ? 'dark' : 'light');
+      for (const [level, name] of levels) {
+        const fig = document.createElement('figure');
+        for (const [size, cls] of [[16, ''], [32, ''], [32, 'big']]) {
+          const c = document.createElement('canvas');
+          c.width = size * 2; c.height = size * 2;  // drawn at 2x, as on a Retina screen
+          c.style.width = cls ? '' : `${size}px`;
+          if (cls) c.className = cls;
+          drawToolbarIcon(c.getContext('2d'), size * 2, level, dark);
+          fig.append(c, ' ');
+        }
+        const cap = document.createElement('figcaption'); cap.textContent = name; fig.append(cap);
+        bar.append(fig);
+      }
+    }
+  </script>
+</body>
+</html>

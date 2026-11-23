@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <title>Cool Head for Chrome: setup preview</title>
+  <link rel="stylesheet" href="../popup/popup.css">
+  <!-- The setup page with Chrome's calls stubbed, for screenshots (dev/render-previews.sh); not in the store upload. -->
+  <script>
+    // ?answer=yes shows the page after Protect them was allowed; ?answer=asking while Chrome's question is open
+    const answer = new URLSearchParams(location.search).get('answer');
+    window.chrome = { permissions: { contains: async () => answer === 'yes', request: () => new Promise(() => {}) },
+                      runtime: { sendMessage: async () => ({}) } };
+    const theme = new URLSearchParams(location.search).get('theme');
+    if (theme) document.documentElement.style.colorScheme = theme;
+  </script>
+</head>
+<body>
+  <main class="page" id="page" aria-labelledby="title"></main>
+  <script type="module" src="../setup/setup.js"></script>
+</body>
+</html>
+<script type="module">
+  if (new URLSearchParams(location.search).get('answer') === 'asking') setTimeout(() => document.querySelector('#actions .primary').click(), 50);
+</script>

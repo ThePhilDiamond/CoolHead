@@ -6,7 +6,7 @@ import { suggest, windowOnly, startPlan, join, leave, groupPlan } from '../src/l
 import { rematch, keepRecord, windowOrdinals } from '../src/logic/keep.js';
 import { heldReasons, primaryReason, risk, heldCounts, isCallPage } from '../src/logic/reasons.js';
 import { recordActivation, rankMostUsed, lastUsed, replaceId, pruneUse } from '../src/logic/usage.js';
-import { kindOf, isAlwaysOn, restPlan, columns, move, shouldWake } from '../src/logic/extensions.js';
+import { kindOf, isAlwaysOn, restPlan, columns, move, shouldWake, everySite } from '../src/logic/extensions.js';
 import { tab, ctx, used, NOW, MIN } from './helpers.js';
 
 // ---- duplicates ----
@@ -309,4 +309,23 @@ test('the most used suspenders each give up the real address (shapes from their 
   // Tiny Suspender: suspend.html, the address first and encoded, with favIconUrl after it
   assert.equal(suspendedAt('chrome-extension://bbomjaikkcabgmfaomdichgcodnaeecf/suspend.html?url=https%3A%2F%2Fexample.com%2Fdocs%3Fa%3D1%26b%3D2&title=Example%20Page&favIconUrl=https%3A%2F%2Fexample.com%2Ffavicon.ico&scroll_x=0&scroll_y=640', 'self').url,
     'https://example.com/docs?a=1&b=2');
+});
+
+test('banking, work sign-in, and accessibility extensions stay on; one that runs on every site is flagged and listed first', () => {
+  assert.equal(kindOf({ name: 'IBM Security Trusteer Rapport', permissions: [] }), 'bank');
+  assert.equal(kindOf({ name: 'MetaMask', permissions: [] }), 'bank');
+  assert.equal(kindOf({ name: 'Okta Browser Plugin', permissions: [] }), 'signin');
+  assert.equal(kindOf({ name: 'Microsoft Single Sign On', permissions: [] }), 'signin');
+  assert.equal(kindOf({ name: 'Read Aloud: A Text to Speech Voice Reader', permissions: [] }), 'access');
+  assert.equal(kindOf({ name: 'Grammar Helper', permissions: [] }), 'other');
+  assert.equal(isAlwaysOn({ name: 'Okta Browser Plugin', permissions: [] }, null), true);
+  assert.equal(everySite({ hostPermissions: ['<all_urls>'] }), true);
+  assert.equal(everySite({ hostPermissions: ['*://*/*'] }), true);
+  assert.equal(everySite({ hostPermissions: ['https://*/*'] }), true);
+  assert.equal(everySite({ hostPermissions: ['https://mail.google.com/*'] }), false);
+  const cols = columns([
+    { id: 'a', name: 'Alpha notes', type: 'extension', enabled: true, permissions: [], hostPermissions: [] },
+    { id: 'b', name: 'Zeta highlighter', type: 'extension', enabled: true, permissions: [], hostPermissions: ['<all_urls>'] },
+  ], null, 'self');
+  assert.deepEqual(cols.rest.map((e) => [e.id, e.everySite]), [['b', true], ['a', false]]);
 });

@@ -1,6 +1,7 @@
 // Draws the real popup (popup/render.js and src/logic/view.js) from made-up tabs, for screenshots and design
 // review without Chrome's extension APIs. Open preview.html?screen=home&theme=dark. All data here is invented.
 import { render } from '../popup/render.js';
+import * as W from '../src/logic/words.js';
 import { buildView, buildStart } from '../src/logic/view.js';
 import { LOCAL_DEFAULTS, SESSION_DEFAULTS } from '../src/store.js';
 import { columns } from '../src/logic/extensions.js';
@@ -92,7 +93,11 @@ if (screen === 'start') {
 if (screen === 'settings') ui.screen = 'settings';
 // Moving a suspender's tabs (made-up suspender and counts): ?screen=migrate, migrate-running, migrate-done, home-later
 view.migrate = { count: 37, from: 'Tab Napper', later: false, running: false, done: 0, total: 0, result: null };
+if (screen === 'dups') view.duplicates = W.duplicatesCard([{ title: 'Harbor & Pine budget', closeIds: [801] }, { title: 'Team calendar', closeIds: [802, 803] }]);
+if (screen === 'dups-closed') view.closedDups = [{ title: 'Harbor & Pine budget', n: 1 }, { title: 'Team calendar', n: 2 }];
 if (screen === 'migrate') ui.screen = 'migrate';
+if (screen === 'migrate-stuck') { ui.screen = 'migrate'; Object.assign(view.migrate, { count: 0, result: { moved: 36, failed: 0, stuck: 1, removeId: 'x', removeName: 'The Marvellous Suspender' } }); }
+if (screen === 'settings-migrating') { ui.screen = 'settings'; Object.assign(view.migrate, { running: true, done: 12, total: 37 }); }
 if (screen === 'migrate-running') { ui.screen = 'migrate'; Object.assign(view.migrate, { running: true, done: 12, total: 37 }); }
 if (screen === 'migrate-done') { ui.screen = 'migrate'; Object.assign(view.migrate, { count: 0, result: { moved: 36, failed: 1, removeId: 'x', removeName: 'Tab Napper' } }); }
 if (screen === 'home-later') ui.laterNote = true;
@@ -100,7 +105,8 @@ if (protectedScreen) {
   const ext = (name, permissions = [], over = {}) => ({ id: name, name, type: 'extension', enabled: true, mayDisable: true, installType: 'normal', permissions, ...over });
   ui.safe = columns([
     ext('Vaultly Password Manager'), ext('Quiet Ad Blocker', ['declarativeNetRequest']), ext('Company sign-in', [], { installType: 'admin', mayDisable: false }),
-    ext('Writing helper'), ext('Coupon finder'), ext('Screenshot tool'), ext('Read later'), ext('Tab napper'),
+    ext('Harbor Credit Union Shield'), ext('Northgate single sign-on'),
+    ext('Writing helper', [], { hostPermissions: ['<all_urls>'] }), ext('Coupon finder', [], { hostPermissions: ['*://*/*'] }), ext('Screenshot tool'), ext('Read later'), ext('Tab napper'),
   ], null, 'self', new Set(['Tab napper']));
 }
 

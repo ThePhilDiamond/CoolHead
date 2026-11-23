@@ -127,8 +127,17 @@ const on = {
   },
   keep(tabId, keep) { ui.confirm = null; act({ action: 'keep', tabId, on: keep }); },
   sleep(row) { tryRisky(row, 'sleep'); },
+  // Brings the tab forward and its window to the front; the popup closes as Chrome's focus moves.
+  async show(tabId) {
+    const tab = await chrome.tabs.update(tabId, { active: true }).catch(() => null);
+    if (tab) await chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+  },
   close(row) { tryRisky(row, 'close'); },
   closeDuplicates() { act({ action: 'closeDuplicates' }); },
+  closedDupsSeen() { act({ action: 'closedDupsSeen' }); },
+  // turns pausing on (saved first, since Chrome's question can close the popup), asks Chrome, then opens the lists
+  async extRecAllow() { await act({ action: 'restEnabled', on: true }); await openSafe(); draw(); },
+  extRecLater() { act({ action: 'extRecLater' }); },
   getCoolHead() { act({ action: 'openCoolHead' }); },
   keepAnswer(key, tabId) { act({ action: 'keepAnswer', key, tabId }); },
 
@@ -170,6 +179,8 @@ const on = {
   async endWithout() { ui.ending = false; await act({ action: 'endSession', save: false }); root.querySelector('[data-key="start"]')?.focus(); },
 
   leaveDelay(ms) { act({ action: 'leaveDelay', ms }); },
+  glanceSleep(on) { act({ action: 'glanceSleep', on }); },
+  iconStyle(style) { act({ action: 'iconStyle', style }); },
   // Chrome keeps the keys for every extension on one page of its own; an extension can open it but not set a key.
   keepSite(host, on) { act({ action: 'keepSite', host, on }); },
   offlineHold(on) { act({ action: 'offlineHold', on }); },
@@ -249,3 +260,12 @@ for (const ev of [chrome.tabs.onUpdated, chrome.tabs.onRemoved, chrome.tabs.onCr
 refresh().catch((e) => {
   root.textContent = `${W.NAME} couldn't load: ${e.message}`;
 });
+
+// Chrome's toolbar follows the system's light or dark; only a page can tell which, so the popup passes it on for the
+// toolbar icon's color (src/worker.js, refreshBadge).
+{
+  const dark = window.matchMedia('(prefers-color-scheme: dark)');
+  const tell = () => chrome.runtime.sendMessage({ type: 'act', action: 'theme', dark: dark.matches }).catch(() => {});
+  tell();
+  dark.addEventListener('change', tell);
+}

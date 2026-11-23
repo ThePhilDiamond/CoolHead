@@ -1,0 +1,2 @@
+- Cool Head for Chrome's toolbar icon is the melting snowflake with a status badge, like Cool Head's menu bar icon: a green circle when memory is fine, a yellow triangle when it's tight, a red octagon when it's very tight, and no badge without a reading from Cool Head. The count of sleeping tabs moved to the icon's tooltip.
+- Its Settings offer the same two styles as Cool Head's: Status badge (shapes and colors), or Melting snowflake, which needs no color: a whole snowflake when memory is fine, drooping and dripping when it's tight, and on fire when it's very tight.

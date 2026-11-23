@@ -369,7 +369,7 @@ public struct Fixture {
                         start: ago(2 * hour), cores: 6,
                         progress: Progress(file: "/tmp/build.log", line: "25600/26512 passages, 178.4 min, about 6 min left",
                                            done: 25600, total: 26512, unit: "passages", minutesLeft: 6, lineTime: ago(60))),
-                    busyFor: 2 * hour, expectState: .working, expectHeadline: "96% done", expectAction: nil),
+                    busyFor: 2 * hour, expectState: .working, expectHeadline: "96% through 26,512 passages", expectAction: nil),
             Fixture(id: "job-stalled", evidence: .sample(
                         name: "python3", path: "/usr/bin/python3", args: ["python3", "train.py"], cwd: "/Users/x/Model",
                         start: ago(5 * hour), cores: 1,

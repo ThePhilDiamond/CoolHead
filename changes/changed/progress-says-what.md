@@ -1,0 +1,1 @@
+- A job's card says what it's doing when its log says so, such as "Archiver is backing up: 95% done.", or how far through it is ("96% through 26,512 passages"), and says plainly when the log doesn't name what it's doing.

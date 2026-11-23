@@ -1,0 +1,2 @@
+- Cool Head for Chrome's page after installing is a welcome: how to use it (pin it, click its icon, choose an Effort, and Auto with Cool Head), then the one choice about protecting unsent typing and calls, so it no longer opens on a question that could read as a warning.
+- After Protect them on Cool Head for Chrome's setup page, the buttons wait while Chrome asks, and then a box with a check says it's protected (or that Chrome didn't allow it).
