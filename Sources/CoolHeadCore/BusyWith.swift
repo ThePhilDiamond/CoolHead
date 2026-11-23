@@ -169,15 +169,3 @@ public enum BusyWith: Equatable {
     }
 }
 
-extension Card {
-    /// This card while what it's about is playing sound or downloading: Pause until you plug in isn't offered, and the
-    /// card says why. It's offered again on the next reading once that stops.
-    public func busyWith(_ r: BusyWith) -> Card {
-        guard fixes.contains(where: { $0.kind == .pauseJob }) else { return self }
-        var c = Card(state: state, headline: headline, explanation: explanation + " " + r.cardLine,
-                     fixes: fixes.filter { $0.kind != .pauseJob })
-        c.names = names; c.facts = facts; c.cardID = cardID; c.choice = choice; c.diagnosis = diagnosis
-        c.optionFacts = optionFacts.filter { $0.key != "pausejob" }
-        return c
-    }
-}

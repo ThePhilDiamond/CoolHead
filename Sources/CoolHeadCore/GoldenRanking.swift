@@ -22,6 +22,9 @@ enum GoldenRanking {
     stuck-after-restart · background-stuck · unknown · → update · update, feedback, share
     browser-policy · - · unknown · → policy-page · policy-page, profiles
     browser-scripted · - · unknown · → reveal-extension · reveal-extension, quit
+    pause-offered · job · unknown · → pausejob · pausejob, stop, cooler, lookup, share
+    pause-held-sound · job · unknown · → cooler · cooler, stop, lookup, share
+    pause-held-download · job · unknown · → cooler · cooler, stop, lookup, share
     catalogue-docker-vm · catalogue · working · → none · quit
     catalogue-sound · catalogue · working · → none · no options
     catalogue-sound-long · catalogue · unknown · → advice · advice, lookup, share

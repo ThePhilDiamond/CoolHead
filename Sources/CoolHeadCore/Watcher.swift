@@ -794,21 +794,26 @@ public final class Watcher {
             let programs = ([(pid, e.path)] + e.ancestors.map { ($0.pid, $0.path) })
                 .prefix { NSRunningApplication(processIdentifier: $0.0)?.activationPolicy != .regular }.compactMap(\.1)
             let agent = e.mine ? BackgroundAgents.owner(of: Array(programs)) : nil
-            var c = Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
-                              syncFeed: feed, agent: agent, backupFeed: backup, disguise: Disguise.find(e), background: background(e, tr.busySince, state, now),
-                              apps: AppBuild.facts(e, isWindowServer: Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver"))
+            let disguise = Disguise.find(e), bg = background(e, tr.busySince, state, now)
+            let apps = AppBuild.facts(e, isWindowServer: Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver")
+            func make(_ busy: BusyWith?) -> Card {
+                Card.make(e, now: now, busySince: tr.busySince, warm: warm, gameRunning: game, frontApp: front, battery: battery,
+                          syncFeed: feed, agent: agent, backupFeed: backup, disguise: disguise, background: bg, apps: apps, busyWith: busy)
+            }
+            var c = make(nil)
             guard c.state != .quiet else { continue }
             // something with an every-time rule: the card says so, and doesn't offer Run it cooler again
-            if let k = Trust.key(e), CoolerRules.contains(k) { c = c.underRule(app: CoolerRules.isApp(k)) }
-            // a job offered Pause until you plug in, with the programs it started: not while it plays sound or downloads
+            // a job offered Pause until you plug in, with the programs it started: not while it plays sound or downloads,
+            // and the card is made again saying so, so its reasons and recommended option are its own
             var pauseGroup: Set<pid_t> = [], downloadingNow = false
             if c.fixes.contains(where: { $0.kind == .pauseJob }) {
                 pauseGroup = Set([pid] + Proc.children(of: pid))
                 downloadingNow = BusyWith.rate(group: pauseGroup, in: incoming) >= BusyWith.downloadRate
                 if let r = BusyWith.reason(group: pauseGroup, playing: playing, soundOpen: soundOpen, samples: downloadSamples, now: now) {
-                    c = c.busyWith(r)
+                    c = make(r)
                 }
             }
+            if let k = Trust.key(e), CoolerRules.contains(k) { c = c.underRule(app: CoolerRules.isApp(k)) }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice?.line.map { [$0] } ?? []))
             lc.pauseGroup = pauseGroup
             lc.downloadingNow = downloadingNow

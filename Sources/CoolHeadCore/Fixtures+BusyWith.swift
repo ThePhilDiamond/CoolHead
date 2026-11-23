@@ -3,7 +3,15 @@ import Foundation
 /// Checks for BusyWith: playing sound or downloading holds something back from being paused or stopped; which
 /// reading counts; and nettop's and pmset's text read into it.
 extension Fixture {
-    static func busyWithSamples(_ now: Date) -> [(String, Card)] { [] }
+    /// A made-up job on battery: offered Pause until you plug in, then the same card while it plays sound and while it
+    /// downloads (for screenshots: COOLHEAD_SNAPSHOT_SAMPLES).
+    static func busyWithSamples(_ now: Date) -> [(String, Card)] {
+        let job = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photo Export",
+                                  start: now.addingTimeInterval(-2 * 3600), cores: 2)
+        let offered = Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), battery: 80)
+        return [("pause-offered", offered), ("pause-held-sound", Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), battery: 80, busyWith: .sound)),
+                ("pause-held-download", Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), battery: 80, busyWith: .download))]
+    }
 
     static func busyWithChecks(_ now: Date) -> [(String, Bool, String)] {
         var review: [(String, Bool, String)] = []
@@ -76,14 +84,16 @@ extension Fixture {
         // card says why; a card with no pause is left as it is
         let job = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
                                   start: now.addingTimeInterval(-2 * 3600), cores: 2)
-        let offered = Card.make(job, now: now, busySince: now.addingTimeInterval(-900), battery: 80)
-        let held = offered.busyWith(.sound)
+        let offered = Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), battery: 80)
+        let held = Card.make(job, now: now, busySince: now.addingTimeInterval(-3600), battery: 80, busyWith: .sound)
         let plugged = Card.make(job, now: now, busySince: now.addingTimeInterval(-900))
         let offeredBefore = offered.fixes.contains { $0.kind == .pauseJob }
         let cardOK = offeredBefore && !held.fixes.contains { $0.kind == .pauseJob } && held.explanation.hasSuffix(BusyWith.sound.cardLine)
             && held.headline == offered.headline && held.fixes.count == offered.fixes.count - 1
-            && plugged.busyWith(.download).explanation == plugged.explanation
-        review.append(("busy-with-card", cardOK, "offered before \(offeredBefore); after: \(held.explanation)"))
+            && held.recommended?.kind != .stop && held.recommended != nil
+            && Card.make(job, now: now, busySince: now.addingTimeInterval(-900), busyWith: .download).explanation == plugged.explanation
+            && !(held.choice?.line ?? "").contains("paus")
+        review.append(("busy-with-card", cardOK, "offered before \(offeredBefore); recommended after: \(held.recommended?.title ?? "none"); \(held.explanation)"))
 
         // at the click: sound read again then; a download from the latest reading alone
         let clickSound = BusyWith.atClick(group: app, playing: [503], soundOpen: [], downloadingNow: false)
