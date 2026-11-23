@@ -462,7 +462,8 @@ struct CardView: View {
             .font(.callout.weight(.medium))
             .foregroundStyle(noteFailed ? Color.orange : Color.green)
             // after Run it cooler worked: the offer to do it every time, for something that can have a rule
-            if !noteFailed, noteFor == "cooler", (watcher.isCooled(live) && live.trustKey != nil) || EveryTimeOffer.snapshot {
+            // after Run it cooler, or after a limit: Every time, which then carries the limit's level too
+            if !noteFailed, noteFor == "cooler" || noteFor == "cpucap", (watcher.isCooled(live) && live.trustKey != nil) || EveryTimeOffer.snapshot {
                 EveryTimeOffer(live: live, watcher: watcher)
             }
             if noteFailed {
@@ -542,9 +543,10 @@ struct CardView: View {
             // a stuck process is searched for as stuck, not as busy
             u.queryItems = [URLQueryItem(name: "q", value: "macOS \(name) " + (live.id.hasPrefix("hang-") ? "stuck not responding" : "high CPU"))]
             if let url = u.url { NSWorkspace.shared.open(url) }
-        case .cpuCap:
-            // the limiting itself is the next stage (notes/cpu-cap.md); until then the option only shows its choices
-            note = "Limiting isn't built yet."; noteFailed = true
+        case .cpuCap(let o):
+            // the slider acts at once; a level, or Full speed to lift the limit
+            guard let level else { return }
+            show(watcher.limit(live, level: level, before: o.before))
         case .cooler:
             // background priority: macOS runs it on the efficiency cores and slows its disk use; checked and undoable
             show(watcher.setCooler(live, on: !watcher.isCooled(live)))
@@ -1161,18 +1163,12 @@ enum FrozenItem: Identifiable {
         ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"]?.split(separator: "|").contains("held-back") ?? false
     }
     static func name(_ path: String) -> String { (path as NSString).lastPathComponent }
-    /// A limited app's level as the end of a sentence: "Huddle is at half speed".
-    static func phrase(_ l: CPUCap.Level) -> String {
-        switch l {
-        case .barely: return "is barely running"
-        case .steady: return "is running slow and steady"
-        case .half: return "is at half speed"
-        case .full: return "is at full speed"
-        }
-    }
+    static func phrase(_ l: CPUCap.Level) -> String { CPUCap.phrase(l) }
     /// A limited item's level, for the gauge on its line.
-    var capLevel: CPUCap.Level? {
-        switch self { case .cooled(let c), .rule(let c, _): return c.capLevel; default: return nil }
+    var capLevel: CPUCap.Level? { cooledItem?.capLevel }
+    var capBefore: Double? { cooledItem?.capBefore }
+    var cooledItem: Watcher.CooledItem? {
+        switch self { case .cooled(let c), .rule(let c, _): return c; default: return nil }
     }
     static func project(_ path: String) -> String { ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent }
 
@@ -1489,8 +1485,9 @@ struct FrozenLine: View {
             Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
             // a limited app's level, to move either way without waiting for a card (the limiting itself is the next stage)
             if let l = item.capLevel {
-                LimitGauge(offer: CPUCap.Offer(levels: CPUCap.levels(before: 3), current: l, suggested: l, before: 3, app: true), words: false) { _ in
-                    failed = "Changing the limit isn't built yet."
+                LimitGauge(offer: CPUCap.Offer(levels: CPUCap.levels(before: item.capBefore ?? 3), current: l, suggested: l,
+                                               before: item.capBefore ?? 3, app: true), words: false) { level in
+                    if let c = item.cooledItem, case .failed(let why) = watcher.setLimit(c, level: level) { failed = "That didn't work: \(why)." }
                 }
                 .padding(.vertical, 2)
             }
@@ -2011,6 +2008,27 @@ struct FixRow: View {
     // button, plainly separate from the next, since options that run together don't look clickable. Every option is
     // one: what Cool Head can't do itself opens the app where it's done, or shows the steps right under it.
     var body: some View {
+        if let o = capOffer { capBody(o) } else { tileBody }
+    }
+
+    /// The CPU limit: a heading and what it does, then the slider, which acts at once; not a button tile, since the
+    /// slider is the one place to act and the text under it the one recommendation.
+    func capBody(_ o: CPUCap.Offer) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).foregroundStyle(Ink.accent).frame(width: 18)
+                Text(fix.title).font(.body.weight(.semibold))
+            }
+            Text(fix.consequence).font(.callout).foregroundStyle(Ink.text.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
+            LimitGauge(offer: o) { level in runLimit(fix, level) }.padding(.top, 2)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.accent.opacity(0.35), lineWidth: 1))
+    }
+
+    var tileBody: some View {
         VStack(alignment: .leading, spacing: 6) {
                 Button {
                     if hasChoices { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } }
@@ -2074,10 +2092,6 @@ struct FixRow: View {
                         }
                     }
                     .padding(.leading, 11)
-                }
-                if let o = capOffer {
-                    LimitGauge(offer: o) { level in runLimit(fix, level) }
-                        .padding(.horizontal, 11).padding(.top, 2)
                 }
                 // the mini-guide, for what Cool Head can't do itself: numbered steps under the option
                 if showingSteps, let steps = guideSteps {

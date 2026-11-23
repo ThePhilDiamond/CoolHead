@@ -381,7 +381,10 @@ struct TrustedView: View {
     }
 
     static func load() -> [Item] { sorted(Trust.all) }
-    static func loadCooler() -> [Item] { sorted(CoolerRules.all) }
+    static func loadCooler() -> [Item] {
+        let levels = CoolerRules.levels
+        return sorted(CoolerRules.all).map { var i = $0; i.capLevel = levels[i.key]; return i }
+    }
     static func sorted(_ d: [String: String]) -> [Item] {
         d.map { Item(key: $0.key, name: $0.value) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }

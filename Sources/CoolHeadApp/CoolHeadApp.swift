@@ -119,6 +119,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// Nothing is left frozen: paused jobs carry on when Cool Head quits.
     func applicationWillTerminate(_ notification: Notification) {
         Watcher.shared.resumeAllPaused(why: "Cool Head quit")
+        // everything held to a CPU limit runs freely again, so nothing is left stopped
+        Watcher.shared.limiter.removeAll()
         Watcher.shared.closePressureSpell()
         // a running network test stops with Cool Head (macOS doesn't stop a program's children when it quits)
         MainActor.assumeIsolated { NetworkTester.shared.halt() }

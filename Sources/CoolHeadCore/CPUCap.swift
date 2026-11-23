@@ -47,6 +47,10 @@ public enum CPUCap {
         }
     }
 
+    /// When the limit is offered: still using this many cores this long after Run it cooler.
+    public static let offerCores = 1.0
+    public static let offerAfter: TimeInterval = 180
+
     /// The levels offered: Slow and steady (one core) only for something using about 3 cores or more, since below that
     /// it's no slower than Half speed.
     public static func levels(before cores: Double) -> [Level] {
@@ -72,6 +76,16 @@ public enum CPUCap {
             consequence: o.app ? "Choose how much it may use while you aren't using it. Full speed when you switch to it. Undo any time."
                                : "Choose how much it may use. Undo any time.",
             kind: .cpuCap(o), recommended: true)
+    }
+
+    /// A limited app's level as the end of a sentence: "Huddle is at half speed".
+    public static func phrase(_ l: Level) -> String {
+        switch l {
+        case .barely: return "is barely running"
+        case .steady: return "is running slow and steady"
+        case .half: return "is at half speed"
+        case .full: return "is at full speed"
+        }
     }
 
     /// A share in words: "a third", "a quarter", or a percentage.
