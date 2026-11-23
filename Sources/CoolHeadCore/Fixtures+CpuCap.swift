@@ -35,6 +35,54 @@ extension Fixture {
         let hotOK = ho?.current == .half && ho?.suggested == .steady && h.explanation.hasPrefix("It's at half speed and still using about 1.5 cores.")
             && CPUCap.Level.steady.line(before: 3, app: true, limited: true) == "Slow and steady: about a third of its pace before the limit, and about a third of the heat."
         review.append(("cpu-cap-still-hot", hotOK, "\(h.headline) \(h.explanation) suggested \(ho?.suggested.name ?? "none")"))
+
+        // when a card running cooler offers the limit: a core or more, three minutes or more after; once limited, where it is
+        let base = Card.make(app, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
+        func when(_ minutes: Double, _ cores: Double, _ level: CPUCap.Level? = nil) -> CPUCap.Offer? {
+            offer(base.runningCooler(subject: "Huddle", app: true, since: now.addingTimeInterval(-60 * minutes), level: level,
+                                     before: level == nil ? nil : 3, cores: cores, now: now))
+        }
+        let early = when(2, 3), late = when(3, 3), light = when(10, 0.8), limited = when(1, 1.5, .half)
+        review.append(("cpu-cap-offered-when", early == nil && late?.current == .full && light == nil && limited?.current == .half
+                       && limited?.before == 3,
+                       "2 minutes \(early != nil); 3 minutes \(late != nil); 0.8 core \(light != nil); limited \(limited?.current.name ?? "none")"))
+
+        // the share settles where the level's amount is used, whatever the app would use at full speed, a step at a time
+        func settle(want: Double, target: Double) -> (share: Double, used: Double, biggestStep: Double) {
+            var share = 1.0, step = 1.0
+            for _ in 0..<40 {
+                let next = CPULimiter.nextShare(share, target: target, used: want * share)
+                step = max(step == 1 ? 0 : step, max(next / share, share / next)); share = next
+            }
+            return (share, want * share, step)
+        }
+        let fourCores = settle(want: 4, target: 0.2), halfOfThree = settle(want: 3, target: 1.5), small = settle(want: 0.1, target: 0.5)
+        let idle = CPULimiter.nextShare(0.1, target: 0.2, used: 0)
+        let floor = CPULimiter.nextShare(0.05, target: 0.001, used: 8)
+        let shareOK = abs(fourCores.used - 0.2) < 0.01 && abs(halfOfThree.used - 1.5) < 0.01 && small.share == 1
+            && fourCores.biggestStep <= 2 && abs(idle - 0.15) < 0.0001 && floor == 0.05
+        review.append(("cpu-limit-share", shareOK,
+                       "4 cores held to \(String(format: "%.2f", fourCores.used)); 3 cores to \(String(format: "%.2f", halfOfThree.used)); under its limit runs fully \(small.share); idle steps up to \(idle); never below \(floor)"))
+
+        // a rule keeps only the level, in a throwaway set; removing the rule or trusting the app forgets it
+        let suite = "coolhead.selftest.\(UUID().uuidString)"
+        let saved = Trust.defaults
+        if let d = UserDefaults(suiteName: suite) { Trust.defaults = d }
+        let key = "app:com.example.huddle"
+        CoolerRules.add(key, name: "Huddle")
+        CoolerRules.setLevel(key, .half)
+        let stored = CoolerRules.levels[key] == .half
+            && (Trust.defaults.dictionary(forKey: "alwaysCoolerLimit") as? [String: String]) == [key: "half"]
+        CoolerRules.setLevel(key, .barely)
+        let changed = CoolerRules.levels[key] == .barely
+        Trust.add(key, name: "Huddle")
+        let trustForgets = CoolerRules.levels[key] == nil
+        CoolerRules.add(key, name: "Huddle"); CoolerRules.setLevel(key, .steady); CoolerRules.remove(key)
+        let removeForgets = CoolerRules.levels.isEmpty
+        Trust.defaults = saved
+        UserDefaults.standard.removePersistentDomain(forName: suite)
+        review.append(("cpu-limit-rule-level", stored && changed && trustForgets && removeForgets,
+                       "stored as the level only \(stored); changed \(changed); trusting forgets it \(trustForgets); removing forgets it \(removeForgets)"))
         return review
     }
 }

@@ -119,6 +119,15 @@ extension Card {
         return c
     }
 
+    /// This card for something Run it cooler is already slowing, without a rule: once limited, where it is and the next
+    /// level down; otherwise, if it's still using `offerCores` or more `offerAfter` after, the limit offered; else as it is.
+    public func runningCooler(subject: String, app: Bool, since: Date, level: CPUCap.Level?, before: Double?,
+                              cores: Double, now: Date) -> Card {
+        if let level { return Card.stillHotUnderCap(subject: subject, app: app, level: level, before: before ?? cores, now: cores) }
+        if cores >= CPUCap.offerCores, now.timeIntervalSince(since) >= CPUCap.offerAfter { return offeringCap(app: app, cores: cores) }
+        return self
+    }
+
     /// The card for something already limited that's still adding to the heat: the gauge shows where it is, and the
     /// next level down is recommended.
     public static func stillHotUnderCap(subject: String, app: Bool, level: CPUCap.Level, before: Double, now: Double) -> Card {

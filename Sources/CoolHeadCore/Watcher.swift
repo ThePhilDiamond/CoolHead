@@ -926,12 +926,8 @@ public final class Watcher {
             // running cooler wasn't enough: still using a core or more a few minutes after, so the limit is offered; once
             // limited and still adding to the heat, the card says where it is and recommends the next level down
             if let item = cooled["\(pid)-\(e.start?.timeIntervalSince1970 ?? 0)"], item.rule == nil {
-                if let level = item.capLevel {
-                    c = Card.stillHotUnderCap(subject: Card.subject(e), app: e.appBundle != nil, level: level,
-                                              before: item.capBefore ?? e.coresNow, now: e.coresNow)
-                } else if e.coresNow >= CPUCap.offerCores, now.timeIntervalSince(item.since) >= CPUCap.offerAfter {
-                    c = c.offeringCap(app: e.appBundle != nil, cores: e.coresNow)
-                }
+                c = c.runningCooler(subject: Card.subject(e), app: e.appBundle != nil, since: item.since, level: item.capLevel,
+                                    before: item.capBefore, cores: e.coresNow, now: now)
             }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice?.line.map { [$0] } ?? []))
             lc.pauseGroup = pauseGroup
