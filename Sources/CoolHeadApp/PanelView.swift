@@ -843,6 +843,12 @@ struct WhatsNewCard: View {
 /// versions of CHANGELOG.md.
 enum WhatsNew {
     static let notes: [String: [String]] = [
+        "0.21.0": [
+            "Limit it: when an app is still busy a few minutes after Run it cooler, a slider holds it to Barely running, Slow and steady, or Half speed, and it runs at full speed while you're using it.",
+            "Managed by Cool Head has one slider for anything slowed and a This once | Every time switch; Full speed on an Every time line lasts until the app quits.",
+            "Pause until you plug in waits while a job plays sound or downloads, and a job's card says what it's doing when its log says so.",
+            "Cool Head for Chrome's next update has a toolbar icon like Cool Head's, a welcome page, and an offer to turn off extensions you don't need.",
+        ],
         "0.20.0": [
             "Run it cooler can be every time: an app is slowed whenever you aren't using it and is back to full speed when you switch to it. Rules are under Always cooler in Trusted.",
             "The open tool along the bottom is white on Cool Head's deep blue, and the top and bottom bars stay readable over a bright desktop.",
