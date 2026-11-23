@@ -1127,7 +1127,7 @@ enum FrozenItem: Identifiable {
         func item(_ name: String, _ rule: String?) -> Watcher.CooledItem {
             Watcher.CooledItem(key: "sample-" + name, pid: 0, start: nil, name: name, reportSubject: "a sample", since: at, before: nil, after: nil, rule: rule)
         }
-        // with "cpu-cap" too: the exporter limited to 20% this once, and Huddle's rule limited to 10%
+        // with "cpu-cap" too: the exporter at Half speed this once, and Huddle's rule at Barely running
         let cap = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"]?.split(separator: "|").contains("cpu-cap") ?? false
         var exporter = item("Exporter", nil), huddle = item("Huddle", "app:com.example.huddle")
         if cap { exporter.capLevel = .half; huddle.capLevel = .barely }
@@ -1237,7 +1237,7 @@ enum FrozenItem: Identifiable {
     var detail: String {
         switch self {
         case .cooled(let c):
-            if c.capLevel != nil { return "Limited since \(Fmt.time(c.since)). Full speed while it plays sound or downloads." }
+            if c.capLevel != nil { return "Limited since \(Fmt.time(c.since)). Full speed while it plays sound, records, or downloads." }
             return "It's still working, just more slowly, since \(Fmt.time(c.since))."
         case .paused(let p): return "Paused since \(Fmt.time(p.since)). Nothing is lost, and it carries on by itself when you plug in."
         case .sync(let s): return due ? "Resume it from its menu bar icon, then press Resumed."
@@ -1247,7 +1247,7 @@ enum FrozenItem: Identifiable {
         case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
         case .rule(let c, let app) where c.capLevel != nil:
             return (app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it"
-                        : "Every time it runs, as you chose. Full speed") + ", and while it plays sound or downloads."
+                        : "Every time it runs, as you chose. Full speed") + ", and while it plays sound, records, or downloads."
         case .rule(_, let app): return app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it."
                                            : "Every time it runs, as you chose. It's still working, just more slowly."
         }

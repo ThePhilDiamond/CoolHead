@@ -3,9 +3,9 @@ import Foundation
 /// The CPU limit, the step after Run it cooler for an app or job that's still busy (notes/cpu-cap.md): it's stopped
 /// and continued many times a second so it uses no more than a level's share of CPU time, counted as Activity Monitor
 /// counts it (100% is one core in full use). An app is limited only while you aren't using it, and never while it
-/// plays sound or downloads (see BusyWith).
+/// plays sound, records from a microphone, or downloads (see BusyWith).
 ///
-/// So far, the levels, their words, and the option on a card; the limiting itself comes next.
+/// The levels, their words, and the option on a card are here; CPULimiter does the stopping and continuing.
 public enum CPUCap {
     /// The stops on the gauge, slowest first. Full speed is no limit: it still runs cooler.
     public enum Level: String, CaseIterable, Equatable {
