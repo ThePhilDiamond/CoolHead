@@ -1,1 +1,0 @@
-- In Managed by Cool Head, anything slowed has the same slider and a This once | Every time switch, in place of Speed up, Speed up for now, and Stop every time. Full speed on an Every time line lasts until the app quits, and the rule stays, so it's one move back.

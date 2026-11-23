@@ -1,1 +1,0 @@
-- While Cool Head for Chrome is moving tabs from a tab suspender, its Settings show how far along it is instead of the button to move them, so a second move can't be started.

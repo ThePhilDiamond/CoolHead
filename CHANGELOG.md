@@ -6,6 +6,34 @@ What changed in each version of Cool Head, newest first, in plain words. The for
 
 Changes waiting for the next release are in [changes/](changes/), one file each, so pull requests don't edit the same lines here. The release pull request gathers them into this file (see [RELEASING.md](RELEASING.md)).
 
+## [0.21.0] - 2026-11-23
+
+### Added
+
+- Cool Head for Chrome recommends letting it turn off extensions you don't need, on its home screen and its welcome page, saying up front that password managers, banking, security, VPN, and work sign-in tools stay on. Banking and payments, work sign-in, and accessibility extensions now stay on by default too, and one that runs on every site you open is flagged and listed first, since it adds memory to every tab.
+- In Cool Head for Chrome's Protected list, clicking a tab's title brings that tab to the front, in its own window, so it can be checked before keeping, sleeping, or closing it.
+- Back to sleep after a quick look, in Cool Head for Chrome's Settings and on by default: a sleeping tab you open and leave within 10 seconds sleeps again at once and doesn't count as one you use.
+- Limit it: when something is still using a core or more three minutes after Run it cooler, its card offers a slider from Barely running, Slow and steady, and Half speed to Cooler and Full speed. It takes effect at once. An app runs at full speed while you're using it, playing sound, recording, or downloading. Never offered for virtual machines, extensions Finder waits on, or call apps.
+
+### Changed
+
+- Pause until you plug in waits while a job is playing sound or downloading, so its sound doesn't cut out and its download doesn't stall. The card says why in place of the option ("Not paused while it's playing sound." or "Not paused while it's downloading."), and the option comes back once it stops. Downloading means at least 100 KB a second coming in for 10 seconds.
+- In Protected, Keep is now Keep awake, and the list says it keeps a tab awake after its reason (a call, sound, typing) ends.
+- Closing duplicate tabs lists each page and how many extra copies would close, each title showing a copy first, and afterwards lists what closed until Done.
+- Start a session in Cool Head for Chrome says what it's for and how it works: tick the tabs a task needs, the others sleep until you end it, and ending can save them as a group.
+- Set up for Cool Head for Chrome, in Settings and on Chrome's memory card, opens the extension's page in the Chrome Web Store, in Chrome, where Add to Chrome installs it, instead of the instructions for adding it by hand. The README links to the store page too.
+- Cool Head for Chrome's toolbar icon is the melting snowflake with a status badge, like Cool Head's menu bar icon: a green circle when memory is fine, a yellow triangle when it's tight, a red octagon when it's very tight, and no badge without a reading from Cool Head. The count of sleeping tabs moved to the icon's tooltip.
+- Its Settings offer the same two styles as Cool Head's: Status badge (shapes and colors), or Melting snowflake, which needs no color: a whole snowflake when memory is fine, drooping and dripping when it's tight, and on fire when it's very tight.
+- Cool Head for Chrome's page after installing is a welcome: how to use it (pin it, click its icon, choose an Effort, and Auto with Cool Head), then the one choice about protecting unsent typing and calls, so it no longer opens on a question that could read as a warning.
+- After Protect them on Cool Head for Chrome's setup page, the buttons wait while Chrome asks, and then a box with a check says it's protected (or that Chrome didn't allow it).
+- A job's card says what it's doing when its log says so, such as "Archiver is backing up: 95% done.", or how far through it is ("96% through 26,512 passages"), and says plainly when the log doesn't name what it's doing.
+- In Managed by Cool Head, anything slowed has the same slider and a This once | Every time switch, in place of Speed up, Speed up for now, and Stop every time. Full speed on an Every time line lasts until the app quits, and the rule stays, so it's one move back.
+
+### Fixed
+
+- Moving tabs from a tab suspender no longer counts a tab as moved when its address downloads a file instead of opening a page. That tab moves to a page of Cool Head for Chrome's own, with its title, its address, and Download it again, so nothing is left needing the suspender and removing it is offered.
+- While Cool Head for Chrome is moving tabs from a tab suspender, its Settings show how far along it is instead of the button to move them, so a second move can't be started.
+
 ## [0.20.0] - 2026-11-22
 
 ### Added
@@ -461,7 +489,8 @@ Changes waiting for the next release are in [changes/](changes/), one file each,
 
 - This download has no signature file: signing began with 0.3.0, the first version that updates itself.
 
-[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/ThePhilDiamond/CoolHead/compare/v0.17.0...v0.18.0

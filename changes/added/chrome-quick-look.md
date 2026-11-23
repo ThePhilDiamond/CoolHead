@@ -1,1 +1,0 @@
-- Back to sleep after a quick look, in Cool Head for Chrome's Settings and on by default: a sleeping tab you open and leave within 10 seconds sleeps again at once and doesn't count as one you use.

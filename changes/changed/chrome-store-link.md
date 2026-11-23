@@ -1,1 +1,0 @@
-- Set up for Cool Head for Chrome, in Settings and on Chrome's memory card, opens the extension's page in the Chrome Web Store, in Chrome, where Add to Chrome installs it, instead of the instructions for adding it by hand. The README links to the store page too.
