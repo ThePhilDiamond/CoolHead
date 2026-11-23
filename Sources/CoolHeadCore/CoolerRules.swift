@@ -19,14 +19,27 @@ public enum CoolerRules {
     }
     public static func contains(_ key: String?) -> Bool { key.map { all[$0] != nil } ?? false }
 
+    /// A CPU limit a rule carries (CPUCap.Level), by rule key; kept on this Mac like the rules. Only the level is kept:
+    /// what "half speed" means is measured fresh each time the app starts.
+    static let levelsKey = "alwaysCoolerLimit"
+    public static var levels: [String: CPUCap.Level] {
+        (Trust.defaults.dictionary(forKey: levelsKey) as? [String: String] ?? [:]).compactMapValues(CPUCap.Level.init(rawValue:))
+    }
+    public static func setLevel(_ key: String, _ level: CPUCap.Level?) {
+        var d = Trust.defaults.dictionary(forKey: levelsKey) as? [String: String] ?? [:]
+        d[key] = level?.rawValue
+        Trust.defaults.set(d, forKey: levelsKey)
+    }
+
     /// Adds a rule, and stops trusting it.
     public static func add(_ key: String, name: String) {
         var d = all; d[key] = name; Trust.defaults.set(d, forKey: defaultsKey)
         Trust.forget(key)
     }
     public static func remove(_ key: String) { forget(key) }
-    /// Removes a rule without touching the trusted list (what Trust.add uses).
+    /// Removes a rule, and the limit it carried, without touching the trusted list (what Trust.add uses).
     static func forget(_ key: String) {
+        if levels[key] != nil { setLevel(key, nil) }
         var d = all
         guard d.removeValue(forKey: key) != nil else { return }
         Trust.defaults.set(d, forKey: defaultsKey)

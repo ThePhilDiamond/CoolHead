@@ -109,7 +109,13 @@ public enum BusyWith: Equatable {
     }
 
     /// The processes playing sound right now, from CoreAudio; nil where macOS doesn't offer the list.
-    public static func playingNow() -> Set<pid_t>? {
+    public static func playingNow() -> Set<pid_t>? { audioProcesses(kAudioProcessPropertyIsRunningOutput) }
+
+    /// The processes recording from a microphone right now (a call, a voice memo), from the same list; it says who is
+    /// recording, never what. A CPU limit holds these at full speed, as a stall drops the call.
+    public static func recordingNow() -> Set<pid_t>? { audioProcesses(kAudioProcessPropertyIsRunningInput) }
+
+    private static func audioProcesses(_ running: AudioObjectPropertySelector) -> Set<pid_t>? {
         func address(_ s: AudioObjectPropertySelector) -> AudioObjectPropertyAddress {
             AudioObjectPropertyAddress(mSelector: s, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
         }
@@ -121,10 +127,10 @@ public enum BusyWith: Equatable {
         guard AudioObjectGetPropertyData(system, &list, 0, nil, &size, &ids) == noErr else { return nil }
         var out: Set<pid_t> = []
         for id in ids {
-            var output = address(kAudioProcessPropertyIsRunningOutput)
-            var running: UInt32 = 0
+            var flag = address(running)
+            var on: UInt32 = 0
             var rs = UInt32(MemoryLayout<UInt32>.size)
-            guard AudioObjectGetPropertyData(id, &output, 0, nil, &rs, &running) == noErr, running == 1 else { continue }
+            guard AudioObjectGetPropertyData(id, &flag, 0, nil, &rs, &on) == noErr, on == 1 else { continue }
             var pidAddress = address(kAudioProcessPropertyPID)
             var pid: pid_t = 0
             var ps = UInt32(MemoryLayout<pid_t>.size)

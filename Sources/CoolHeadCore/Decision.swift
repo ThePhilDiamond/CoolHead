@@ -89,6 +89,7 @@ public enum Decision {
         switch f.kind {
         case .stop: return OptionFacts(helps: "ends the load completely", cost: "nothing gets a chance to save")
         case .cooler: return OptionFacts(helps: "moves {who} to background priority, so it uses less power and makes less heat", undo: .anyTime)
+        case .cpuCap: return OptionFacts(helps: "holds {who} to the level you choose while you aren't using it, so it makes far less heat", undo: .anyTime)
         case .pauseJob: return OptionFacts(helps: "freezes {who} until you plug in, when it carries on by itself with nothing lost")
         case .quitApp:
             guard let app else { return nil }

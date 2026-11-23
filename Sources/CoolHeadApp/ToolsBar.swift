@@ -361,9 +361,13 @@ struct TrustedView: View {
     struct Item: Identifiable, Equatable {
         let key: String
         let name: String
+        /// The CPU limit an Always cooler rule carries (see CPUCap).
+        var capLevel: CPUCap.Level? = nil
         var id: String { key }
         /// What it is, from how it was trusted: an app (by its identifier), a script, or a program.
-        var kind: String { key.hasPrefix("app:") ? "App" : key.hasPrefix("script:") ? "Script" : "Program" }
+        var kind: String {
+            (key.hasPrefix("app:") ? "App" : key.hasPrefix("script:") ? "Script" : "Program") + (capLevel.map { ", " + $0.name.lowercased() } ?? "")
+        }
     }
 
     /// `preset` is for renders; the panel reads the list.
@@ -372,12 +376,15 @@ struct TrustedView: View {
         let render = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_TRUSTED"] != nil
         _list = State(initialValue: preset ?? (render ? [Item(key: "app:com.example.photobackup", name: "Photo Backup"),
                                                          Item(key: "script:/Users/you/tools/export.py", name: "export.py")] : TrustedView.load()))
-        _cooler = State(initialValue: presetCooler ?? (render ? [Item(key: "app:com.example.huddle", name: "Huddle"),
+        _cooler = State(initialValue: presetCooler ?? (render ? [Item(key: "app:com.example.huddle", name: "Huddle", capLevel: ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CAP"] != nil ? .barely : nil),
                                                                  Item(key: "script:/Users/you/Sites/site/server.js", name: "server.js")] : TrustedView.loadCooler()))
     }
 
     static func load() -> [Item] { sorted(Trust.all) }
-    static func loadCooler() -> [Item] { sorted(CoolerRules.all) }
+    static func loadCooler() -> [Item] {
+        let levels = CoolerRules.levels
+        return sorted(CoolerRules.all).map { var i = $0; i.capLevel = levels[i.key]; return i }
+    }
     static func sorted(_ d: [String: String]) -> [Item] {
         d.map { Item(key: $0.key, name: $0.value) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }

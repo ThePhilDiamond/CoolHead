@@ -93,9 +93,18 @@ public final class Watcher {
         public var rule: String? = nil
         /// What identifies it for trusting and for rules (Trust.key), so a rule added later can take it over.
         public var trustKey: String? = nil
+        /// The CPU limit on it (see CPUCap), or nil when it's only running cooler, and the cores' worth it used before
+        /// the limit, measured once for this launch.
+        public var capLevel: CPUCap.Level? = nil
+        public var capBefore: Double? = nil
+        /// A rule's line while it's at full speed as an exception until it quits (nothing is slowed; the rule stays).
+        public var fullSpeed = false
+        /// Where its slider sits: Full speed, a limit, or Cooler.
+        public var level: CPUCap.Level { fullSpeed ? .full : capLevel ?? .cooler }
 
         public init(key: String, pid: pid_t, start: Date?, name: String, reportSubject: String, since: Date, before: Int?, after: Int?,
-                    rule: String? = nil, trustKey: String? = nil) {
+                    rule: String? = nil, trustKey: String? = nil, capLevel: CPUCap.Level? = nil) {
+            self.capLevel = capLevel
             self.key = key; self.pid = pid; self.start = start; self.name = name; self.reportSubject = reportSubject
             self.since = since; self.before = before; self.after = after; self.rule = rule; self.trustKey = trustKey
         }
@@ -103,13 +112,47 @@ public final class Watcher {
     public var cooledList: [CooledItem] { cooled.values.sorted { $0.since < $1.since } }
 
     /// A process of yours that an every-time rule covers, found on each sample.
-    struct Ruled { let pid: pid_t; let start: Date; let key: String; var id: String { "\(pid)-\(start.timeIntervalSince1970)" } }
+    struct Ruled { let pid: pid_t; let start: Date; let key: String; var cores = 0.0; var id: String { "\(pid)-\(start.timeIntervalSince1970)" } }
     /// The app in front, by its rule key, and when each app with a rule last left the front (on the main thread).
     @ObservationIgnored private var frontKey: String?
     @ObservationIgnored private var leftFront: [String: Date] = [:]
     /// Rules sped up for now from the pinned line: rule → the processes running then. The rule applies again once
     /// they've all ended, so "for now" means until it quits.
-    @ObservationIgnored private var spedUp: [String: Set<String>] = [:]
+    private var spedUp: [String: Set<String>] = [:]
+    @ObservationIgnored private var spedUpAt: [String: Date] = [:]
+    /// Rules switched from Every time to This once: kept here, not stored, until the processes running then have all
+    /// quit, so it runs cooler (at its level) until it quits and not the next time. Rule key → name, level, and those
+    /// processes.
+    private var onceRules: [String: (name: String, level: CPUCap.Level?, running: Set<String>)] = [:]
+    /// Their names, for the sampling queue.
+    @ObservationIgnored private let onceLock = NSLock()
+    @ObservationIgnored private var onceNames: [String: String] = [:]
+    /// The rules that apply now: stored ones, and ones switched to This once.
+    private var activeRules: [String: String] {
+        onceLock.lock(); defer { onceLock.unlock() }
+        return CoolerRules.all.merging(onceNames) { stored, _ in stored }
+    }
+    private var activeLevels: [String: CPUCap.Level] {
+        CoolerRules.levels.merging(onceRules.compactMapValues(\.level)) { stored, _ in stored }
+    }
+    private func setOnceRules(_ r: [String: (name: String, level: CPUCap.Level?, running: Set<String>)]) {
+        onceRules = r
+        onceLock.lock(); onceNames = r.mapValues(\.name); onceLock.unlock()
+    }
+    /// A rule's line that stays while it's at full speed as an exception, so it's one move back.
+    public var spedUpItems: [CooledItem] {
+        let rules = CoolerRules.all
+        return spedUp.keys.compactMap { r in
+            rules[r].map { name in
+                var i = CooledItem(key: "sped-" + r, pid: 0, start: nil, name: name, reportSubject: "something on Always cooler",
+                                   since: spedUpAt[r] ?? Date(), before: nil, after: nil, rule: r, trustKey: r)
+                i.fullSpeed = true; i.capLevel = CoolerRules.levels[r]
+                return i
+            }
+        }
+    }
+    /// Whether a rule is kept for every time (stored), rather than switched to This once.
+    public func isEveryTime(_ rule: String) -> Bool { CoolerRules.contains(rule) }
     @ObservationIgnored private var lastRuled: [Ruled] = []
     /// Each of your processes' rule key, kept while it runs, so a sample doesn't read every process's location again
     /// (on the sampling queue).
@@ -133,6 +176,11 @@ public final class Watcher {
     /// Bytes coming in, by process, from the last 30 seconds of nettop readings (see BusyWith). Read once a tick, and
     /// only while a card offers Pause until you plug in.
     @ObservationIgnored private var downloadSamples: [BusyWith.Sample] = []
+    /// Apps and jobs held to a CPU limit (CPUCap, CPULimiter), by the same key as `cooled`, or "rule:" and the rule's key.
+    @ObservationIgnored public let limiter = CPULimiter()
+    /// What's playing sound and how much each process downloads, read each sample only while something is limited,
+    /// so a limited app runs freely while it plays or downloads (on the sampling queue, handed to the main thread).
+    @ObservationIgnored private var limitBusy: (playing: Set<pid_t>?, open: Set<pid_t>, samples: [BusyWith.Sample], recording: Set<pid_t>) = (nil, [], [], [])
     @ObservationIgnored private let queue = DispatchQueue(label: "coolhead.watcher", qos: .utility)
     @ObservationIgnored private var timer: DispatchSourceTimer?
     /// The running count of swap-outs over about the last 2 minutes, for `MacState.swappedOutMB`.
@@ -316,6 +364,7 @@ public final class Watcher {
     public func start() {
         guard timer == nil else { return }
         resumeAllPaused(why: "Cool Head started")
+        CPULimiter.recover()
         // which app is in front, for every-time rules: an app with one is back to full speed the moment you switch to it
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] n in
             let app = n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
@@ -525,10 +574,118 @@ public final class Watcher {
             return .done("Slowing \(name)\(change) to keep your Mac cool. It's still working, just more slowly. Speed it up any time from the top of this panel.")
         }
         cooled.removeValue(forKey: Watcher.key(c))
+        limiter.remove(Watcher.key(c))
         return .done("\(name) is back to full speed.")
     }
 
     static func key(_ c: LiveCard) -> String { "\(c.pid ?? 0)-\(c.start?.timeIntervalSince1970 ?? 0)" }
+
+    // MARK: - CPU limit
+
+    /// The processes a limit covers: an app with all its helpers (by Trust key), else the process with what it started.
+    static func groupPIDs(trust: String?, root: pid_t, among pids: [pid_t]? = nil) -> Set<pid_t> {
+        let me = getuid(), all = pids ?? Proc.allPIDs()
+        if let t = trust, t.hasPrefix("app:") {
+            let found = all.filter { p in
+                guard let b = Proc.bsd(p), b.uid == me else { return false }
+                return Trust.key(path: Proc.path(p), name: b.name, args: [], cwd: nil) == t
+            }
+            if !found.isEmpty { return Set(found) }
+        }
+        return Set([root] + Proc.children(of: root, among: all))
+    }
+
+    /// Limit it, from a card's slider (on the main thread): it runs cooler first if it isn't already, then its group is
+    /// held to the level. Full speed lifts the limit and leaves it running cooler.
+    public func limit(_ c: LiveCard, level: CPUCap.Level, before: Double) -> Outcome {
+        guard let p = c.pid, sameProcess(c) else { log("Limit pressed for \(c.reportSubject): it had already gone"); return .gone }
+        let key = Watcher.key(c)
+        if cooled[key] == nil, case .failed(let why) = setCooler(c, on: true) { return .failed(why) }
+        let name = c.displaySubject.isEmpty ? "It" : c.displaySubject
+        if level == .full { return setCooler(c, on: false) }
+        if level == .cooler {
+            limiter.remove(key)
+            cooled[key]?.capLevel = nil; cooled[key]?.capBefore = nil
+            log("Limit lifted for \(c.reportSubject)")
+            return .done("\(name) has no limit now. It still runs cooler.")
+        }
+        limiter.set(key, pids: Watcher.groupPIDs(trust: c.trustKey, root: p), trust: c.trustKey, root: p, level: level, before: before)
+        cooled[key]?.capLevel = level; cooled[key]?.capBefore = before > 0 ? before : nil
+        log("Limit set for \(c.reportSubject): \(level.rawValue)")
+        return .done("\(name) \(CPUCap.phrase(level)) while you aren't using it. Full speed when you switch to it, or while it plays sound, records, or downloads.")
+    }
+
+    /// The slider on a Managed by Cool Head line: another level, or Full speed to lift the limit. A rule's line changes
+    /// the rule, so it applies every time.
+    public func setLimit(_ item: CooledItem, level: CPUCap.Level) -> Outcome {
+        if let r = item.rule {
+            let kept = level == .cooler ? nil : level
+            // switched to This once: its level until it quits; Full speed ends it now
+            if onceRules[r] != nil {
+                if level == .full {
+                    var o = onceRules; o.removeValue(forKey: r); setOnceRules(o)
+                    limiter.remove("rule:" + r); liftRule(r)
+                    log("This once: back to full speed")
+                    onPublish?()
+                    return .done("\(item.name) is back to full speed.")
+                }
+                onceRules[r]?.level = kept
+                limiter.remove("rule:" + r)
+                for (k, i) in cooled where i.rule == r { cooled[k]?.capLevel = kept }
+                onPublish?()
+                return .done("\(item.name) \(CPUCap.phrase(level)) until it quits.")
+            }
+            // every time: Full speed is an exception until it quits; any other stop changes the rule and ends the exception
+            if level == .full { return speedUpForNow(item) }
+            CoolerRules.setLevel(r, kept)
+            limiter.remove("rule:" + r)
+            for (k, i) in cooled where i.rule == r { cooled[k]?.capLevel = kept }
+            if spedUp.removeValue(forKey: r) != nil { spedUpAt[r] = nil; applyRules(lastRuled, Date()) }
+            log("Every time: set to \(level.rawValue)")
+            onPublish?()
+            return .done("\(item.name) \(CPUCap.phrase(level)) every time now.")
+        }
+        var c = LiveCard(id: "pinned", pid: item.pid, start: item.start, card: Card(state: .working, headline: "", explanation: "", fixes: []),
+                         details: [], reportSubject: item.reportSubject)
+        c.displaySubject = item.name; c.trustKey = item.trustKey
+        return limit(c, level: level, before: item.capBefore ?? 0)    // 0: the limiter measures it in its first second
+    }
+
+    /// Each sample (on the main thread): limited groups pick up new helpers and lose ones that quit, and run freely
+    /// while their app is in front or they play sound or download; rules with a level are held to it.
+    private func applyLimits(_ ruled: [Ruled], _ now: Date) {
+        let groups = limiter.snapshot
+        for (key, g) in groups where !key.hasPrefix("rule:") {
+            guard cooled[key] != nil else { limiter.remove(key); continue }
+            let pids = Watcher.groupPIDs(trust: g.trust, root: g.root)
+            limiter.update(key, pids: pids)
+            let busy = BusyWith.reason(group: pids, playing: limitBusy.playing, soundOpen: limitBusy.open, samples: limitBusy.samples, now: now) != nil
+                || !pids.isDisjoint(with: limitBusy.recording)
+            limiter.hold(key, busy || (g.trust != nil && g.trust == frontKey))
+        }
+        // rules with a level: each running rule's processes as one group, measured fresh for this launch
+        let levels = activeLevels
+        var byRule: [String: [Ruled]] = [:]
+        for r in ruled where levels[r.key] != nil { byRule[r.key, default: []].append(r) }
+        for (key, _) in groups where key.hasPrefix("rule:") && byRule[String(key.dropFirst(5))] == nil { limiter.remove(key) }
+        for (rule, rs) in byRule {
+            guard let level = levels[rule] else { continue }
+            let slowing = rs.contains { r in cooled.values.contains { $0.pid == r.pid && $0.rule == rule } }
+            let key = "rule:" + rule
+            guard slowing else { limiter.remove(key); continue }
+            let pids = Set(rs.map(\.pid))
+            if let g = groups[key] {
+                limiter.update(key, pids: pids)
+                let busy = BusyWith.reason(group: pids, playing: limitBusy.playing, soundOpen: limitBusy.open, samples: limitBusy.samples, now: now) != nil
+                || !pids.isDisjoint(with: limitBusy.recording)
+                limiter.hold(key, busy)
+                _ = g
+            } else {
+                limiter.set(key, pids: pids, trust: rule, root: rs[0].pid, level: level, before: max(rs.reduce(0) { $0 + $1.cores }, 0.2))
+            }
+            for (k, i) in cooled where i.rule == rule { cooled[k]?.capLevel = level }
+        }
+    }
 
     // MARK: - Every time
 
@@ -538,7 +695,7 @@ public final class Watcher {
 
     /// Puts back to full speed everything a rule slowed, for one rule or (nil) for rules that no longer exist.
     private func liftRule(_ key: String?) {
-        let rules = CoolerRules.all
+        let rules = activeRules
         for (k, item) in cooled {
             guard let r = item.rule, key.map({ $0 == r }) ?? (rules[r] == nil) else { continue }
             _ = setBackground(item.pid, false)
@@ -552,7 +709,7 @@ public final class Watcher {
         let key = appPath.map { Trust.key(appPath: $0) }
         if let old = frontKey, old != key { leftFront[old] = Date() }
         frontKey = key
-        guard let key, CoolerRules.contains(key), cooled.values.contains(where: { $0.rule == key }) else { return }
+        guard let key, activeRules[key] != nil, cooled.values.contains(where: { $0.rule == key }) else { return }
         liftRule(key)
         onPublish?()
     }
@@ -560,11 +717,15 @@ public final class Watcher {
     /// Slows or speeds up what rules cover, on each sample (on the main thread). Only your own processes are covered,
     /// and Cool Head never slows the app in front.
     private func applyRules(_ ruled: [Ruled], _ now: Date) {
-        let rules = CoolerRules.all
-        liftRule(nil)
         lastRuled = ruled
         let running = Set(ruled.map(\.id))
+        // a rule switched to This once ends when what was running then has all quit
+        let once = onceRules.filter { !$0.value.running.isDisjoint(with: running) }
+        if once.count != onceRules.count { setOnceRules(once) }
+        let rules = activeRules
+        liftRule(nil)
         spedUp = spedUp.filter { rules[$0.key] != nil && !$0.value.isDisjoint(with: running) }
+        spedUpAt = spedUpAt.filter { spedUp[$0.key] != nil }
         leftFront = leftFront.filter { rules[$0.key] != nil }
         for r in ruled {
             let slow = spedUp[r.key] == nil && CoolerRules.slowNow(key: r.key, frontKey: frontKey, leftFrontAt: leftFront[r.key], now: now)
@@ -583,7 +744,7 @@ public final class Watcher {
     /// Your own processes that a rule covers (on the sampling queue). Only when there are rules; a language runtime's
     /// arguments are read only when a rule is for a script.
     private func ruledProcesses(_ pids: [pid_t], me: pid_t) -> [Ruled] {
-        let rules = CoolerRules.all
+        let rules = activeRules
         guard !rules.isEmpty else { ruleKeys = [:]; return [] }
         let scripts = rules.keys.contains { $0.hasPrefix("script:") }
         var keys: [pid_t: (start: TimeInterval, scripts: Bool, key: String?)] = [:]
@@ -609,6 +770,11 @@ public final class Watcher {
     @discardableResult public func addRule(_ c: LiveCard) -> Bool {
         guard let k = c.trustKey else { return false }
         CoolerRules.add(k, name: c.trustName)
+        // limited when Every time is pressed: the rule carries the level, measured fresh each time it starts
+        if let level = cooled[Watcher.key(c)]?.capLevel {
+            CoolerRules.setLevel(k, level)
+            limiter.remove(Watcher.key(c))
+        }
         for (id, item) in cooled where item.trustKey == k || item.pid == c.pid { var i = item; i.rule = k; cooled[id] = i }
         log("Every time: \(c.reportSubject) runs cooler whenever it runs")
         refreshTrust()
@@ -627,16 +793,63 @@ public final class Watcher {
 
     /// "Stop every time", or Always cooler's − button: the rule goes, and what it slowed is back to full speed.
     public func removeRule(key: String) {
+        spedUp[key] = nil; spedUpAt[key] = nil
         CoolerRules.remove(key)
+        CoolerRules.setLevel(key, nil)
+        limiter.remove("rule:" + key)
         liftRule(key)
         log("Every time: a rule removed")
         onPublish?()
+    }
+
+    /// Rules and limits applied once, now, from a fresh read of your own processes, outside the 10-second sample (on
+    /// the main thread, only while the sample isn't running). For notes/cpu-cap.md's live check, which needs only this,
+    /// not the whole sample. `cores`: what each process is using, for a limit measured fresh.
+    public func applyRulesNow(cores: [pid_t: Double] = [:]) {
+        let ruled = ruledProcesses(Proc.allPIDs(), me: getpid()).map { r -> Ruled in var r = r; r.cores = cores[r.pid] ?? 0; return r }
+        applyRules(ruled, Date())
+        applyLimits(ruled, Date())
+    }
+
+    /// The This once | Every time switch on a Managed by Cool Head line. To Every time: a rule, carrying its level. To
+    /// This once: the rule isn't kept, and what it slows stays as it is until it quits.
+    public func setEveryTime(_ item: CooledItem, _ on: Bool) -> Outcome {
+        if on {
+            if let r = item.rule, let o = onceRules[r] {
+                CoolerRules.add(r, name: o.name)
+                CoolerRules.setLevel(r, o.level)
+                var all = onceRules; all.removeValue(forKey: r); setOnceRules(all)
+                log("Every time: a rule kept again")
+                refreshTrust(); onPublish?()
+                return .done("\(item.name) runs this way every time now.")
+            }
+            guard item.rule == nil, let k = item.trustKey else { return .failed("it can't be set to every time") }
+            var c = LiveCard(id: "pinned", pid: item.pid, start: item.start, card: Card(state: .working, headline: "", explanation: "", fixes: []),
+                             details: [], reportSubject: item.reportSubject)
+            c.trustKey = k; c.trustName = item.name; c.displaySubject = item.name
+            _ = addRule(c)
+            onPublish?()
+            return .done("\(item.name) runs this way every time now.")
+        }
+        guard let r = item.rule, CoolerRules.contains(r) else { return .done("") }
+        let name = CoolerRules.all[r] ?? item.name, level = CoolerRules.levels[r]
+        let wasFast = spedUp.removeValue(forKey: r) != nil
+        spedUpAt[r] = nil
+        let running = Set(lastRuled.filter { $0.key == r }.map(\.id)).union(cooled.values.filter { $0.rule == r }.map(\.key))
+        CoolerRules.remove(r)
+        // at full speed for now, there's nothing to keep until it quits
+        if !wasFast, !running.isEmpty { var all = onceRules; all[r] = (name, level, running); setOnceRules(all) }
+        log("Every time: switched to this once")
+        refreshTrust(); onPublish?()
+        return .done(wasFast ? "\(name) isn't slowed any more." : "\(name) runs this way until it quits, not the next time.")
     }
 
     /// "Speed up for now" on a pinned line: back to full speed until it quits; the rule stays.
     public func speedUpForNow(_ item: CooledItem) -> Outcome {
         guard let r = item.rule else { return restore(item) }
         spedUp[r] = Set(lastRuled.filter { $0.key == r }.map(\.id)).union(cooled.values.filter { $0.rule == r }.map(\.key))
+        spedUpAt[r] = Date()
+        limiter.remove("rule:" + r)
         liftRule(r)
         log("Every time: sped up for now")
         onPublish?()
@@ -742,7 +955,13 @@ public final class Watcher {
             }
         }
         tightSince = state.memoryPressure == "warning" || state.memoryPressure == "critical" ? (tightSince ?? now) : nil
-        let ruled = ruledProcesses(readable, me: me)
+        let ruled = ruledProcesses(readable, me: me).map { r -> Ruled in var r = r; r.cores = tracks[r.pid]?.cores ?? 0; return r }
+        // while anything is limited: what plays sound and what downloads, so a limited app runs freely meanwhile
+        if !limiter.isEmpty {
+            let playing = BusyWith.playingNow()
+            limitBusy = (playing, playing == nil ? BusyWith.soundOpenNow() : [], BusyWith.remember(BusyWith.readDownloads(now: now), in: limitBusy.samples),
+                         BusyWith.recordingNow() ?? [])
+        }
         guard dt > 0 else { publish(state, [], own: 0, ruled: ruled); return }
 
         let warm = state.thermal != "nominal"
@@ -814,6 +1033,12 @@ public final class Watcher {
                 }
             }
             if let k = Trust.key(e), CoolerRules.contains(k) { c = c.underRule(app: CoolerRules.isApp(k)) }
+            // running cooler wasn't enough: still using a core or more a few minutes after, so the limit is offered; once
+            // limited and still adding to the heat, the card says where it is and recommends the next level down
+            if let item = cooled["\(pid)-\(e.start?.timeIntervalSince1970 ?? 0)"], item.rule == nil {
+                c = c.runningCooler(subject: Card.subject(e), app: e.appBundle != nil, since: item.since, level: item.capLevel,
+                                    before: item.capBefore, cores: e.coresNow, now: now, neverLimited: CPUCap.neverLimited(e))
+            }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice?.line.map { [$0] } ?? []))
             lc.pauseGroup = pauseGroup
             lc.downloadingNow = downloadingNow
@@ -1071,6 +1296,7 @@ public final class Watcher {
                 }
             }
             applyRules(ruled, now)
+            applyLimits(ruled, now)
             onPublish?()
         }
     }

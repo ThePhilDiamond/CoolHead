@@ -448,7 +448,7 @@ struct CardView: View {
     /// One option, with what happened under it once pressed.
     @ViewBuilder func row(_ f: Fix) -> some View {
         FixRow(fix: f, cooled: watcher.isCooled(live), betterThanRecommended: live.card.betterThanRecommended.contains { $0.id == f.id },
-               run: { act($0) }, runUntil: { act($0, until: $1) })
+               run: { act($0) }, runUntil: { act($0, until: $1) }, runLimit: { act($0, level: $1) })
         if noteFor == f.id { noteView }
     }
 
@@ -462,7 +462,8 @@ struct CardView: View {
             .font(.callout.weight(.medium))
             .foregroundStyle(noteFailed ? Color.orange : Color.green)
             // after Run it cooler worked: the offer to do it every time, for something that can have a rule
-            if !noteFailed, noteFor == "cooler", (watcher.isCooled(live) && live.trustKey != nil) || EveryTimeOffer.snapshot {
+            // after Run it cooler, or after a limit: Every time, which then carries the limit's level too
+            if !noteFailed, noteFor == "cooler" || noteFor == "cpucap", (watcher.isCooled(live) && live.trustKey != nil) || EveryTimeOffer.snapshot {
                 EveryTimeOffer(live: live, watcher: watcher)
             }
             if noteFailed {
@@ -488,7 +489,7 @@ struct CardView: View {
         }
     }
 
-    func act(_ fix: Fix, until: Date? = nil) {
+    func act(_ fix: Fix, until: Date? = nil, level: CPUCap.Level? = nil) {
         noteFor = fix.id
         switch fix.kind {
         case .pauseJob:
@@ -542,6 +543,10 @@ struct CardView: View {
             // a stuck process is searched for as stuck, not as busy
             u.queryItems = [URLQueryItem(name: "q", value: "macOS \(name) " + (live.id.hasPrefix("hang-") ? "stuck not responding" : "high CPU"))]
             if let url = u.url { NSWorkspace.shared.open(url) }
+        case .cpuCap(let o):
+            // the slider acts at once; a level, or Full speed to lift the limit
+            guard let level else { return }
+            show(watcher.limit(live, level: level, before: o.before))
         case .cooler:
             // background priority: macOS runs it on the efficiency cores and slows its disk use; checked and undoable
             show(watcher.setCooler(live, on: !watcher.isCooled(live)))
@@ -1103,17 +1108,22 @@ extension View { func hoverHighlight(_ on: Bool) -> some View { modifier(HoverHi
 /// sync app paused, Chrome's memory limit.
 enum FrozenItem: Identifiable {
     case cooled(Watcher.CooledItem), paused(PausedJob), sync(SyncPause), chrome(Int), agent(BackgroundAgents.Agent), backup(String)
-    /// Something an every-time rule is slowing: one line per rule, however many of its processes are slowed (an app's
-    /// helpers count as the app).
-    case rule(Watcher.CooledItem, app: Bool)
+    /// Something a rule is slowing: one line per rule, however many of its processes are slowed (an app's helpers count
+    /// as the app). `every` is false once it's switched to This once (until it quits).
+    case rule(Watcher.CooledItem, app: Bool, every: Bool)
 
-    /// Slowed just this once, and slowed by rules, one of each rule.
-    static func split(_ list: [Watcher.CooledItem]) -> (once: [FrozenItem], rules: [FrozenItem]) {
+    /// Slowed just this once (by a card, or a rule switched to This once), and every time, one line for each rule; a
+    /// rule at full speed for now keeps its line (`spedUp`).
+    static func split(_ list: [Watcher.CooledItem], spedUp: [Watcher.CooledItem] = []) -> (once: [FrozenItem], rules: [FrozenItem]) {
         var seen = Set<String>()
-        let rules = list.filter { $0.rule.map { seen.insert($0).inserted } ?? false }
-        return (list.filter { $0.rule == nil }.map { .cooled($0) }, rules.map { .rule($0, app: CoolerRules.isApp($0.rule ?? "")) })
+        let ruled = (list + spedUp).filter { $0.rule.map { seen.insert($0).inserted } ?? false }
+            .map { FrozenItem.rule($0, app: CoolerRules.isApp($0.rule ?? ""), every: CoolerRules.contains($0.rule)) }
+        return (list.filter { $0.rule == nil }.map { .cooled($0) } + ruled.filter { !$0.isRule }, ruled.filter(\.isRule))
     }
-    var isRule: Bool { if case .rule = self { return true }; return false }
+    /// Kept every time, so listed under Every time.
+    var isRule: Bool { if case .rule(_, _, let every) = self { return every }; return false }
+    /// On the This once | Every time switch.
+    var everyTime: Bool { isRule }
     /// For screenshots: COOLHEAD_SNAPSHOT_SAMPLES naming "every-time" shows made-up lines slowed just this once and by
     /// rules, so they can be seen without slowing anything on this Mac.
     static var everyTimeSamples: [FrozenItem] {
@@ -1122,8 +1132,14 @@ enum FrozenItem: Identifiable {
         func item(_ name: String, _ rule: String?) -> Watcher.CooledItem {
             Watcher.CooledItem(key: "sample-" + name, pid: 0, start: nil, name: name, reportSubject: "a sample", since: at, before: nil, after: nil, rule: rule)
         }
-        return [.cooled(item("Exporter", nil)), .rule(item("Huddle", "app:com.example.huddle"), app: true),
-                .rule(item("Site", "script:/Users/you/Sites/site/server.js"), app: false)]
+        // with "cpu-cap" too: the exporter at Half speed this once, Huddle's rule at Barely running, and Site at full speed
+        let cap = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"]?.split(separator: "|").contains("cpu-cap") ?? false
+        var exporter = item("Exporter", nil), huddle = item("Huddle", "app:com.example.huddle")
+        var site = item("Site", "script:/Users/you/Sites/site/server.js")
+        exporter.trustKey = "script:/Users/you/export.py"
+        // with "cpu-cap", the Site rule is at full speed for now, an exception until it quits
+        if cap { exporter.capLevel = .half; huddle.capLevel = .barely; site.fullSpeed = true }
+        return [.cooled(exporter), .rule(huddle, app: true, every: true), .rule(site, app: false, every: true)]
     }
 
     static func all(_ w: Watcher) -> [FrozenItem] {
@@ -1137,7 +1153,7 @@ enum FrozenItem: Identifiable {
             return cooled.once + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) } + cooled.rules
         }
         // slowed just this once, and the rest of what's held back, first; what rules slow after, as its own group
-        let cooled = split(w.cooledList)
+        let cooled = split(w.cooledList, spedUp: w.spedUpItems)
         // built a step at a time: one long chain of + is too slow for the compiler to type-check
         var items: [FrozenItem] = cooled.once
         items += w.pausedJobs.map { FrozenItem.paused($0) }
@@ -1154,6 +1170,13 @@ enum FrozenItem: Identifiable {
         ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"]?.split(separator: "|").contains("held-back") ?? false
     }
     static func name(_ path: String) -> String { (path as NSString).lastPathComponent }
+    static func phrase(_ l: CPUCap.Level) -> String { CPUCap.phrase(l) }
+    /// A limited item's level, for the gauge on its line.
+    var capLevel: CPUCap.Level? { cooledItem?.capLevel }
+    var capBefore: Double? { cooledItem?.capBefore }
+    var cooledItem: Watcher.CooledItem? {
+        switch self { case .cooled(let c), .rule(let c, _, _): return c; default: return nil }
+    }
     static func project(_ path: String) -> String { ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent }
 
     var id: String {
@@ -1164,32 +1187,39 @@ enum FrozenItem: Identifiable {
         case .chrome: return "chrome"
         case .agent(let a): return "agent-" + a.label
         case .backup(let p): return "backup-" + p
-        case .rule(let c, _): return "rule-" + (c.rule ?? c.key)
+        case .rule(let c, _, _): return "rule-" + (c.rule ?? c.key)
         }
     }
     var due: Bool { if case .sync(let s) = self { return s.until <= Date() }; return false }
     var icon: String {
         switch self {
-        case .cooled: return "tortoise.fill"
+        case .cooled(let c): return FrozenItem.icon(c.level)
         case .paused: return "pause.circle.fill"
         case .sync: return due ? "exclamationmark.circle" : "pause.circle"
         case .chrome: return "memorychip"
         case .agent: return "power.circle"
         case .backup: return "clock.arrow.circlepath"
-        case .rule: return "tortoise.fill"
+        case .rule(let c, _, _): return FrozenItem.icon(c.level)
         }
+    }
+    static func icon(_ l: CPUCap.Level) -> String {
+        switch l { case .full: return "hare.fill"; case .cooler: return "tortoise.fill"; default: return "gauge.with.dots.needle.33percent" }
     }
     var line: String {
         switch self {
         // says what's happening, in the present tense, so a slowed job never reads as frozen or stuck: "Running cooler"
         // beside ice and a restore button looked like a job that had stopped
-        case .cooled(let c): return "Slowing \(c.name) to keep your Mac cool"
+        case .cooled(let c): return c.capLevel.map { "\(c.name) \(FrozenItem.phrase($0))" } ?? "Slowing \(c.name) to keep your Mac cool"
         case .paused(let p): return "\(p.name) is paused until you plug in"
         case .sync(let s): return due ? "Time to resume \(s.name) syncing" : "\(s.name) syncing is paused"
         case .chrome(let mb): return "Cool Head's \(ChromeLimit.gb(mb)) limit for Chrome is still set"
         case .agent(let a): return a.owner == a.label ? "A background helper is turned off" : "\(a.owner)'s background helper is turned off"
         case .backup(let p): return "Time Machine skips \(FrozenItem.name(p)) in \(FrozenItem.project(p))"
-        case .rule(let c, let app): return app ? "Slowing \(c.name) while you aren't using it" : "Slowing \(c.name) every time it runs"
+        case .rule(let c, let app, let every):
+            if c.fullSpeed { return "\(c.name) is at full speed until it quits" }
+            if !every { return c.capLevel.map { "\(c.name) \(FrozenItem.phrase($0)) until it quits" } ?? "Slowing \(c.name) until it quits" }
+            if let l = c.capLevel { return "\(c.name) \(FrozenItem.phrase(l)) " + (app ? "while you aren't using it" : "every time it runs") }
+            return app ? "Slowing \(c.name) while you aren't using it" : "Slowing \(c.name) every time it runs"
         }
     }
     /// The line as a problem report says it: anonymised as the activity log is, with no file, folder or project names
@@ -1218,14 +1248,24 @@ enum FrozenItem: Identifiable {
     }
     var detail: String {
         switch self {
-        case .cooled(let c): return "It's still working, just more slowly, since \(Fmt.time(c.since))."
+        case .cooled(let c):
+            if c.capLevel != nil { return "Limited since \(Fmt.time(c.since)). Full speed while it plays sound, records, or downloads." }
+            return "It's still working, just more slowly, since \(Fmt.time(c.since))."
         case .paused(let p): return "Paused since \(Fmt.time(p.since)). Nothing is lost, and it carries on by itself when you plug in."
         case .sync(let s): return due ? "Resume it from its menu bar icon, then press Resumed."
                                       : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
         case .chrome: return "Chrome only applies it when an organization manages this Mac, so it does nothing here, and it makes Chrome say it's \u{201C}managed by your organization\u{201D}. Removing it changes nothing else."
         case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
         case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
-        case .rule(_, let app): return app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it."
+        case .rule(let c, _, true) where c.fullSpeed:
+            return "Just for now: back to \((c.capLevel ?? .cooler).name) the next time it starts, or as soon as you move the slider."
+        case .rule(let c, _, false):
+            return c.capLevel != nil ? "Just this once: back to normal the next time it starts. Full speed while it plays sound, records, or downloads."
+                                     : "Just this once: back to normal the next time it starts. It's still working, just more slowly."
+        case .rule(let c, let app, _) where c.capLevel != nil:
+            return (app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it"
+                        : "Every time it runs, as you chose. Full speed") + ", and while it plays sound, records, or downloads."
+        case .rule(_, let app, _): return app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it."
                                            : "Every time it runs, as you chose. It's still working, just more slowly."
         }
     }
@@ -1265,8 +1305,8 @@ struct FrozenList: View {
         let once = items.filter { !$0.isRule }, every = items.filter(\.isRule)
         let allSlowed = once.allSatisfy { if case .cooled = $0 { return true }; return false }
         VStack(alignment: .leading, spacing: 8) {
-            ForEach([(once, "Just this once", "clock", allSlowed ? "Until you speed it up or it quits" : "Until you undo it"),
-                     (every, "Every time", "repeat", "Until you stop it")], id: \.1) { group, title, icon, hint in
+            ForEach([(once, "Just this once", "clock", allSlowed ? "Until it quits or you change it" : "Until you undo it"),
+                     (every, "Every time", "repeat", "Each time it runs, until you change it")], id: \.1) { group, title, icon, hint in
                 if !group.isEmpty {
                     HStack(spacing: 6) {
                         Image(systemName: icon).font(.caption.weight(.bold))
@@ -1453,17 +1493,34 @@ struct FrozenLine: View {
                 Text(item.line).font(.callout.weight(.semibold)).lineLimit(2).truncationMode(.middle)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
-                Button(item.button) { undo() }
-                    .buttonStyle(IceButton()).font(.subheadline)
-                    .fixedSize()
-                    .help(item.undo.title)
+                // something slowed: the slider is its only range, and one switch says whether it's kept for next time
+                if let c = item.cooledItem {
+                    if c.rule != nil || c.trustKey != nil {
+                        Picker("Keep it", selection: Binding(get: { item.everyTime }, set: { on in
+                            if case .failed(let why) = watcher.setEveryTime(c, on) { failed = "That didn't work: \(why)." }
+                        })) {
+                            Text("This once").tag(false)
+                            Text("Every time").tag(true)
+                        }
+                        .pickerStyle(.segmented).labelsHidden().controlSize(.small).font(.caption).fixedSize()
+                        .help("This once: back to normal the next time it starts. Every time: the same each time it runs.")
+                    }
+                } else {
+                    Button(item.button) { undo() }
+                        .buttonStyle(IceButton()).font(.subheadline)
+                        .fixedSize()
+                        .help(item.undo.title)
+                }
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
             Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
-            if case .rule(let c, _) = item, let r = c.rule {
-                Button("Stop every time") { watcher.removeRule(key: r) }
-                    .buttonStyle(IceButton()).font(.subheadline).fixedSize()
-                    .help("Takes it off Always cooler and puts it back to full speed")
+            // from Barely running to Full speed, either way at once
+            if let c = item.cooledItem {
+                LimitGauge(offer: CPUCap.Offer(levels: CPUCap.levels(before: c.capBefore ?? 3), current: c.level, suggested: c.level,
+                                               before: c.capBefore ?? 3, app: true), words: false) { level in
+                    if case .failed(let why) = watcher.setLimit(c, level: level) { failed = "That didn't work: \(why)." }
+                }
+                .padding(.vertical, 2)
             }
             if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
@@ -1479,7 +1536,7 @@ struct FrozenLine: View {
         case .chrome: if !watcher.removeChromeLimit() { failed = "That didn't work: Chrome's settings didn't change." }
         case .agent(let a): if !watcher.turnOnAgent(a) { failed = "That didn't work: macOS didn't turn it back on." }
         case .backup(let p): if !watcher.backUpAgain(p) { failed = "That didn't work: Time Machine's setting didn't change." }
-        case .rule(let c, _): if case .failed(let why) = watcher.speedUpForNow(c) { failed = "That didn't work: \(why)." }
+        case .rule(let c, _, _): if case .failed(let why) = watcher.speedUpForNow(c) { failed = "That didn't work: \(why)." }
         }
     }
 }
@@ -1902,6 +1959,7 @@ struct FixRow: View {
         case .wait: return "clock"
         case .stop: return "stop.circle"
         case .cooler: return cooled ? "hare" : "tortoise"
+        case .cpuCap: return "gauge.with.dots.needle.33percent"
         case .lookUp: return "magnifyingglass"
         case .quitApp: return "xmark.circle"
         case .share: return "square.and.arrow.up"
@@ -1925,7 +1983,10 @@ struct FixRow: View {
     }
     /// For Pause syncing: how long, before anything happens.
     var runUntil: (Fix, Date) -> Void = { _, _ in }
-    @State private var choosing = false
+    /// For the CPU limit: the level chosen on its gauge.
+    var runLimit: (Fix, CPUCap.Level) -> Void = { _, _ in }
+    /// Screenshots can show the choices open (COOLHEAD_SNAPSHOT_CHOICES).
+    @State private var choosing = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CHOICES"] != nil
     /// Every Caution option asks twice: the first click shows why it's risky on the option itself, and a second click
     /// within 5 seconds goes ahead; a tooltip on the label was easy to miss. The guard began with Stop and Force Quit,
     /// which end a program at once with no chance to save, so the first click warns that unsaved work will be lost and
@@ -1937,6 +1998,10 @@ struct FixRow: View {
         fix.kind == .stop || fix.kind == .forceQuit ? "Anything unsaved will be lost." : (fix.cautionReason ?? "This can't be undone.")
     }
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
+    /// An option with a choice under it, shown as buttons once it's pressed: how long to pause syncing, or how far to limit.
+    var hasChoices: Bool { isSyncPause }
+    /// The CPU limit's gauge, shown under its option.
+    var capOffer: CPUCap.Offer? { if case .cpuCap(let o) = fix.kind { return o }; return nil }
     /// For an option that shows how: the steps, shown under it once pressed.
     var guideSteps: [String]? { if case .guide(let steps) = fix.kind { return steps }; return nil }
     @State private var showingSteps = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_STEPS"] != nil   // screenshots show the guides
@@ -1969,9 +2034,30 @@ struct FixRow: View {
     // button, plainly separate from the next, since options that run together don't look clickable. Every option is
     // one: what Cool Head can't do itself opens the app where it's done, or shows the steps right under it.
     var body: some View {
+        if let o = capOffer { capBody(o) } else { tileBody }
+    }
+
+    /// The CPU limit: a heading and what it does, then the slider, which acts at once; not a button tile, since the
+    /// slider is the one place to act and the text under it the one recommendation.
+    func capBody(_ o: CPUCap.Offer) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).foregroundStyle(Ink.accent).frame(width: 18)
+                Text(fix.title).font(.body.weight(.semibold))
+            }
+            Text(fix.consequence).font(.callout).foregroundStyle(Ink.text.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
+            LimitGauge(offer: o) { level in runLimit(fix, level) }.padding(.top, 2)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.accent.opacity(0.35), lineWidth: 1))
+    }
+
+    var tileBody: some View {
         VStack(alignment: .leading, spacing: 6) {
                 Button {
-                    if isSyncPause { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } }
+                    if hasChoices { withAnimation(.easeOut(duration: 0.15)) { choosing.toggle() } }
                     else if guideSteps != nil { withAnimation(.easeOut(duration: 0.15)) { showingSteps.toggle() } }
                     else if guarded && !armed {
                         withAnimation(.easeOut(duration: 0.15)) { armed = true }
@@ -2014,7 +2100,7 @@ struct FixRow: View {
                             }
                         }
                         Spacer(minLength: 6)
-                        Image(systemName: opensElsewhere ? "arrow.up.right" : (isSyncPause && choosing) || (guideSteps != nil && showingSteps) ? "chevron.down" : "chevron.right")
+                        Image(systemName: opensElsewhere ? "arrow.up.right" : (hasChoices && choosing) || (guideSteps != nil && showingSteps) ? "chevron.down" : "chevron.right")
                             .font(.callout.weight(.bold)).opacity(0.75)
                             .padding(.top, tag == nil ? 0 : 2)          // at the top, clear of the corner label
                             .help(opensElsewhere ? "Opens another app or your browser" : "")
@@ -2024,7 +2110,7 @@ struct FixRow: View {
                 }
                 .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: armed ? nil : tag))
                 .accessibilityHint(line)
-                if choosing {
+                if choosing && isSyncPause {
                     HStack(spacing: 6) {
                         Text("For").font(.callout).foregroundStyle(Ink.muted)
                         ForEach(pauseChoices, id: \.0) { label, until in
