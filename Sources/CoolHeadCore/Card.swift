@@ -45,6 +45,7 @@ public struct Fix: Identifiable {
         case wait(Date)          // hide the card until then; it comes back if the cause is still there
         case stop                // SIGTERM, after asking; only the user's own processes
         case cooler              // background priority: slower CPU and disk access, less heat
+        case cpuCap              // stopped and continued many times a second to hold it to 10%, 20%, or 30% of one core (see CPUCap)
         case lookUp(String)      // a web search for this process name only
         case quitApp(String)     // a normal quit of the app at this bundle path, so it can ask to save
         // Every option is a button, since a mix of buttons and plain text is confusing: even an option that only leads
@@ -103,7 +104,7 @@ public struct Fix: Identifiable {
         switch kind {
         case .wait: return .coolHead
         case .stop: return .coolHead
-        case .cooler: return .coolHead
+        case .cooler, .cpuCap: return .coolHead
         case .quitApp: return .coolHead
         case .pauseJob: return .coolHead
         case .resume: return .coolHead
@@ -138,7 +139,7 @@ public struct Fix: Identifiable {
         switch kind {
         case .wait: return .informs
         case .stop: return .fixesCause
-        case .cooler: return .eases
+        case .cooler, .cpuCap: return .eases
         case .lookUp: return .informs
         case .quitApp: return .fixesCause
         case .openApp: return .eases
@@ -181,7 +182,7 @@ public struct Fix: Identifiable {
         case .chromeCompanion: return false
         case .deleteBuildData: return false
         case .wait: return false
-        case .cooler: return false
+        case .cooler, .cpuCap: return false
         case .lookUp: return false
         case .openApp: return false
         case .reveal: return false
@@ -212,7 +213,7 @@ public struct Fix: Identifiable {
         case .deleteBuildData: return false   // nothing is lost: Xcode rebuilds it, at the cost of a slower next build
         case .keepOutOfBackup: return false   // known and undoable: only rebuildable build output is offered, and the option says it won't be backed up
         case .wait: return false
-        case .cooler: return false
+        case .cooler, .cpuCap: return false
         case .lookUp: return false
         case .openApp: return false
         case .reveal: return false
@@ -246,7 +247,7 @@ extension Fix {
         case .quitApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
         case .keepOutOfBackup: return "It won't be in your backups."
         case .wait: return nil
-        case .cooler: return nil
+        case .cooler, .cpuCap: return nil
         case .lookUp: return nil
         case .openApp: return nil
         case .reveal: return nil
@@ -321,7 +322,7 @@ public struct Card {
         if f.recommended { return 0 }
         // one kind per line, so pull requests adding different kinds edit different lines
         switch f.kind {
-        case .cooler: return 1
+        case .cooler, .cpuCap: return 1
         case .pauseJob: return 1
         case .resume: return 1
         case .keepOutOfBackup: return 1
@@ -353,7 +354,7 @@ public struct Card {
             // every kind listed, one per line: a new kind must say whether it acts on the cause, and pull requests
             // adding different kinds edit different lines
             switch f.kind {
-            case .cooler: return true
+            case .cooler, .cpuCap: return true
             case .stop: return true
             case .quitApp: return true
             case .lookUp: return true

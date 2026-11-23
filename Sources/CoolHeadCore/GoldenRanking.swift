@@ -44,6 +44,7 @@ enum GoldenRanking {
     memory-chrome-saver-max · - · unknown · → tabs · tabs, saver-max, restart, quit, tabmemory
     memory-chrome-hidden-tabs · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory, extensions, groups
     memory-chrome-grown · - · unknown · → restart · restart, tabs, quit, saver, tabmemory
+    cap-offered · job · unknown · → cpucap · cpucap, lookup, share
     crash-loop · - · unknown · → lookup · lookup, console
     disguise-macos-name · disguise · unknown · → remove · remove, share
     disguise-apple-label · disguise · unknown · → remove · remove, share
