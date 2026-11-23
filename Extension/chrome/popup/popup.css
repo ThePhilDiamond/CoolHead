@@ -122,6 +122,7 @@ button.tabtitle.show svg { flex: none; width: 12px; height: 12px; color: var(--m
 button.tabtitle.show:hover .name { text-decoration: underline; }
 button.tabtitle.show:hover svg { color: var(--accent); }
 /* duplicates: each page with how many copies would close; after, what closed */
+.why.heavy { color: var(--text); }
 .duplist { list-style: none; margin: 8px 0; padding: 0; }
 .duplist li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; }
 .duplist li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

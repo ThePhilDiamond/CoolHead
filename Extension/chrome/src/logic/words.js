@@ -195,7 +195,7 @@ export const CLOSED_DUPS_DONE = 'Done';
 
 // ---- sessions ----
 export const START = 'Start a session';
-export const START_NOTE = 'Choose the tabs a task needs, like a meeting. The rest sleep, and reload only if you click them.';
+export const START_NOTE = "For one task, like a meeting or a report: tick the tabs it needs, and the others sleep until you end the session, so the task gets the memory. Ending it can save those tabs as a named group to come back to.";
 export const START_LEDE = 'Tick the tabs this task needs. The others sleep: they stay in your tab bar and reload when you click them. A tab you open during the session joins it.';
 export const WINDOW_ONLY = 'This window only';
 export function windowOnlyWhy(n) {
@@ -298,6 +298,8 @@ export const LEAVE_30_WHY = 'No reload if you come back quickly.';
 export const LEAVE_0 = 'As soon as you leave';
 export const LEAVE_0_WHY = 'Frees memory sooner.';
 export const LEAVE_NOTE = 'For Light, Balanced, and Focus.';
+export const GLANCE_TITLE = 'Back to sleep after a quick look';
+export const GLANCE_WHY = "A sleeping tab you open and leave within 10 seconds sleeps again at once, and doesn't count as one you use. Not one with a call, typing, or sound.";
 
 export const SITES_TITLE = 'Typing and calls';
 export const SITES_ON = "On: tabs with unsent typing, or using the camera, microphone, or screen sharing, don't sleep on their own, so you don't lose what you typed or drop out of a call.";
@@ -329,11 +331,21 @@ export const SAFE_EMPTY = 'You have no other extensions to pause.';
 export const EXT_WHY = {
   admin: 'Installed by your organization',
   password: 'Password manager',
+  bank: 'Banking or payments',
+  signin: 'Signs you in to work',
+  access: 'Helps you read or use the screen',
   blocker: 'Blocks ads or trackers',
   vpn: 'VPN or proxy',
   security: 'Security tool',
   other: '',
 };
+export const EXT_EVERY_SITE = 'Runs on every site you open, adding memory to every tab';
+export const EXT_REC_TITLE = 'Turn off extensions you don\'t need';
+export const EXT_REC_LINE = "Extensions use memory all the time, and one that runs on every site adds to every tab. Cool Head for Chrome can turn off the ones you choose while memory is very tight or a session runs, and back on afterward. Password managers, banking, security, VPN, and work sign-in tools stay on.";
+export const EXT_REC_ALLOW = 'Allow and choose';
+export const EXT_REC_NOTE = "Chrome asks once, in words that sound broader than this: it only lets Cool Head for Chrome see your extensions and turn them off and on.";
+export const EXT_REC_LATER = 'Not now';
+export const SETUP_EXT_DONE = "Done. Choose which stay on: click Cool Head for Chrome's icon, then Protected.";
 export function restingNow(n) { return n === 0 ? '' : `${plural(n, 'extension is', 'extensions are')} paused now.`; }
 
 export const ABOUT_TITLE = 'About';

@@ -105,7 +105,8 @@ if (protectedScreen) {
   const ext = (name, permissions = [], over = {}) => ({ id: name, name, type: 'extension', enabled: true, mayDisable: true, installType: 'normal', permissions, ...over });
   ui.safe = columns([
     ext('Vaultly Password Manager'), ext('Quiet Ad Blocker', ['declarativeNetRequest']), ext('Company sign-in', [], { installType: 'admin', mayDisable: false }),
-    ext('Writing helper'), ext('Coupon finder'), ext('Screenshot tool'), ext('Read later'), ext('Tab napper'),
+    ext('Harbor Credit Union Shield'), ext('Northgate single sign-on'),
+    ext('Writing helper', [], { hostPermissions: ['<all_urls>'] }), ext('Coupon finder', [], { hostPermissions: ['*://*/*'] }), ext('Screenshot tool'), ext('Read later'), ext('Tab napper'),
   ], null, 'self', new Set(['Tab napper']));
 }
 

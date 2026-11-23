@@ -1,2 +1,3 @@
 - In Protected, Keep is now Keep awake, and the list says it keeps a tab awake after its reason (a call, sound, typing) ends.
 - Closing duplicate tabs lists each page and how many extra copies would close, each title showing a copy first, and afterwards lists what closed until Done.
+- Start a session in Cool Head for Chrome says what it's for and how it works: tick the tabs a task needs, the others sleep until you end it, and ending can save them as a group.

@@ -55,4 +55,21 @@ page.append(
       h('button', { class: 'btn tall', onclick: () => answer(false) }, W.SETUP_NO))),
 );
 
+// Optional, after the one choice: let it turn off extensions you don't need, with what stays on said up front.
+async function allowExtensions(btn) {
+  btn.disabled = true;
+  await chrome.runtime.sendMessage({ type: 'act', action: 'restEnabled', on: true }).catch(() => {});
+  const ok = await chrome.permissions.request({ permissions: ['management'] }).catch(() => false);
+  const row = document.getElementById('ext-actions');
+  row.replaceWith(h('div', { id: 'ext-actions', class: ok ? 'confirm' : 'confirm off', role: 'status' },
+    icon(ok ? 'check' : 'warn'), h('div', { text: ok ? W.SETUP_EXT_DONE : W.PAUSE_REFUSED })));
+  if (!ok) await chrome.runtime.sendMessage({ type: 'act', action: 'restEnabled', on: false }).catch(() => {});
+}
+page.append(h('section', { class: 'card', 'aria-labelledby': 'ext' },
+  h('h2', { id: 'ext', text: W.EXT_REC_TITLE }),
+  h('p', { text: W.EXT_REC_LINE }),
+  h('p', { class: 'note', text: W.EXT_REC_NOTE }),
+  h('div', { class: 'row', id: 'ext-actions' },
+    h('button', { class: 'btn', onclick: (e) => allowExtensions(e.currentTarget) }, W.EXT_REC_ALLOW))));
+
 chrome.permissions.contains(ALL_SITES).then((granted) => { if (granted) done(W.SETUP_DONE_YES_TITLE, W.SETUP_DONE_YES, true); });

@@ -214,8 +214,9 @@ const A = [
       return ids.every((id) => t.find((x) => x.id === id)?.discarded) ? t : null;
     });
     assert.ok(all);
-    const badge = await w('chrome.action.getBadgeText({})');
-    assert.equal(badge, '4');
+    // no number on the toolbar icon any more (it shows memory's level); the count is in its title
+    assert.equal(await w('chrome.action.getBadgeText({})'), '');
+    assert.match(await w('chrome.action.getTitle({})'), /4 tabs asleep/);
     const r = await waitFor('a report with 4 asleep', async () => logLines().find((m) => m.type === 'report' && m.asleep === 4));
     assert.equal(JSON.stringify(r).includes('127.0.0.1'), false, 'no addresses cross the link');
   }],
@@ -299,6 +300,18 @@ const A = [
       || (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error')));
     assert.deepEqual(errors.map((e) => JSON.stringify(e.params).slice(0, 300)), []);
     await cdp.send('Target.closeTarget', { targetId });
+  }],
+  ['a quick look: a sleeping tab opened and left within 10 seconds sleeps again at once', async ({ w }) => {
+    await act(w, { action: 'level', level: 'light' });
+    const ids = await openTabs(w, [`${BASE}/page?n=g1`, `${BASE}/page?n=g2`]);
+    await loaded(w, ids);
+    await act(w, { action: 'sleep', tabId: ids[0] });
+    await waitFor('the tab asleep', async () => ((await tabsNow(w)).find((x) => x.id === ids[0])?.discarded ? true : null));
+    await w(`chrome.tabs.update(${ids[0]}, { active: true })`);
+    await sleep(1500);
+    await w(`chrome.tabs.update(${ids[1]}, { active: true })`);
+    await waitFor('the glanced tab asleep again', async () => ((await tabsNow(w)).find((x) => x.id === ids[0])?.discarded ? true : null), 8000);
+    await w(`chrome.tabs.remove(${JSON.stringify(ids)})`);
   }],
   ['Protected: Show brings a listed tab to the front', async ({ w, cdp }) => {
     const [id] = await openTabs(w, [`${BASE}/page?n=show`]);

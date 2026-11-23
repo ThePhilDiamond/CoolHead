@@ -206,6 +206,19 @@ function extensionsPart(view, ui, on) {
   return part;
 }
 
+// Recommends letting Cool Head for Chrome turn off unneeded extensions, saying what stays on, until allowed or set
+// aside; Settings keeps the switch either way.
+function extRecCard(view, on) {
+  if (!view.extRec) return null;
+  return h('section', { class: 'card', 'aria-labelledby': 'extrec-h' },
+    h('div', { class: 'head' }, h('h2', { id: 'extrec-h', text: W.EXT_REC_TITLE })),
+    h('p', { text: W.EXT_REC_LINE }),
+    h('p', { class: 'note', text: W.EXT_REC_NOTE }),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn primary', 'data-key': 'extrec-allow', onclick: on.extRecAllow }, W.EXT_REC_ALLOW),
+      h('button', { class: 'btn', 'data-key': 'extrec-later', onclick: on.extRecLater }, W.EXT_REC_LATER)));
+}
+
 // Each page open more than once, its title showing a copy that would close, so they can be checked first; after
 // closing, what closed, until Done.
 function duplicatesCard(view, on) {
@@ -313,7 +326,8 @@ function home(view, ui, on) {
     notice(view, on),
     questions(view, on),
     view.session ? sessionCard(view, ui, on) : startBlock(view, on),
-    duplicatesCard(view, on));
+    duplicatesCard(view, on),
+    extRecCard(view, on));
   return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 
@@ -401,7 +415,11 @@ function settingsScreen(view, ui, on) {
       h('div', { role: 'radiogroup', 'aria-labelledby': 'leave-h', style: 'margin-top:6px' },
         radio('leave', 30000, st.leaveDelayMs === 30000, W.LEAVE_30, W.LEAVE_30_WHY, () => on.leaveDelay(30000)),
         radio('leave', 0, st.leaveDelayMs === 0, W.LEAVE_0, W.LEAVE_0_WHY, () => on.leaveDelay(0))),
-      h('p', { class: 'note', text: W.LEAVE_NOTE })),
+      h('p', { class: 'note', text: W.LEAVE_NOTE }),
+      // a quick look at a sleeping tab puts it back to sleep, so looking for something doesn't wake everything
+      h('label', { class: 'choice', style: 'margin-top:8px' },
+        h('input', { type: 'checkbox', checked: st.glanceSleep, 'data-key': 'glance', onchange: (e) => on.glanceSleep(e.target.checked) }),
+        h('span', {}, h('b', { text: W.GLANCE_TITLE }), h('span', { class: 'why', text: W.GLANCE_WHY })))),
     // set and forget: what keeps tabs with typing or on a call awake, which needs Chrome's access to every site
     h('section', { class: 'card', 'aria-labelledby': 'sites-h' },
       h('h2', { id: 'sites-h', text: W.SITES_TITLE }),
@@ -433,7 +451,8 @@ function extRow(e, toOn, on) {
   return h('li', { class: 'ext' },
     h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', title: e.name, text: e.name }),
       e.open ? h('span', { class: 'why', text: W.EXT_OPEN })
-        : W.EXT_WHY[e.kind] ? h('span', { class: 'why', text: e.kind === 'admin' ? W.SAFE_ADMIN : W.EXT_WHY[e.kind] }) : null),
+        : W.EXT_WHY[e.kind] ? h('span', { class: 'why', text: e.kind === 'admin' ? W.SAFE_ADMIN : W.EXT_WHY[e.kind] })
+        : e.everySite ? h('span', { class: 'why heavy', text: W.EXT_EVERY_SITE }) : null),
     e.kind === 'admin' ? null : h('button', {
       class: 'btn', 'data-key': `move-${e.id}`, 'aria-label': `${toOn ? W.MOVE_TO_ON : W.MOVE_TO_REST}: ${e.name}`,
       onclick: () => on.safeMove(e.id, toOn),
