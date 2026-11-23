@@ -20,8 +20,18 @@ OUT="$ROOT/build/cool-head-for-chrome-$VERSION.zip"
 STAGE=$(mktemp -d)
 mkdir -p "$ROOT/build"
 
-# Only what the extension runs: the popup, the setup page, the worker and its logic, the page scripts, and icons.
-for part in manifest.json icons popup setup src content; do cp -R "$SRC/$part" "$STAGE/"; done
+# Only what the extension runs: the popup, the setup page, the page for download tabs, the worker and its logic, the
+# page scripts, and icons.
+for part in manifest.json icons popup setup parked src content; do cp -R "$SRC/$part" "$STAGE/"; done
+
+# Every page the extension opens must be in the package; only the test build's log and the developer previews stay out.
+missing=$(grep -rhoE '[a-z]+/[a-z-]+\.html' "$STAGE" | sort -u | grep -vE '^(log|dev)/' | while read -r page; do
+  [ -f "$STAGE/$page" ] || echo "$page"
+done)
+if [ -n "$missing" ]; then
+  echo "The extension opens these, but they aren't in the package: $missing" >&2
+  exit 1
+fi
 
 python3 -I - "$STAGE/manifest.json" <<'EOF'
 import json, sys
