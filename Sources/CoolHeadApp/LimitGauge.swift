@@ -11,7 +11,7 @@ struct LimitGauge: View {
     let pick: (CPUCap.Level) -> Void
     @State private var pointed: CPUCap.Level?
 
-    var body: some View {
+    var barsBody: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 4) {
                 ForEach(offer.levels, id: \.self) { level in
@@ -63,9 +63,107 @@ struct LimitGauge: View {
         }
     }
 
+    /// For the renders: COOLHEAD_SNAPSHOT_GAUGE picks the version (bars, symbols, slider, segments, or pills).
+    static let version = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_GAUGE"] ?? "bars"
+
+    var body: some View {
+        switch LimitGauge.version {
+        case "slider": sliderBody
+        case "segments": segmentsBody
+        case "pills": pillsBody
+        default: barsBody
+        }
+    }
+
+    /// What the chosen or recommended stop does, under any version.
+    var wordsLine: some View {
+        Text((pointed ?? offer.suggested).line(before: offer.before, app: offer.app, limited: offer.current != .full))
+            .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
+    }
+    var recommendedLine: some View {
+        HStack(spacing: 4) {
+            Text("Now: \(offer.current.name)").foregroundStyle(Ink.muted)
+            if offer.suggested != offer.current {
+                Text("·").foregroundStyle(Ink.muted)
+                Text("Recommended: \(offer.suggested.name)").foregroundStyle(Ink.accent).fontWeight(.semibold)
+            }
+        }
+        .font(.caption)
+    }
+
+    /// Version: macOS's own slider, stopping only at the levels' tick marks, a tortoise at the slow end and a hare at
+    /// the fast end (Apple: tick marks help people land on a value; the track is untinted with them).
+    var sliderBody: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Slider(value: Binding(get: { Double(offer.levels.firstIndex(of: offer.current) ?? 0) },
+                                  set: { pick(offer.levels[Int($0.rounded())]) }),
+                   in: 0...Double(offer.levels.count - 1), step: 1) {
+                Text("Limit")
+            } minimumValueLabel: {
+                Image(systemName: "tortoise.fill").foregroundStyle(Ink.muted)
+            } maximumValueLabel: {
+                Image(systemName: "hare.fill").foregroundStyle(Ink.muted)
+            }
+            .labelsHidden()
+            // each name under its tick: the track runs between the two symbols, about 24 points in from each side
+            GeometryReader { g in
+                let inset: CGFloat = 33, n = CGFloat(max(offer.levels.count - 1, 1))
+                ForEach(Array(offer.levels.enumerated()), id: \.element) { i, l in
+                    Text(l.name).font(.caption2.weight(l == offer.current ? .semibold : .regular))
+                        .foregroundStyle(l == offer.suggested && l != offer.current ? Ink.accent : l == offer.current ? Ink.text : Ink.muted)
+                        .multilineTextAlignment(.center).frame(width: 78)
+                        .position(x: inset + (g.size.width - 2 * inset) * CGFloat(i) / n, y: 14)
+                }
+            }
+            .frame(height: 30)
+            recommendedLine
+            wordsLine
+        }
+    }
+
+    /// Version: macOS's segmented control, each stop a symbol over its name (Apple: for closely related choices that
+    /// change a setting).
+    var segmentsBody: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Picker("Limit", selection: Binding(get: { offer.current }, set: { pick($0) })) {
+                ForEach(offer.levels, id: \.self) { l in
+                    Label(l.name, systemImage: LimitGauge.symbol(l)).tag(l)
+                }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            recommendedLine
+            wordsLine
+        }
+    }
+
+    /// Version: a row of buttons, the current one filled, the recommended one outlined in blue.
+    var pillsBody: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                ForEach(offer.levels, id: \.self) { l in
+                    Button { pick(l) } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: LimitGauge.symbol(l)).font(.system(size: 14, weight: .semibold))
+                            Text(l.name).font(.caption).lineLimit(1).minimumScaleFactor(0.8)
+                        }
+                        .frame(maxWidth: .infinity).padding(.vertical, 6)
+                        .foregroundStyle(l == offer.current ? Ink.onFill : Ink.text)
+                        .background(l == offer.current ? Ink.fill : Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(l == offer.suggested && l != offer.current ? Ink.accent : .clear, lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { pointed = $0 ? l : (pointed == l ? nil : pointed) }
+                }
+            }
+            recommendedLine
+            wordsLine
+        }
+    }
+
     static let tallest: CGFloat = 22
     /// For the renders: COOLHEAD_SNAPSHOT_GAUGE=symbols shows Version 2.
-    static let symbols = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_GAUGE"] == "symbols"
+    static let symbols = version == "symbols"
     static func symbol(_ l: CPUCap.Level) -> String {
         switch l {
         case .barely: return "tortoise.fill"
