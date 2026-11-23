@@ -18,7 +18,7 @@ public final class CPULimiter {
         public var trust: String?
         public var root: pid_t
         public var level: CPUCap.Level
-        /// Cores' worth it used before the limit, measured once for this launch (never stored).
+        /// Cores' worth it used before the limit, measured once for this launch (never stored); 0 until measured.
         public var before: Double
         /// The share of each period it runs, from 0.05 to 1.
         public var share: Double = 1
@@ -152,6 +152,8 @@ public final class CPULimiter {
                 let spent = cpu.reduce(0.0) { $0 + max(0, $1.value - (g.lastCPU[$1.key] ?? $1.value)) }
                 let used = spent / now.timeIntervalSince(at)
                 g.used = used
+                // not measured before the limit (set from a line that was only running cooler): its first second is
+                if g.before <= 0 { g.before = max(used / g.share, 0.2) }
                 if let target = g.level.cores(before: g.before) { g.share = CPULimiter.nextShare(g.share, target: target, used: used) }
             }
             g.lastCPU = cpu; g.lastAt = now

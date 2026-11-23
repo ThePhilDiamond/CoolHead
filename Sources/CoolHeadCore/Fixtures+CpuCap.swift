@@ -19,15 +19,23 @@ extension Fixture {
         let ok = c.recommended.map { if case .cpuCap = $0.kind { return true }; return false } == true
             && !c.fixes.contains { $0.kind == .cooler } && c.fixes.filter(\.recommended).count == 1
             && c.explanation.hasSuffix("It's already running cooler and still using about 3 cores.")
-            && o?.current == .full && o?.suggested == .half && o?.levels == [.barely, .steady, .half, .full]
+            && o?.current == .cooler && o?.suggested == .half && o?.levels == [.barely, .steady, .half, .cooler, .full]
         review.append(("cpu-cap-offered", ok, "recommended \(c.recommended?.title ?? "none"); \(c.explanation)"))
 
-        // levels: Slow and steady only from about 3 cores; half speed is half of the use before the limit
+        // levels: Slow and steady only from about 3 cores; half speed is half of the use before the limit; Cooler and Full
+        // speed have no limit
         let two = CPUCap.levels(before: 2), three = CPUCap.levels(before: 3)
         let amounts = CPUCap.Level.barely.cores(before: 3) == 0.2 && CPUCap.Level.steady.cores(before: 3) == 1
-            && CPUCap.Level.half.cores(before: 3) == 1.5 && CPUCap.Level.full.cores(before: 3) == nil
-        review.append(("cpu-cap-levels", two == [.barely, .half, .full] && three.count == 4 && amounts,
-                       "at 2 cores \(two.map(\.name)); at 3 \(three.map(\.name))"))
+            && CPUCap.Level.half.cores(before: 3) == 1.5 && CPUCap.Level.cooler.cores(before: 3) == nil && CPUCap.Level.full.cores(before: 3) == nil
+        // where a Managed line's slider sits: Cooler when only running cooler, its limit, or Full speed as an exception
+        var item = Watcher.CooledItem(key: "k", pid: 1, start: nil, name: "Huddle", reportSubject: "a sample", since: now, before: nil, after: nil,
+                                      rule: "app:com.example.huddle")
+        let onlyCooler = item.level
+        item.capLevel = .barely; let atLimit = item.level
+        item.fullSpeed = true; let exception = item.level
+        review.append(("cpu-cap-levels", two == [.barely, .half, .cooler, .full] && three.count == 5 && amounts
+                       && onlyCooler == .cooler && atLimit == .barely && exception == .full,
+                       "at 2 cores \(two.map(\.name)); at 3 \(three.map(\.name)); a line at \(onlyCooler.name), \(atLimit.name), \(exception.name)"))
 
         // already at half speed and still hot: the next level down is recommended, and the words compare with before
         let h = Card.stillHotUnderCap(subject: "Huddle", app: true, level: .half, before: 3, now: 1.5)
@@ -43,7 +51,7 @@ extension Fixture {
                                      before: level == nil ? nil : 3, cores: cores, now: now))
         }
         let early = when(2, 3), late = when(3, 3), light = when(10, 0.8), limited = when(1, 1.5, .half)
-        review.append(("cpu-cap-offered-when", early == nil && late?.current == .full && light == nil && limited?.current == .half
+        review.append(("cpu-cap-offered-when", early == nil && late?.current == .cooler && light == nil && limited?.current == .half
                        && limited?.before == 3,
                        "2 minutes \(early != nil); 3 minutes \(late != nil); 0.8 core \(light != nil); limited \(limited?.current.name ?? "none")"))
 

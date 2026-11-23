@@ -7,15 +7,16 @@ import Foundation
 ///
 /// The levels, their words, and the option on a card are here; CPULimiter does the stopping and continuing.
 public enum CPUCap {
-    /// The stops on the gauge, slowest first. Full speed is no limit: it still runs cooler.
+    /// The stops on the slider, slowest first. Cooler is Run it cooler with no limit; Full speed is neither.
     public enum Level: String, CaseIterable, Equatable {
-        case barely, steady, half, full
+        case barely, steady, half, cooler, full
 
         public var name: String {
             switch self {
             case .barely: return "Barely running"
             case .steady: return "Slow and steady"
             case .half: return "Half speed"
+            case .cooler: return "Cooler"
             case .full: return "Full speed"
             }
         }
@@ -27,7 +28,7 @@ public enum CPUCap {
             case .barely: return 0.2
             case .steady: return 1
             case .half: return before / 2
-            case .full: return nil
+            case .cooler, .full: return nil
             }
         }
 
@@ -42,7 +43,8 @@ public enum CPUCap {
             case .barely: return "stays open with nothing lost, but its work all but stops, and it makes almost no heat."
             case .steady: return "about \(CPUCap.share(1 / max(before, 1))) of its pace \(ref), and about \(CPUCap.share(1 / max(before, 1))) of the heat."
             case .half: return "half its pace \(ref), and about half the heat."
-            case .full: return app ? "no limit while you aren't using it; it still runs cooler." : "no limit; it still runs cooler."
+            case .cooler: return "no limit; it runs on the efficiency cores, a little slower and cooler."
+            case .full: return "back to normal, with nothing slowing it."
             }
         }
     }
@@ -71,7 +73,7 @@ public enum CPUCap {
     /// The levels offered: Slow and steady (one core) only for something using about 3 cores or more, since below that
     /// it's no slower than Half speed.
     public static func levels(before cores: Double) -> [Level] {
-        cores >= 2.5 ? [.barely, .steady, .half, .full] : [.barely, .half, .full]
+        cores >= 2.5 ? [.barely, .steady, .half, .cooler, .full] : [.barely, .half, .cooler, .full]
     }
 
     /// What the gauge on a card shows: the levels, where it is now, and the one recommended.
@@ -101,6 +103,7 @@ public enum CPUCap {
         case .barely: return "is barely running"
         case .steady: return "is running slow and steady"
         case .half: return "is at half speed"
+        case .cooler: return "is running cooler"
         case .full: return "is at full speed"
         }
     }
@@ -126,7 +129,7 @@ extension Card {
     /// This card for something already running cooler and still busy: the limit is offered first, in place of Run it
     /// cooler, at Full speed now, with Half speed recommended as the lightest step.
     public func offeringCap(app: Bool, cores: Double) -> Card {
-        let o = CPUCap.Offer(levels: CPUCap.levels(before: cores), current: .full, suggested: .half, before: cores, app: app)
+        let o = CPUCap.Offer(levels: CPUCap.levels(before: cores), current: .cooler, suggested: .half, before: cores, app: app)
         var rest = fixes.filter { $0.kind != .cooler }.map { f -> Fix in var f = f; f.recommended = false; return f }
         rest.insert(CPUCap.fix(o), at: 0)
         var c = Card(state: state, headline: headline,

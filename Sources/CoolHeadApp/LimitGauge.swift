@@ -2,7 +2,7 @@ import CoolHeadCore
 import SwiftUI
 
 /// The CPU limit's control: macOS's own slider, stopping only at the levels (CPUCap.Level), slowest on the left with a
-/// tortoise and Full speed on the right with a hare. A move takes effect at once, so where it is now and what's chosen
+/// tortoise and Full speed on the right with a hare; Cooler, just before it, is Run it cooler with no limit. A move takes effect at once, so where it is now and what's chosen
 /// are one thing, named in a tag over the thumb; the recommendation is text under it, never marked on the slider.
 /// Chosen over bars, a dial, segments, and buttons after six rounds of renders (notes/cpu-cap.md).
 struct LimitGauge: View {
@@ -44,9 +44,11 @@ struct LimitGauge: View {
             .accessibilityValue(offer.current.name)
             // each level's name under its tick
             GeometryReader { g in
+                // as wide as the space between stops allows, so five names don't run into each other
+                let room = min(78, (g.size.width - 2 * Self.inset) / n - 4)
                 ForEach(Array(offer.levels.enumerated()), id: \.element) { i, l in
                     Text(l.name).font(.caption2).foregroundStyle(Ink.muted)
-                        .multilineTextAlignment(.center).frame(width: 78)
+                        .multilineTextAlignment(.center).frame(width: room)
                         .position(x: Self.inset + (g.size.width - 2 * Self.inset) * CGFloat(i) / n, y: 14)
                 }
             }
@@ -58,7 +60,7 @@ struct LimitGauge: View {
 
     /// The recommendation as text, with what it does; once it's at the recommended level, what that level does.
     var advice: some View {
-        let limited = offer.current != .full
+        let limited = offer.current != .full && offer.current != .cooler
         return Group {
             if offer.suggested != offer.current {
                 (Text("Recommended: \(offer.suggested.name), ").fontWeight(.semibold).foregroundColor(Ink.accent)

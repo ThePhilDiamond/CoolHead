@@ -1108,17 +1108,22 @@ extension View { func hoverHighlight(_ on: Bool) -> some View { modifier(HoverHi
 /// sync app paused, Chrome's memory limit.
 enum FrozenItem: Identifiable {
     case cooled(Watcher.CooledItem), paused(PausedJob), sync(SyncPause), chrome(Int), agent(BackgroundAgents.Agent), backup(String)
-    /// Something an every-time rule is slowing: one line per rule, however many of its processes are slowed (an app's
-    /// helpers count as the app).
-    case rule(Watcher.CooledItem, app: Bool)
+    /// Something a rule is slowing: one line per rule, however many of its processes are slowed (an app's helpers count
+    /// as the app). `every` is false once it's switched to This once (until it quits).
+    case rule(Watcher.CooledItem, app: Bool, every: Bool)
 
-    /// Slowed just this once, and slowed by rules, one of each rule.
-    static func split(_ list: [Watcher.CooledItem]) -> (once: [FrozenItem], rules: [FrozenItem]) {
+    /// Slowed just this once (by a card, or a rule switched to This once), and every time, one line for each rule; a
+    /// rule at full speed for now keeps its line (`spedUp`).
+    static func split(_ list: [Watcher.CooledItem], spedUp: [Watcher.CooledItem] = []) -> (once: [FrozenItem], rules: [FrozenItem]) {
         var seen = Set<String>()
-        let rules = list.filter { $0.rule.map { seen.insert($0).inserted } ?? false }
-        return (list.filter { $0.rule == nil }.map { .cooled($0) }, rules.map { .rule($0, app: CoolerRules.isApp($0.rule ?? "")) })
+        let ruled = (list + spedUp).filter { $0.rule.map { seen.insert($0).inserted } ?? false }
+            .map { FrozenItem.rule($0, app: CoolerRules.isApp($0.rule ?? ""), every: CoolerRules.contains($0.rule)) }
+        return (list.filter { $0.rule == nil }.map { .cooled($0) } + ruled.filter { !$0.isRule }, ruled.filter(\.isRule))
     }
-    var isRule: Bool { if case .rule = self { return true }; return false }
+    /// Kept every time, so listed under Every time.
+    var isRule: Bool { if case .rule(_, _, let every) = self { return every }; return false }
+    /// On the This once | Every time switch.
+    var everyTime: Bool { isRule }
     /// For screenshots: COOLHEAD_SNAPSHOT_SAMPLES naming "every-time" shows made-up lines slowed just this once and by
     /// rules, so they can be seen without slowing anything on this Mac.
     static var everyTimeSamples: [FrozenItem] {
@@ -1127,12 +1132,14 @@ enum FrozenItem: Identifiable {
         func item(_ name: String, _ rule: String?) -> Watcher.CooledItem {
             Watcher.CooledItem(key: "sample-" + name, pid: 0, start: nil, name: name, reportSubject: "a sample", since: at, before: nil, after: nil, rule: rule)
         }
-        // with "cpu-cap" too: the exporter at Half speed this once, and Huddle's rule at Barely running
+        // with "cpu-cap" too: the exporter at Half speed this once, Huddle's rule at Barely running, and Site at full speed
         let cap = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"]?.split(separator: "|").contains("cpu-cap") ?? false
         var exporter = item("Exporter", nil), huddle = item("Huddle", "app:com.example.huddle")
-        if cap { exporter.capLevel = .half; huddle.capLevel = .barely }
-        return [.cooled(exporter), .rule(huddle, app: true),
-                .rule(item("Site", "script:/Users/you/Sites/site/server.js"), app: false)]
+        var site = item("Site", "script:/Users/you/Sites/site/server.js")
+        exporter.trustKey = "script:/Users/you/export.py"
+        // with "cpu-cap", the Site rule is at full speed for now, an exception until it quits
+        if cap { exporter.capLevel = .half; huddle.capLevel = .barely; site.fullSpeed = true }
+        return [.cooled(exporter), .rule(huddle, app: true, every: true), .rule(site, app: false, every: true)]
     }
 
     static func all(_ w: Watcher) -> [FrozenItem] {
@@ -1146,7 +1153,7 @@ enum FrozenItem: Identifiable {
             return cooled.once + w.pausedJobs.filter { pids.contains($0.pid) }.map { .paused($0) } + cooled.rules
         }
         // slowed just this once, and the rest of what's held back, first; what rules slow after, as its own group
-        let cooled = split(w.cooledList)
+        let cooled = split(w.cooledList, spedUp: w.spedUpItems)
         // built a step at a time: one long chain of + is too slow for the compiler to type-check
         var items: [FrozenItem] = cooled.once
         items += w.pausedJobs.map { FrozenItem.paused($0) }
@@ -1168,7 +1175,7 @@ enum FrozenItem: Identifiable {
     var capLevel: CPUCap.Level? { cooledItem?.capLevel }
     var capBefore: Double? { cooledItem?.capBefore }
     var cooledItem: Watcher.CooledItem? {
-        switch self { case .cooled(let c), .rule(let c, _): return c; default: return nil }
+        switch self { case .cooled(let c), .rule(let c, _, _): return c; default: return nil }
     }
     static func project(_ path: String) -> String { ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent }
 
@@ -1180,20 +1187,23 @@ enum FrozenItem: Identifiable {
         case .chrome: return "chrome"
         case .agent(let a): return "agent-" + a.label
         case .backup(let p): return "backup-" + p
-        case .rule(let c, _): return "rule-" + (c.rule ?? c.key)
+        case .rule(let c, _, _): return "rule-" + (c.rule ?? c.key)
         }
     }
     var due: Bool { if case .sync(let s) = self { return s.until <= Date() }; return false }
     var icon: String {
         switch self {
-        case .cooled(let c): return c.capLevel != nil ? "gauge.with.dots.needle.33percent" : "tortoise.fill"
+        case .cooled(let c): return FrozenItem.icon(c.level)
         case .paused: return "pause.circle.fill"
         case .sync: return due ? "exclamationmark.circle" : "pause.circle"
         case .chrome: return "memorychip"
         case .agent: return "power.circle"
         case .backup: return "clock.arrow.circlepath"
-        case .rule(let c, _): return c.capLevel != nil ? "gauge.with.dots.needle.33percent" : "tortoise.fill"
+        case .rule(let c, _, _): return FrozenItem.icon(c.level)
         }
+    }
+    static func icon(_ l: CPUCap.Level) -> String {
+        switch l { case .full: return "hare.fill"; case .cooler: return "tortoise.fill"; default: return "gauge.with.dots.needle.33percent" }
     }
     var line: String {
         switch self {
@@ -1205,7 +1215,9 @@ enum FrozenItem: Identifiable {
         case .chrome(let mb): return "Cool Head's \(ChromeLimit.gb(mb)) limit for Chrome is still set"
         case .agent(let a): return a.owner == a.label ? "A background helper is turned off" : "\(a.owner)'s background helper is turned off"
         case .backup(let p): return "Time Machine skips \(FrozenItem.name(p)) in \(FrozenItem.project(p))"
-        case .rule(let c, let app):
+        case .rule(let c, let app, let every):
+            if c.fullSpeed { return "\(c.name) is at full speed until it quits" }
+            if !every { return c.capLevel.map { "\(c.name) \(FrozenItem.phrase($0)) until it quits" } ?? "Slowing \(c.name) until it quits" }
             if let l = c.capLevel { return "\(c.name) \(FrozenItem.phrase(l)) " + (app ? "while you aren't using it" : "every time it runs") }
             return app ? "Slowing \(c.name) while you aren't using it" : "Slowing \(c.name) every time it runs"
         }
@@ -1245,10 +1257,15 @@ enum FrozenItem: Identifiable {
         case .chrome: return "Chrome only applies it when an organization manages this Mac, so it does nothing here, and it makes Chrome say it's \u{201C}managed by your organization\u{201D}. Removing it changes nothing else."
         case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
         case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
-        case .rule(let c, let app) where c.capLevel != nil:
+        case .rule(let c, _, true) where c.fullSpeed:
+            return "Just for now: back to \((c.capLevel ?? .cooler).name) the next time it starts, or as soon as you move the slider."
+        case .rule(let c, _, false):
+            return c.capLevel != nil ? "Just this once: back to normal the next time it starts. Full speed while it plays sound, records, or downloads."
+                                     : "Just this once: back to normal the next time it starts. It's still working, just more slowly."
+        case .rule(let c, let app, _) where c.capLevel != nil:
             return (app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it"
                         : "Every time it runs, as you chose. Full speed") + ", and while it plays sound, records, or downloads."
-        case .rule(_, let app): return app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it."
+        case .rule(_, let app, _): return app ? "Every time you switch away from it, as you chose. Full speed again the moment you switch to it."
                                            : "Every time it runs, as you chose. It's still working, just more slowly."
         }
     }
@@ -1288,8 +1305,8 @@ struct FrozenList: View {
         let once = items.filter { !$0.isRule }, every = items.filter(\.isRule)
         let allSlowed = once.allSatisfy { if case .cooled = $0 { return true }; return false }
         VStack(alignment: .leading, spacing: 8) {
-            ForEach([(once, "Just this once", "clock", allSlowed ? "Until you speed it up or it quits" : "Until you undo it"),
-                     (every, "Every time", "repeat", "Until you stop it")], id: \.1) { group, title, icon, hint in
+            ForEach([(once, "Just this once", "clock", allSlowed ? "Until it quits or you change it" : "Until you undo it"),
+                     (every, "Every time", "repeat", "Each time it runs, until you change it")], id: \.1) { group, title, icon, hint in
                 if !group.isEmpty {
                     HStack(spacing: 6) {
                         Image(systemName: icon).font(.caption.weight(.bold))
@@ -1476,25 +1493,34 @@ struct FrozenLine: View {
                 Text(item.line).font(.callout.weight(.semibold)).lineLimit(2).truncationMode(.middle)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
-                Button(item.button) { undo() }
-                    .buttonStyle(IceButton()).font(.subheadline)
-                    .fixedSize()
-                    .help(item.undo.title)
+                // something slowed: the slider is its only range, and one switch says whether it's kept for next time
+                if let c = item.cooledItem {
+                    if c.rule != nil || c.trustKey != nil {
+                        Picker("Keep it", selection: Binding(get: { item.everyTime }, set: { on in
+                            if case .failed(let why) = watcher.setEveryTime(c, on) { failed = "That didn't work: \(why)." }
+                        })) {
+                            Text("This once").tag(false)
+                            Text("Every time").tag(true)
+                        }
+                        .pickerStyle(.segmented).labelsHidden().controlSize(.small).font(.caption).fixedSize()
+                        .help("This once: back to normal the next time it starts. Every time: the same each time it runs.")
+                    }
+                } else {
+                    Button(item.button) { undo() }
+                        .buttonStyle(IceButton()).font(.subheadline)
+                        .fixedSize()
+                        .help(item.undo.title)
+                }
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
             Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
-            // a limited app's level, to move either way without waiting for a card (the limiting itself is the next stage)
-            if let l = item.capLevel {
-                LimitGauge(offer: CPUCap.Offer(levels: CPUCap.levels(before: item.capBefore ?? 3), current: l, suggested: l,
-                                               before: item.capBefore ?? 3, app: true), words: false) { level in
-                    if let c = item.cooledItem, case .failed(let why) = watcher.setLimit(c, level: level) { failed = "That didn't work: \(why)." }
+            // from Barely running to Full speed, either way at once
+            if let c = item.cooledItem {
+                LimitGauge(offer: CPUCap.Offer(levels: CPUCap.levels(before: c.capBefore ?? 3), current: c.level, suggested: c.level,
+                                               before: c.capBefore ?? 3, app: true), words: false) { level in
+                    if case .failed(let why) = watcher.setLimit(c, level: level) { failed = "That didn't work: \(why)." }
                 }
                 .padding(.vertical, 2)
-            }
-            if case .rule(let c, _) = item, let r = c.rule {
-                Button("Stop every time") { watcher.removeRule(key: r) }
-                    .buttonStyle(IceButton()).font(.subheadline).fixedSize()
-                    .help("Takes it off Always cooler and puts it back to full speed")
             }
             if let f = failed { Text(f).font(.caption).foregroundStyle(Color.orange).fixedSize(horizontal: false, vertical: true) }
         }
@@ -1510,7 +1536,7 @@ struct FrozenLine: View {
         case .chrome: if !watcher.removeChromeLimit() { failed = "That didn't work: Chrome's settings didn't change." }
         case .agent(let a): if !watcher.turnOnAgent(a) { failed = "That didn't work: macOS didn't turn it back on." }
         case .backup(let p): if !watcher.backUpAgain(p) { failed = "That didn't work: Time Machine's setting didn't change." }
-        case .rule(let c, _): if case .failed(let why) = watcher.speedUpForNow(c) { failed = "That didn't work: \(why)." }
+        case .rule(let c, _, _): if case .failed(let why) = watcher.speedUpForNow(c) { failed = "That didn't work: \(why)." }
         }
     }
 }
