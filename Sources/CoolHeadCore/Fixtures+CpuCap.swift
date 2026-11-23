@@ -47,6 +47,17 @@ extension Fixture {
                        && limited?.before == 3,
                        "2 minutes \(early != nil); 3 minutes \(late != nil); 0.8 core \(light != nil); limited \(limited?.current.name ?? "none")"))
 
+        // never offered: a virtual machine, an extension Finder waits on, a call app; an ordinary app is
+        let vm = CPUCap.neverLimited(path: "/Applications/UTM.app/Contents/MacOS/UTM", key: "app:com.utmapp.UTM", virtualMachine: true)
+        let appex = CPUCap.neverLimited(path: "/Applications/Drive.app/Contents/PlugIns/FileProvider.appex/Contents/MacOS/FileProvider",
+                                        key: "app:com.example.drive", virtualMachine: false)
+        let call = CPUCap.neverLimited(path: "/Applications/zoom.us.app/Contents/MacOS/zoom.us", key: "app:us.zoom.xos", virtualMachine: false)
+        let ordinary = CPUCap.neverLimited(path: "/Applications/Huddle.app/Contents/MacOS/Huddle", key: "app:com.example.huddle", virtualMachine: false)
+        let notOffered = offer(base.runningCooler(subject: "zoom.us", app: true, since: now.addingTimeInterval(-600), level: nil, before: nil,
+                                                  cores: 3, now: now, neverLimited: true)) == nil
+        review.append(("cpu-cap-never-limited", vm && appex && call && !ordinary && notOffered,
+                       "virtual machine \(vm); extension \(appex); call app \(call); an ordinary app \(ordinary); card offers it \(!notOffered)"))
+
         // the share settles where the level's amount is used, whatever the app would use at full speed, a step at a time
         func settle(want: Double, target: Double) -> (share: Double, used: Double, biggestStep: Double) {
             var share = 1.0, step = 1.0

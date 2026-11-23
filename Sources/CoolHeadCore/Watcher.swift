@@ -142,7 +142,7 @@ public final class Watcher {
     @ObservationIgnored public let limiter = CPULimiter()
     /// What's playing sound and how much each process downloads, read each sample only while something is limited,
     /// so a limited app runs freely while it plays or downloads (on the sampling queue, handed to the main thread).
-    @ObservationIgnored private var limitBusy: (playing: Set<pid_t>?, open: Set<pid_t>, samples: [BusyWith.Sample]) = (nil, [], [])
+    @ObservationIgnored private var limitBusy: (playing: Set<pid_t>?, open: Set<pid_t>, samples: [BusyWith.Sample], recording: Set<pid_t>) = (nil, [], [], [])
     @ObservationIgnored private let queue = DispatchQueue(label: "coolhead.watcher", qos: .utility)
     @ObservationIgnored private var timer: DispatchSourceTimer?
     /// The running count of swap-outs over about the last 2 minutes, for `MacState.swappedOutMB`.
@@ -602,6 +602,7 @@ public final class Watcher {
             let pids = Watcher.groupPIDs(trust: g.trust, root: g.root)
             limiter.update(key, pids: pids)
             let busy = BusyWith.reason(group: pids, playing: limitBusy.playing, soundOpen: limitBusy.open, samples: limitBusy.samples, now: now) != nil
+                || !pids.isDisjoint(with: limitBusy.recording)
             limiter.hold(key, busy || (g.trust != nil && g.trust == frontKey))
         }
         // rules with a level: each running rule's processes as one group, measured fresh for this launch
@@ -618,6 +619,7 @@ public final class Watcher {
             if let g = groups[key] {
                 limiter.update(key, pids: pids)
                 let busy = BusyWith.reason(group: pids, playing: limitBusy.playing, soundOpen: limitBusy.open, samples: limitBusy.samples, now: now) != nil
+                || !pids.isDisjoint(with: limitBusy.recording)
                 limiter.hold(key, busy)
                 _ = g
             } else {
@@ -850,7 +852,8 @@ public final class Watcher {
         // while anything is limited: what plays sound and what downloads, so a limited app runs freely meanwhile
         if !limiter.isEmpty {
             let playing = BusyWith.playingNow()
-            limitBusy = (playing, playing == nil ? BusyWith.soundOpenNow() : [], BusyWith.remember(BusyWith.readDownloads(now: now), in: limitBusy.samples))
+            limitBusy = (playing, playing == nil ? BusyWith.soundOpenNow() : [], BusyWith.remember(BusyWith.readDownloads(now: now), in: limitBusy.samples),
+                         BusyWith.recordingNow() ?? [])
         }
         guard dt > 0 else { publish(state, [], own: 0, ruled: ruled); return }
 
@@ -927,7 +930,7 @@ public final class Watcher {
             // limited and still adding to the heat, the card says where it is and recommends the next level down
             if let item = cooled["\(pid)-\(e.start?.timeIntervalSince1970 ?? 0)"], item.rule == nil {
                 c = c.runningCooler(subject: Card.subject(e), app: e.appBundle != nil, since: item.since, level: item.capLevel,
-                                    before: item.capBefore, cores: e.coresNow, now: now)
+                                    before: item.capBefore, cores: e.coresNow, now: now, neverLimited: CPUCap.neverLimited(e))
             }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice?.line.map { [$0] } ?? []))
             lc.pauseGroup = pauseGroup

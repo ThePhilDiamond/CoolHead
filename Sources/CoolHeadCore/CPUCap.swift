@@ -51,6 +51,23 @@ public enum CPUCap {
     public static let offerCores = 1.0
     public static let offerAfter: TimeInterval = 180
 
+    /// Call and meeting apps, by Trust key: a stall drops the call. (Chat apps with calls, such as Slack, play sound
+    /// during one, which holds them at full speed anyway.)
+    static let callApps: Set<String> = ["app:us.zoom.xos", "app:com.microsoft.teams", "app:com.microsoft.teams2",
+                                        "app:com.apple.FaceTime", "app:com.cisco.webexmeetingsapp", "app:com.webex.meetingmanager",
+                                        "app:com.skype.skype"]
+
+    /// Never offered the limit, however busy: a virtual machine, whose clock falls behind and whose whole system stalls
+    /// with it; an extension (.appex) that Finder and other apps wait on, such as a file provider, where a stall can
+    /// hang Finder; and call and meeting apps. Games, security software, and macOS's own programs are never offered Run
+    /// it cooler, so never get this far.
+    public static func neverLimited(path: String?, key: String?, virtualMachine: Bool) -> Bool {
+        virtualMachine || (path?.contains(".appex/") ?? false) || key.map(callApps.contains) == true
+    }
+    public static func neverLimited(_ e: Evidence) -> Bool {
+        neverLimited(path: e.path, key: Trust.key(e), virtualMachine: RunCooler.isVirtualMachine(e))
+    }
+
     /// The levels offered: Slow and steady (one core) only for something using about 3 cores or more, since below that
     /// it's no slower than Half speed.
     public static func levels(before cores: Double) -> [Level] {
@@ -120,11 +137,12 @@ extension Card {
     }
 
     /// This card for something Run it cooler is already slowing, without a rule: once limited, where it is and the next
-    /// level down; otherwise, if it's still using `offerCores` or more `offerAfter` after, the limit offered; else as it is.
+    /// level down; otherwise, if it's still using `offerCores` or more `offerAfter` after and isn't `neverLimited`, the
+    /// limit offered; else as it is.
     public func runningCooler(subject: String, app: Bool, since: Date, level: CPUCap.Level?, before: Double?,
-                              cores: Double, now: Date) -> Card {
+                              cores: Double, now: Date, neverLimited: Bool = false) -> Card {
         if let level { return Card.stillHotUnderCap(subject: subject, app: app, level: level, before: before ?? cores, now: cores) }
-        if cores >= CPUCap.offerCores, now.timeIntervalSince(since) >= CPUCap.offerAfter { return offeringCap(app: app, cores: cores) }
+        if !neverLimited, cores >= CPUCap.offerCores, now.timeIntervalSince(since) >= CPUCap.offerAfter { return offeringCap(app: app, cores: cores) }
         return self
     }
 
