@@ -411,9 +411,10 @@ public struct Card {
     public static func make(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
                             frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil,
                             agent: BackgroundAgents.Agent? = nil, backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil,
-                            background: BackgroundWork.Reading? = nil, apps: AppBuild.Facts? = nil) -> Card {
+                            background: BackgroundWork.Reading? = nil, apps: AppBuild.Facts? = nil, busyWith: BusyWith? = nil) -> Card {
         make(Situation(e, now: now, busySince: busySince, warm: warm, gameRunning: gameRunning, frontApp: frontApp, battery: battery,
-                       syncFeed: syncFeed, agent: agent, backupFeed: backupFeed, disguise: disguise, background: background, apps: apps))
+                       syncFeed: syncFeed, agent: agent, backupFeed: backupFeed, disguise: disguise, background: background, apps: apps,
+                       busyWith: busyWith))
     }
 
     /// Sees every situation `make` is given, for `coolhead cards --why`, which reviews the reasons on every sample and

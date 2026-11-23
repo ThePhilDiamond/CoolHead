@@ -82,7 +82,8 @@ enum JobCard: ProcessCard {
         let hungry = (e.coresNow >= 2 && s.busyFor >= 600) || (e.coresNow >= 1 && s.busyFor >= 1800)
         let drains = s.onBattery && pausable && s.state != .stalled && e.coresNow >= 1 && s.busyFor >= 600
             && (hungry || (s.battery ?? 100) < 50)
-        let pauseFix: Fix? = drains ? Fix(id: "pausejob", title: "Pause until you plug in",
+        // not while it's playing sound or downloading (see BusyWith): the card says why instead
+        let pauseFix: Fix? = drains && s.busyWith == nil ? Fix(id: "pausejob", title: "Pause until you plug in",
                                           consequence: "Frozen, nothing lost; it carries on when you plug in. A download may time out.",
                                           kind: .pauseJob, recommended: true) : nil
         let cool = cooler.map { c -> Fix in
@@ -99,6 +100,7 @@ enum JobCard: ProcessCard {
         let heat = Fmt.its([s.gpuClause, warm && s.heating ? "adding to the heat" : nil,
                             forGame || (s.gameRunning != nil && s.gpuLed) ? "competing with \(s.gameRunning!)" : nil, drains ? "draining your battery" : nil])
             + (gpuApp != nil ? " Pausing or closing a video, animation, or 3D view in it lets the chip rest." : "")
+            + (drains ? s.busyWith.map { " " + $0.cardLine } ?? "" : "")
         switch s.state {
         case .working:
             if let p = e.progress {

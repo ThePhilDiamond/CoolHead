@@ -23,6 +23,8 @@ public struct Situation {
     public let disguise: Disguise.Finding?
     public let background: BackgroundWork.Reading?
     public let apps: AppBuild.Facts?
+    /// Playing sound or downloading now (see BusyWith): Pause until you plug in isn't offered then, and the card says why.
+    public let busyWith: BusyWith?
 
     public let onBattery: Bool
     /// Who the card is about, in a word or two (see `Card.subject`).
@@ -54,7 +56,8 @@ public struct Situation {
     public init(_ e: Evidence, now: Date = Date(), busySince: Date? = nil, warm: Bool = false, gameRunning: String? = nil,
                 frontApp: String? = nil, battery: Int? = nil, syncFeed: SyncFeed? = nil, agent: BackgroundAgents.Agent? = nil,
                 backupFeed: BackupFeed? = nil, disguise: Disguise.Finding? = nil, background: BackgroundWork.Reading? = nil,
-                apps: AppBuild.Facts? = nil) {
+                apps: AppBuild.Facts? = nil, busyWith: BusyWith? = nil) {
+        self.busyWith = busyWith
         self.e = e; self.now = now; self.busySince = busySince; self.warm = warm; self.gameRunning = gameRunning
         self.frontApp = frontApp; self.battery = battery; self.syncFeed = syncFeed; self.agent = agent
         self.backupFeed = backupFeed; self.disguise = disguise; self.background = background; self.apps = apps
