@@ -21,7 +21,7 @@ struct LimitGauge: View {
                             if LimitGauge.symbols {
                                 Image(systemName: LimitGauge.symbol(level))
                                     .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(filled(level) ? shade(level) : Ink.muted.opacity(0.6))
+                                    .foregroundStyle(LimitGauge.strongSymbols ? (filled(level) ? Ink.text : Ink.muted) : filled(level) ? shade(level) : Ink.muted.opacity(0.6))
                                     .frame(height: 18)
                             }
                             // bars that rise from the slowest stop to Full speed, in a blue that deepens with them,
@@ -69,6 +69,9 @@ struct LimitGauge: View {
     var body: some View {
         switch LimitGauge.version {
         case "slider": sliderBody
+        case "slider2": slider2Body
+        case "bars2": barsBody
+        case "dial": dialBody
         case "segments": segmentsBody
         case "pills": pillsBody
         default: barsBody
@@ -161,9 +164,91 @@ struct LimitGauge: View {
         }
     }
 
+    /// Round 5: the slider, with the current stop named in a tag over the thumb, and the end symbols at full contrast.
+    var slider2Body: some View {
+        let n = CGFloat(max(offer.levels.count - 1, 1)), at = CGFloat(offer.levels.firstIndex(of: offer.current) ?? 0)
+        return VStack(alignment: .leading, spacing: 4) {
+            // the tag over the thumb: where it is now, in the deep blue, with a small point down to the thumb
+            GeometryReader { g in
+                let inset: CGFloat = 51
+                VStack(spacing: 0) {
+                    Text(offer.current.name).font(.caption.weight(.semibold)).foregroundStyle(Ink.onFill)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Ink.fill, in: Capsule())
+                    Image(systemName: "arrowtriangle.down.fill").font(.system(size: 7)).foregroundStyle(Ink.fill).offset(y: -2)
+                }
+                .fixedSize()
+                .position(x: min(max(inset + (g.size.width - 2 * inset) * at / n, 50), g.size.width - 50), y: 14)
+            }
+            .frame(height: 28)
+            Slider(value: Binding(get: { Double(at) }, set: { pick(offer.levels[Int($0.rounded())]) }),
+                   in: 0...Double(offer.levels.count - 1), step: 1) {
+                Text("Limit")
+            } minimumValueLabel: {
+                Image(systemName: "tortoise.fill").font(.system(size: 16, weight: .semibold)).foregroundStyle(Ink.text)
+            } maximumValueLabel: {
+                Image(systemName: "hare.fill").font(.system(size: 16, weight: .semibold)).foregroundStyle(Ink.text)
+            }
+            .labelsHidden()
+            GeometryReader { g in
+                let inset: CGFloat = 51
+                ForEach(Array(offer.levels.enumerated()), id: \.element) { i, l in
+                    Text(l.name).font(.caption2.weight(l == offer.suggested && l != offer.current ? .semibold : .regular))
+                        .foregroundStyle(l == offer.suggested && l != offer.current ? Ink.accent : Ink.muted)
+                        .multilineTextAlignment(.center).frame(width: 78)
+                        .position(x: inset + (g.size.width - 2 * inset) * CGFloat(i) / n, y: 14)
+                }
+            }
+            .frame(height: 30)
+            if offer.suggested != offer.current {
+                Text("Recommended: \(offer.suggested.name)").font(.caption.weight(.semibold)).foregroundStyle(Ink.accent)
+            }
+            wordsLine
+        }
+    }
+
+    /// Round 5: a dial like a speedometer, slowest on the left, Full speed on the right, its needle at where it is
+    /// now; each stretch of the arc is a stop to click, in the blue that strengthens toward Full speed.
+    var dialBody: some View {
+        let count = offer.levels.count
+        return VStack(spacing: 6) {
+            ZStack {
+                ForEach(Array(offer.levels.enumerated()), id: \.element) { i, l in
+                    let a0 = 180.0 + 180.0 * Double(i) / Double(count) + 1.5, a1 = 180.0 + 180.0 * Double(i + 1) / Double(count) - 1.5
+                    DialArc(from: a0, to: a1)
+                        .stroke(filled(l) ? shade(l) : Color.primary.opacity(0.12), style: StrokeStyle(lineWidth: 14, lineCap: .butt))
+                        .overlay(DialArc(from: a0, to: a1, outward: 11)
+                            .stroke(l == offer.suggested && l != offer.current ? Ink.accent : .clear, lineWidth: 2))
+                        .contentShape(DialArc(from: a0, to: a1).stroke(style: StrokeStyle(lineWidth: 26)))
+                        .onTapGesture { pick(l) }
+                }
+                // the needle, to the middle of where it is now
+                let at = Double(offer.levels.firstIndex(of: offer.current) ?? 0)
+                DialNeedle(angle: 180 + 180 * (at + 0.5) / Double(count))
+                    .stroke(Ink.text, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                Circle().fill(Ink.text).frame(width: 9, height: 9).offset(y: 40)
+                VStack(spacing: 1) {
+                    Text(offer.current.name).font(.callout.weight(.semibold))
+                    Text("Now").font(.caption2).foregroundStyle(Ink.muted)
+                }
+                .offset(y: 64)
+                Image(systemName: "tortoise.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(Ink.text).offset(x: -114, y: 36)
+                Image(systemName: "hare.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(Ink.text).offset(x: 114, y: 36)
+            }
+            .frame(width: 260, height: 160)
+            .frame(maxWidth: .infinity)
+            if offer.suggested != offer.current {
+                Text("Recommended: \(offer.suggested.name)").font(.caption.weight(.semibold)).foregroundStyle(Ink.accent)
+            }
+            wordsLine
+        }
+    }
+
     static let tallest: CGFloat = 22
     /// For the renders: COOLHEAD_SNAPSHOT_GAUGE=symbols shows Version 2.
-    static let symbols = version == "symbols"
+    static let symbols = version == "symbols" || version == "bars2"
+    /// Round 5: symbols at full contrast, the filled ones in the text color.
+    static let strongSymbols = version == "bars2"
     static func symbol(_ l: CPUCap.Level) -> String {
         switch l {
         case .barely: return "tortoise.fill"
@@ -197,5 +282,30 @@ struct LimitGauge: View {
     /// Filled from the slowest up to where it is now.
     func filled(_ l: CPUCap.Level) -> Bool {
         (offer.levels.firstIndex(of: l) ?? 0) <= (offer.levels.firstIndex(of: offer.current) ?? 0)
+    }
+}
+
+/// A stretch of the dial's arc, in degrees (180 is the left end, 360 the right), centred low in its frame.
+struct DialArc: Shape {
+    var from: Double, to: Double
+    /// How far outside the arc's middle line, for the recommended stop's ring.
+    var outward: CGFloat = 0
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        let c = CGPoint(x: r.midX, y: r.minY + 115), radius = 90 + outward
+        p.addArc(center: c, radius: radius, startAngle: .degrees(from), endAngle: .degrees(to), clockwise: false)
+        return p
+    }
+}
+
+/// The dial's needle, from its centre toward the arc.
+struct DialNeedle: Shape {
+    var angle: Double
+    func path(in r: CGRect) -> Path {
+        let c = CGPoint(x: r.midX, y: r.minY + 115), a = angle * .pi / 180
+        var p = Path()
+        p.move(to: c)
+        p.addLine(to: CGPoint(x: c.x + 70 * cos(a), y: c.y + 70 * sin(a)))
+        return p
     }
 }
