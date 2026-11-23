@@ -6,10 +6,12 @@
   <link rel="stylesheet" href="../popup/popup.css">
   <!-- The setup page with Chrome's calls stubbed, for screenshots (dev/render-previews.sh); not in the store upload. -->
   <script>
-    // ?answer=yes shows the page after Protect them was allowed; ?answer=asking while Chrome's question is open
+    // ?answer=yes shows the page after Protect them was allowed; ?answer=asking while Chrome's question is open;
+    // ?os=win shows it as on a computer that isn't a Mac (no Mac app step)
     const answer = new URLSearchParams(location.search).get('answer');
+    const os = new URLSearchParams(location.search).get('os') || 'mac';
     window.chrome = { permissions: { contains: async () => answer === 'yes', request: () => new Promise(() => {}) },
-                      runtime: { sendMessage: async () => ({}) } };
+                      runtime: { sendMessage: async () => ({}), getPlatformInfo: async () => ({ os }) } };
     const theme = new URLSearchParams(location.search).get('theme');
     if (theme) document.documentElement.style.colorScheme = theme;
   </script>
