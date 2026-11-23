@@ -361,12 +361,12 @@ struct TrustedView: View {
     struct Item: Identifiable, Equatable {
         let key: String
         let name: String
-        /// A CPU limit carried by an Always cooler rule, as a percentage of one core (see CPUCap).
-        var limit: Int? = nil
+        /// The CPU limit an Always cooler rule carries (see CPUCap).
+        var capLevel: CPUCap.Level? = nil
         var id: String { key }
         /// What it is, from how it was trusted: an app (by its identifier), a script, or a program.
         var kind: String {
-            (key.hasPrefix("app:") ? "App" : key.hasPrefix("script:") ? "Script" : "Program") + (limit.map { ", up to \($0)%" } ?? "")
+            (key.hasPrefix("app:") ? "App" : key.hasPrefix("script:") ? "Script" : "Program") + (capLevel.map { ", " + $0.name.lowercased() } ?? "")
         }
     }
 
@@ -376,7 +376,7 @@ struct TrustedView: View {
         let render = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_TRUSTED"] != nil
         _list = State(initialValue: preset ?? (render ? [Item(key: "app:com.example.photobackup", name: "Photo Backup"),
                                                          Item(key: "script:/Users/you/tools/export.py", name: "export.py")] : TrustedView.load()))
-        _cooler = State(initialValue: presetCooler ?? (render ? [Item(key: "app:com.example.huddle", name: "Huddle", limit: ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CAP"] != nil ? 10 : nil),
+        _cooler = State(initialValue: presetCooler ?? (render ? [Item(key: "app:com.example.huddle", name: "Huddle", capLevel: ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_CAP"] != nil ? .barely : nil),
                                                                  Item(key: "script:/Users/you/Sites/site/server.js", name: "server.js")] : TrustedView.loadCooler()))
     }
 

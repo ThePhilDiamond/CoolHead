@@ -93,12 +93,12 @@ public final class Watcher {
         public var rule: String? = nil
         /// What identifies it for trusting and for rules (Trust.key), so a rule added later can take it over.
         public var trustKey: String? = nil
-        /// The CPU limit on it, as a percentage of one core (see CPUCap), or nil when it's only running cooler.
-        public var limit: Int? = nil
+        /// The CPU limit on it (see CPUCap), or nil when it's only running cooler.
+        public var capLevel: CPUCap.Level? = nil
 
         public init(key: String, pid: pid_t, start: Date?, name: String, reportSubject: String, since: Date, before: Int?, after: Int?,
-                    rule: String? = nil, trustKey: String? = nil, limit: Int? = nil) {
-            self.limit = limit
+                    rule: String? = nil, trustKey: String? = nil, capLevel: CPUCap.Level? = nil) {
+            self.capLevel = capLevel
             self.key = key; self.pid = pid; self.start = start; self.name = name; self.reportSubject = reportSubject
             self.since = since; self.before = before; self.after = after; self.rule = rule; self.trustKey = trustKey
         }

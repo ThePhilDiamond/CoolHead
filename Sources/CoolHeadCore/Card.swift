@@ -45,7 +45,7 @@ public struct Fix: Identifiable {
         case wait(Date)          // hide the card until then; it comes back if the cause is still there
         case stop                // SIGTERM, after asking; only the user's own processes
         case cooler              // background priority: slower CPU and disk access, less heat
-        case cpuCap              // stopped and continued many times a second to hold it to 10%, 20%, or 30% of one core (see CPUCap)
+        case cpuCap(CPUCap.Offer)   // stopped and continued many times a second to hold it to 10%, 20%, or 30% of one core (see CPUCap)
         case lookUp(String)      // a web search for this process name only
         case quitApp(String)     // a normal quit of the app at this bundle path, so it can ask to save
         // Every option is a button, since a mix of buttons and plain text is confusing: even an option that only leads
