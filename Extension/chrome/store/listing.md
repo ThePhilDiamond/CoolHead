@@ -79,7 +79,7 @@ Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep 
 
 Then tick the three certifications: no selling or transferring to third parties outside the approved uses, no use or transfer for purposes unrelated to the single purpose, and no use or transfer to determine creditworthiness or for lending.
 
-**Privacy policy URL:** https://github.com/ThePhilDiamond/CoolHead/blob/main/docs/CHROME-PRIVACY.md (live once this branch is merged).
+**Privacy policy URL:** https://raw.githubusercontent.com/ThePhilDiamond/CoolHead/main/docs/CHROME-PRIVACY.md (since 1.2.0: the store's link check got an error from github.com's file page, which refuses automated requests, while the raw file answers; it moves to Cool Head's own site once there is one).
 
 ## Distribution tab
 
