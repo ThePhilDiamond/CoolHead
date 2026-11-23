@@ -184,7 +184,7 @@ struct CompanionRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(ChromeCompanion.name).font(.callout)
                 Text(status == .connected ? "Working with Cool Head: tabs you aren't using sleep when memory is tight."
-                     : setUp ? "Set up. Add it to Chrome from the page that opened; it links by itself."
+                     : setUp ? "Set up. Press Add to Chrome on the page that opened in Chrome; it links by itself."
                      : "Sleeps Chrome tabs you aren't using when memory is tight.")
                     .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             }
@@ -193,13 +193,13 @@ struct CompanionRow: View {
                 Label("Connected", systemImage: "checkmark.circle.fill").font(.caption.weight(.medium)).foregroundStyle(Ink.text)
                     .accessibilityLabel("\(ChromeCompanion.name) is connected")
             } else {
-                // the one file Chrome needs to start Cool Head's helper for the extension, then how to add the extension
+                // the one file Chrome needs to start Cool Head's helper for the extension, then its store page in Chrome
                 Button("Set up") {
                     setUp = ChromeCompanion.installHostFile()
-                    NSWorkspace.shared.open(URL(string: ChromeCompanion.getPage)!)
+                    ChromeCompanion.openStorePage()
                 }
                 .controlSize(.small)
-                .help("Lets Chrome start Cool Head's helper for this extension only, then opens how to add the extension to Chrome.")
+                .help("Lets Chrome start Cool Head's helper for this extension only, then opens its page in the Chrome Web Store, in Chrome.")
                 .accessibilityLabel("Set up \(ChromeCompanion.name)")
             }
         }

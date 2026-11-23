@@ -11,8 +11,8 @@ public enum ChromeCompanion {
     public static let name = "Cool Head for Chrome"
     /// What it does, in one sentence, for the welcome card, Settings, and the option that offers it.
     public static let pitch = "Puts Chrome tabs you aren't using to sleep when memory is tight, keeps the ones you choose awake, and makes Cool Head's Chrome options one click."
-    /// How to get it: until it's in the Chrome Web Store, its page in Cool Head's repository says how to add it by hand.
-    public static let getPage = "https://github.com/ThePhilDiamond/CoolHead/tree/main/Extension/chrome#readme"
+    /// How to get it: its page in the Chrome Web Store, where Add to Chrome installs it.
+    public static let getPage = "https://chromewebstore.google.com/detail/" + storeID
     public static let chromeApp = "/Applications/Google Chrome.app"
     /// The extension's ID in the Chrome Web Store, and its ID while it's added by hand, fixed by the key in its manifest
     /// (Extension/chrome/README.md). Cool Head's helper answers either.
