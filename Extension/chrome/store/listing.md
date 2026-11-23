@@ -10,24 +10,25 @@ Run `scripts/package-extension.sh`. It builds `build/cool-head-for-chrome-<versi
 
 **Name and summary** come from the manifest: "Cool Head for Chrome", and "Sleeps unused tabs and temporarily turns off extensions you don't need, so Chrome holds less memory. Works alone or with Cool Head." (131 of the 132 characters allowed)
 
-**Description:**
+**Description:** (1.2.0's first submission listed seven kinds of extension that stay on and was rejected for "excessive keywords"; name only a couple of examples.)
 
 ```
 Cool Head for Chrome puts tabs you aren't using to sleep and can pause extensions you don't need, so Chrome holds less memory and your computer stays quick. A sleeping tab stays in your tab bar and reloads when you click it. A paused extension isn't removed: it's switched off for a while and comes back on by itself. Nothing closes unless you choose.
 
 What it does
 • Sleeps tabs once you leave them. Effort sets how many stay loaded: Light keeps your 5 most used tabs, Balanced your 3, and Focus only the tab you're on.
+• Back to sleep after a quick look: a sleeping tab you open and leave within 10 seconds sleeps again at once, so looking for a tab doesn't wake them all.
 • Keeps what matters awake: calls, sound, unsent typing, pinned tabs, any tab you keep, and every tab from a site you choose.
 • Protected shows each tab it's keeping loaded and why, so you can keep it, sleep it, or close it.
 • Start a session: tick the tabs a task needs, like a meeting or a project, and the rest sleep until you want them back. When it ends, you can save its tabs as a tab group.
 • Keyboard shortcuts: Command-Shift-S (Ctrl+Shift+S on Windows and Linux) sleeps the tab you're on, and another can sleep the rest of the window.
 • Doesn't sleep tabs while you're offline, when they couldn't reload, unless you choose otherwise.
-• Moving from another tab suspender: its tabs move over one at a time, each asleep at its real address, so you can remove the suspender without losing them.
+• Moving from another tab suspender: its tabs move over one at a time, each asleep at its real address, so you can remove the suspender without losing them. A tab whose address downloads a file moves to a page of its own, with Download it again.
 • Finds pages open twice and closes the extra copy, keeping the one you used last.
-• Pauses extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. Password managers, ad blockers, VPNs, and security tools stay on, and you choose the rest. It's off until you turn it on.
+• Pauses extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. Essentials such as password managers and security tools stay on by default, and you can switch any extension on or off at any time. One that runs on every site is listed first, since it adds memory to every tab. Pausing is off until you turn it on.
 
 Works on its own, or with Cool Head
-Cool Head is a free Mac app that keeps an eye on your Mac's memory, heat, and battery. Linked to it, the extension's Auto level puts tabs to sleep only when memory is actually short, so they reload less, and Cool Head's advice can act in Chrome with one click. Without it, the extension works on its own at the level you choose.
+Cool Head is a free Mac app that keeps an eye on your Mac's memory, heat, and battery. Linked to it, the extension's Auto level puts tabs to sleep only when memory is actually short, so they reload less; its toolbar icon shows how tight memory is, like Cool Head's menu bar icon; and Cool Head's advice can act in Chrome with one click. Without it, the extension works on its own at the level you choose.
 
 Private
 Everything stays on your computer. There's no account, no analytics, and no ads, and it sends nothing over the internet.
@@ -78,7 +79,7 @@ Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep 
 
 Then tick the three certifications: no selling or transferring to third parties outside the approved uses, no use or transfer for purposes unrelated to the single purpose, and no use or transfer to determine creditworthiness or for lending.
 
-**Privacy policy URL:** https://github.com/ThePhilDiamond/CoolHead/blob/main/docs/CHROME-PRIVACY.md (live once this branch is merged).
+**Privacy policy URL:** https://raw.githubusercontent.com/ThePhilDiamond/CoolHead/main/docs/CHROME-PRIVACY.md (since 1.2.0: the store's link check got an error from github.com's file page, which refuses automated requests, while the raw file answers; it moves to Cool Head's own site once there is one).
 
 ## Distribution tab
 
