@@ -233,6 +233,29 @@ button.tabtitle.show:hover svg { color: var(--accent); }
 .page .card { margin-top: 20px; }
 .page .card h2 { font-size: 16px; }
 
+/* the welcome (setup page): fits one laptop screen, how to use it across the top and the two choices below; each
+   section's heading is larger than the step titles inside it, so the three sections read apart at a glance */
+.page.welcome { max-width: 960px; margin: 32px auto; }
+.welcome .top { display: flex; gap: 16px; align-items: center; }
+.welcome .top .logo { width: 56px; height: 56px; flex: none; }
+.welcome .top h1 { margin: 0 0 4px; }
+.welcome .card { padding: 16px 18px; }
+.welcome .card h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+.welcome .card.how { margin-top: 20px; }
+.welcome .step-row { list-style: none; padding: 0; margin: 14px 0 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 24px; }
+.welcome .step-row h3 { font-size: 14px; font-weight: 600; margin: 0; }
+.welcome .step-row p { margin: 4px 0 0; }
+.welcome .step-n { color: var(--accent); }
+.welcome .optional { color: var(--muted); font-weight: 400; }
+.welcome .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.welcome .choices > .card { margin-top: 0; }
+.welcome .row { margin-top: 12px; }
+.welcome .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--control); border-radius: 999px; padding: 1px 8px; }
+@media (max-width: 760px) {
+  .welcome .step-row { grid-auto-flow: row; gap: 12px; }
+  .welcome .choices { grid-template-columns: 1fr; }
+}
+
 /* no motion in the popup; if any is added, it stops for people who ask for less motion */
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 

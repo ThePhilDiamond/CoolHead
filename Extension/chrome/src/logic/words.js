@@ -307,7 +307,7 @@ export const GLANCE_WHY = "A sleeping tab you open and leave within 10 seconds s
 export const SITES_TITLE = 'Typing and calls';
 export const SITES_ON = "On: tabs with unsent typing, or using the camera, microphone, or screen sharing, don't sleep on their own, so you don't lose what you typed or drop out of a call.";
 export const SITES_OFF = 'Off: a tab with unsent typing can sleep, and what you typed is lost when it reloads. A call that has been quiet for 10 minutes can sleep too, which ends it.';
-export const SITES_HOW = 'Turning it on lets Cool Head for Chrome check, on each site, whether a text box has been typed in and whether the camera, microphone, or screen sharing is on. It never reads what you type, and nothing leaves your computer. Chrome will ask you to allow it to "read and change all your data on all websites", which is how Chrome words any access to every site.';
+export const SITES_HOW = 'Chrome will ask to "read and change all your data on all websites". It only checks for unsent typing and calls; it never reads what you type, and nothing leaves your computer.';
 export const SITES_TOGGLE = 'Keep tabs with unsent typing or a call awake';
 export const SITES_TOGGLE_WHY = 'Checks each site for typing and calls; never reads what you type.';
 export const SITES_ASKS = 'Chrome will ask to "read and change all your data on all websites", its words for any access to every site.';
@@ -394,18 +394,25 @@ export function about(version) {
 export const SETUP_TITLE = 'Cool Head for Chrome is installed';
 export const SETUP_LEDE = "Tabs you aren't using will sleep: they stay in your tab bar and reload when you click them, which frees memory for what you're doing.";
 export const SETUP_HOW = 'How to use it';
+// each step is [title, what to do]; the Mac app's step shows only on a Mac
 export const SETUP_STEPS = [
-  "Pin it: click the puzzle piece in Chrome's toolbar, then the pin beside Cool Head for Chrome, so you can see how many tabs are asleep.",
-  'Click its icon to see which tabs are asleep, wake one, or keep one awake.',
-  "Choose how hard it works under Effort. It starts on Balanced: your 3 most used tabs stay loaded and the others sleep 30 seconds after you leave them.",
-  'With Cool Head, the free Mac app, open, choose Auto: tabs sleep only when memory is short.',
+  ['Pin it', "Click the puzzle piece in Chrome's toolbar, then the pin beside Cool Head for Chrome."],
+  ['Review your tabs', 'Click its icon to see which tabs are asleep, wake one, or keep one awake.'],
+  ['Set the effort', 'Balanced, where it starts, keeps your 3 most used tabs loaded; the rest sleep 30 seconds after you leave them.'],
 ];
+export const SETUP_STEP_MAC = ['Link to the Mac app', 'With Cool Head, the free Mac app, open, choose Auto: tabs sleep only when memory is short.'];
+export const setupStep = (n) => `Step ${n}`;
+export const SETUP_OPTIONAL = 'optional';
+export const SETUP_OPTIONAL_TAG = 'Optional';
 export const SETUP_NOTHING_ELSE = "There's nothing else to set up. It works by itself from now on.";
-export const SETUP_ASK = 'One choice: protect unsent typing and calls?';
-export const SETUP_WHY = "Then a tab with unsent typing, or using the camera, microphone, or screen sharing, doesn't sleep on its own, so you don't lose what you typed or drop out of a call.";
+export const SETUP_ASK = 'Protect unsent typing and calls?';
+export const SETUP_WHY = "A tab with unsent typing, or on a call, won't sleep on its own, so you don't lose what you typed or drop out of the call.";
 export const SETUP_YES = 'Protect them';
 export const SETUP_NO = 'Not now';
-export const SETUP_NO_COST = 'If you choose Not now, a tab with unsent typing can sleep, and what you typed is lost when it reloads; a call that has been quiet for 10 minutes can sleep too, which ends it. You can turn this on later in Settings.';
+export const SETUP_NO_COST = 'Not now: a sleeping tab loses unsent typing when it reloads, and a call quiet for 10 minutes can end. You can turn this on later in Settings.';
+// the extensions card, shorter than the popup's (EXT_REC_LINE, EXT_REC_NOTE) so the welcome fits one screen
+export const SETUP_EXT_LINE = 'Extensions use memory in every tab. While memory is very tight or a session runs, it turns off the ones you choose, then back on. Password managers, banking, security, VPN, and work sign-in tools stay on.';
+export const SETUP_EXT_NOTE = "Chrome's question sounds broader: this only lets it see your extensions and turn them off and on.";
 export const SETUP_ASKING = 'Answer Chrome…';
 export const SETUP_ASKING_NOTE = 'Chrome is asking whether to allow it, in a box near the top of the window.';
 export const SETUP_DONE_YES_TITLE = 'Protected';
@@ -415,7 +422,7 @@ export const SETUP_DONE_NO = 'You can turn this on later in Settings.';
 export const SETUP_REFUSED_TITLE = "Chrome didn't allow it";
 export const SETUP_CLOSE = 'You can close this tab.';
 export const SETUP_REFUSED = "Chrome didn't allow it, so this stays off. You can try again later in Settings.";
-export const SETUP_NEXT = 'Open Cool Head for Chrome from the puzzle piece in the toolbar; pin it there to see how many tabs are asleep.';
+export const SETUP_NEXT = "Open Cool Head for Chrome from the puzzle piece in the toolbar; pin it there to see at a glance how tight your computer's memory is.";
 
 // ---- the right-click menu ----
 export const MENU_KEEP = 'Keep this tab loaded';
