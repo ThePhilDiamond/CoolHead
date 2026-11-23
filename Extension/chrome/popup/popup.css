@@ -123,6 +123,14 @@ button.tabtitle.show:hover .name { text-decoration: underline; }
 button.tabtitle.show:hover svg { color: var(--accent); }
 /* duplicates: each page with how many copies would close; after, what closed */
 .why.heavy { color: var(--text); }
+/* the toolbar icon picker: a name, then the icon at each level, in columns under the level names */
+.iconhead, .iconrow { display: grid; grid-template-columns: 1fr 52px 52px 52px; align-items: center; }
+.iconhead { margin-top: 6px; font-size: 11px; color: var(--muted); text-align: center; }
+.iconrow { width: 100%; margin-top: 6px; padding: 6px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.iconrow.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.iconrow .iconname { display: flex; flex-direction: column; }
+.iconrow .iconname .why { font-size: 12px; color: var(--muted); }
+.iconpic { width: 22px; height: 22px; justify-self: center; }
 .duplist { list-style: none; margin: 8px 0; padding: 0; }
 .duplist li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; }
 .duplist li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

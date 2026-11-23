@@ -180,6 +180,7 @@ const on = {
 
   leaveDelay(ms) { act({ action: 'leaveDelay', ms }); },
   glanceSleep(on) { act({ action: 'glanceSleep', on }); },
+  iconStyle(style) { act({ action: 'iconStyle', style }); },
   // Chrome keeps the keys for every extension on one page of its own; an extension can open it but not set a key.
   keepSite(host, on) { act({ action: 'keepSite', host, on }); },
   offlineHold(on) { act({ action: 'offlineHold', on }); },

@@ -43,6 +43,46 @@ function droopingFlake(ctx, cx, cy, r, width) {
   return tips;
 }
 
+// Six straight arms with side branches: the whole snowflake, for all well in the melting style.
+function flake(ctx, cx, cy, r, width) {
+  for (let i = 0; i < 6; i++) {
+    const a = (i * Math.PI) / 3 + Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    const m = [cx + Math.cos(a) * r * 0.58, cy + Math.sin(a) * r * 0.58];
+    for (const side of [-1, 1]) {
+      const b = a + (side * Math.PI) / 4;
+      ctx.moveTo(m[0], m[1]);
+      ctx.lineTo(m[0] + Math.cos(b) * r * 0.36, m[1] + Math.sin(b) * r * 0.36);
+    }
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+}
+
+// Very tight in the melting style: the snowflake has burst into flames, the white flake it was still inside.
+function onFire(ctx) {
+  ctx.beginPath();
+  ctx.moveTo(10, 0.6);
+  ctx.bezierCurveTo(5.4, 0.6, 3.2, 3.2, 3.3, 6.6);
+  ctx.bezierCurveTo(3.3, 9.4, 4.3, 11.6, 5.0, 13.2);
+  ctx.bezierCurveTo(5.9, 12.0, 6.7, 11.2, 7.4, 11.0);
+  ctx.bezierCurveTo(7.8, 13.8, 9.6, 15.8, 10.9, 17.8);
+  ctx.bezierCurveTo(12.4, 16.2, 13.4, 14.4, 13.3, 12.4);
+  ctx.bezierCurveTo(14.1, 12.7, 14.8, 13.3, 15.2, 14.0);
+  ctx.bezierCurveTo(16.4, 11.6, 16.9, 9.2, 16.7, 6.6);
+  ctx.bezierCurveTo(16.8, 3.2, 14.6, 0.6, 10, 0.6);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, 0.6, 0, 17.8);
+  g.addColorStop(0, '#FF3B30'); g.addColorStop(0.5, '#FF9500'); g.addColorStop(1, '#FFC733');
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = '#FFFFFF';
+  flake(ctx, 10, 6.6, 4.3, 1.1);
+}
+
 function drop(ctx, x, y, d) {
   ctx.beginPath();
   ctx.moveTo(x, y + d * 1.4);
@@ -75,14 +115,37 @@ function badgePath(ctx, level, x, y, w) {
   }
 }
 
-// Draws the icon into a 2D context of `size` pixels. `dark` is whether Chrome's toolbar is dark, for the flake's color.
-export function drawToolbarIcon(ctx, size, level, dark) {
+// The two styles, as Cool Head's Settings offer them (SettingsView.swift, IconStylePicker): the badge shows the level
+// by its shape and color; the melting snowflake by its drawing alone, with no color needed.
+export const ICON_STYLES = ['badge', 'melting'];
+
+// The melting style (MenuIcon.melting): a whole snowflake when all is well or there's no reading; tight, it droops and
+// drips into a puddle; very tight, it bursts into flames.
+function melting(ctx, level, stroke) {
+  ctx.strokeStyle = stroke;
+  if (level === 'issue') { onFire(ctx); return; }
+  if (level === 'warning') {
+    const tips = droopingFlake(ctx, 10, 10.5, 6.8, 1.4);
+    ctx.fillStyle = ICE;
+    tips.forEach((t, k) => drop(ctx, t[0], t[1] - 2.4 - (k % 2) * 0.8, 1.1));
+    ctx.beginPath();
+    ctx.ellipse(10, 1.4, 5.5, 1.0, 0, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  flake(ctx, 10, 9, 7.5, 1.4);
+}
+
+// Draws the icon into a 2D context of `size` pixels. `dark` is whether Chrome's toolbar is dark, for the flake's color;
+// `style` is 'badge' (the default) or 'melting'.
+export function drawToolbarIcon(ctx, size, level, dark, style = 'badge') {
   const s = size / 20;
   ctx.save();
   ctx.clearRect(0, 0, size, size);
   // the menu bar box is 20 by 18, y up: flip it, and center it in the square
   ctx.translate(0, size - (size - 18 * s) / 2);
   ctx.scale(s, -s);
+  if (style === 'melting') { melting(ctx, level, dark ? '#E8EAED' : '#3C4043'); ctx.restore(); return; }
   ctx.strokeStyle = dark ? '#E8EAED' : '#3C4043';
   const tips = droopingFlake(ctx, 8.5, 10.2, 6.4, size <= 16 ? 1.6 : 1.4);
   ctx.fillStyle = ICE;

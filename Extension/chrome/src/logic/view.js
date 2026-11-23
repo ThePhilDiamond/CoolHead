@@ -224,6 +224,7 @@ export function buildView(i) {
     settings: {
       leaveDelayMs: s.leaveDelayMs,
       glanceSleep: s.glanceSleep !== false,
+      iconStyle: s.iconStyle === 'melting' ? 'melting' : 'badge',
       sitesGranted: Boolean(i.sitesGranted),
       restEnabled: Boolean(s.restEnabled),
       managementGranted: Boolean(i.managementGranted),

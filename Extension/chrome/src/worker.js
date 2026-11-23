@@ -6,7 +6,7 @@ import * as W from './logic/words.js';
 import { planSleep, planSleepHidden, nextDueAt, canSleepOnItsOwn, LEVELS, LEAVE_DELAYS_MS } from './logic/plan.js';
 import { recordActivation, pruneUse, replaceId, lastUsed, tabToShowInstead } from './logic/usage.js';
 import { nextAuto, autoAllowed, AUTO_OFF, currentMemory } from './logic/auto.js';
-import { toolbarLevel, drawToolbarIcon } from './logic/toolbar-icon.js';
+import { toolbarLevel, drawToolbarIcon, ICON_STYLES } from './logic/toolbar-icon.js';
 import { findDuplicates, duplicateCount } from './logic/duplicates.js';
 import { startPlan, join, leave, groupPlan } from './logic/session.js';
 import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
@@ -126,13 +126,14 @@ async function refreshBadge() {
   const n = asleepCount(tabs, s.asleep);
   const memory = currentMemory(s.link, Date.now());
   const level = toolbarLevel(memory);
-  const key = `${level}|${s.toolbarDark ? 'dark' : 'light'}`;
+  const style = ICON_STYLES.includes(s.iconStyle) ? s.iconStyle : 'badge';
+  const key = `${level}|${s.toolbarDark ? 'dark' : 'light'}|${style}`;
   if (key !== iconKey && typeof OffscreenCanvas === 'function') {
     const imageData = {};
     for (const size of [16, 32]) {
       const c = new OffscreenCanvas(size, size);
       const ctx = c.getContext('2d');
-      drawToolbarIcon(ctx, size, level, Boolean(s.toolbarDark));
+      drawToolbarIcon(ctx, size, level, Boolean(s.toolbarDark), style);
       imageData[size] = ctx.getImageData(0, 0, size, size);
     }
     await chrome.action.setIcon({ imageData }).then(() => { iconKey = key; }, () => {});
@@ -597,6 +598,10 @@ async function act(m) {
       return '';
     case 'glanceSleep':
       await store.save({ glanceSleep: Boolean(m.on) });
+      return '';
+    case 'iconStyle':
+      await store.save({ iconStyle: ICON_STYLES.includes(m.style) ? m.style : 'badge' });
+      await refreshBadge();
       return '';
     case 'theme':
       await store.save({ toolbarDark: Boolean(m.dark) });

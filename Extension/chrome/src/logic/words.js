@@ -298,6 +298,9 @@ export const LEAVE_30_WHY = 'No reload if you come back quickly.';
 export const LEAVE_0 = 'As soon as you leave';
 export const LEAVE_0_WHY = 'Frees memory sooner.';
 export const LEAVE_NOTE = 'For Light, Balanced, and Focus.';
+export const ICON_TITLE = 'Toolbar icon';
+export const ICON_LEVELS = ['Memory fine', 'Tight', 'Very tight'];
+export const ICON_STYLES = [['badge', 'Status badge', 'Shapes and colors'], ['melting', 'Melting snowflake', 'Color-blind friendly']];
 export const GLANCE_TITLE = 'Back to sleep after a quick look';
 export const GLANCE_WHY = "A sleeping tab you open and leave within 10 seconds sleeps again at once, and doesn't count as one you use. Not one with a call, typing, or sound.";
 

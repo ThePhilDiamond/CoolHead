@@ -3,6 +3,7 @@
 // go in as text (textContent), never as markup.
 import * as W from '../src/logic/words.js';
 import { icon, flake, REASON_ICON } from './icons.js';
+import { drawToolbarIcon } from '../src/logic/toolbar-icon.js';
 
 export function h(tag, props = {}, ...kids) {
   const el = document.createElement(tag);
@@ -204,6 +205,29 @@ function extensionsPart(view, ui, on) {
         h('ul', { class: 'tabs' }, cols.rest.map((e) => extRow(e, true, on)))));
   }
   return part;
+}
+
+// The toolbar icon's two styles, each drawn at all three levels to pick one by sight, as Cool Head's Settings do
+// (SettingsView.swift, IconStylePicker): the badge by its shapes and colors, the melting snowflake by its drawing alone.
+function iconCard(st, on) {
+  // dark when the page's own text is light, so the drawings match the card they sit on
+  const rgb = (getComputedStyle(document.body).color.match(/\d+(\.\d+)?/g) || ['0', '0', '0']).map(Number);
+  const dark = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255 > 0.5;
+  const pic = (style, level) => {
+    const c = h('canvas', { width: '44', height: '44', class: 'iconpic', 'aria-hidden': 'true' });
+    drawToolbarIcon(c.getContext('2d'), 44, level, dark, style);
+    return c;
+  };
+  return h('section', { class: 'card', 'aria-labelledby': 'icon-h' },
+    h('h2', { id: 'icon-h', text: W.ICON_TITLE }),
+    h('div', { class: 'iconhead', 'aria-hidden': 'true' }, h('span', {}), ...W.ICON_LEVELS.map((t) => h('span', { text: t }))),
+    h('div', { role: 'radiogroup', 'aria-labelledby': 'icon-h' }, W.ICON_STYLES.map(([style, name, how]) => {
+      const pressed = st.iconStyle === style;
+      return h('button', { class: pressed ? 'iconrow on' : 'iconrow', role: 'radio', 'aria-checked': pressed ? 'true' : 'false',
+        'aria-label': `${name}. ${how}`, 'data-key': `icon-${style}`, onclick: () => on.iconStyle(style) },
+        h('span', { class: 'iconname' }, h('b', { text: name }), h('span', { class: 'why', text: how })),
+        pic(style, 'good'), pic(style, 'warning'), pic(style, 'issue'));
+    })));
 }
 
 // Recommends letting Cool Head for Chrome turn off unneeded extensions, saying what stays on, until allowed or set
@@ -427,6 +451,7 @@ function settingsScreen(view, ui, on) {
         h('input', { type: 'checkbox', checked: st.sitesGranted, 'data-key': 'sites', onchange: (e) => on.sites(e.target.checked) }),
         h('span', {}, h('b', { text: W.SITES_TOGGLE }), h('span', { class: 'why', text: W.SITES_TOGGLE_WHY }))),
       st.sitesGranted ? null : h('p', { class: 'note', text: W.SITES_ASKS })),
+    iconCard(st, on),
     h('section', { class: 'card', 'aria-labelledby': 'key-h' },
       h('h2', { id: 'key-h', text: W.SHORTCUT_TITLE }),
       h('dl', { class: 'keys' },

@@ -21,6 +21,7 @@ export const LOCAL_DEFAULTS = {
   setupDone: false,
   keepSites: [],            // sites whose every tab stays awake, as host names without www (logic/reasons.js)
   offlineHold: true,         // no tab sleeps on its own while Chrome is offline, since a sleeping tab can't reload then
+  iconStyle: 'badge',        // the toolbar icon: 'badge' (shapes and colors) or 'melting' (no color needed)
   toolbarDark: false,        // whether Chrome's toolbar is dark, as the popup last saw, for the toolbar icon's color
   migrateLater: false,       // the person chose "Do it later" for moving a suspender's tabs (Settings still has it)
 };
