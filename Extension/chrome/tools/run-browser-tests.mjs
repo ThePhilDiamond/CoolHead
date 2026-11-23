@@ -36,7 +36,8 @@ const RUN = `${process.pid}`;
 
 function serve() {
   const pages = {
-    '/page': (q) => `<title>Page ${q.get('n') || ''}</title><p>Test page ${q.get('n') || ''}</p>`,
+    // only letters, digits, and hyphens from the address go into the page, so nothing in it can run as script
+    '/page': (q) => { const n = (q.get('n') || '').replace(/[^A-Za-z0-9-]/g, ''); return `<title>Page ${n}</title><p>Test page ${n}</p>`; },
     '/typing': () => '<title>Expense form</title><input id="t" type="text">',
     '/call': () => '<title>Call</title><script>window.startCall = () => navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then((s) => { window.stream = s; return s.getTracks().length; });</script>',
   };
