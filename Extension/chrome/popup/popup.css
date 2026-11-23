@@ -197,6 +197,9 @@ button { font: inherit; color: inherit; }
 .page { max-width: 560px; margin: 48px auto; padding: 0 24px; font-size: 14px; }
 .page h1 { font-size: 22px; margin: 16px 0 8px; }
 .page .logo { width: 64px; height: 64px; }
+.page .card + .card { margin-top: 12px; }
+.page ol.steps { margin: 8px 0; padding-left: 20px; }
+.page ol.steps li { margin: 6px 0; }
 .page .card { margin-top: 20px; }
 .page .card h2 { font-size: 16px; }
 

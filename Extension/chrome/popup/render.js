@@ -365,7 +365,13 @@ function settingsScreen(view, ui, on) {
   const st = view.settings;
   const main = h('main', { class: 'middle', 'aria-label': W.SETTINGS },
     screenTitle(W.SETTINGS, 'gear', on),
-    view.migrate?.count ? h('section', { class: 'card', 'aria-labelledby': 'mig-h' },
+    // while tabs are moving, how far along, with no button to start another move
+    view.migrate?.running ? h('section', { class: 'card', 'aria-labelledby': 'mig-h' },
+      h('h2', { id: 'mig-h', text: W.MIGRATE_SETTINGS }),
+      h('p', { class: 'strong', text: W.migrateRunning(view.migrate.done, view.migrate.total) }),
+      h('progress', { style: 'width:100%', max: String(view.migrate.total || 1), value: String(view.migrate.done), 'aria-label': W.migrateProgress(view.migrate.done, view.migrate.total) }),
+      h('p', { class: 'note', text: W.MIGRATE_KEEP_GOING }))
+    : view.migrate?.count ? h('section', { class: 'card', 'aria-labelledby': 'mig-h' },
       h('h2', { id: 'mig-h', text: W.MIGRATE_SETTINGS }),
       h('p', { text: W.migrateHead(view.migrate.count, view.migrate.from) }),
       h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'open-migrate', onclick: on.openMigrate }, W.MIGRATE_TITLE))) : null,

@@ -338,6 +338,7 @@ export const SHORTCUT_PAGE = "Keys are set on Chrome's shortcuts page.";
 
 export const MIGRATE_TITLE = 'Move suspended tabs';
 export const MIGRATE_SETTINGS = 'Tabs from a tab suspender';
+export function migrateRunning(done, total) { return `Moving them now: ${done} of ${total} done.`; }
 export function migrateHead(n, name) { return `${plural(n, 'tab is', 'tabs are')} suspended by ${name || 'another extension'}`; }
 export const MIGRATE_HOW = 'Cool Head can take them over. Each opens once and goes straight to sleep, one at a time, so memory never jumps.';
 export const MIGRATE_WARN = 'Move them before you remove the suspender: removing it first closes these tabs.';
@@ -356,9 +357,17 @@ export function about(version) {
 }
 
 // ---- setup page ----
-export const SETUP_TITLE = 'Cool Head for Chrome is ready';
+export const SETUP_TITLE = 'Cool Head for Chrome is installed';
 export const SETUP_LEDE = "Tabs you aren't using will sleep: they stay in your tab bar and reload when you click them, which frees memory for what you're doing.";
-export const SETUP_ASK = 'One choice first: protect unsent typing and calls?';
+export const SETUP_HOW = 'How to use it';
+export const SETUP_STEPS = [
+  "Pin it: click the puzzle piece in Chrome's toolbar, then the pin beside Cool Head for Chrome, so you can see how many tabs are asleep.",
+  'Click its icon to see which tabs are asleep, wake one, or keep one awake.',
+  "Choose how hard it works under Effort. It starts on Balanced: your 3 most used tabs stay loaded and the others sleep 30 seconds after you leave them.",
+  'With Cool Head, the free Mac app, open, choose Auto: tabs sleep only when memory is short.',
+];
+export const SETUP_NOTHING_ELSE = "There's nothing else to set up. It works by itself from now on.";
+export const SETUP_ASK = 'One choice: protect unsent typing and calls?';
 export const SETUP_WHY = "Then a tab with unsent typing, or using the camera, microphone, or screen sharing, doesn't sleep on its own, so you don't lose what you typed or drop out of a call.";
 export const SETUP_YES = 'Protect them';
 export const SETUP_NO = 'Not now';

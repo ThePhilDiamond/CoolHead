@@ -24,6 +24,11 @@ page.append(
   h('img', { class: 'logo', src: '../icons/icon128.png', alt: '' }),
   h('h1', { id: 'title', text: W.SETUP_TITLE }),
   h('p', { class: 'lede strong', text: W.SETUP_LEDE }),
+  // how to use it first, so the page that opens after installing reads as a welcome, not a warning
+  h('section', { class: 'card', 'aria-labelledby': 'how' },
+    h('h2', { id: 'how', text: W.SETUP_HOW }),
+    h('ol', { class: 'steps' }, ...W.SETUP_STEPS.map((t) => h('li', { text: t }))),
+    h('p', { class: 'note', text: W.SETUP_NOTHING_ELSE })),
   h('section', { class: 'card', 'aria-labelledby': 'ask' },
     h('h2', { id: 'ask', text: W.SETUP_ASK }),
     h('p', { text: W.SETUP_WHY }),
