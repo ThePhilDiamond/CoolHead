@@ -104,7 +104,7 @@ enum JobCard: ProcessCard {
         switch s.state {
         case .working:
             if let p = e.progress {
-                var head = "\(who) is " + (p.fraction.map { "\(Fmt.percent($0)) done." } ?? "making progress.")
+                var head = p.headline(who: who)
                 if let fin = p.finish { head += fin > now ? " Ready around \(Fmt.time(fin))." : " Almost done." }
                 return Card(state: s.state, headline: head, explanation: "Its log says \u{201C}\(p.line)\u{201D}." + heat,
                             fixes: [pauseFix, Card.wait(until: p.finish, now: now, recommended: !warm || cooler == nil), cool, gpuQuit, stop].compactMap { $0 })

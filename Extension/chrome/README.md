@@ -2,7 +2,7 @@
 
 Cool Head's companion extension for Google Chrome, version 1. It puts tabs you aren't using to sleep, so Chrome holds less memory and your Mac stays quick. A sleeping tab stays in your tab bar with its title and icon, and reloads when you click it. Free and open source under the AGPL, like Cool Head.
 
-The link to Cool Head is in [PROTOCOL.md](PROTOCOL.md).
+Get it from the [Chrome Web Store](https://chromewebstore.google.com/detail/pobnaljpjmpbpokcdbjpmlkdaljhhcfm), or load it by hand (below). The link to Cool Head is in [PROTOCOL.md](PROTOCOL.md).
 
 ## What it does
 
@@ -18,7 +18,7 @@ The menu has a bottom bar like Cool Head's: Effort, Protected, and Settings. Eac
 - **Keyboard shortcuts.** Command-Shift-S on a Mac (Ctrl+Shift+S elsewhere) puts the tab you're on to sleep and shows the one you used before it. Another, with no key until you choose one, puts the other tabs in the window to sleep, keeping their protections. Chrome keeps every extension's keys on its own shortcuts page, which Settings opens; Chrome gives the default key only if no other extension holds it.
 - **Offline.** On by default: no tab sleeps on its own while you're offline, since a sleeping tab couldn't reload until you're back. When you're offline and memory is low, the menu says so and points to the setting.
 - **Moving from a tab suspender.** Suspenders such as The Marvellous Suspender swap each tab for a page of their own, which Chrome closes if the suspender is removed. When the menu finds such tabs, it offers to move them: each opens once at its real address and goes straight to sleep, one at a time, so memory never jumps; then it offers to remove the suspender, which Chrome asks you to confirm. Do it later keeps the offer in Settings. It reads The Marvellous Suspender, The Great Suspender 2026, Tab Suspender, Tiny Suspender, tabssuspender.com's Tab Suspender, and Workona's Tab Suspender.
-- **The toolbar.** The icon's badge counts the tabs this extension has put to sleep that are still asleep.
+- **The toolbar.** The icon is the melting snowflake with a status badge, like Cool Head's menu bar icon: a green circle when memory is fine, a yellow triangle when it's tight, a red octagon when it's very tight (Cool Head's reading), and no badge without that reading. Its tooltip says how many tabs are asleep.
 
 ## Alone or with Cool Head
 

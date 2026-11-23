@@ -52,7 +52,7 @@ export function migrationPlan(tabs, selfId) {
   const out = [];
   for (const t of tabs) {
     const s = suspendedAt(t.url || t.pendingUrl, selfId);
-    if (s) out.push({ tabId: t.id, extId: s.extId, url: s.url, active: Boolean(t.active) });
+    if (s) out.push({ tabId: t.id, extId: s.extId, url: s.url, active: Boolean(t.active), at: t.url || t.pendingUrl });
   }
   return out;
 }

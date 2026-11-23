@@ -17,6 +17,34 @@ public struct Progress {
         return min(1, d / t)
     }
 
+    /// What the job says it's doing, from its own progress line, as words that follow "is": "backing up",
+    /// "uploading". Nil when the line doesn't say, so a card never guesses.
+    public var activity: String? { Progress.activity(in: line) }
+
+    /// Words a progress line uses for what it's doing, first match wins; each is a whole word or its start.
+    static let activities: [(pattern: String, words: String)] = [
+        (#"\bback(?:ing)?[ -]?up|\bbackup"#, "backing up"), (#"\bupload"#, "uploading"), (#"\bdownload"#, "downloading"),
+        (#"\bsync"#, "syncing"), (#"\bexport"#, "exporting"), (#"\bimport"#, "importing"), (#"\brender"#, "rendering"),
+        (#"\b(?:encod|transcod)"#, "converting video"), (#"\bconvert"#, "converting"), (#"\b(?:compress|zipp|archiv)"#, "compressing"),
+        (#"\bcopy|\bcopying"#, "copying"), (#"\binstall"#, "installing"), (#"\bupdat"#, "updating"), (#"\bindex"#, "indexing"),
+        (#"\b(?:build|compil)"#, "building"), (#"\bscan"#, "scanning"), (#"\b(?:train|epoch)"#, "training a model"),
+        (#"\btranscrib"#, "transcribing"), (#"\btranslat"#, "translating"), (#"\bprocess"#, "processing"),
+    ]
+    static func activity(in line: String) -> String? {
+        for a in activities where line.range(of: a.pattern, options: [.regularExpression, .caseInsensitive]) != nil { return a.words }
+        return nil
+    }
+
+    /// The headline's start: what it's doing and how far, in plain words. "Photo Export is exporting: 95% done.",
+    /// "Photo Export is 95% through 1,000 photos.", or, when the line names neither, that the log doesn't say what.
+    public func headline(who: String) -> String {
+        guard let f = fraction else { return "\(who) is " + (activity.map { "\($0)." } ?? "making progress.") }
+        let pct = Fmt.percent(f)
+        if let a = activity { return "\(who) is \(a): \(pct) done." }
+        if let u = unit, let t = total { return "\(who) is \(pct) through \(Int(t).formatted()) \(u)." }
+        return "\(who) is \(pct) done with something its log doesn't name."
+    }
+
     /// When the job should finish: its own estimate, counted from when it wrote the line.
     public var finish: Date? {
         guard let m = minutesLeft else { return nil }

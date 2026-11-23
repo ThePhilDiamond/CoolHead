@@ -9,23 +9,29 @@ export const LOCAL_DEFAULTS = {
   level: 'balanced',
   levelChosen: false,        // whether the person picked a level; if not, Auto becomes the level once linked
   leaveDelayMs: 30000,
+  glanceSleep: true,         // a tab woken and left within GLANCE_MS sleeps again at once and doesn't count as used
   kept: [],                  // keep records (logic/keep.js)
   keepQuestions: [],         // kept tabs that matched two restored tabs: { record, candidates }
   session: null,             // { active, tabIds, startedAt }
   asleep: [],                // tab IDs this extension put to sleep
   safeList: { decided: false, alwaysOn: [], rest: [] },
   restEnabled: false,
+  extRecDismissed: false,    // the person chose Not now on the recommendation to turn off extensions (Settings still has it)
   rest: { ids: [], session: false, memory: false },
   setupDone: false,
   keepSites: [],            // sites whose every tab stays awake, as host names without www (logic/reasons.js)
   offlineHold: true,         // no tab sleeps on its own while Chrome is offline, since a sleeping tab can't reload then
+  iconStyle: 'badge',        // the toolbar icon: 'badge' (shapes and colors) or 'melting' (no color needed)
+  toolbarDark: false,        // whether Chrome's toolbar is dark, as the popup last saw, for the toolbar icon's color
   migrateLater: false,       // the person chose "Do it later" for moving a suspender's tabs (Settings still has it)
 };
 
 export const SESSION_DEFAULTS = {
+  closedDups: null,          // [{ title, n }]: duplicates just closed, listed until the person presses Done
   run: false,                // set once per run of Chrome
   runStartedAt: null,
   use: {},
+  woke: {},                  // { tabId: when }: a tab asleep that you switched to, for re-sleeping a quick glance
   audibleAt: {},
   media: {},                 // { tabId: { frameId: { call, screen } } }
   typing: {},                // { tabId: { frameId: true } }
@@ -36,7 +42,7 @@ export const SESSION_DEFAULTS = {
   lastReportAt: null,
   popupScreen: null,         // a screen for the popup to open on, set by Cool Head's "openExtensionsList"
   migrating: null,           // { running, total, done, failed }: moving a suspender's tabs (logic/migrate.js)
-  migrated: null,            // { moved, failed, extIds }: the last move, until the person closes its result
+  migrated: null,            // { moved, failed, stuck, extIds }: the last move, until the person closes its result
 };
 
 const LOCAL_KEYS = Object.keys(LOCAL_DEFAULTS);

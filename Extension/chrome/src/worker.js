@@ -5,12 +5,13 @@ import * as store from './store.js';
 import * as W from './logic/words.js';
 import { planSleep, planSleepHidden, nextDueAt, canSleepOnItsOwn, LEVELS, LEAVE_DELAYS_MS } from './logic/plan.js';
 import { recordActivation, pruneUse, replaceId, lastUsed, tabToShowInstead } from './logic/usage.js';
-import { nextAuto, autoAllowed, AUTO_OFF } from './logic/auto.js';
+import { nextAuto, autoAllowed, AUTO_OFF, currentMemory } from './logic/auto.js';
+import { toolbarLevel, drawToolbarIcon, ICON_STYLES } from './logic/toolbar-icon.js';
 import { findDuplicates, duplicateCount } from './logic/duplicates.js';
 import { startPlan, join, leave, groupPlan } from './logic/session.js';
 import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
 import { restPlan, shouldWake, columns, move, withOpenTabs } from './logic/extensions.js';
-import { migrationPlan, suspenders } from './logic/migrate.js';
+import { migrationPlan, suspenders, suspendedAt } from './logic/migrate.js';
 import { heldCounts, siteOf, siteRuleFor } from './logic/reasons.js';
 import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol.js';
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
@@ -22,7 +23,6 @@ import { host, explainCheck, checkSentence, ago } from './logic/explain.js';
 const VERSION = chrome.runtime.getManifest().version;
 const ALL_SITES = { origins: ['<all_urls>'] };
 const MANAGEMENT = { permissions: ['management'] };
-const BADGE_BLUE = '#1769D1'; // Cool Head blue; white on it is 5.3:1 (docs/BRAND.md)
 
 // ---------- gathering ----------
 
@@ -117,14 +117,30 @@ function sleepWhy(pc, t, now) {
 
 // ---------- the badge and the right-click item ----------
 
+// The toolbar icon, like Cool Head's menu bar icon: the melting snowflake with a badge for memory's level (see
+// logic/toolbar-icon.js), redrawn only when the level or the toolbar's light or dark changes. No number on it: a count
+// of tabs asleep says nothing about whether to act, so it's in the title and the popup instead.
+let iconKey = null;
 async function refreshBadge() {
   const [tabs, s] = await Promise.all([chrome.tabs.query({}), store.load()]);
   const n = asleepCount(tabs, s.asleep);
-  await chrome.action.setBadgeText({ text: n ? String(n) : '' });
-  await chrome.action.setBadgeBackgroundColor({ color: BADGE_BLUE });
-  await chrome.action.setBadgeTextColor?.({ color: '#FFFFFF' });
+  const memory = currentMemory(s.link, Date.now());
+  const level = toolbarLevel(memory);
+  const style = ICON_STYLES.includes(s.iconStyle) ? s.iconStyle : 'badge';
+  const key = `${level}|${s.toolbarDark ? 'dark' : 'light'}|${style}`;
+  if (key !== iconKey && typeof OffscreenCanvas === 'function') {
+    const imageData = {};
+    for (const size of [16, 32]) {
+      const c = new OffscreenCanvas(size, size);
+      const ctx = c.getContext('2d');
+      drawToolbarIcon(ctx, size, level, Boolean(s.toolbarDark), style);
+      imageData[size] = ctx.getImageData(0, 0, size, size);
+    }
+    await chrome.action.setIcon({ imageData }).then(() => { iconKey = key; }, () => {});
+  }
+  await chrome.action.setBadgeText({ text: '' });
   // The badge is a picture; the title is what a screen reader says for the toolbar button.
-  await chrome.action.setTitle({ title: `${W.NAME}. ${W.asleepLine(n)}` });
+  await chrome.action.setTitle({ title: `${W.NAME}. ${memory ? `${W.MEMORY_TITLE[memory]}. ` : ''}${W.asleepLine(n)}` });
 }
 
 function ensureMenu() {
@@ -335,6 +351,7 @@ async function onLinkState(state) {
     }
     return { link: { ...st.link, state, stateAt: now }, auto: nextAuto(st.auto, state.memory, now) };
   });
+  await refreshBadge();
   const after = s.auto.mode;
   if (after !== before) {
     log('memory', `Auto went from ${before} to ${after}`);
@@ -417,8 +434,11 @@ async function hideUnusedGroups(tabs, ctx) {
 
 async function closeDuplicates() {
   const { tabs, ctx } = await gather();
-  const ids = findDuplicates(tabs, ctx).flatMap((g) => g.closeIds);
+  const groups = findDuplicates(tabs, ctx);
+  const ids = groups.flatMap((g) => g.closeIds);
   if (ids.length) await chrome.tabs.remove(ids).catch(() => {});
+  // what closed, listed in the popup until the person presses Done
+  if (ids.length) await store.save({ closedDups: groups.map((g) => ({ title: g.title || 'Untitled tab', n: g.closeIds.length })) });
   if (ids.length) log('closed', `Closed ${ids.length} duplicate tabs`);
   return ids.length;
 }
@@ -553,6 +573,9 @@ async function act(m) {
     }
     case 'closeDuplicates':
       return W.DONE.closedDuplicates(await closeDuplicates());
+    case 'closedDupsSeen':
+      await store.save({ closedDups: null });
+      return '';
     case 'startSession':
       return startSession(m.tabIds || []);
     case 'endSession':
@@ -573,11 +596,25 @@ async function act(m) {
       if (!LEAVE_DELAYS_MS.includes(m.ms)) return W.DONE.failed;
       await store.change(() => ({ leaveDelayMs: m.ms }));
       return '';
+    case 'glanceSleep':
+      await store.save({ glanceSleep: Boolean(m.on) });
+      return '';
+    case 'iconStyle':
+      await store.save({ iconStyle: ICON_STYLES.includes(m.style) ? m.style : 'badge' });
+      await refreshBadge();
+      return '';
+    case 'theme':
+      await store.save({ toolbarDark: Boolean(m.dark) });
+      await refreshBadge();
+      return '';
     case 'sites':
       // The popup asks Chrome for the permission itself (Chrome needs the person's click); this only follows it.
       if (!m.on) await chrome.permissions.remove(ALL_SITES).catch(() => {});
       await sites.ensure();
       await store.change(() => ({ setupDone: true }));
+      return '';
+    case 'extRecLater':
+      await store.save({ extRecDismissed: true });
       return '';
     case 'restEnabled':
       await store.change(() => ({ restEnabled: Boolean(m.on) }));
@@ -708,7 +745,7 @@ async function migrateView(tabs, s, managementGranted) {
   return {
     count: plan.length, from: from[0] ? names[from[0]] || null : null, later: Boolean(s.migrateLater),
     running: Boolean(s.migrating?.running), done: s.migrating?.done || 0, total: s.migrating?.total || 0,
-    result: s.migrated ? { moved: s.migrated.moved, failed: s.migrated.failed, removeId: installed[0] || null, removeName: names[installed[0]] || null } : null,
+    result: s.migrated ? { moved: s.migrated.moved, failed: s.migrated.failed, stuck: s.migrated.stuck || 0, removeId: installed[0] || null, removeName: names[installed[0]] || null } : null,
   };
 }
 
@@ -739,20 +776,33 @@ async function runMigration() {
     await store.save({ migrating: { running: true, total, done, failed }, migrated: null });
     log('migrate', `Moving ${first.length} tabs from ${extIds.length} suspender(s)`);
     const moved = [];
+    const stuckAt = [];
     for (const p of first) {
       const ok = await chrome.tabs.update(p.tabId, { url: p.url }).then(() => true, () => false);
-      if (ok && !p.active) {
+      // checked after opening: an address that downloads a file leaves the tab on the suspender's page, so it isn't
+      // counted as moved, and it's remembered so the next move doesn't download the file again
+      let stayed = false;
+      if (ok) {
         await loaded(p.tabId, 15000);
-        const r = await sleepTab(p.tabId, { force: true });
-        if (r.id != null) moved.push(r.id);
+        const now = await chrome.tabs.get(p.tabId).catch(() => null);
+        stayed = Boolean(now && suspendedAt(now.url || now.pendingUrl, chrome.runtime.id));
+        // a page of this extension's own takes it over, holding its title and address, so the suspender can go
+        if (stayed) {
+          const title = (now.title && !now.title.startsWith('chrome-extension://')) ? now.title : '';
+          await chrome.tabs.update(p.tabId, { url: chrome.runtime.getURL(`parked/parked.html#${new URLSearchParams({ title, url: p.url })}`) }).catch(() => {});
+          stuckAt.push(p.at);
+        } else if (!p.active) {
+          const r = await sleepTab(p.tabId, { force: true });
+          if (r.id != null) moved.push(r.id);
+        }
       }
-      if (ok) done++; else failed++;
-      await store.save({ migrating: { running: true, total, done, failed } });
+      if (ok && !stayed) done++; else if (!stayed) failed++;
+      await store.save({ migrating: { running: true, total, done: done + failed + stuckAt.length, failed } });
     }
     if (moved.length) await store.change((s) => ({ asleep: [...new Set([...s.asleep, ...moved])] }));
     const doneFrom = [...new Set([...(s0.migrated?.extIds || []), ...extIds])];
-    await store.save({ migrating: null, migrated: { moved: done, failed, extIds: doneFrom } });
-    log('migrate', `Moved ${done} tabs${failed ? `; ${failed} couldn't be moved` : ''}`);
+    await store.save({ migrating: null, migrated: { moved: done, failed, stuck: stuckAt.length, extIds: doneFrom } });
+    log('migrate', `Moved ${done} tabs${failed ? `; ${failed} couldn't be moved` : ''}${stuckAt.length ? `; ${stuckAt.length} open a download, now on a page of this extension's` : ''}`);
     await refreshBadge();
   } finally {
     migrating = false;
@@ -761,22 +811,47 @@ async function runMigration() {
 
 // ---------- Chrome's events ----------
 
+// A quick glance: a tab that was asleep, switched to and left again within this long, is taken as looked at, not used.
+const GLANCE_MS = 10000;
+
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   const now = Date.now();
+  let glanced = null;
   store.change((s) => {
     const prev = s.activeByWindow[windowId];
+    const woke = { ...(s.woke || {}) };
+    if (prev != null && prev !== tabId && s.glanceSleep !== false && woke[prev] && now - woke[prev] < GLANCE_MS) glanced = prev;
+    if (prev != null && prev !== tabId) delete woke[prev];
+    // Chrome may say the tab woke before saying it was switched to, or after; either way it's noted as woken now
+    if (s.asleep.includes(tabId) && !woke[tabId]) woke[tabId] = now;
+    let use = recordActivation(s.use, tabId, prev, now);
+    // a glance doesn't count toward a tab's use, so it doesn't climb into the tabs kept loaded
+    if (glanced && use[glanced]) use = { ...use, [glanced]: { ...use[glanced], switches: use[glanced].switches.slice(0, -1) } };
     return {
-      use: recordActivation(s.use, tabId, prev, now),
+      use,
+      woke,
       activeByWindow: { ...s.activeByWindow, [windowId]: tabId },
       session: join(s.session, tabId),
       asleep: s.asleep.filter((id) => id !== tabId),
     };
   }).then(async (s) => {
     chrome.tabs.get(tabId).then(refreshMenu).catch(() => {});
+    if (glanced != null) await sleepGlanced(glanced);
     sweepSoon(s.leaveDelayMs + 250);
     await refreshBadge();
   }).catch(oops);
 });
+
+// Puts a glanced-at tab straight back to sleep, unless something now holds it awake (a call, typing, sound, kept).
+async function sleepGlanced(tabId) {
+  const { tabs, ctx } = await gather();
+  const t = tabs.find((x) => x.id === tabId);
+  if (!t || !canSleepOnItsOwn(t, ctx)) return;
+  const r = await sleepTab(tabId);
+  if (r.id == null) return;
+  await store.change((s) => ({ asleep: [...new Set([...s.asleep, r.id])] }));
+  log('slept', `Slept ${host(t.url)}: looked at for under ${GLANCE_MS / 1000} seconds`, { tab: r.id });
+}
 
 chrome.tabs.onCreated.addListener((tab) => {
   const now = Date.now();
@@ -846,7 +921,11 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
         patch.typing = typing;
         patch.media = media;
       }
-      if (change.discarded === false) patch.asleep = s.asleep.filter((id) => id !== tabId);
+      if (change.discarded === false) {
+        patch.asleep = s.asleep.filter((id) => id !== tabId);
+        // woken from this extension's sleep: noted, so leaving it again within GLANCE_MS puts it back (onActivated)
+        if (s.asleep.includes(tabId)) patch.woke = { ...(s.woke || {}), [tabId]: Date.now() };
+      }
       return patch;
     }).then(() => refreshBadge()).then(() => maybeReport()).catch(oops);
   }

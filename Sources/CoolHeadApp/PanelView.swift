@@ -511,10 +511,10 @@ struct CardView: View {
             confirmStop = fix
         case .chromeCompanion(let action):
             if action == "setup" {
-                // the one file Chrome needs to start Cool Head's helper for the extension, then how to add the extension
+                // the one file Chrome needs to start Cool Head's helper for the extension, then its store page in Chrome
                 let ok = ChromeCompanion.installHostFile()
-                NSWorkspace.shared.open(URL(string: ChromeCompanion.getPage)!)
-                note = ok ? "Set up. Add \(ChromeCompanion.name) to Chrome from the page that opened; it links to Cool Head by itself."
+                ChromeCompanion.openStorePage()
+                note = ok ? "Set up. Press Add to Chrome on the page that opened in Chrome; it links to Cool Head by itself."
                           : "That didn't work: Cool Head couldn't write Chrome's file for its helper."
                 noteFailed = !ok; acted = ok
                 watcher.log("Set up Cool Head for Chrome pressed: " + (ok ? "done" : "failed"))

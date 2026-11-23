@@ -216,10 +216,15 @@ export function buildView(i) {
     })(),
     offline,
     duplicates,
+    closedDups: s.closedDups || null,
+    // recommend turning off unneeded extensions until allowed or set aside (see popup render.js extRecCard)
+    extRec: !(i.managementGranted && s.restEnabled) && !s.extRecDismissed,
     start: { label: W.START, note: W.START_NOTE },
     levels,
     settings: {
       leaveDelayMs: s.leaveDelayMs,
+      glanceSleep: s.glanceSleep !== false,
+      iconStyle: s.iconStyle === 'melting' ? 'melting' : 'badge',
       sitesGranted: Boolean(i.sitesGranted),
       restEnabled: Boolean(s.restEnabled),
       managementGranted: Boolean(i.managementGranted),
