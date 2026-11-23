@@ -127,6 +127,13 @@ const on = {
   },
   keep(tabId, keep) { ui.confirm = null; act({ action: 'keep', tabId, on: keep }); },
   sleep(row) { tryRisky(row, 'sleep'); },
+  // a tab left on a suspender's page holds nothing unsaved, so it closes without asking
+  closeStuck(tabId) { act({ action: 'close', tabId }); },
+  // Brings the tab forward and its window to the front; the popup closes as Chrome's focus moves.
+  async show(tabId) {
+    const tab = await chrome.tabs.update(tabId, { active: true }).catch(() => null);
+    if (tab) await chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+  },
   close(row) { tryRisky(row, 'close'); },
   closeDuplicates() { act({ action: 'closeDuplicates' }); },
   getCoolHead() { act({ action: 'openCoolHead' }); },

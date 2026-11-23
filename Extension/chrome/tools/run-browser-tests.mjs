@@ -42,6 +42,7 @@ function serve() {
   };
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://127.0.0.1');
+    if (u.pathname === '/download') { res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': 'attachment; filename="probe.bin"' }); res.end('x'); return; }
     const page = pages[u.pathname];
     res.writeHead(page ? 200 : 404, { 'content-type': 'text/html; charset=utf-8' });
     res.end(page ? `<!doctype html><meta charset="utf-8">${page(u.searchParams)}` : 'not found');
@@ -298,6 +299,38 @@ const A = [
       || (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error')));
     assert.deepEqual(errors.map((e) => JSON.stringify(e.params).slice(0, 300)), []);
     await cdp.send('Target.closeTarget', { targetId });
+  }],
+  ['Protected: Show brings a listed tab to the front', async ({ w, cdp }) => {
+    const [id] = await openTabs(w, [`${BASE}/page?n=show`]);
+    await loaded(w, [id]);
+    await act(w, { action: 'keep', tabId: id, on: true });
+    const { targetId } = await cdp.send('Target.createTarget', { url: `chrome-extension://${ID}/popup/popup.html` });
+    const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
+    await cdp.send('Runtime.enable', {}, sessionId);
+    await waitFor('the popup to draw', async () => ((await evaluate(cdp, sessionId, "document.querySelector('#app')?.innerText || ''")).includes('Effort') ? true : null));
+    await evaluate(cdp, sessionId, "document.querySelector('[data-key=protected]').click()");
+    await waitFor('the Show button', async () => (await evaluate(cdp, sessionId, `Boolean(document.querySelector('[data-key="show-${id}"]'))`) ? true : null));
+    await evaluate(cdp, sessionId, `document.querySelector('[data-key="show-${id}"]').click()`);
+    await waitFor('the tab in front', async () => ((await tabsNow(w)).find((x) => x.id === id)?.active ? true : null));
+    await act(w, { action: 'keep', tabId: id, on: false });
+    await cdp.send('Target.closeTarget', { targetId }).catch(() => {});
+  }],
+  ['moving tabs: one whose address downloads a file stays, is listed, and is never moved (or downloaded) again', async ({ w }) => {
+    const fake = 'abcdefghijklmnopabcdefghijklmnop';
+    const ids = await openTabs(w, [`chrome-extension://${fake}/suspended.html#ttl=Dl&pos=0&uri=${BASE}/download`,
+      `chrome-extension://${fake}/suspended.html#ttl=Web&pos=0&uri=${BASE}/page?n=web`]);
+    await sleep(1000);
+    await act(w, { action: 'migrate' });
+    const done = await waitFor('the move to finish', async () => { const s = await state(w); return s.migrated && !s.migrating ? s.migrated : null; }, 60000);
+    assert.equal(done.moved, 1, 'the page moved');
+    assert.equal(done.stuck, 1, 'the download is reported as not moved');
+    const t = await tabsNow(w);
+    assert.match(t.find((x) => x.id === ids[1]).url, /\/page\?n=web$/);
+    const view = await w('coolHead.viewFor()');
+    assert.equal(view.migrate.count, 0, 'nothing is offered to move again');
+    assert.deepEqual(view.migrate.stuck.map((x) => x.id), [ids[0]]);
+    await w(`chrome.tabs.remove(${JSON.stringify(ids)})`);
+    await act(w, { action: 'migrateClose' });
   }],
 ];
 

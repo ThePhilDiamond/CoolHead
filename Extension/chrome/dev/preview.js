@@ -93,6 +93,8 @@ if (screen === 'settings') ui.screen = 'settings';
 // Moving a suspender's tabs (made-up suspender and counts): ?screen=migrate, migrate-running, migrate-done, home-later
 view.migrate = { count: 37, from: 'Tab Napper', later: false, running: false, done: 0, total: 0, result: null };
 if (screen === 'migrate') ui.screen = 'migrate';
+if (screen === 'settings-stuck') { ui.screen = 'settings'; Object.assign(view.migrate, { count: 0, stuck: [{ id: 901, title: 'Q3 board pack (download)' }] }); }
+if (screen === 'migrate-stuck') { ui.screen = 'migrate'; Object.assign(view.migrate, { count: 0, stuck: [{ id: 901, title: 'Q3 board pack (download)' }], result: { moved: 36, failed: 0, stuck: 1 } }); }
 if (screen === 'settings-migrating') { ui.screen = 'settings'; Object.assign(view.migrate, { running: true, done: 12, total: 37 }); }
 if (screen === 'migrate-running') { ui.screen = 'migrate'; Object.assign(view.migrate, { running: true, done: 12, total: 37 }); }
 if (screen === 'migrate-done') { ui.screen = 'migrate'; Object.assign(view.migrate, { count: 0, result: { moved: 36, failed: 1, removeId: 'x', removeName: 'Tab Napper' } }); }

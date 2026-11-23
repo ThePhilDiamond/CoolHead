@@ -150,6 +150,7 @@ export const KEEP = 'Keep';
 export const KEPT = 'Kept';
 export const SLEEP = 'Sleep';
 export const CLOSE = 'Close';
+export const SHOW = 'Show';
 
 // Sleep or Close on a call or unsent typing would end the call or lose the typing, so it's asked once: the second
 // press does it.
@@ -349,6 +350,11 @@ export function migrateProgress(done, total) { return `Moving ${done} of ${total
 export const MIGRATE_KEEP_GOING = 'You can close this; it keeps going.';
 export function migrateDone(n) { return `${plural(n, 'tab')} moved. Each is asleep and wakes when you click it.`; }
 export function migrateFailed(n) { return `${plural(n, "tab couldn't", "tabs couldn't")} be moved and ${n === 1 ? 'stays' : 'stay'} with the suspender.`; }
+export function migrateStuck(n) {
+  return n === 1 ? "1 tab can't be moved: its address downloads a file instead of opening a page, so it stays as it is."
+    : `${n} tabs can't be moved: their addresses download a file instead of opening a page, so they stay as they are.`;
+}
+export const MIGRATE_STUCK_HOW = "Click one to see it, or close it if you don't need it.";
 export function migrateRemove(name) { return `Remove ${name || 'the suspender'} now, so it can't suspend them again.`; }
 export const MIGRATE_REMOVE = 'Remove it';
 export const MIGRATE_NOT_NOW = 'Not now';
@@ -372,8 +378,14 @@ export const SETUP_WHY = "Then a tab with unsent typing, or using the camera, mi
 export const SETUP_YES = 'Protect them';
 export const SETUP_NO = 'Not now';
 export const SETUP_NO_COST = 'If you choose Not now, a tab with unsent typing can sleep, and what you typed is lost when it reloads; a call that has been quiet for 10 minutes can sleep too, which ends it. You can turn this on later in Settings.';
-export const SETUP_DONE_YES = 'Done. Tabs with unsent typing or on a call stay loaded. You can close this tab.';
-export const SETUP_DONE_NO = 'Done. You can turn this on later in Settings. You can close this tab.';
+export const SETUP_ASKING = 'Answer Chrome…';
+export const SETUP_ASKING_NOTE = 'Chrome is asking whether to allow it, in a box near the top of the window.';
+export const SETUP_DONE_YES_TITLE = 'Protected';
+export const SETUP_DONE_YES = 'Tabs with unsent typing or on a call stay loaded.';
+export const SETUP_DONE_NO_TITLE = 'Not protected for now';
+export const SETUP_DONE_NO = 'You can turn this on later in Settings.';
+export const SETUP_REFUSED_TITLE = "Chrome didn't allow it";
+export const SETUP_CLOSE = 'You can close this tab.';
 export const SETUP_REFUSED = "Chrome didn't allow it, so this stays off. You can try again later in Settings.";
 export const SETUP_NEXT = 'Open Cool Head for Chrome from the puzzle piece in the toolbar; pin it there to see how many tabs are asleep.';
 

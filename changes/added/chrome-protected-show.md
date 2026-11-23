@@ -1,0 +1,1 @@
+- In Cool Head for Chrome's Protected list, clicking a tab's title brings that tab to the front, in its own window, so it can be checked before keeping, sleeping, or closing it.
