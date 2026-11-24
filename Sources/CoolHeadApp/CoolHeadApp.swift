@@ -1,6 +1,7 @@
 import AppKit
 import CoolHeadChromeLink
 import CoolHeadCore
+import ImageIO
 import ServiceManagement
 import SwiftUI
 import UserNotifications
@@ -20,6 +21,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private let panel = MenuPanel()
     private var lastLevel: Watcher.Level?
     private var lastLooking = true
+    /// While Cool Head takes its first look: the turning dashed ring in place of the badge (see MenuIcon.badged).
+    private var lookTimer: Timer?
+    private var lookPhase: CGFloat = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)          // menu bar only, no Dock icon
@@ -30,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = MenuIcon.image(level: .good, looking: true)     // no verdict before the first reading
+        turnLookRing(true)
         item.button?.setAccessibilityLabel("Cool Head")
         item.button?.target = self
         item.button?.action = #selector(clicked)
@@ -51,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             guard let self, self.lastLevel != level || self.lastLooking != looking else { return }
             self.lastLevel = level; self.lastLooking = looking
             self.item.button?.image = MenuIcon.image(level: level, looking: looking)
+            self.turnLookRing(looking)
         }
         // the icon picked on the Settings page or the welcome, drawn at once
         NotificationCenter.default.addObserver(forName: MenuIcon.changed, object: nil, queue: .main) { [weak self] _ in
@@ -78,6 +84,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             Task { await Updater.shared.check(quiet: false); if case .available = Updater.shared.phase { await Updater.shared.install() } }
         }
         if let path = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] { Snapshot.take(to: path) }
+    }
+
+    /// Turns the first look's dashed ring a little at a time, 8 times a second, only while Cool Head looks and the badge
+    /// style is chosen, and never with Reduce motion on, where the ring stands still: about 10 seconds after launch, at most
+    /// about 70.
+    func turnLookRing(_ on: Bool) {
+        let turn = on && MenuIcon.style != "melting" && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        guard turn != (lookTimer != nil) else { return }
+        lookTimer?.invalidate(); lookTimer = nil
+        guard turn else { return }
+        lookTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 8, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.lookPhase = (self.lookPhase + 1.0 / 12).truncatingRemainder(dividingBy: 1)
+                self.item.button?.image = MenuIcon.image(level: .good, looking: true, phase: self.lookPhase)
+            }
+        }
     }
 
     @objc private func clicked() {
@@ -230,13 +253,15 @@ enum MenuIcon {
     }
 
     /// `looking`: Cool Head's first look after launch (see Watcher.firstLook), with nothing yet needing a look: the Status
-    /// badge style shows no badge, as Cool Head for Chrome's icon shows none without a reading, and the melting style a
-    /// faint snowflake, so neither says all is well before it was measured.
-    static func image(level: Watcher.Level, looking: Bool = false, style: String = MenuIcon.style) -> NSImage {
+    /// badge style shows a dashed ring in the circle's place, turning while it looks (a common "working on it" sign), and
+    /// the melting style a faint snowflake, so neither says all is well before it was measured. Cool Head for Chrome's icon
+    /// shows no badge when it has no reading at all; the ring means one is being taken.
+    /// `phase`: how far the first look's dashed ring has turned, 0 to 1.
+    static func image(level: Watcher.Level, looking: Bool = false, phase: CGFloat = 0, style: String = MenuIcon.style) -> NSImage {
         let img = NSImage(size: NSSize(width: 20, height: 18), flipped: false) { _ in
             if style == "melting" {
                 if looking { flake(center: NSPoint(x: 10, y: 9), r: 7.5, color: NSColor.labelColor.withAlphaComponent(0.4)) } else { melting(level) }
-            } else { badged(level, looking: looking) }
+            } else { badged(level, looking: looking, phase: phase) }
             return true
         }
         img.isTemplate = false
@@ -273,17 +298,28 @@ enum MenuIcon {
     /// puddle, the same at every level, so only the badge changes. It ties the style to the app icon's melting snowflake.
     /// The app icon's paler drops and quieter puddle were not used here: they're harder to see at the menu bar's size, so
     /// the ice-blue ones keep the contrast. See docs/BRAND.md.
-    static func badged(_ level: Watcher.Level, looking: Bool = false) {
+    static func badged(_ level: Watcher.Level, looking: Bool = false, phase: CGFloat = 0) {
         let tips = droopingFlake(center: NSPoint(x: 8.5, y: 10.2), r: 6.4)
         ice.setFill()
         for (k, t) in tips.enumerated() { drop(at: NSPoint(x: t.x, y: t.y - 2.2 - CGFloat(k % 2) * 0.7), size: 1.0) }
         NSBezierPath(ovalIn: NSRect(x: 3.5, y: 0.4, width: 10, height: 1.8)).fill()
-        if looking { return }
         // clear a ring for the badge so it stands apart from the flake
         let box = NSRect(x: 12, y: 10.5, width: 7.5, height: 7.5)
+        let wide = level == .warning && !looking
         NSGraphicsContext.current?.compositingOperation = .clear
-        NSBezierPath(ovalIn: box.insetBy(dx: level == .warning ? -1.6 : -1, dy: level == .warning ? -1.6 : -1)).fill()
+        NSBezierPath(ovalIn: box.insetBy(dx: wide ? -1.6 : -1, dy: wide ? -1.6 : -1)).fill()
         NSGraphicsContext.current?.compositingOperation = .sourceOver
+        if looking {
+            // the first look: the circle's place, outlined in thick dashes in the menu bar's own ink, and no color, since
+            // nothing has been measured to call it green; it turns while Cool Head looks (see AppDelegate.turnLookRing)
+            let ring = NSBezierPath(ovalIn: box.insetBy(dx: 1.1, dy: 1.1))
+            ring.lineWidth = 1.7
+            let dash: [CGFloat] = [2.1, 1.5]
+            ring.setLineDash(dash, count: 2, phase: phase * (dash[0] + dash[1]))
+            NSColor.labelColor.withAlphaComponent(0.75).setStroke()
+            ring.stroke()
+            return
+        }
         Badge.path(level, in: box).fill(with: level)
     }
 
@@ -539,6 +575,29 @@ enum Snapshot {
             }
             NSGraphicsContext.restoreGraphicsState()
             try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(prefix)-menu.png"))
+            // with COOLHEAD_SNAPSHOT_FIRSTLOOK, the badge style's turning ring beside the three badges, light and dark, as a GIF
+            if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FIRSTLOOK"] != nil,
+               let gif = CGImageDestinationCreateWithURL(URL(fileURLWithPath: "\(prefix)-menu-look.gif") as CFURL, "com.compuserve.gif" as CFString, 12, nil) {
+                CGImageDestinationSetProperties(gif, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
+                for f in 0..<12 {
+                    let frame = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 480, pixelsHigh: 160, bitsPerSample: 8, samplesPerPixel: 4,
+                                                 hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+                    NSGraphicsContext.saveGraphicsState()
+                    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: frame)
+                    for (row, (bg, look)) in [(NSColor(white: 0.93, alpha: 1), NSAppearance.Name.aqua), (NSColor(white: 0.17, alpha: 1), .darkAqua)].enumerated() {
+                        bg.setFill(); NSRect(x: 0, y: CGFloat(row) * 80, width: 480, height: 80).fill()
+                        NSAppearance(named: look)!.performAsCurrentDrawingAppearance {
+                            for (i, level) in [Watcher.Level.good, .good, .warning, .issue].enumerated() {
+                                MenuIcon.image(level: level, looking: i == 0, phase: CGFloat(f) / 12, style: "badge")
+                                    .draw(in: NSRect(x: 20 + CGFloat(i) * 115, y: CGFloat(row) * 80 + 4, width: 80, height: 72))
+                            }
+                        }
+                    }
+                    NSGraphicsContext.restoreGraphicsState()
+                    if let cg = frame.cgImage { CGImageDestinationAddImage(gif, cg, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 0.125]] as CFDictionary) }
+                }
+                CGImageDestinationFinalize(gif)
+            }
             NSApp.terminate(nil)
         }
     }
