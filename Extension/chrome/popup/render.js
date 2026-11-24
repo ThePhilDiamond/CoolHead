@@ -373,7 +373,7 @@ function windowsScreen(view, ui, on) {
   const saved = h('section', { class: 'part', 'aria-labelledby': 'win-list-h' },
     h('h3', { class: 'parthead', id: 'win-list-h' }, W.WINDOWS_SAVED, h('span', { class: 'count', text: String(w.saved.length) })));
   if (!w.saved.length) saved.append(h('p', { class: 'lede', text: W.WINDOWS_EMPTY }));
-  else saved.append(h('ul', { class: 'sitelist', 'aria-labelledby': 'win-list-h' }, w.saved.flatMap((f) => savedRow(f, ui, on))));
+  else saved.append(h('ul', { class: 'sitelist', 'aria-labelledby': 'win-list-h' }, w.saved.map((f) => savedRow(f, ui, on))));
   const others = w.others.length ? h('section', { class: 'part', 'aria-labelledby': 'win-others-h' },
     h('h3', { class: 'parthead', id: 'win-others-h' }, W.WINDOWS_OTHERS, h('span', { class: 'count', text: String(w.others.length) })),
     h('p', { class: 'lede', text: W.WINDOWS_OTHERS_WHY }),
@@ -383,23 +383,24 @@ function windowsScreen(view, ui, on) {
   return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 
-// A saved window: its name and how many tabs, with Reopen and Remove; either asks first, right under the row.
+// A saved window: its words, with its count and age under them, Reopen, and a small bin to remove it. Either asks in
+// the row itself: the line under the words says what will happen, and the row's buttons become the answer and Cancel,
+// so the list keeps its shape and nothing opens below it.
 function savedRow(f, ui, on) {
   const asking = ui.confirmWindow?.id === f.id ? ui.confirmWindow.action : null;
-  const row = h('li', { class: 'ext savedwin' },
-    // the folder's own words as the title; its count and age on the line under, so the title isn't cut short by them
-    h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', title: f.name, text: f.words }), h('span', { class: 'why', text: W.windowsLine(f.n, f.ago) })),
-    h('span', { class: 'acts' },
-      h('button', { class: 'btn', 'data-key': `win-reopen-${f.id}`, 'aria-label': `${W.WINDOWS_REOPEN}: ${f.name}`, onclick: () => on.askWindow(f.id, 'reopen') }, W.WINDOWS_REOPEN),
-      h('button', { class: 'btn danger', 'data-key': `win-remove-${f.id}`, 'aria-label': `${W.WINDOWS_REMOVE}: ${f.name}`, onclick: () => on.askWindow(f.id, 'remove') }, W.WINDOWS_REMOVE)));
-  if (!asking) return row;
   const reopen = asking === 'reopen';
-  return [row, h('li', { class: 'ask', role: 'alertdialog', 'aria-label': f.name },
-    h('p', { text: reopen ? W.windowsReopenAsk(f.n) : W.windowsRemoveAsk(f.n) }),
-    h('div', { class: 'row' },
-      h('button', { class: reopen ? 'btn primary' : 'btn danger', 'data-key': `win-yes-${f.id}`, onclick: () => (reopen ? on.reopenWindow(f.id) : on.removeWindow(f.id)) },
-        reopen ? W.WINDOWS_REOPEN : W.WINDOWS_REMOVE),
-      h('button', { class: 'btn', 'data-key': `win-no-${f.id}`, onclick: () => on.askWindow(null) }, W.WINDOWS_CANCEL)))];
+  const line = asking ? (reopen ? W.windowsReopenAsk(f.n) : W.windowsRemoveAsk(f.n)) : W.windowsLine(f.n, f.ago);
+  const acts = asking
+    ? [h('button', { class: reopen ? 'btn primary' : 'btn danger solid', 'data-key': `win-yes-${f.id}`, onclick: () => (reopen ? on.reopenWindow(f.id) : on.removeWindow(f.id)) },
+        reopen ? W.WINDOWS_REOPEN : W.WINDOWS_DELETE),
+      h('button', { class: 'btn', 'data-key': `win-no-${f.id}`, onclick: () => on.askWindow(null) }, W.WINDOWS_CANCEL)]
+    : [h('button', { class: 'btn', 'data-key': `win-reopen-${f.id}`, 'aria-label': `${W.WINDOWS_REOPEN}: ${f.name}`, onclick: () => on.askWindow(f.id, 'reopen') }, W.WINDOWS_REOPEN),
+      h('button', { class: 'iconbtn bin', 'data-key': `win-remove-${f.id}`, 'aria-label': `${W.WINDOWS_REMOVE}: ${f.name}`, title: W.WINDOWS_REMOVE, onclick: () => on.askWindow(f.id, 'remove') }, icon('trash'))];
+  // the folder's own words as the title; its count and age on the line under, so the title isn't cut short by them
+  return h('li', { class: `ext savedwin${asking ? ` asking ${asking}` : ''}`, role: asking ? 'group' : null, 'aria-label': asking ? f.name : null },
+    h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', title: f.name, text: f.words }),
+      h('span', { class: 'why', 'aria-live': 'polite', text: line })),
+    h('span', { class: 'acts' }, ...acts));
 }
 
 function home(view, ui, on) {
