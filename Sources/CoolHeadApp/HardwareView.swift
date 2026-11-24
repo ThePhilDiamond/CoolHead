@@ -216,8 +216,6 @@ struct RunningStrip: View {
     let level: Watcher.Level
     /// The scroll bar's room while the panel is wider, so the row's words and gauges stay where they were.
     var extra: CGFloat = 0
-    /// With a tool open, the way back to the cards in a few words (PanelView.backTo); nil hides the pill.
-    var back: String? = nil
     @ObservedObject private var load = ChipLoad.shared
     /// The gauges are a setting, off to start: the snowflake and its words say how the Mac is without them, and someone
     /// who doesn't know or care what the figures mean gets less clutter.
@@ -293,16 +291,6 @@ struct RunningStrip: View {
                 Text(title.components(separatedBy: " · ").map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: " · "))
                     .font(.headline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 Text(meaning(r)).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
-                // a pill back to the cards, tinted with their level, with dark text so it reads on yellow; the whole row
-                // already goes back on a click
-                if let back {
-                    Label(back, systemImage: "chevron.left")
-                        .font(.caption.weight(.semibold)).foregroundStyle(Ink.text)
-                        .padding(.horizontal, 9).padding(.vertical, 4)
-                        .background(Capsule().fill(Color(nsColor: Badge.color(level)).opacity(0.3)))
-                        .fixedSize()
-                        .padding(.top, 4)
-                }
             }
             Spacer(minLength: 6)
             // two groups, each titled, with a line between, which is cleaner and clearer: how busy the chip and memory
