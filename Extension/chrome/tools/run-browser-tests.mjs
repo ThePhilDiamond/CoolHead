@@ -509,7 +509,7 @@ const B = [
     const c = await waitFor('the refused tab\'s own title', async () => { const x = await at(urls[2]); return x.title === 'Page z3' ? x : null; });
     assert.equal(c.discarded, false);
     // a mark left on an awake tab (a worker stopped between marking and sleeping) comes off when the worker starts
-    await w(`chrome.scripting.executeScript({ target: { tabId: ${ids[2]} }, func: (m) => { document.title = m + document.title; }, args: [${JSON.stringify(MARK)}] }).then(() => true)`);
+    await w(`chrome.scripting.executeScript({ target: { tabId: ${ids[2]} }, func: (m) => { document.title = m + document.title; }, args: ['zzZ\\u2002'] }).then(() => true)`);
     await waitFor('the stray mark', async () => ((await at(urls[2])).title.startsWith(MARK) ? true : null));
     await w('coolHead.unmarkAwake().then(() => true)');
     await waitFor('the stray mark gone', async () => ((await at(urls[2])).title === 'Page z3' ? true : null));
