@@ -60,7 +60,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         // the icon picked on the Settings page or the welcome, drawn at once
         NotificationCenter.default.addObserver(forName: MenuIcon.changed, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel, looking: Watcher.shared.firstLook && Watcher.shared.screenLevel == .good) }
+            MainActor.assumeIsolated {
+                let looking = Watcher.shared.firstLook && Watcher.shared.screenLevel == .good
+                self?.item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel, looking: looking)
+                self?.turnLookRing(looking)          // the ring turns only in the badge style
+            }
         }
         watcher.start()
         // the link with Cool Head for Chrome, not while taking screenshots (see ChromeLinkServer)
