@@ -13,7 +13,7 @@ import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
 import { restPlan, shouldWake, columns, move, withOpenTabs } from './logic/extensions.js';
 import { migrationPlan, suspenders, suspendedAt } from './logic/migrate.js';
 import { heldCounts, siteOf, siteRuleFor, heldReasons, risk } from './logic/reasons.js';
-import { savable, defaultWords, cleanWords, folderTitle, dayText, splitParent, urlsIn } from './logic/windows.js';
+import { savable, defaultWords, cleanWords, folderTitle, dayText, splitParent, urlsIn, pagesIn } from './logic/windows.js';
 import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol.js';
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
 import { LinkClient } from './link-client.js';
@@ -57,7 +57,8 @@ function planCtx(s, ctx, now) {
 // Tabs this worker is unloading right now, so the test log can tell its own sleeps from Chrome's.
 const unloading = new Set();
 
-async function sleepTab(tabId, { force = false } = {}) {
+// shown: the page's title when Chrome doesn't know it yet (a tab put to sleep as it opens).
+async function sleepTab(tabId, { force = false, shown = '' } = {}) {
   const t = await tabNow(tabId).catch(() => null);
   if (!t) return { why: 'it closed meanwhile' };
   if (t.active) return { why: 'it came to the front', t };
@@ -65,7 +66,7 @@ async function sleepTab(tabId, { force = false } = {}) {
   if (!force && t.audible) return { why: 'it started playing sound', t };
   marking.add(tabId);
   try {
-    await titleMark(tabId, true, t.title);
+    await titleMark(tabId, true, shown || t.title);
     // Marking can take up to a second on a busy page, and Chrome unloads even the tab in front, so the checks above
     // are made again; a tab that stays awake gets its own title back.
     const now = await tabNow(tabId).catch(() => null);
@@ -95,7 +96,7 @@ const marking = new Set();
 async function unmarkAwake() {
   const awake = await chrome.tabs.query({ discarded: false });
   for (const t of awake) {
-    if (t.title?.startsWith(SLEEP_MARK) && !marking.has(t.id)) await titleMark(t.id, false);
+    if (t.title?.includes(SLEEP_MARK) && !marking.has(t.id)) await titleMark(t.id, false);
   }
 }
 
@@ -647,15 +648,17 @@ async function saveWindow(m) {
 async function reopenWindow(id) {
   const [node] = await chrome.bookmarks.getSubTree(id).catch(() => []);
   if (!node) { await forgetWindow(id); return W.WINDOWS_GONE; }
-  const urls = urlsIn(node);
+  const pages = pagesIn(node);
+  const urls = pages.map((p) => p.url);
   if (!urls.length) { await chrome.bookmarks.removeTree(id).catch(() => {}); await forgetWindow(id); return W.WINDOWS_REMOVED; }
   const win = await chrome.windows.create({ url: urls[0], focused: true });
   const asleep = [];
   let failed = 0;
-  for (const url of urls.slice(1)) {
-    const t = await chrome.tabs.create({ windowId: win.id, url, active: false }).catch(() => null);
+  for (const p of pages.slice(1)) {
+    const t = await chrome.tabs.create({ windowId: win.id, url: p.url, active: false }).catch(() => null);
     if (!t) { failed++; continue; }
-    const r = await sleepTab(t.id, { force: true });
+    // asleep before it loads, so the mark goes before the title saved in its bookmark
+    const r = await sleepTab(t.id, { force: true, shown: p.title });
     if (r.id != null) asleep.push(r.id);
   }
   if (asleep.length) await store.change((st) => ({ asleep: [...new Set([...st.asleep, ...asleep])] }));

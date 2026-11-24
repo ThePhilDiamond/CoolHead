@@ -548,20 +548,28 @@ const B = [
     assert.equal(rec.title, 'Page z4');
     await act(w, { action: 'keep', tabId: d.id, on: false });
     // Saved windows: a window with a sleeping tab saves the page's own title into its bookmark
-    const swUrls = [`${BASE}/page?n=zs1`, `${BASE}/page?n=zs2`];
+    const swUrls = [`${BASE}/page?n=zs1`, `${BASE}/page?n=zs2`, `${BASE}/untitled?n=zs3`];
     const win = await w(`chrome.windows.create({ url: ${JSON.stringify(swUrls)}, focused: true }).then((x) => x.id)`);
     const inWin = await waitFor('the window to load', async () => {
       const t = await w(`chrome.tabs.query({ windowId: ${win} })`);
-      return t.length === 2 && t.every((x) => x.status === 'complete') ? t : null;
+      return t.length === 3 && t.every((x) => x.status === 'complete') ? t : null;
     });
-    await act(w, { action: 'sleep', tabId: inWin.find((x) => !x.active).id });
+    const swShown = inWin.find((x) => x.url === swUrls[2]).title;
+    await act(w, { action: 'sleep', tabId: inWin.find((x) => x.url === swUrls[1]).id });
     assert.ok((await w(`chrome.tabs.query({ windowId: ${win} })`)).some((x) => x.title.startsWith(MARK)), 'one tab asleep and marked');
     await w(`chrome.windows.update(${win}, { focused: true })`);
     await act(w, { action: 'saveWindow', words: 'Marked' });
     const f = (await w('coolHead.viewFor()')).windows.saved.find((x) => x.words === 'Marked');
     const marks = (await w(`chrome.bookmarks.getChildren(${JSON.stringify(f.id)})`)).map((x) => x.title).sort();
-    assert.deepEqual(marks, ['Page zs1', 'Page zs2']);
-    await act(w, { action: 'removeWindow', id: f.id });
+    assert.deepEqual(marks, ['Page zs1', 'Page zs2', swShown].sort());
+    // reopened, each tab after the first sleeps as it opens, before it has a title, so the mark goes before the
+    // bookmark's: an untitled page keeps what Chrome showed for it, not just the site's name
+    await act(w, { action: 'reopenWindow', id: f.id });
+    const again = await waitFor('the reopened tabs asleep', async () => {
+      const t = (await tabsNow(w)).filter((x) => x.discarded && (x.url === swUrls[1] || x.url === swUrls[2]));
+      return t.length === 2 ? t : null;
+    });
+    assert.deepEqual(again.map((x) => x.title).sort(), [`${MARK}Page zs2`, `${MARK}${swShown}`].sort());
     // waking: the page reloads with its own title (pinned, so it isn't put back to sleep before it's read)
     await w(`chrome.tabs.update(${a.id}, { pinned: true }).then(() => chrome.tabs.reload(${a.id})).then(() => true)`);
     const woke = await waitFor('the woken tab\'s own title', async () => { const x = await at(urls[0]); return x && !x.discarded && x.title === 'Page z1' ? x : null; });

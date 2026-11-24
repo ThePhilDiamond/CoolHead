@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { SLEEP_MARK, realTitle, withRealTitle, markInPage, unmarkInPage } from '../src/logic/mark.js';
 
 test('the mark is plain letters and an en space, so Chrome draws it in the tab text color', () => {
-  assert.equal(SLEEP_MARK, 'zzZ ');
+  assert.equal(SLEEP_MARK, 'zzZ\u2002');
   // no emoji or symbol: every character is a letter or a space
   assert.ok([...SLEEP_MARK].every((c) => /\p{L}|\p{Zs}/u.test(c)));
 });
@@ -17,6 +17,8 @@ test('the real title comes back without the mark, and only Cool Head\'s mark is 
   // a page's own title that starts the same way with an ordinary space keeps its words
   assert.equal(realTitle('zzZ sleep tracker'), 'zzZ sleep tracker');
   assert.equal(realTitle(`${SLEEP_MARK}`), '');
+  // a page that put an unread count before its title as it went to sleep pushed the mark along; it still comes off
+  assert.equal(realTitle(`(98) ${SLEEP_MARK}(97) Chat`), '(98) (97) Chat');
   assert.equal(realTitle(undefined), undefined);
   assert.equal(realTitle(''), '');
 });
@@ -48,6 +50,12 @@ test('marking a page puts the mark before its title once, and unmarking takes it
   assert.equal(document.title, 'Inbox (3)');
   assert.equal(unmarkInPage(SLEEP_MARK), true);
   assert.equal(document.title, 'Inbox (3)', 'unmarking an unmarked page changes nothing');
+  // a mark the page pushed along is found where it is: not marked twice, and taken off
+  page(`(4) ${SLEEP_MARK}Inbox (3)`);
+  markInPage(SLEEP_MARK, '');
+  assert.equal(document.title, `(4) ${SLEEP_MARK}Inbox (3)`);
+  unmarkInPage(SLEEP_MARK);
+  assert.equal(document.title, '(4) Inbox (3)');
 });
 
 test('a page without a title of its own is marked before what Chrome showed for it', () => {
