@@ -63,22 +63,49 @@ async function sleepTab(tabId, { force = false } = {}) {
   if (t.active) return { why: 'it came to the front', t };
   if (t.discarded) return { why: 'it was already asleep', t };
   if (!force && t.audible) return { why: 'it started playing sound', t };
-  await titleMark(tabId, true);
-  unloading.add(tabId);
-  setTimeout(() => unloading.delete(tabId), 5000);
-  const d = await chrome.tabs.discard(tabId).catch(() => null);
-  if (d && d.discarded !== false) return { id: d.id, t };
-  // still awake, so its title goes back to the page's own
-  await titleMark(tabId, false);
-  return { why: 'Chrome refused', t };
+  marking.add(tabId);
+  try {
+    await titleMark(tabId, true, t.title);
+    // Marking can take up to a second on a busy page, and Chrome unloads even the tab in front, so the checks above
+    // are made again; a tab that stays awake gets its own title back.
+    const now = await tabNow(tabId).catch(() => null);
+    const why = !now ? 'it closed meanwhile' : now.discarded ? 'it was already asleep' : now.active ? 'it came to the front'
+      : (!force && now.audible) ? 'it started playing sound' : null;
+    if (why) {
+      if (now && !now.discarded) await titleMark(tabId, false);
+      return { why, t };
+    }
+    unloading.add(tabId);
+    setTimeout(() => unloading.delete(tabId), 5000);
+    const d = await chrome.tabs.discard(tabId).catch(() => null);
+    if (d && d.discarded !== false) return { id: d.id, t };
+    // still awake, so its title goes back to the page's own
+    await titleMark(tabId, false);
+    return { why: 'Chrome refused', t };
+  } finally {
+    marking.delete(tabId);
+  }
+}
+
+// Tabs being marked and put to sleep right now, so the start-up check below leaves their mark alone.
+const marking = new Set();
+
+// A mark on a tab that's awake: left by a worker that stopped between marking a tab and putting it to sleep (an
+// update, or Chrome ending the worker). It comes off each time the worker starts.
+async function unmarkAwake() {
+  const awake = await chrome.tabs.query({ discarded: false });
+  for (const t of awake) {
+    if (t.title?.startsWith(SLEEP_MARK) && !marking.has(t.id)) await titleMark(t.id, false);
+  }
 }
 
 // Puts Cool Head's mark before the title of a tab about to sleep, or takes it off one that didn't (logic/mark.js).
 // It needs access to the site, which the person gives for typing and calls; without it, or on a page no extension may
 // change (Chrome's own pages, the Web Store), the tab sleeps unmarked. A page that doesn't answer within a second
 // sleeps unmarked too, so a stuck page never holds up sleeping.
-async function titleMark(tabId, on) {
-  const run = chrome.scripting.executeScript({ target: { tabId }, injectImmediately: true, func: on ? markInPage : unmarkInPage, args: [SLEEP_MARK] })
+// `shown` is the title Chrome shows now, for a page with no title of its own.
+async function titleMark(tabId, on, shown = '') {
+  const run = chrome.scripting.executeScript({ target: { tabId }, injectImmediately: true, func: on ? markInPage : unmarkInPage, args: on ? [SLEEP_MARK, shown] : [SLEEP_MARK] })
     .then((r) => r?.[0]?.result === true).catch(() => false);
   return Promise.race([run, new Promise((res) => setTimeout(() => res(false), 1000))]);
 }
@@ -1198,6 +1225,7 @@ self.addEventListener('unhandledrejection', (e) => oops(e.reason));
 chrome.alarms.get('tick').then((a) => { if (!a) chrome.alarms.create('tick', { periodInMinutes: 1 }); });
 store.load().then((s) => { cachedLevel = s.level; }).catch(() => {});
 newBrowserRun().then(() => connectLink()).catch(oops);
+unmarkAwake().catch(oops);
 
 // For the browser tests (test/browser/run.mjs), which drive the worker through Chrome's debugging protocol.
-globalThis.coolHead = { sweep, gather, act, store, link, viewFor };
+globalThis.coolHead = { sweep, gather, act, store, link, viewFor, unmarkAwake };

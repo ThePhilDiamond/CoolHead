@@ -22,9 +22,10 @@ export function withRealTitle(tab) {
 }
 
 // These two run in the page, through chrome.scripting, so each stands alone: Chrome sends only its own text.
-// A page without a title shows its address in the tab, so the mark goes before the site's name instead.
-export function markInPage(mark) {
-  if (!document.title.startsWith(mark)) document.title = mark + (document.title || location.hostname || '');
+// A page with no title of its own (a PDF, a text file, a page without one) shows what Chrome gives it instead: the
+// PDF's own title or the page's address. That comes in as `shown`, so the mark goes before it and nothing is lost.
+export function markInPage(mark, shown) {
+  if (!document.title.startsWith(mark)) document.title = mark + (document.title || shown || location.hostname || '');
   return document.title.startsWith(mark);
 }
 

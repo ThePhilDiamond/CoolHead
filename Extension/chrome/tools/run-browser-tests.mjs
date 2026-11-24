@@ -40,10 +40,12 @@ function serve() {
     '/page': (q) => { const n = (q.get('n') || '').replace(/[^A-Za-z0-9-]/g, ''); return `<title>Page ${n}</title><p>Test page ${n}</p>`; },
     '/typing': () => '<title>Expense form</title><input id="t" type="text">',
     '/untitled': () => '<p>A page without a title</p>',
+    '/busy': () => '<title>Busy</title><p>A page the test keeps busy</p>',
     '/call': () => '<title>Call</title><script>window.startCall = () => navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then((s) => { window.stream = s; return s.getTracks().length; });</script>',
   };
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://127.0.0.1');
+    if (u.pathname === '/notes.txt') { res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Made-up notes'); return; }
     if (u.pathname === '/download') { res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': 'attachment; filename="probe.bin"' }); res.end('x'); return; }
     const page = pages[u.pathname];
     res.writeHead(page ? 200 : 404, { 'content-type': 'text/html; charset=utf-8' });
@@ -474,18 +476,28 @@ const B = [
   ['the zzZ mark: a sleeping tab\'s title starts with it, never a bookmark or a kept record, and waking brings the page\'s own back', async ({ w }) => {
     const MARK = 'zzZ\u2002';
     const urls = [`${BASE}/page?n=z1`, `${BASE}/untitled`, `${BASE}/page?n=z3`, `${BASE}/page?n=z4`];
-    // the third opens pinned, so the level earlier tests leave can't sleep it before Chrome is made to refuse
-    const ids = await openTabs(w, urls.filter((u, i) => i !== 2));
-    ids.splice(2, 0, await w(`chrome.tabs.create({ url: ${JSON.stringify(urls[2])}, active: false, pinned: true }).then((x) => x.id)`));
+    // each opens pinned, so the level earlier tests leave can't sleep it on its own before the test does
+    const pinned = (u) => w(`chrome.tabs.create({ url: ${JSON.stringify(u)}, active: false, pinned: true }).then((x) => x.id)`);
+    const ids = [];
+    for (const u of urls) ids.push(await pinned(u));
     await loaded(w, ids);
     const at = async (u) => (await tabsNow(w)).find((x) => x.url === u);
     // a page with a title, and one without, whose tab showed its address, so the site's name follows the mark
+    const untitledShown = (await at(urls[1])).title;
     await act(w, { action: 'sleep', tabId: ids[0] });
     await act(w, { action: 'sleep', tabId: ids[1] });
     const a = await at(urls[0]);
     const b = await at(urls[1]);
     assert.deepEqual([a.discarded, a.title], [true, `${MARK}Page z1`]);
-    assert.deepEqual([b.discarded, b.title], [true, `${MARK}127.0.0.1`]);
+    assert.deepEqual([b.discarded, b.title], [true, `${MARK}${untitledShown}`], 'what Chrome showed, its address, keeps its place after the mark');
+    // a text file has no title of its own either
+    const txt = await pinned(`${BASE}/notes.txt`);
+    await loaded(w, [txt]);
+    const txtShown = (await at(`${BASE}/notes.txt`)).title;
+    await act(w, { action: 'sleep', tabId: txt });
+    const tx = await at(`${BASE}/notes.txt`);
+    assert.deepEqual([tx.discarded, tx.title], [true, `${MARK}${txtShown}`]);
+    assert.equal((await w('coolHead.gather()')).tabs.find((x) => x.url === `${BASE}/notes.txt`).title, txtShown);
     // Chrome refusing to unload a tab leaves it awake, so the mark comes off again
     assert.equal((await at(urls[2])).discarded, false, 'awake before');
     await w('globalThis.realDiscard = chrome.tabs.discard; chrome.tabs.discard = () => Promise.resolve(null); true');
@@ -496,6 +508,27 @@ const B = [
     }
     const c = await waitFor('the refused tab\'s own title', async () => { const x = await at(urls[2]); return x.title === 'Page z3' ? x : null; });
     assert.equal(c.discarded, false);
+    // a mark left on an awake tab (a worker stopped between marking and sleeping) comes off when the worker starts
+    await w(`chrome.scripting.executeScript({ target: { tabId: ${ids[2]} }, func: (m) => { document.title = m + document.title; }, args: [${JSON.stringify(MARK)}] }).then(() => true)`);
+    await waitFor('the stray mark', async () => ((await at(urls[2])).title.startsWith(MARK) ? true : null));
+    await w('coolHead.unmarkAwake().then(() => true)');
+    await waitFor('the stray mark gone', async () => ((await at(urls[2])).title === 'Page z3' ? true : null));
+    // a busy page brought to the front while it's being marked stays awake, with its own title
+    // (Chrome would unload it even in front, and reload it at once, losing what was on the page)
+    const busy = await pinned(`${BASE}/busy`);
+    await loaded(w, [busy]);
+    const page = (func) => w(`chrome.scripting.executeScript({ target: { tabId: ${busy} }, func: ${func} }).then((r) => r[0].result)`);
+    await page('() => { window.stillHere = true; return true; }');
+    // busy at once for 1.5 seconds (a timer in a background tab can wait up to a second, since Chrome slows them there);
+    // the loop runs in the extension's own script, which shares the page's one thread, so the page can't answer meanwhile
+    await w(`chrome.scripting.executeScript({ target: { tabId: ${busy} }, func: () => { const end = Date.now() + 1500; while (Date.now() < end); } }); true`);
+    await sleep(100);
+    const asking = act(w, { action: 'sleep', tabId: busy });
+    await sleep(400);
+    await w(`chrome.tabs.update(${busy}, { active: true }).then(() => true)`);
+    assert.doesNotMatch(await asking, /to sleep/);
+    await waitFor('the busy tab awake with its own title', async () => { const x = await at(`${BASE}/busy`); return x && !x.discarded && x.title === 'Busy' ? x : null; }, 8000);
+    assert.equal(await page('() => window.stillHere === true'), true, 'never reloaded');
     // everything Cool Head works from, the popup's lists and its plans, has the page's own title
     const seen = (await w('coolHead.gather()')).tabs;
     assert.equal(seen.find((x) => x.url === urls[0]).title, 'Page z1');

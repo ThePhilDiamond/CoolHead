@@ -50,10 +50,19 @@ test('marking a page puts the mark before its title once, and unmarking takes it
   assert.equal(document.title, 'Inbox (3)', 'unmarking an unmarked page changes nothing');
 });
 
-test('a page without a title is marked before its site name, since its tab shows the address', () => {
+test('a page without a title of its own is marked before what Chrome showed for it', () => {
+  // a PDF's own title, or a text file's address, is what Chrome shows
   page('');
-  markInPage(SLEEP_MARK);
+  markInPage(SLEEP_MARK, 'Quarterly report');
+  assert.equal(document.title, `${SLEEP_MARK}Quarterly report`);
+  // and with nothing shown at all, the site's name
+  page('');
+  markInPage(SLEEP_MARK, '');
   assert.equal(document.title, `${SLEEP_MARK}mail.example.com`);
+  // a page's own title comes first
+  page('Inbox');
+  markInPage(SLEEP_MARK, 'mail.example.com/inbox');
+  assert.equal(document.title, `${SLEEP_MARK}Inbox`);
 });
 
 test('Chrome runs each page function on its own, so neither uses anything from outside itself', () => {
@@ -72,7 +81,13 @@ test('every tab the worker reads comes through tabsNow or tabNow, which take the
   assert.deepEqual(raw, [
     'function tabsNow(query) { return chrome.tabs.query(query).then((tabs) => tabs.map(withRealTitle)); }',
     'function tabNow(tabId) { return chrome.tabs.get(tabId).then(withRealTitle); }',
+    // the start-up check looks for the mark itself, on awake tabs
+    'const awake = await chrome.tabs.query({ discarded: false });',
   ]);
+});
+
+test('each time the worker starts, a mark left on an awake tab comes off', () => {
+  assert.match(worker, /\nunmarkAwake\(\)\.catch\(oops\);\n/);
 });
 
 test('tabs that arrive another way are cleaned too: a window\'s tabs and each tab update', () => {

@@ -312,7 +312,7 @@ export const SITES_TOGGLE = 'Keep tabs with unsent typing or a call awake';
 export const SITES_TOGGLE_WHY = 'Checks each site for typing and calls, and puts "zzZ" before a sleeping tab\'s title; never reads what you type.';
 export const SITES_ASKS = 'Chrome will ask to "read and change all your data on all websites", its words for any access to every site.';
 export const CLOSE_TOOL = 'Close';
-export const SITES_ON_HOW = 'To notice them, it checks each site for a text box with typing in it and for the camera, microphone, or screen sharing. It also puts "zzZ" before a sleeping tab\'s title, so you can see which tabs are asleep. It never reads what you type, and nothing leaves your computer.';
+export const SITES_ON_HOW = 'To notice them, it checks each site for a text box with typing in it and for the camera, microphone, or screen sharing. It never reads what you type, and nothing leaves your computer.';
 export const TURN_ON = 'Turn on';
 export const TURN_OFF = 'Turn off';
 
@@ -406,10 +406,10 @@ export const SETUP_OPTIONAL = 'optional';
 export const SETUP_OPTIONAL_TAG = 'Optional';
 export const SETUP_NOTHING_ELSE = "There's nothing else to set up. It works by itself from now on.";
 export const SETUP_ASK = 'Protect unsent typing and calls?';
-export const SETUP_WHY = "A tab with unsent typing, or on a call, won't sleep on its own, so you don't lose what you typed or drop out of the call.";
+export const SETUP_WHY = "A tab with unsent typing, or on a call, won't sleep on its own, so you don't lose what you typed or drop out of the call. A sleeping tab also shows \"zzZ\" before its title, so you can see which tabs are asleep.";
 export const SETUP_YES = 'Protect them';
 export const SETUP_NO = 'Not now';
-export const SETUP_NO_COST = 'Not now: a sleeping tab loses unsent typing when it reloads, and a call quiet for 10 minutes can end. You can turn this on later in Settings.';
+export const SETUP_NO_COST = 'Not now: a sleeping tab loses unsent typing when it reloads, a call quiet for 10 minutes can end, and sleeping tabs show no "zzZ". You can turn this on later in Settings.';
 // the extensions card, shorter than the popup's (EXT_REC_LINE, EXT_REC_NOTE) so the welcome fits one screen
 export const SETUP_EXT_LINE = 'Extensions use memory in every tab. While memory is very tight or a session runs, it turns off the ones you choose, then back on. Password managers, banking, security, VPN, and work sign-in tools stay on.';
 export const SETUP_EXT_NOTE = "Chrome's question sounds broader: this only lets it see your extensions and turn them off and on.";
