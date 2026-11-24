@@ -65,7 +65,6 @@ struct PanelView: View {
             // only while the cards need a look (yellow or red); cards that only need watching don't call anyone back
             if let backTo, level != .good {
                 BackBar(words: backTo, level: level) { withAnimation(.easeOut(duration: 0.15)) { Tools.closeAll(watcher) } }
-                    .zIndex(1)          // its glow falls on the page below
             }
             // scrolls once it is taller than the limit
             ScrollView {
@@ -1102,9 +1101,8 @@ struct Disclosure: View {
 
 /// The bar back to the cards while a tool is open: the whole width, in the level's color at full strength so it can't
 /// be missed, with what the cards hold ("2 fixes recommended") and where it goes. Dark words on yellow and white on a
-/// deeper red than macOS's (systemRed with white is under 4.5 to 1). Shown only at yellow and red. A soft glow of its own
-/// color on the page below and a lighter top edge and darker bottom edge give it weight without moving, so it catches
-/// the eye without nagging.
+/// deeper red than macOS's (systemRed with white is under 4.5 to 1). Shown only at yellow and red. Set in under the top
+/// row, with shadows falling on it, so it has weight without moving and catches the eye without nagging.
 struct BackBar: View {
     let words: String
     let level: Watcher.Level
@@ -1132,9 +1130,15 @@ struct BackBar: View {
             .padding(.horizontal, 16).padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(fill.opacity(hovering ? 0.85 : 1))
-            .overlay(alignment: .top) { Rectangle().fill(.white.opacity(0.35)).frame(height: 1) }
-            .overlay(alignment: .bottom) { Rectangle().fill(.black.opacity(0.25)).frame(height: 1) }
-            .shadow(color: fill.opacity(0.55), radius: 8, y: 3)
+            // set in, under the top row and the page: the top row casts a shadow down onto it, the page a lighter one
+            // up, and a faint light edge along its foot catches the light, as a recessed strip does
+            .overlay(alignment: .top) {
+                LinearGradient(colors: [.black.opacity(0.38), .black.opacity(0)], startPoint: .top, endPoint: .bottom).frame(height: 7)
+            }
+            .overlay(alignment: .bottom) {
+                LinearGradient(colors: [.black.opacity(0), .black.opacity(0.2)], startPoint: .top, endPoint: .bottom).frame(height: 4)
+            }
+            .overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.18)).frame(height: 1) }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
