@@ -42,15 +42,21 @@ export function rankMostUsed(tabs, use, now, frontTabId = null) {
   }).map((t) => t.id);
 }
 
-// The tab to show when the person puts the one in front to sleep (Chrome can't unload the tab in front): the one
-// they used before it in the same window, or failing that its neighbor. Null when it is the window's only tab.
-export function tabToShowInstead(tabs, tabId, use) {
+// The tab to show when the person puts the one in front to sleep (Chrome can't unload the tab in front): the next
+// awake tab to its right in the same window, going round to the first tab after the last, so pressing the shortcut
+// again and again sleeps the window's tabs one after another. It used to be the tab used before it, which made the
+// shortcut go back and forth between two tabs, waking each the other had just put to sleep. A tab already asleep is
+// passed over, since showing it would load it again; when every other tab is asleep, the one to its right (or, for
+// the last tab, its left) shows, as when a tab is closed. Null when it is the window's only tab.
+export function tabToShowInstead(tabs, tabId) {
   const me = tabs.find((t) => t.id === tabId);
   if (!me) return null;
-  const others = tabs.filter((t) => t.windowId === me.windowId && t.id !== tabId);
+  const others = tabs.filter((t) => t.windowId === me.windowId && t.id !== tabId).sort((a, b) => a.index - b.index);
   if (!others.length) return null;
-  const near = (t) => Math.abs(t.index - me.index) + (t.index < me.index ? 0.5 : 0);
-  return [...others].sort((a, b) => ((lastUsed(b, use) ?? 0) - (lastUsed(a, use) ?? 0)) || near(a) - near(b))[0].id;
+  const after = others.filter((t) => t.index > me.index);
+  const before = others.filter((t) => t.index < me.index);
+  const awake = [...after, ...before].find((t) => !t.discarded);
+  return (awake || after[0] || before[before.length - 1]).id;
 }
 
 export function pruneUse(use, liveIds) {
