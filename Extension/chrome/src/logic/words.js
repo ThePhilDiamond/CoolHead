@@ -307,12 +307,12 @@ export const GLANCE_WHY = "A sleeping tab you open and leave within 10 seconds s
 export const SITES_TITLE = 'Typing and calls';
 export const SITES_ON = "On: tabs with unsent typing, or using the camera, microphone, or screen sharing, don't sleep on their own, so you don't lose what you typed or drop out of a call.";
 export const SITES_OFF = 'Off: a tab with unsent typing can sleep, and what you typed is lost when it reloads. A call that has been quiet for 10 minutes can sleep too, which ends it.';
-export const SITES_HOW = 'Chrome will ask to "read and change all your data on all websites". It only checks for unsent typing and calls; it never reads what you type, and nothing leaves your computer.';
+export const SITES_HOW = 'Chrome will ask to "read and change all your data on all websites". It only checks for unsent typing and calls, and puts "zzZ" before a sleeping tab\'s title; it never reads what you type, and nothing leaves your computer.';
 export const SITES_TOGGLE = 'Keep tabs with unsent typing or a call awake';
-export const SITES_TOGGLE_WHY = 'Checks each site for typing and calls; never reads what you type.';
+export const SITES_TOGGLE_WHY = 'Checks each site for typing and calls, and puts "zzZ" before a sleeping tab\'s title; never reads what you type.';
 export const SITES_ASKS = 'Chrome will ask to "read and change all your data on all websites", its words for any access to every site.';
 export const CLOSE_TOOL = 'Close';
-export const SITES_ON_HOW = 'To notice them, it checks each site for a text box with typing in it and for the camera, microphone, or screen sharing. It never reads what you type, and nothing leaves your computer.';
+export const SITES_ON_HOW = 'To notice them, it checks each site for a text box with typing in it and for the camera, microphone, or screen sharing. It also puts "zzZ" before a sleeping tab\'s title, so you can see which tabs are asleep. It never reads what you type, and nothing leaves your computer.';
 export const TURN_ON = 'Turn on';
 export const TURN_OFF = 'Turn off';
 

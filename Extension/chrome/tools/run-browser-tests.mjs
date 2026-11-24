@@ -39,6 +39,7 @@ function serve() {
     // only letters, digits, and hyphens from the address go into the page, so nothing in it can run as script
     '/page': (q) => { const n = (q.get('n') || '').replace(/[^A-Za-z0-9-]/g, ''); return `<title>Page ${n}</title><p>Test page ${n}</p>`; },
     '/typing': () => '<title>Expense form</title><input id="t" type="text">',
+    '/untitled': () => '<p>A page without a title</p>',
     '/call': () => '<title>Call</title><script>window.startCall = () => navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then((s) => { window.stream = s; return s.getTracks().length; });</script>',
   };
   const server = http.createServer((req, res) => {
@@ -261,6 +262,8 @@ const A = [
     assert.equal(by[ids[2]].discarded, false, 'pinned');
     assert.equal(by[ids[3]].discarded, false, 'kept');
     assert.equal(by[ids[3]].autoDiscardable, false, 'Chrome told to leave the kept tab too');
+    // without access to sites, a sleeping tab keeps its title as it was, with no mark
+    assert.equal(by[ids[0]].title, 'Page f1');
   }],
   ['a session: unticked tabs sleep, a tab switched to joins, ending saves a named group without reloading', async ({ w }) => {
     await act(w, { action: 'level', level: 'balanced' });
@@ -467,6 +470,69 @@ const B = [
     assert.deepEqual(back.map((x) => x.url).sort(), [...urls].sort(), 'every page at its own address');
     assert.deepEqual(await w(`chrome.bookmarks.get(${JSON.stringify(f.id)}).then(() => 'still there', () => 'gone')`), 'gone');
     assert.deepEqual((await state(w)).savedWindows, []);
+  }],
+  ['the zzZ mark: a sleeping tab\'s title starts with it, never a bookmark or a kept record, and waking brings the page\'s own back', async ({ w }) => {
+    const MARK = 'zzZ\u2002';
+    const urls = [`${BASE}/page?n=z1`, `${BASE}/untitled`, `${BASE}/page?n=z3`, `${BASE}/page?n=z4`];
+    // the third opens pinned, so the level earlier tests leave can't sleep it before Chrome is made to refuse
+    const ids = await openTabs(w, urls.filter((u, i) => i !== 2));
+    ids.splice(2, 0, await w(`chrome.tabs.create({ url: ${JSON.stringify(urls[2])}, active: false, pinned: true }).then((x) => x.id)`));
+    await loaded(w, ids);
+    const at = async (u) => (await tabsNow(w)).find((x) => x.url === u);
+    // a page with a title, and one without, whose tab showed its address, so the site's name follows the mark
+    await act(w, { action: 'sleep', tabId: ids[0] });
+    await act(w, { action: 'sleep', tabId: ids[1] });
+    const a = await at(urls[0]);
+    const b = await at(urls[1]);
+    assert.deepEqual([a.discarded, a.title], [true, `${MARK}Page z1`]);
+    assert.deepEqual([b.discarded, b.title], [true, `${MARK}127.0.0.1`]);
+    // Chrome refusing to unload a tab leaves it awake, so the mark comes off again
+    assert.equal((await at(urls[2])).discarded, false, 'awake before');
+    await w('globalThis.realDiscard = chrome.tabs.discard; chrome.tabs.discard = () => Promise.resolve(null); true');
+    try {
+      await act(w, { action: 'sleep', tabId: ids[2] });
+    } finally {
+      await w('chrome.tabs.discard = globalThis.realDiscard; true');
+    }
+    const c = await waitFor('the refused tab\'s own title', async () => { const x = await at(urls[2]); return x.title === 'Page z3' ? x : null; });
+    assert.equal(c.discarded, false);
+    // everything Cool Head works from, the popup's lists and its plans, has the page's own title
+    const seen = (await w('coolHead.gather()')).tabs;
+    assert.equal(seen.find((x) => x.url === urls[0]).title, 'Page z1');
+    // and what it says back about a sleeping tab names the page, not the mark
+    const said = await act(w, { action: 'keep', tabId: a.id, on: true });
+    assert.match(said, /Page z1/);
+    assert.doesNotMatch(said, /zzZ/);
+    await act(w, { action: 'keep', tabId: a.id, on: false });
+    // a kept tab put to sleep: its record keeps the page's own title when kept tabs are noted again (a tab moved)
+    await act(w, { action: 'keep', tabId: ids[3], on: true });
+    await act(w, { action: 'sleep', tabId: ids[3] });
+    const d = await at(urls[3]);
+    assert.equal(d.title, `${MARK}Page z4`);
+    const was = (await state(w)).kept.find((x) => x.url === urls[3]);
+    await w(`chrome.tabs.move(${d.id}, { index: 0 }).then(() => true)`);
+    const rec = await waitFor('the kept record noted again', async () => { const r = (await state(w)).kept.find((x) => x.url === urls[3]); return r && r.index !== was.index ? r : null; });
+    assert.equal(rec.title, 'Page z4');
+    await act(w, { action: 'keep', tabId: d.id, on: false });
+    // Saved windows: a window with a sleeping tab saves the page's own title into its bookmark
+    const swUrls = [`${BASE}/page?n=zs1`, `${BASE}/page?n=zs2`];
+    const win = await w(`chrome.windows.create({ url: ${JSON.stringify(swUrls)}, focused: true }).then((x) => x.id)`);
+    const inWin = await waitFor('the window to load', async () => {
+      const t = await w(`chrome.tabs.query({ windowId: ${win} })`);
+      return t.length === 2 && t.every((x) => x.status === 'complete') ? t : null;
+    });
+    await act(w, { action: 'sleep', tabId: inWin.find((x) => !x.active).id });
+    assert.ok((await w(`chrome.tabs.query({ windowId: ${win} })`)).some((x) => x.title.startsWith(MARK)), 'one tab asleep and marked');
+    await w(`chrome.windows.update(${win}, { focused: true })`);
+    await act(w, { action: 'saveWindow', words: 'Marked' });
+    const f = (await w('coolHead.viewFor()')).windows.saved.find((x) => x.words === 'Marked');
+    const marks = (await w(`chrome.bookmarks.getChildren(${JSON.stringify(f.id)})`)).map((x) => x.title).sort();
+    assert.deepEqual(marks, ['Page zs1', 'Page zs2']);
+    await act(w, { action: 'removeWindow', id: f.id });
+    // waking: the page reloads with its own title (pinned, so it isn't put back to sleep before it's read)
+    await w(`chrome.tabs.update(${a.id}, { pinned: true }).then(() => chrome.tabs.reload(${a.id})).then(() => true)`);
+    const woke = await waitFor('the woken tab\'s own title', async () => { const x = await at(urls[0]); return x && !x.discarded && x.title === 'Page z1' ? x : null; });
+    assert.equal(woke.title, 'Page z1');
   }],
 ];
 
