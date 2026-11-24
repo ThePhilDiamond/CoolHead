@@ -82,17 +82,14 @@ extension Fixture {
         review.append(("pressure-saved", back == PressureHistory.sample(now: now) && !json.contains("Google") && !json.contains("Chrome") && json.contains("\"chrome\""),
                        "\(back.count) spells read back; \(json.count) characters, no app names"))
 
-        // the calm card: Chrome using the most, macOS says warning, nothing moved to disk; never at critical, never when
-        // memory is moving to disk, and today's card when the gate isn't judged (the selftests' other cards)
-        let calm = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 30), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
-        let critical = MemoryAdvice.card(chromeHeavy, mac: mac("critical", swappedMB: 30), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
-        let early = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 400), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
-        let unjudged = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 30), now: now, tabMemoryOn: false)
-        let slack = MemoryAdvice.card([MemGroup(key: "s", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 3_000_000_000, count: 5)],
-                                      mac: mac("warning", swappedMB: 30), now: now, context: MemoryContext(slowed: false))
-        review.append(("memory-chrome-calm", calm.state == .working && calm.fixes.isEmpty && calm.headline == "Memory is busy, but your Mac is keeping up."
-                       && critical.state != .working && !critical.fixes.isEmpty && early.state != .working && unjudged.state != .working && slack.state != .working,
-                       calm.headline + " " + calm.explanation))
+        // no calm card: Chrome using the most, macOS says warning, nothing moved to disk, the gate not met. That state slowed
+        // a Mac badly on 23 November 2026 while the card was green, so Chrome gets the card every app gets, which needs a look
+        let unmoved = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 0), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
+        let slackUnmoved = MemoryAdvice.card([MemGroup(key: "s", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 3_000_000_000, count: 5)],
+                                             mac: mac("warning", swappedMB: 0), now: now, context: MemoryContext(slowed: false))
+        review.append(("memory-chrome-warning-unmoved", unmoved.state == .unknown && unmoved.headline.hasPrefix("Memory is tight. Google Chrome is using the most")
+                       && unmoved.fixes.first?.recommended == true && slackUnmoved.state == .unknown,
+                       unmoved.headline + " " + unmoved.explanation))
 
         // the week on Chrome's card: from the second time this week
         let twice = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 600), now: now,
@@ -101,11 +98,38 @@ extension Fixture {
                                      context: MemoryContext(slowed: true, week: PressureHistory.Week(count: 1, minutes: 12, chromeCount: 1)), tabMemoryOn: false)
         review.append(("memory-chrome-week", twice.explanation.hasSuffix("It's slowed your Mac 3 times this week, about 40 minutes in all, so it's likely to happen again while Chrome holds this much.")
                        && !once.explanation.contains("this week"), twice.explanation))
+
+        // trusting the biggest user never calms the memory card, at warning or critical: a trusted app's tight memory showed
+        // green on 23 November 2026 while the Mac was slowed. The trusted list is a throwaway set, never the app's own.
+        let trustSuite = "coolhead.selftest.\(UUID().uuidString)"
+        let savedTrust = Trust.defaults
+        if let d = UserDefaults(suiteName: trustSuite) { Trust.defaults = d }
+        Trust.add("app:com.example.chat", name: "Chat")
+        func memoryCard(_ level: String) -> LiveCard {
+            var c = LiveCard(id: "memory-\(level)", pid: nil, card: unmoved, details: [])
+            c.causeKey = "memory"; c.trustKey = "app:com.example.chat"; c.trustName = "Chat"; c.trusted = true
+            Watcher.applyMemoryTrust(&c, critical: level == "critical")
+            return c
+        }
+        let tight = memoryCard("warning"), veryTight = memoryCard("critical")
+        Trust.defaults = savedTrust
+        UserDefaults.standard.removePersistentDomain(forName: trustSuite)
+        let w = Watcher()
+        review.append(("memory-trust-never-calms", !tight.trusted && tight.trustNote == "You trust Chat, but memory is tight." && w.signs([tight]).memoryTight
+                       && !veryTight.trusted && veryTight.trustNote == "You trust Chat, but memory is very tight." && w.signs([veryTight]).memoryCritical,
+                       (tight.trustNote ?? "no note") + " | " + (veryTight.trustNote ?? "no note")))
+
+        // the first look: no "All calm" before the first full reading (an update relaunch opened the panel 1.5 seconds in,
+        // on 23 November 2026, and said all was calm). Screenshots skip it unless they ask for it.
+        let ends = [Watcher.endsFirstLook(reading: true, environment: [:]), Watcher.endsFirstLook(reading: false, environment: [:]),
+                    Watcher.endsFirstLook(reading: false, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p"]),
+                    Watcher.endsFirstLook(reading: false, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p", "COOLHEAD_SNAPSHOT_FIRSTLOOK": "1"])]
+        review.append(("first-look", w.firstLook && ends == [true, false, true, false], "starts looking \(w.firstLook); ends on \(ends)"))
         return review
     }
 
     static func pressureHistorySamples(_ now: Date) -> [(String, Card)] {
-        [("memory-chrome-calm", MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 30), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)),
+        [("memory-chrome-warning-unmoved", MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 0), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)),
          ("memory-chrome-week", MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 600), now: now,
                                                   context: MemoryContext(slowed: true, week: PressureHistory.Week(count: 3, minutes: 40, chromeCount: 2)), tabMemoryOn: false))]
     }

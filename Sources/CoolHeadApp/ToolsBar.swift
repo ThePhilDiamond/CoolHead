@@ -399,7 +399,7 @@ struct TrustedView: View {
                 Button { tools.trusted = false } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(Ink.muted).accessibilityLabel("Close")
             }
-            Text("Their cards stay calm. We still flag one if it looks stuck, your Mac gets hot, or it runs nonstop for \(Int(Trust.limitHours)) hours.")
+            Text("Their cards stay calm. We still flag one if it looks stuck, your Mac gets hot, memory runs short, or it runs nonstop for \(Int(Trust.limitHours)) hours.")
                 .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             box(list, empty: "No trusted apps or jobs", selected: $selected, addTip: "Trust an app", removeTip: "Stop trusting the selected one",
                 add: { choose(cooler: false) }) { key in

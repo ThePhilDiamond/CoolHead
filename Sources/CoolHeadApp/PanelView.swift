@@ -99,7 +99,7 @@ struct PanelView: View {
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
-                        Text(watcher.mac.cores == 0 ? "Taking a first look…" : "Nothing needs a look.")
+                        Text(watcher.firstLook ? "Taking a first look…" : "Nothing needs a look.")
                             .foregroundStyle(Ink.muted)
                     } else {
                         ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
@@ -177,10 +177,11 @@ struct PanelView: View {
 
     /// The heat word appears only when the Mac is warm or hot; otherwise the line is about what needs watching.
     var status: String {
+        // no reading yet, so no "All calm" (see Watcher.firstLook)
+        if watcher.firstLook { return "Taking a first look" }
         let n = shownCards.filter { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }.count
             + watcher.syncPauses.filter { $0.until <= Date() }.count                    // syncing to resume
         let stuck = shownCards.filter { $0.card.state == .stalled }.count
-        // the calm memory card is no job (see MemoryAdvice: Chrome using the most while the Mac keeps up)
         let jobs = shownCards.filter { ($0.card.state == .working || $0.card.state == .starting) && !$0.id.hasPrefix("memory") }.count
         var watch: String?
         if stuck > 0 { watch = "\(stuck) looks stuck" + (n > stuck ? ", \(n - stuck) to watch" : "") }
@@ -335,7 +336,8 @@ struct CardView: View {
                     ForEach([(10, "10 minutes"), (30, "30 minutes"), (60, "1 hour")], id: \.0) { m, label in
                         Button(label) { watcher.snooze(live, until: Date().addingTimeInterval(Double(m) * 60)) }
                     }
-                    if live.trustKey != nil {
+                    // the memory card offers no trust, which can't calm it (see Watcher.applyMemoryTrust), but undoes it
+                    if live.trustKey != nil, live.causeKey != "memory" || Trust.contains(live.trustKey) {
                         Divider()
                         if Trust.contains(live.trustKey) {
                             Button("Stop trusting \(live.trustName)") { watcher.setTrusted(live, false) }

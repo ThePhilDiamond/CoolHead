@@ -56,6 +56,11 @@ public final class Watcher {
 
     public private(set) var cards: [LiveCard] = []
     public private(set) var mac = MacState()
+    /// True until Cool Head has its first full reading (the second sample, about 10 seconds after launch): until then it
+    /// has no cards because it hasn't measured anything yet, not because all is well, so the panel says it's taking a
+    /// first look rather than "All calm" (24 November 2026: an update relaunch opened the panel 1.5 seconds in, and it
+    /// said all was calm while memory was very tight). Screenshots skip it unless COOLHEAD_SNAPSHOT_FIRSTLOOK is set.
+    public private(set) var firstLook = true
     /// Share of the whole Mac that Cool Head itself used over the last tick.
     public private(set) var overhead: Double = 0
     public private(set) var dismissed: Set<String> = []
@@ -378,6 +383,13 @@ public final class Watcher {
         t.resume()
     }
 
+    /// The memory card when its biggest user is trusted: never calmed by it (see the memory card in `tick`), with a line
+    /// saying the trust was seen.
+    static func applyMemoryTrust(_ c: inout LiveCard, critical: Bool) {
+        c.trusted = false
+        c.trustNote = Trust.contains(c.trustKey) ? "You trust \(c.trustName), but memory is \(critical ? "very tight" : "tight")." : nil
+    }
+
     /// Marks a card trusted, or flagged anyway with the reason, from the trust list and its limits.
     static func applyTrust(_ lc: inout LiveCard, thermal: String, busyFor: TimeInterval) {
         guard Trust.contains(lc.trustKey) else { lc.trusted = false; lc.trustNote = nil; return }
@@ -423,8 +435,7 @@ public final class Watcher {
                 c.heatCause = mac.thermal != "nominal" && [.working, .starting, .unknown].contains(c.card.state) && c.card.hasAction
                 Watcher.applyTrust(&c, thermal: mac.thermal, busyFor: 0)
             } else if c.causeKey == "memory" {
-                c.trusted = Trust.contains(c.trustKey) && mac.memoryPressure != "critical"
-                c.trustNote = Trust.contains(c.trustKey) ? (c.trusted ? Trust.promise : "You trust \(c.trustName), but memory is very tight.") : nil
+                Watcher.applyMemoryTrust(&c, critical: mac.memoryPressure == "critical")
             }
             return c
         }
@@ -962,7 +973,7 @@ public final class Watcher {
             limitBusy = (playing, playing == nil ? BusyWith.soundOpenNow() : [], BusyWith.remember(BusyWith.readDownloads(now: now), in: limitBusy.samples),
                          BusyWith.recordingNow() ?? [])
         }
-        guard dt > 0 else { publish(state, [], own: 0, ruled: ruled); return }
+        guard dt > 0 else { publish(state, [], own: 0, ruled: ruled, reading: false); return }
 
         let warm = state.thermal != "nominal"
         // suspects: using half a core or half the graphics chip, for over a minute
@@ -1208,14 +1219,13 @@ public final class Watcher {
                               card: card, details: card.facts + s.lines(), reportSubject: subject)
             mc.causeKey = "memory"
             if let e = top?.evidence { mc.displaySubject = Card.subject(e) }
-            // trusting the biggest user calms tight memory, but never critical memory
+            // trusting the biggest user never calms the memory card: trust is about how one app behaves, and memory running
+            // short slows the whole Mac whoever uses the most (a trusted app's tight memory showed green on 23 November
+            // 2026 while the Mac was slowed). The card says the trust was seen.
             if let t = top {
                 mc.trustKey = t.bundle.map { Trust.key(appPath: $0) } ?? t.evidence.flatMap { Trust.key($0) }
                 mc.trustName = t.evidence.map { Card.subject($0) } ?? t.name
-                if Trust.contains(mc.trustKey) {
-                    if s.memoryPressure == "critical" { mc.trustNote = "You trust \(mc.trustName), but memory is very tight." }
-                    else { mc.trusted = true; mc.trustNote = Trust.promise }
-                }
+                Watcher.applyMemoryTrust(&mc, critical: s.memoryPressure == "critical")
             }
             out.append(mc)
         } else {
@@ -1226,10 +1236,18 @@ public final class Watcher {
         return out
     }
 
-    private func publish(_ state: MacState, _ live: [LiveCard], own: Double, ruled: [Ruled] = []) {
+    /// Whether an update ends the first look: a full reading does; the first sample doesn't, except for screenshots, which
+    /// show their made-up cards at once unless COOLHEAD_SNAPSHOT_FIRSTLOOK asks for the first look.
+    static func endsFirstLook(reading: Bool, environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        reading || (environment["COOLHEAD_SNAPSHOT"] != nil && environment["COOLHEAD_SNAPSHOT_FIRSTLOOK"] == nil)
+    }
+
+    /// `reading`: false for the first sample, which can't measure usage yet (see `firstLook`).
+    private func publish(_ state: MacState, _ live: [LiveCard], own: Double, ruled: [Ruled] = [], reading: Bool = true) {
         let now = Date()
         DispatchQueue.main.async { [self] in
             mac = state
+            if Watcher.endsFirstLook(reading: reading) { firstLook = false }
             overhead = own
             let pausedPIDs = Set(pausedJobs.map(\.pid))
             queue.async { [self] in ownPauses = pausedPIDs }

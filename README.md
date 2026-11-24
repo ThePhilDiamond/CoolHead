@@ -45,7 +45,7 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 - **Browser changes you didn't make.** It notices Chrome, Edge, or Brave managed by settings that adware uses (forcing an extension, or setting the search engine, home page, or a proxy) on a Mac no organization manages, and a browser a script started with an extension loaded from a folder.
 - **Apps that keep crashing.** An app that crashed 5 or more times in a day, from macOS's own crash reports, with a way to look it up and see the reports.
 - **Quiet hangs count too.** A process can be stuck while using almost nothing: paused by something else, waiting on a network drive that dropped, or an app macOS marks Not Responding. Each gets a card saying what started it and what may be waiting on it, with **Resume**, checking the drive, or **Force quit** (it asks first).
-- **Always trust** an app or job you know is fine: it stays listed but calm, and is still flagged if it looks stuck, your Mac gets hot, or it runs nonstop for 8 hours.
+- **Always trust** an app or job you know is fine: it stays listed but calm, and is still flagged if it looks stuck, your Mac gets hot, memory runs short, or it runs nonstop for 8 hours.
 
 <p align="center">
   <picture>

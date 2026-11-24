@@ -58,7 +58,7 @@ enum GoldenRanking {
     power-held-awake-sound · - · working · → none · quit
     power-night-wakes · - · quiet · → battery-options · battery-options
     power-night-upkeep · - · quiet · → battery-options · battery-options
-    memory-chrome-calm · - · working · → none · no options
+    memory-chrome-warning-unmoved · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory
     memory-chrome-week · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory
     virtual-machine · job · unknown · → lookup · lookup, stop, cooler, share
     web-page-in-app · web-page-in-app · unknown · → quit · quit, lookup
