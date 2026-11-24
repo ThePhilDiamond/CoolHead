@@ -19,6 +19,7 @@ What it does
 • Sleeps tabs once you leave them. Effort sets how many stay loaded: Light keeps your 5 most used tabs, Balanced your 3, and Focus only the tab you're on.
 • Back to sleep after a quick look: a sleeping tab you open and leave within 10 seconds sleeps again at once, so looking for a tab doesn't wake them all.
 • Keeps what matters awake: calls, sound, unsent typing, pinned tabs, any tab you keep, and every tab from a site you choose.
+• Shows which tabs are asleep: with access to sites, "zzZ" goes before a sleeping tab's title, in your theme's own text color.
 • Protected shows each tab it's keeping loaded and why, so you can keep it, sleep it, or close it.
 • Start a session: tick the tabs a task needs, like a meeting or a project, and the rest sleep until you want them back. When it ends, you can save its tabs as a tab group.
 • Keyboard shortcuts: Command-Shift-S (Ctrl+Shift+S on Windows and Linux) sleeps the tab you're on, and another can sleep the rest of the window.
@@ -53,7 +54,7 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 **Single purpose:**
 
 ```
-Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep and, if the user turns it on, temporarily pauses extensions they don't need, while keeping awake what they need: calls, sound, unsent typing, and the tabs, sites, and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, keyboard shortcuts to sleep tabs, closing duplicate tabs, saving a window as a bookmark folder to reopen later with its tabs asleep, moving tabs held by another tab suspender so they can sleep natively, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
+Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep and, if the user turns it on, temporarily pauses extensions they don't need, while keeping awake what they need: calls, sound, unsent typing, and the tabs, sites, and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, marking sleeping tabs, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, keyboard shortcuts to sleep tabs, closing duplicate tabs, saving a window as a bookmark folder to reopen later with its tabs asleep, moving tabs held by another tab suspender so they can sleep natively, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
 ```
 
 **Permission justifications:**
@@ -66,12 +67,12 @@ Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep 
 | nativeMessaging | Optionally links to Cool Head, a Mac app, through its helper, so tabs sleep only when the Mac's memory is short. Only counts are sent (tabs asleep, tabs held by reason), never addresses or titles, and only on the Mac. |
 | alarms | Wakes the service worker to put tabs to sleep after the person leaves them, and to find kept tabs again after Chrome restarts. |
 | contextMenus | Adds "Keep this tab loaded" and "Keep every tab of this site loaded" checkboxes to the page and toolbar menus. |
-| scripting | Registers its two page scripts, which say only whether a page has unsent typing or a live call, and runs them in tabs already open when the person turns on "Unsent typing and calls". Neither reads page content. |
+| scripting | Registers its two page scripts, which say only whether a page has unsent typing or a live call, and runs them in tabs already open when the person turns on "Unsent typing and calls". Neither reads page content. Just before a tab sleeps, it also runs one line in that tab that puts "zzZ" before the page's title, so the person can see the tab is asleep; the page's own title comes back when it wakes. |
 | favicon | Shows each tab's icon in the popup's lists, from Chrome's own icon cache. |
 | system.memory | Reads the computer's free memory, to show and decide how hard to work. |
 | management (optional, asked for when used) | Asked for only when the person turns on "Pause extensions", or asks to remove a tab suspender after its tabs are moved. During a session, or when Cool Head reports memory is very tight, pauses extensions the person hasn't kept on, and turns them back on when the session ends or memory clears. Never pauses an extension with tabs open on its own pages. Removing a suspender uses Chrome's own confirmation. |
 | bookmarks (optional, asked for when used) | Asked for only the first time the person saves a window. Saved windows writes the window's pages to a bookmark folder in its own "Cool Head windows" folder, lists that folder's contents, reopens a saved folder with its tabs asleep and then removes it, deletes one the person removes, and moves anything the person put in that folder to Other bookmarks. It reads no other bookmarks beyond the top folders' names, to find Other bookmarks. |
-| Host permissions, all sites (optional, asked for when used) | Asked for only when the person turns on "Unsent typing and calls". Lets its page scripts check whether a tab has unsent typing or a camera, microphone, or screen-sharing call, so those tabs never sleep and lose typing or end a call. Only a yes or no leaves the page. The person can turn it off at any time. |
+| Host permissions, all sites (optional, asked for when used) | Asked for only when the person turns on "Unsent typing and calls". Lets its page scripts check whether a tab has unsent typing or a camera, microphone, or screen-sharing call, so those tabs never sleep and lose typing or end a call. Only a yes or no leaves the page. It also lets the extension put "zzZ" before a sleeping tab's title, so the person can see which tabs are asleep. The person can turn it off at any time. |
 
 **Remote code:** No, I am not using remote code. (Every script is in the package; the content security policy allows only the extension's own scripts.)
 

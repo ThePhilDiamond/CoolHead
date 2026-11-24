@@ -62,8 +62,14 @@ export function savedAgo(at, now) {
 // Every address in a saved folder, in order, including any in folders inside it, so links the person added
 // anywhere in it come back too.
 export function urlsIn(node) {
+  return pagesIn(node).map((p) => p.url);
+}
+
+// Each saved page's address and title, in order: reopening puts each to sleep before it has loaded, so its title
+// comes from the bookmark.
+export function pagesIn(node) {
   const out = [];
-  const walk = (n) => { if (n.url) out.push(n.url); for (const c of n.children || []) walk(c); };
+  const walk = (n) => { if (n.url) out.push({ url: n.url, title: n.title || '' }); for (const c of n.children || []) walk(c); };
   for (const c of node.children || []) walk(c);
   return out;
 }

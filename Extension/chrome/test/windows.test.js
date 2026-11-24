@@ -2,7 +2,7 @@
 // anything else in its parent folder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dayText, savable, defaultWords, cleanWords, folderTitle, wordsOf, savedAgo, urlsIn, splitParent } from '../src/logic/windows.js';
+import { dayText, savable, defaultWords, cleanWords, folderTitle, wordsOf, savedAgo, urlsIn, pagesIn, splitParent } from '../src/logic/windows.js';
 
 const DAY = 86400000;
 const AT = new Date(2026, 10, 24, 15, 30).getTime();
@@ -52,4 +52,6 @@ test('Cool Head\'s folders are told from anything else in its folder, newest fir
   assert.deepEqual(saved.map((f) => [f.id, f.words, f.n, f.ago]), [['b', 'Newer', 2, '4 days ago'], ['a', 'Older', 2, '2 weeks ago']]);
   assert.deepEqual(others.map((o) => o.id), ['x', 'y']);
   assert.deepEqual(urlsIn(children[2]), ['https://b/1', 'https://b/3']);
+  assert.deepEqual(pagesIn(children[2]).map((p) => p.url), urlsIn(children[2]), 'the same pages in the same order');
+  assert.ok(pagesIn(children[2]).every((p) => typeof p.title === 'string'));
 });

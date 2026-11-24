@@ -1,0 +1,1 @@
+- Cool Head for Chrome: a sleeping tab shows "zzZ" before its title, so you can see which tabs are asleep; it goes away when the tab wakes. The letters are plain text, so Chrome draws them in your theme's own text color, light, dark, or colored. It needs the extension's access to sites, the same access that keeps tabs with unsent typing or a call awake.

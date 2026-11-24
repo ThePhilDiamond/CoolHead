@@ -13,13 +13,14 @@ import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
 import { restPlan, shouldWake, columns, move, withOpenTabs } from './logic/extensions.js';
 import { migrationPlan, suspenders, suspendedAt } from './logic/migrate.js';
 import { heldCounts, siteOf, siteRuleFor, heldReasons, risk } from './logic/reasons.js';
-import { savable, defaultWords, cleanWords, folderTitle, dayText, splitParent, urlsIn } from './logic/windows.js';
+import { savable, defaultWords, cleanWords, folderTitle, dayText, splitParent, urlsIn, pagesIn } from './logic/windows.js';
 import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol.js';
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
 import { LinkClient } from './link-client.js';
 import * as sites from './sites.js';
 import { log, oops, testBuild } from './log.js';
 import { host, explainCheck, checkSentence, ago } from './logic/explain.js';
+import { SLEEP_MARK, withRealTitle, markInPage, unmarkInPage } from './logic/mark.js';
 
 const VERSION = chrome.runtime.getManifest().version;
 const ALL_SITES = { origins: ['<all_urls>'] };
@@ -28,9 +29,14 @@ const BOOKMARKS = { permissions: ['bookmarks'] };
 
 // ---------- gathering ----------
 
+// Every tab this worker looks at comes through these two, with the page's own title: a sleeping tab's title starts with
+// Cool Head's mark (logic/mark.js), which must never reach a bookmark, a list in the popup, or a kept tab's record.
+function tabsNow(query) { return chrome.tabs.query(query).then((tabs) => tabs.map(withRealTitle)); }
+function tabNow(tabId) { return chrome.tabs.get(tabId).then(withRealTitle); }
+
 async function gather() {
   const [tabs, s, win] = await Promise.all([
-    chrome.tabs.query({}),
+    tabsNow({}),
     store.load(),
     chrome.windows.getLastFocused().catch(() => null),
   ]);
@@ -45,22 +51,64 @@ function planCtx(s, ctx, now) {
 // ---------- sleeping ----------
 
 // Each tab is checked again just before it sleeps: it may have come to the front or started playing sound
-// since the plan was made. Every sleep is chrome.tabs.discard, never a stand-in page, so a tab keeps its place,
-// title, and icon, and still works if this extension is removed. Extensions that swap in a page of their own, as The
+// since the plan was made. Every sleep is chrome.tabs.discard, never a stand-in page, so a tab keeps its place and
+// icon, and its title with "zzZ" before it (logic/mark.js), and still works if this extension is removed. Extensions that swap in a page of their own, as The
 // Marvellous Suspender does, leave tabs pointing at a page that's gone once the extension is removed or broken.
 // Tabs this worker is unloading right now, so the test log can tell its own sleeps from Chrome's.
 const unloading = new Set();
 
-async function sleepTab(tabId, { force = false } = {}) {
-  const t = await chrome.tabs.get(tabId).catch(() => null);
+// shown: the page's title when Chrome doesn't know it yet (a tab put to sleep as it opens).
+async function sleepTab(tabId, { force = false, shown = '' } = {}) {
+  const t = await tabNow(tabId).catch(() => null);
   if (!t) return { why: 'it closed meanwhile' };
   if (t.active) return { why: 'it came to the front', t };
   if (t.discarded) return { why: 'it was already asleep', t };
   if (!force && t.audible) return { why: 'it started playing sound', t };
-  unloading.add(tabId);
-  setTimeout(() => unloading.delete(tabId), 5000);
-  const d = await chrome.tabs.discard(tabId).catch(() => null);
-  return d && d.discarded !== false ? { id: d.id, t } : { why: 'Chrome refused', t };
+  marking.add(tabId);
+  try {
+    await titleMark(tabId, true, shown || t.title);
+    // Marking can take up to a second on a busy page, and Chrome unloads even the tab in front, so the checks above
+    // are made again; a tab that stays awake gets its own title back.
+    const now = await tabNow(tabId).catch(() => null);
+    const why = !now ? 'it closed meanwhile' : now.discarded ? 'it was already asleep' : now.active ? 'it came to the front'
+      : (!force && now.audible) ? 'it started playing sound' : null;
+    if (why) {
+      if (now && !now.discarded) await titleMark(tabId, false);
+      return { why, t };
+    }
+    unloading.add(tabId);
+    setTimeout(() => unloading.delete(tabId), 5000);
+    const d = await chrome.tabs.discard(tabId).catch(() => null);
+    if (d && d.discarded !== false) return { id: d.id, t };
+    // still awake, so its title goes back to the page's own
+    await titleMark(tabId, false);
+    return { why: 'Chrome refused', t };
+  } finally {
+    marking.delete(tabId);
+  }
+}
+
+// Tabs being marked and put to sleep right now, so the start-up check below leaves their mark alone.
+const marking = new Set();
+
+// A mark on a tab that's awake: left by a worker that stopped between marking a tab and putting it to sleep (an
+// update, or Chrome ending the worker). It comes off each time the worker starts.
+async function unmarkAwake() {
+  const awake = await chrome.tabs.query({ discarded: false });
+  for (const t of awake) {
+    if (t.title?.includes(SLEEP_MARK) && !marking.has(t.id)) await titleMark(t.id, false);
+  }
+}
+
+// Puts Cool Head's mark before the title of a tab about to sleep, or takes it off one that didn't (logic/mark.js).
+// It needs access to the site, which the person gives for typing and calls; without it, or on a page no extension may
+// change (Chrome's own pages, the Web Store), the tab sleeps unmarked. A page that doesn't answer within a second
+// sleeps unmarked too, so a stuck page never holds up sleeping.
+// `shown` is the title Chrome shows now, for a page with no title of its own.
+async function titleMark(tabId, on, shown = '') {
+  const run = chrome.scripting.executeScript({ target: { tabId }, injectImmediately: true, func: on ? markInPage : unmarkInPage, args: on ? [SLEEP_MARK, shown] : [SLEEP_MARK] })
+    .then((r) => r?.[0]?.result === true).catch(() => false);
+  return Promise.race([run, new Promise((res) => setTimeout(() => res(false), 1000))]);
 }
 
 // opts.why(tab): the test log's reason for each sleep.
@@ -124,7 +172,7 @@ function sleepWhy(pc, t, now) {
 // of tabs asleep says nothing about whether to act, so it's in the title and the popup instead.
 let iconKey = null;
 async function refreshBadge() {
-  const [tabs, s] = await Promise.all([chrome.tabs.query({}), store.load()]);
+  const [tabs, s] = await Promise.all([tabsNow({}), store.load()]);
   const n = asleepCount(tabs, s.asleep);
   const memory = currentMemory(s.link, Date.now());
   const level = toolbarLevel(memory);
@@ -170,9 +218,9 @@ async function refreshMenu(tab) {
 // ---------- keep ----------
 
 async function setKeep(tabId, on) {
-  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  const tab = await tabNow(tabId).catch(() => null);
   if (!tab) return null;
-  const all = await chrome.tabs.query({});
+  const all = await tabsNow({});
   await store.change((s) => {
     const others = s.kept.filter((r) => r.tabId !== tabId);
     return { kept: on ? [...others, keepRecord(tab, windowOrdinals(all))] : others };
@@ -184,7 +232,7 @@ async function setKeep(tabId, on) {
 }
 
 async function refreshKeptPositions() {
-  const tabs = await chrome.tabs.query({});
+  const tabs = await tabsNow({});
   const byId = new Map(tabs.map((t) => [t.id, t]));
   const ord = windowOrdinals(tabs);
   await store.change((s) => {
@@ -201,7 +249,7 @@ async function refreshKeptPositions() {
 }
 
 async function findKeptAgain() {
-  const tabs = await chrome.tabs.query({});
+  const tabs = await tabsNow({});
   await store.change((s) => {
     const pendingRecords = [...s.kept, ...s.keepQuestions.map((q) => q.record)];
     const { kept, questions, lost } = rematch(pendingRecords, tabs);
@@ -233,7 +281,7 @@ async function endSession(save, name) {
   if (!s.session?.active) return W.DONE.ended;
   let message = W.DONE.ended;
   if (save) {
-    const tabs = await chrome.tabs.query({});
+    const tabs = await tabsNow({});
     const plan = groupPlan(tabs, s.session.tabIds);
     const title = (name || '').trim() || W.defaultGroupName(new Date(s.session.startedAt || Date.now()));
     let grouped = 0;
@@ -263,7 +311,7 @@ async function hasManagement() {
 async function restExtensions(reason) {
   if (!(await hasManagement())) return { ok: false, count: 0, done: W.DONE.restNeedsYes };
   const s = await store.load();
-  const [exts, tabs] = await Promise.all([chrome.management.getAll(), chrome.tabs.query({})]);
+  const [exts, tabs] = await Promise.all([chrome.management.getAll(), tabsNow({})]);
   const open = withOpenTabs(tabs);
   const ids = restPlan(exts, s.safeList, chrome.runtime.id, open);
   const spared = restPlan(exts, s.safeList, chrome.runtime.id).filter((id) => !ids.includes(id));
@@ -499,7 +547,7 @@ async function checkBrowserRun() {
   const s = await store.load();
   if (s.run) return;
   await store.save({ run: true, runStartedAt: Date.now() });
-  const tabs = await chrome.tabs.query({});
+  const tabs = await tabsNow({});
   const live = new Set(tabs.map((t) => t.id));
   await store.change((st) => ({
     session: st.session?.active && st.session.tabIds.some((id) => live.has(id)) ? st.session : null,
@@ -545,7 +593,7 @@ async function windowsParent(s, make) {
 // The window to save: the last one used, never a popup or an app window.
 async function windowToSave() {
   const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'], populate: true }).catch(() => null);
-  return win ? { id: win.id, tabs: [...(win.tabs || [])].sort((a, b) => a.index - b.index) } : null;
+  return win ? { id: win.id, tabs: (win.tabs || []).map(withRealTitle).sort((a, b) => a.index - b.index) } : null;
 }
 
 async function windowsView(tabs, s, now) {
@@ -575,7 +623,7 @@ async function saveWindow(m) {
   if (!win) return W.WINDOWS_NOTHING;
   const pages = win.tabs.map((t) => ({ url: t.url || t.pendingUrl, title: t.title })).filter((p) => savable(p.url));
   if (!pages.length) return W.WINDOWS_NOTHING;
-  const ctx = contextFrom(s, await chrome.tabs.query({}), win.id, now);
+  const ctx = contextFrom(s, await tabsNow({}), win.id, now);
   const risky = win.tabs.filter((t) => risk(heldReasons(t, { ...ctx, sessionIds: null })));
   if (risky.length && !m.anyway) return W.windowsRisky(risky.map((t) => t.title || host(t.url)));
   const words = cleanWords(m.words) || defaultWords(pages.map((p) => p.url));
@@ -600,15 +648,17 @@ async function saveWindow(m) {
 async function reopenWindow(id) {
   const [node] = await chrome.bookmarks.getSubTree(id).catch(() => []);
   if (!node) { await forgetWindow(id); return W.WINDOWS_GONE; }
-  const urls = urlsIn(node);
+  const pages = pagesIn(node);
+  const urls = pages.map((p) => p.url);
   if (!urls.length) { await chrome.bookmarks.removeTree(id).catch(() => {}); await forgetWindow(id); return W.WINDOWS_REMOVED; }
   const win = await chrome.windows.create({ url: urls[0], focused: true });
   const asleep = [];
   let failed = 0;
-  for (const url of urls.slice(1)) {
-    const t = await chrome.tabs.create({ windowId: win.id, url, active: false }).catch(() => null);
+  for (const p of pages.slice(1)) {
+    const t = await chrome.tabs.create({ windowId: win.id, url: p.url, active: false }).catch(() => null);
     if (!t) { failed++; continue; }
-    const r = await sleepTab(t.id, { force: true });
+    // asleep before it loads, so the mark goes before the title saved in its bookmark
+    const r = await sleepTab(t.id, { force: true, shown: p.title });
     if (r.id != null) asleep.push(r.id);
   }
   if (asleep.length) await store.change((st) => ({ asleep: [...new Set([...st.asleep, ...asleep])] }));
@@ -674,7 +724,7 @@ function favicon(url) {
 }
 
 async function act(m) {
-  const tab = m.tabId != null ? await chrome.tabs.get(m.tabId).catch(() => null) : null;
+  const tab = m.tabId != null ? await tabNow(m.tabId).catch(() => null) : null;
   log('you', actLine(m, tab));
   switch (m.action) {
     case 'level': {
@@ -810,7 +860,7 @@ function actLine(m, tab) {
 
 async function safeColumns() {
   if (!(await hasManagement())) return null;
-  const [exts, s, tabs] = await Promise.all([chrome.management.getAll(), store.load(), chrome.tabs.query({})]);
+  const [exts, s, tabs] = await Promise.all([chrome.management.getAll(), store.load(), tabsNow({})]);
   return columns(exts, s.safeList, chrome.runtime.id, withOpenTabs(tabs));
 }
 
@@ -905,7 +955,7 @@ async function runMigration() {
   if (migrating) return;
   migrating = true;
   try {
-    const first = migrationPlan(await chrome.tabs.query({}), chrome.runtime.id);
+    const first = migrationPlan(await tabsNow({}), chrome.runtime.id);
     const extIds = suspenders(first);
     const s0 = await store.load();
     const resumed = s0.migrating?.running ? s0.migrating : null;
@@ -921,7 +971,7 @@ async function runMigration() {
       let stayed = false;
       if (ok) {
         await loaded(p.tabId, 15000);
-        const now = await chrome.tabs.get(p.tabId).catch(() => null);
+        const now = await tabNow(p.tabId).catch(() => null);
         stayed = Boolean(now && suspendedAt(now.url || now.pendingUrl, chrome.runtime.id));
         // a page of this extension's own takes it over, holding its title and address, so the suspender can go
         if (stayed) {
@@ -972,7 +1022,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
       asleep: s.asleep.filter((id) => id !== tabId),
     };
   }).then(async (s) => {
-    chrome.tabs.get(tabId).then(refreshMenu).catch(() => {});
+    tabNow(tabId).then(refreshMenu).catch(() => {});
     if (glanced != null) await sleepGlanced(glanced);
     sweepSoon(s.leaveDelayMs + 250);
     await refreshBadge();
@@ -1034,6 +1084,7 @@ chrome.tabs.onReplaced.addListener((addedId, removedId) => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  tab = withRealTitle(tab);
   const now = Date.now();
   const touches = 'audible' in change || 'url' in change || 'discarded' in change;
   if (touches) {
@@ -1090,7 +1141,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // front, so the next awake tab to its right comes to the front first, and pressing it again sleeps tab after tab.
 async function sleepFrontTab(tab) {
   if (!tab || tab.discarded) return;
-  const tabs = await chrome.tabs.query({ windowId: tab.windowId });
+  const tabs = await tabsNow({ windowId: tab.windowId });
   const show = tabToShowInstead(tabs, tab.id);
   if (show == null) { log('spared', `Didn't sleep ${host(tab.url)}: it's the only tab in its window`, { tab: tab.id }); return; }
   await chrome.tabs.update(show, { active: true });
@@ -1116,7 +1167,7 @@ chrome.commands.onCommand.addListener((command, tab) => {
   }
   const run = { 'sleep-tab': sleepFrontTab, 'sleep-others': sleepOtherTabs }[command];
   if (!run) return;
-  const front = tab ? Promise.resolve(tab) : chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([t]) => t);
+  const front = tab ? Promise.resolve(tab) : tabsNow({ active: true, lastFocusedWindow: true }).then(([t]) => t);
   front.then(run).catch(oops);
 });
 
@@ -1124,7 +1175,7 @@ self.addEventListener('online', () => sweepSoon(0));
 
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) return;
-  chrome.tabs.query({ active: true, windowId }).then(([t]) => refreshMenu(t)).catch(() => {});
+  tabsNow({ active: true, windowId }).then(([t]) => refreshMenu(t)).catch(() => {});
 });
 
 chrome.alarms.onAlarm.addListener((a) => {
@@ -1177,6 +1228,7 @@ self.addEventListener('unhandledrejection', (e) => oops(e.reason));
 chrome.alarms.get('tick').then((a) => { if (!a) chrome.alarms.create('tick', { periodInMinutes: 1 }); });
 store.load().then((s) => { cachedLevel = s.level; }).catch(() => {});
 newBrowserRun().then(() => connectLink()).catch(oops);
+unmarkAwake().catch(oops);
 
 // For the browser tests (test/browser/run.mjs), which drive the worker through Chrome's debugging protocol.
-globalThis.coolHead = { sweep, gather, act, store, link, viewFor };
+globalThis.coolHead = { sweep, gather, act, store, link, viewFor, unmarkAwake };
