@@ -1,1 +1,1 @@
-- With a tool or Settings open and the gauges on, the panel no longer shifts to the left: the way back to the cards is now a full-width bar under the top row, in the level's color, saying what the cards hold.
+- With a tool or Settings open and the gauges on, the panel no longer shifts to the left. The way back to the cards is now a full-width bar set in under the top row, in yellow or red, saying what the cards hold; it shows only while they need a look.
