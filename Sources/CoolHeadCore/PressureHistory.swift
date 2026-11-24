@@ -115,25 +115,35 @@ public enum PressureHistory {
         if l.isEmpty { d.removeObject(forKey: key) } else { d.set(try? JSONEncoder().encode(l), forKey: key) }
     }
 
-    /// The last 7 days: spells in which memory slowed the Mac, their minutes in all, and how many Chrome used the most in.
+    /// The last 7 days: spells in which memory slowed the Mac, their minutes in all, and how many Chrome used the most in;
+    /// and every spell of tight memory, slowed or not, with its minutes in all.
     public struct Week: Equatable {
         public let count: Int
         public let minutes: Int
         public let chromeCount: Int
-        public init(count: Int, minutes: Int, chromeCount: Int) { self.count = count; self.minutes = minutes; self.chromeCount = chromeCount }
+        public var tightCount = 0
+        public var tightMinutes = 0
+        public init(count: Int, minutes: Int, chromeCount: Int, tightCount: Int = 0, tightMinutes: Int = 0) {
+            self.count = count; self.minutes = minutes; self.chromeCount = chromeCount; self.tightCount = tightCount; self.tightMinutes = tightMinutes
+        }
     }
 
     public static func week(_ list: [Episode], now: Date) -> Week {
-        let w = list.filter { $0.slowed && now.timeIntervalSince($0.start) <= 7 * 24 * 3600 && $0.seconds >= minimum }
-        let minutes = w.reduce(0) { $0 + $1.seconds } / 60
-        return Week(count: w.count, minutes: w.isEmpty ? 0 : max(1, Int(minutes.rounded())), chromeCount: w.filter { $0.top == .chrome }.count)
+        let tight = list.filter { now.timeIntervalSince($0.start) <= 7 * 24 * 3600 && $0.seconds >= minimum }
+        let w = tight.filter(\.slowed)
+        func total(_ l: [Episode]) -> Int { l.isEmpty ? 0 : max(1, Int((l.reduce(0) { $0 + $1.seconds } / 60).rounded())) }
+        return Week(count: w.count, minutes: total(w), chromeCount: w.filter { $0.top == .chrome }.count, tightCount: tight.count, tightMinutes: total(tight))
     }
 
     /// For the This Mac page: how often memory slowed the Mac this week, and for how long in all.
+    /// With no slowed spells it says how often memory was tight, never that memory didn't slow the Mac: the gate counts
+    /// only memory moved to disk, and a Mac was slowed badly at warning with nothing moved (23 November 2026).
     public static func weekLine(_ w: Week) -> String {
         let time = Fmt.duration(Double(w.minutes) * 60)
         switch w.count {
-        case 0: return "Memory hasn't slowed your Mac this week."
+        case 0 where w.tightCount == 0: return "Memory hasn't been tight this week."
+        case 0 where w.tightCount == 1: return "Memory was tight once this week, for about \(Fmt.duration(Double(w.tightMinutes) * 60))."
+        case 0: return "Memory was tight \(w.tightCount) times this week, about \(Fmt.duration(Double(w.tightMinutes) * 60)) in all."
         case 1: return "Memory slowed your Mac once this week, for about \(time)."
         default: return "Memory slowed your Mac \(w.count) times this week, about \(time) in all."
         }
@@ -159,8 +169,9 @@ public enum PressureHistory {
 }
 
 /// When memory is what slows the Mac (research synthesis, "The ladder", step 1; node N-019's gate): macOS has said warning
-/// or critical for at least a minute, and memory is being moved to disk now. Moving memory to disk is what makes a Mac
-/// wait, so pressure without it means the Mac is coping, and advice to close tabs would cost something for nothing.
+/// or critical for at least a minute, and memory is being moved to disk now. It decides what acts by itself (Cool Head for
+/// Chrome's Auto) and what counts as "slowed" in the week. Pressure without disk moves doesn't show the Mac is coping: a
+/// Mac was slowed badly at warning with nothing moved (23 November 2026), so no card or line says it is (see MemoryAdvice).
 public enum MemoryGate {
     public static let minimumSpell: TimeInterval = 60
     /// Moved to disk in about the last 2 minutes. N-019 proposes about 250 MB in 5 minutes, the same rate; not yet tested.

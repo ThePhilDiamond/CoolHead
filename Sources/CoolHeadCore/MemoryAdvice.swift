@@ -148,17 +148,11 @@ public enum MemoryAdvice {
                             + (lowDisk(s) ? [Leftovers.buildDataFix(bytes: buildData).map { var f = $0; f.recommended = false; return f }, freeDisk].compactMap { $0 } : []))
         }
         let size = Fmt.bytes(top.bytes)
-        // Chrome using the most while the Mac copes: macOS says warning, but nothing is being moved to disk, so nothing
-        // waits on memory yet, and closing tabs would cost something for nothing (see MemoryGate). A calm card says so,
-        // and Cool Head says if it changes. At critical, the full card.
-        if top.name == "Google Chrome", top.kind == .browser, context.slowed == false, s.memoryPressure == "warning",
-           let moved = s.swappedOutMB, moved < MemoryGate.writingMB {
-            var calm = Card(state: .working, headline: "Memory is busy, but your Mac is keeping up.",
-                            explanation: "Google Chrome is using the most (\(size)), and your Mac isn't moving memory to its disk, so nothing is slowed down yet. We'll say if that changes.",
-                            fixes: [])
-            calm.names = ["Google Chrome"]
-            return calm
-        }
+        // No calm card when macOS says memory is short, whoever uses the most. One existed for Chrome at warning with nothing
+        // moved to disk ("your Mac is keeping up"), but a Mac slowed badly in exactly that state on 23 November 2026: macOS
+        // at warning for 16 minutes, Chrome the biggest, nothing moved to disk, and the card green. Moving memory to disk
+        // isn't the only way memory slows a Mac, so its absence doesn't show the Mac is coping. MemoryGate still decides
+        // what acts by itself (the extension's Auto); a person reading the card decides for themself.
         // how often memory has slowed this Mac this week (see PressureHistory): a pattern is a reason to act now rather than wait
         var weekNote: String? = nil
         if top.name == "Google Chrome", let w = context.week, w.count >= 2 {

@@ -66,11 +66,16 @@ extension Fixture {
         let w3 = PressureHistory.week(PressureHistory.sample(now: now), now: now)
         let w1 = PressureHistory.week([ep(2, 12.4, .chrome), ep(3, 30, .chrome, slowed: false), ep(9, 50, .chrome)], now: now)
         let w0 = PressureHistory.week([], now: now)
+        // tight but never slowed by the gate (the 23 November state): said as tight, never as "hasn't slowed"
+        let wTight = PressureHistory.week([ep(1, 16, .chrome, slowed: false), ep(3, 30, .chrome, slowed: false)], now: now)
+        let wTight1 = PressureHistory.week([ep(1, 16, .chrome, slowed: false)], now: now)
         let lines = [PressureHistory.weekLine(w3), PressureHistory.chromeLine(w3) ?? "-", PressureHistory.weekLine(w1), PressureHistory.chromeLine(w1) ?? "-",
-                     PressureHistory.weekLine(w0), PressureHistory.chromeLine(w0) ?? "-"]
+                     PressureHistory.weekLine(w0), PressureHistory.chromeLine(w0) ?? "-", PressureHistory.weekLine(wTight), PressureHistory.chromeLine(wTight) ?? "-",
+                     PressureHistory.weekLine(wTight1)]
         review.append(("pressure-week-line", lines == ["Memory slowed your Mac 3 times this week, about 40 minutes in all.", "Chrome was using the most memory in 2 of them.",
                                                        "Memory slowed your Mac once this week, for about 12 minutes.", "Chrome was using the most memory.",
-                                                       "Memory hasn't slowed your Mac this week.", "-"], lines.joined(separator: " | ")))
+                                                       "Memory hasn't been tight this week.", "-", "Memory was tight 2 times this week, about 46 minutes in all.", "-",
+                                                       "Memory was tight once this week, for about 16 minutes."], lines.joined(separator: " | ")))
 
         // saved in Cool Head's preferences and read back, with no names in it
         let suite = "coolhead-selftest-pressure"
@@ -82,17 +87,14 @@ extension Fixture {
         review.append(("pressure-saved", back == PressureHistory.sample(now: now) && !json.contains("Google") && !json.contains("Chrome") && json.contains("\"chrome\""),
                        "\(back.count) spells read back; \(json.count) characters, no app names"))
 
-        // the calm card: Chrome using the most, macOS says warning, nothing moved to disk; never at critical, never when
-        // memory is moving to disk, and today's card when the gate isn't judged (the selftests' other cards)
-        let calm = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 30), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
-        let critical = MemoryAdvice.card(chromeHeavy, mac: mac("critical", swappedMB: 30), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
-        let early = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 400), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
-        let unjudged = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 30), now: now, tabMemoryOn: false)
-        let slack = MemoryAdvice.card([MemGroup(key: "s", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 3_000_000_000, count: 5)],
-                                      mac: mac("warning", swappedMB: 30), now: now, context: MemoryContext(slowed: false))
-        review.append(("memory-chrome-calm", calm.state == .working && calm.fixes.isEmpty && calm.headline == "Memory is busy, but your Mac is keeping up."
-                       && critical.state != .working && !critical.fixes.isEmpty && early.state != .working && unjudged.state != .working && slack.state != .working,
-                       calm.headline + " " + calm.explanation))
+        // no calm card: Chrome using the most, macOS says warning, nothing moved to disk, the gate not met. That state slowed
+        // a Mac badly on 23 November 2026 while the card was green, so Chrome gets the card every app gets, which needs a look
+        let unmoved = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 0), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
+        let slackUnmoved = MemoryAdvice.card([MemGroup(key: "s", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 3_000_000_000, count: 5)],
+                                             mac: mac("warning", swappedMB: 0), now: now, context: MemoryContext(slowed: false))
+        review.append(("memory-chrome-warning-unmoved", unmoved.state == .unknown && unmoved.headline.hasPrefix("Memory is tight. Google Chrome is using the most")
+                       && unmoved.fixes.first?.recommended == true && slackUnmoved.state == .unknown,
+                       unmoved.headline + " " + unmoved.explanation))
 
         // the week on Chrome's card: from the second time this week
         let twice = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 600), now: now,
@@ -101,11 +103,67 @@ extension Fixture {
                                      context: MemoryContext(slowed: true, week: PressureHistory.Week(count: 1, minutes: 12, chromeCount: 1)), tabMemoryOn: false)
         review.append(("memory-chrome-week", twice.explanation.hasSuffix("It's slowed your Mac 3 times this week, about 40 minutes in all, so it's likely to happen again while Chrome holds this much.")
                        && !once.explanation.contains("this week"), twice.explanation))
+
+        // trusting the biggest user never calms the memory card, at warning or critical: a trusted app's tight memory showed
+        // green on 23 November 2026 while the Mac was slowed. The trusted list is a throwaway set, never the app's own.
+        let trustSuite = "coolhead.selftest.\(UUID().uuidString)"
+        let savedTrust = Trust.defaults
+        if let d = UserDefaults(suiteName: trustSuite) { Trust.defaults = d }
+        Trust.add("app:com.example.chat", name: "Chat")
+        func memoryCard(_ level: String) -> LiveCard {
+            var c = LiveCard(id: "memory-\(level)", pid: nil, card: unmoved, details: [])
+            c.causeKey = "memory"; c.trustKey = "app:com.example.chat"; c.trustName = "Chat"; c.trusted = true
+            Watcher.applyMemoryTrust(&c, critical: level == "critical")
+            return c
+        }
+        let tight = memoryCard("warning"), veryTight = memoryCard("critical")
+        Trust.defaults = savedTrust
+        UserDefaults.standard.removePersistentDomain(forName: trustSuite)
+        let w = Watcher()
+        review.append(("memory-trust-never-calms", !tight.trusted && tight.trustNote == "You trust Chat, but memory is tight." && w.signs([tight]).memoryTight
+                       && !veryTight.trusted && veryTight.trustNote == "You trust Chat, but memory is very tight." && w.signs([veryTight]).memoryCritical,
+                       (tight.trustNote ?? "no note") + " | " + (veryTight.trustNote ?? "no note")))
+
+        // the first look: no "All calm" before the first full reading (an update relaunch opened the panel 1.5 seconds in,
+        // on 23 November 2026, and said all was calm), nor while a program busy since then can't be judged yet, at most a
+        // minute; one busy later doesn't hold it. Screenshots skip it unless they ask for it.
+        let none: [String: String] = [:], t1 = now.addingTimeInterval(10)
+        let quiet = Watcher(), busy = Watcher(), capped = Watcher()
+        let steps = [quiet.noteSample(dt: 0, busySince: [], now: now, environment: none), quiet.noteSample(dt: 10, busySince: [], now: t1, environment: none),
+                     busy.noteSample(dt: 0, busySince: [], now: now, environment: none), busy.noteSample(dt: 10, busySince: [now, t1], now: t1, environment: none),
+                     busy.noteSample(dt: 10, busySince: [t1, t1.addingTimeInterval(20)], now: t1.addingTimeInterval(30), environment: none),
+                     busy.noteSample(dt: 10, busySince: [t1.addingTimeInterval(20)], now: t1.addingTimeInterval(40), environment: none),
+                     capped.noteSample(dt: 10, busySince: [t1], now: t1, environment: none),
+                     capped.noteSample(dt: 10, busySince: [t1], now: t1.addingTimeInterval(60), environment: none)]
+        let shots = [Watcher().noteSample(dt: 0, busySince: [], now: now, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p"]).over,
+                     Watcher().noteSample(dt: 0, busySince: [], now: now, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p", "COOLHEAD_SNAPSHOT_FIRSTLOOK": "1"]).over]
+        let want: [(Bool, Int)] = [(false, 0), (true, 0), (false, 0), (false, 2), (false, 1), (true, 0), (false, 1), (true, 1)]
+        let stepsOK = steps.count == want.count && zip(steps, want).allSatisfy { $0.over == $1.0 && $0.judging == $1.1 }
+        // setting the clock back can't stretch it: the eighth full reading ends it whatever the clock says
+        let stuck = Watcher()
+        let counted = (0..<8).map { _ in stuck.noteSample(dt: 10, busySince: [t1], now: t1, environment: none).over }
+        // what ends it, once: a reading that's over ends it, and a later one can't bring it back
+        let shown = Watcher()
+        shown.applyLook((false, 2)); let waiting = (shown.firstLook, shown.firstLookJudging)
+        shown.applyLook((true, 0)); let lookEnded = shown.firstLook
+        shown.applyLook((false, 1)); let stays = (shown.firstLook, shown.firstLookJudging)
+        // what counts as busy: half a core or half the graphics chip, never Cool Head itself
+        var hog = Watcher.Track(cpu: 0, written: 0); hog.cores = 0.6; hog.busySince = t1
+        var drawing = Watcher.Track(cpu: 0, written: 0); drawing.gpu = 0.6; drawing.busySince = now
+        var idle = Watcher.Track(cpu: 0, written: 0); idle.cores = 0.1
+        let busyList = Watcher.busySince([10: hog, 11: drawing, 12: idle, 99: hog], me: 99).sorted()
+        // a warm Mac while the first look watches a busy program: never "nothing is working hard"
+        let heat = [Watcher.heatExplained(cards: false, look: (false, 1)), Watcher.heatExplained(cards: false, look: (true, 1)),
+                    Watcher.heatExplained(cards: false, look: (false, 0)), Watcher.heatExplained(cards: true, look: (true, 0))]
+        let wiringOK = heat == [true, false, false, true] && counted == [false, false, false, false, false, false, false, true] && waiting == (true, 2) && !lookEnded && stays == (false, 0)
+            && busyList == [now, t1]
+        review.append(("first-look", w.firstLook && stepsOK && shots == [true, false] && wiringOK,
+                       "starts looking \(w.firstLook); steps \(steps.map { "\($0.over)/\($0.judging)" }); screenshots \(shots); by count \(counted); applied \(waiting) \(lookEnded) \(stays); busy \(busyList.count)"))
         return review
     }
 
     static func pressureHistorySamples(_ now: Date) -> [(String, Card)] {
-        [("memory-chrome-calm", MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 30), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)),
+        [("memory-chrome-warning-unmoved", MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 0), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)),
          ("memory-chrome-week", MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 600), now: now,
                                                   context: MemoryContext(slowed: true, week: PressureHistory.Week(count: 3, minutes: 40, chromeCount: 2)), tabMemoryOn: false))]
     }
