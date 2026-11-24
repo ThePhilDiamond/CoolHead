@@ -1,0 +1,1 @@
+- Cool Head for Chrome: the shortcut that sleeps the tab you're on now shows the next awake tab to its right, so pressing it again and again sleeps one tab after another; it used to go back to the tab you used before, which bounced between two tabs.

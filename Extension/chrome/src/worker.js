@@ -950,12 +950,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // The keyboard shortcut (no key until the person picks one in Chrome's shortcuts page): the tab in front sleeps
 // whatever keeps it awake otherwise, since the person asked while looking at it. Chrome can't unload the tab in
-// front, so the one they used before it comes to the front first.
+// front, so the next awake tab to its right comes to the front first, and pressing it again sleeps tab after tab.
 async function sleepFrontTab(tab) {
   if (!tab || tab.discarded) return;
-  const s = await store.load();
   const tabs = await chrome.tabs.query({ windowId: tab.windowId });
-  const show = tabToShowInstead(tabs, tab.id, s.use);
+  const show = tabToShowInstead(tabs, tab.id);
   if (show == null) { log('spared', `Didn't sleep ${host(tab.url)}: it's the only tab in its window`, { tab: tab.id }); return; }
   await chrome.tabs.update(show, { active: true });
   await sleepMany([tab.id], { force: true, why: () => 'the keyboard shortcut' });
