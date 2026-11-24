@@ -237,16 +237,23 @@ test('an extension with its own tabs open is never paused, since Chrome would cl
   assert.equal(columns(exts, null, 'self', open).rest.find((e) => e.id === napper).open, true);
 });
 
-test('the shortcut shows the tab used before the one put to sleep, or else its neighbor, in the same window', async () => {
+test('the shortcut shows the next awake tab to the right, going round, so pressing it again sleeps tab after tab', async () => {
   const { tabToShowInstead } = await import('../src/logic/usage.js');
   const tabs = [
     { id: 1, windowId: 1, index: 0 }, { id: 2, windowId: 1, index: 1 }, { id: 3, windowId: 1, index: 2 },
-    { id: 9, windowId: 2, index: 0 },
+    { id: 4, windowId: 1, index: 3 }, { id: 9, windowId: 2, index: 0 },
   ];
-  assert.equal(tabToShowInstead(tabs, 2, { 1: { last: 100, left: 200, switches: [] }, 3: { last: 50, left: 60, switches: [] }, 9: { last: 900, left: 950, switches: [] } }), 1);
-  assert.equal(tabToShowInstead(tabs, 2, {}), 3);
-  assert.equal(tabToShowInstead(tabs, 3, {}), 2);
-  assert.equal(tabToShowInstead(tabs, 9, {}), null);
+  assert.equal(tabToShowInstead(tabs, 2), 3);                    // the next tab
+  assert.equal(tabToShowInstead(tabs, 4), 1);                    // after the last, the first
+  assert.equal(tabToShowInstead(tabs, 9), null);                 // the window's only tab
+  // pressing it again and again: each tab sleeps in turn, never going back to one just put to sleep
+  const asleep = (ids) => tabs.map((t) => ({ ...t, discarded: ids.includes(t.id) }));
+  assert.equal(tabToShowInstead(asleep([2]), 3), 4);
+  assert.equal(tabToShowInstead(asleep([2, 3]), 4), 1);
+  assert.equal(tabToShowInstead(asleep([3]), 2), 4);              // a sleeping tab is passed over
+  // every other tab asleep: the one to its right, or the last tab's left, as when a tab is closed
+  assert.equal(tabToShowInstead(asleep([1, 3, 4]), 2), 3);
+  assert.equal(tabToShowInstead(asleep([1, 2, 3]), 4), 3);
 });
 
 test('a suspended tab gives up its real address, whichever way the suspender writes it', async () => {

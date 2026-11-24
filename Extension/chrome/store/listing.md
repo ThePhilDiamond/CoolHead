@@ -94,7 +94,7 @@ The extension works on its own; the Cool Head Mac app is optional and not needed
 1. Open several tabs, then click the toolbar button. Effort, in the bottom bar, sets how many of the most used tabs stay loaded (Balanced: 3). Leave a tab and it goes to sleep 30 seconds later; it stays in the tab bar and reloads when clicked.
 2. Play a video or sound in a tab: it stays awake and appears in Protected with Keep, Sleep, and Close.
 3. Click "Start a session", keep a few tabs ticked, and press Start: the unticked tabs sleep. End the session from the menu.
-4. Press Command-Shift-S (Ctrl+Shift+S on Windows and Linux) on a tab: it sleeps, and the tab used before it shows.
+4. Press Command-Shift-S (Ctrl+Shift+S on Windows and Linux) on a tab: it sleeps, and the next tab to its right shows. Press it again to sleep that one too.
 5. Optional: in Settings, turn on "Keep tabs with unsent typing or a call awake" and allow access, then type in a form without sending it; that tab is held as "Unsent typing".
 No account or sign-in is needed.
 ```
