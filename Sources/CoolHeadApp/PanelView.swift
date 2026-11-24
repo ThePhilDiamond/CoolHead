@@ -62,8 +62,10 @@ struct PanelView: View {
             // with a tool open and cards waiting, a full-width bar back to them, fixed between the top row and the
             // page so it's always in view. It was a pill under the top row's words, which beside the gauges made the
             // row wider than the panel, so everything shifted left; here it never changes the panel's width.
-            if let backTo {
+            // only while the cards need a look (yellow or red); cards that only need watching don't call anyone back
+            if let backTo, level != .good {
                 BackBar(words: backTo, level: level) { withAnimation(.easeOut(duration: 0.15)) { Tools.closeAll(watcher) } }
+                    .zIndex(1)          // its glow falls on the page below
             }
             // scrolls once it is taller than the limit
             ScrollView {
@@ -1100,7 +1102,9 @@ struct Disclosure: View {
 
 /// The bar back to the cards while a tool is open: the whole width, in the level's color at full strength so it can't
 /// be missed, with what the cards hold ("2 fixes recommended") and where it goes. Dark words on yellow and white on a
-/// deeper red than macOS's (systemRed with white is under 4.5 to 1), Cool Head blue when the cards only need watching.
+/// deeper red than macOS's (systemRed with white is under 4.5 to 1). Shown only at yellow and red. A soft glow of its own
+/// color on the page below and a lighter top edge and darker bottom edge give it weight without moving, so it catches
+/// the eye without nagging.
 struct BackBar: View {
     let words: String
     let level: Watcher.Level
@@ -1110,8 +1114,7 @@ struct BackBar: View {
     var fill: Color {
         switch level {
         case .warning: return Color(nsColor: Badge.color(.warning))
-        case .issue: return Color(red: 0.776, green: 0.157, blue: 0.157)          // #C62828
-        case .good: return Ink.fill
+        case .issue, .good: return Color(red: 0.776, green: 0.157, blue: 0.157)          // #C62828 (never shown at good)
         }
     }
     var ink: Color { level == .warning ? Color(red: 0.1, green: 0.09, blue: 0.05) : .white }
@@ -1129,6 +1132,9 @@ struct BackBar: View {
             .padding(.horizontal, 16).padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(fill.opacity(hovering ? 0.85 : 1))
+            .overlay(alignment: .top) { Rectangle().fill(.white.opacity(0.35)).frame(height: 1) }
+            .overlay(alignment: .bottom) { Rectangle().fill(.black.opacity(0.25)).frame(height: 1) }
+            .shadow(color: fill.opacity(0.55), radius: 8, y: 3)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
