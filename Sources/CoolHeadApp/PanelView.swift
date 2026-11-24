@@ -51,8 +51,7 @@ struct PanelView: View {
             // fixed at the top: the snowflake, what's happening and how busy the chip and memory are, in one row; the
             // status is its title. There's no separate title bar above it, so the top is just the large icon, what's
             // happening, and the chip and memory figures. The version is in the toolbar along the bottom.
-            RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level, extra: extra,
-                         back: backTo)
+            RunningStrip(watcher: watcher, cards: shownCards, title: status, level: level, extra: extra)
                 // with a tool open, clicking the top goes back to the cards: the top names any problem, so a click on
                 // it leads to the cards about it
                 .contentShape(Rectangle())
@@ -60,6 +59,13 @@ struct PanelView: View {
                 .help(toolOpen ? "Back to the cards" : "")
                 .accessibilityAddTraits(toolOpen ? .isButton : [])
             Divider()
+            // with a tool open and cards waiting, a full-width bar back to them, fixed between the top row and the
+            // page so it's always in view. It was a pill under the top row's words, which beside the gauges made the
+            // row wider than the panel, so everything shifted left; here it never changes the panel's width.
+            // only while the cards need a look (yellow or red); cards that only need watching don't call anyone back
+            if let backTo, level != .good {
+                BackBar(words: backTo, level: level) { withAnimation(.easeOut(duration: 0.15)) { Tools.closeAll(watcher) } }
+            }
             // scrolls once it is taller than the limit
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -1091,6 +1097,54 @@ struct Disclosure: View {
 /// wider than its content once the middle stopped scrolling, with the panel's edge showing at the sides.
 @MainActor enum PanelSize {
     static var report: ((CGSize) -> Void)?
+}
+
+/// The bar back to the cards while a tool is open: the whole width, in the level's color at full strength so it can't
+/// be missed, with what the cards hold ("2 fixes recommended") and where it goes. Dark words on yellow and white on a
+/// deeper red than macOS's (systemRed with white is under 4.5 to 1). Shown only at yellow and red. Set in under the top
+/// row, with shadows falling on it, so it has weight without moving and catches the eye without nagging.
+struct BackBar: View {
+    let words: String
+    let level: Watcher.Level
+    let action: () -> Void
+    @State private var hovering = false
+
+    var fill: Color {
+        switch level {
+        case .warning: return Color(nsColor: Badge.color(.warning))
+        case .issue, .good: return Color(red: 0.776, green: 0.157, blue: 0.157)          // #C62828 (never shown at good)
+        }
+    }
+    var ink: Color { level == .warning ? Color(red: 0.1, green: 0.09, blue: 0.05) : .white }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.left").font(.callout.weight(.bold))
+                Text(words).font(.callout.weight(.semibold))
+                Text("·").font(.callout)
+                Text("Back to the cards").font(.callout)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(ink)
+            .padding(.horizontal, 16).padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(fill.opacity(hovering ? 0.85 : 1))
+            // set in, under the top row and the page: the top row casts a shadow down onto it, the page a lighter one
+            // up, and a faint light edge along its foot catches the light, as a recessed strip does
+            .overlay(alignment: .top) {
+                LinearGradient(colors: [.black.opacity(0.38), .black.opacity(0)], startPoint: .top, endPoint: .bottom).frame(height: 7)
+            }
+            .overlay(alignment: .bottom) {
+                LinearGradient(colors: [.black.opacity(0), .black.opacity(0.2)], startPoint: .top, endPoint: .bottom).frame(height: 4)
+            }
+            .overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.18)).frame(height: 1) }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { h in hovering = h; if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+        .accessibilityLabel("\(words). Back to the cards")
+    }
 }
 
 /// A card or line that opens on a click shows it: a light wash and the pointing-hand cursor under the mouse.
