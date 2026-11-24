@@ -1082,7 +1082,7 @@ public final class Watcher {
             }
             live.append(lc)
         }
-        let explained = !live.isEmpty
+        let explained = Watcher.heatExplained(cards: !live.isEmpty, look: look)
         // a stuck process has its own card, in place of a busy one for the same process (an app not responding while busy)
         let hung = hangCards(table, now: now, mac: state)
         live.removeAll { c in hung.contains { $0.pid == c.pid } }
@@ -1268,6 +1268,12 @@ public final class Watcher {
         // can't stretch it
         let minuteUp = now.timeIntervalSince(first) >= Watcher.busyMinute || fullReadings > Int(Watcher.busyMinute / interval) + 1
         return (judging == 0 || minuteUp, judging)
+    }
+
+    /// Whether a warm Mac's heat has a cause on screen, so no "nothing is working hard" card: a busy program's card, or,
+    /// during the first look, programs it's still watching, which can't have a card yet but are working hard.
+    static func heatExplained(cards: Bool, look: (over: Bool, judging: Int)) -> Bool {
+        cards || (!look.over && look.judging > 0)
     }
 
     /// When each program busy now became busy: half a core or half the graphics chip, Cool Head itself left out.

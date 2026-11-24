@@ -152,7 +152,10 @@ extension Fixture {
         var drawing = Watcher.Track(cpu: 0, written: 0); drawing.gpu = 0.6; drawing.busySince = now
         var idle = Watcher.Track(cpu: 0, written: 0); idle.cores = 0.1
         let busyList = Watcher.busySince([10: hog, 11: drawing, 12: idle, 99: hog], me: 99).sorted()
-        let wiringOK = counted == [false, false, false, false, false, false, false, true] && waiting == (true, 2) && !lookEnded && stays == (false, 0)
+        // a warm Mac while the first look watches a busy program: never "nothing is working hard"
+        let heat = [Watcher.heatExplained(cards: false, look: (false, 1)), Watcher.heatExplained(cards: false, look: (true, 1)),
+                    Watcher.heatExplained(cards: false, look: (false, 0)), Watcher.heatExplained(cards: true, look: (true, 0))]
+        let wiringOK = heat == [true, false, false, true] && counted == [false, false, false, false, false, false, false, true] && waiting == (true, 2) && !lookEnded && stays == (false, 0)
             && busyList == [now, t1]
         review.append(("first-look", w.firstLook && stepsOK && shots == [true, false] && wiringOK,
                        "starts looking \(w.firstLook); steps \(steps.map { "\($0.over)/\($0.judging)" }); screenshots \(shots); by count \(counted); applied \(waiting) \(lookEnded) \(stays); busy \(busyList.count)"))

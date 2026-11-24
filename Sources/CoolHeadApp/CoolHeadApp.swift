@@ -66,6 +66,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 self?.turnLookRing(looking)          // the ring turns only in the badge style
             }
         }
+        // Reduce motion switched while the ring turns: it stops, or starts, at once
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { guard let self else { return }; self.turnLookRing(self.lastLooking) }
+        }
         watcher.start()
         // the link with Cool Head for Chrome, not while taking screenshots (see ChromeLinkServer)
         if ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT"] == nil {
