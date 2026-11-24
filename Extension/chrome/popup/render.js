@@ -362,13 +362,17 @@ function windowsScreen(view, ui, on) {
   const words = (ui.windowWords ?? '').trim();
   const name = W.windowFolderName(words || w.defaultWords, w.tabsHere, w.day);
   const input = h('input', { type: 'text', maxlength: '40', value: ui.windowWords ?? '', placeholder: W.WINDOWS_DESCRIBE_HINT,
-    'data-key': 'window-words', oninput: (e) => on.windowWords(e.target.value) });
+    'data-key': 'window-words', oninput: (e) => on.windowWords(e.target.value),
+    onkeydown: (e) => { if (e.key === 'Enter') on.saveWindow(e.target.value); } });
+  const risky = ui.windowRisky && w.risky.length;
   const save = h('section', { class: 'card', 'aria-labelledby': 'win-save-h' },
     h('h2', { id: 'win-save-h', text: W.WINDOWS_SAVE_TITLE }),
     h('p', { text: W.WINDOWS_SAVE_WHY }),
     h('label', { class: 'field' }, W.WINDOWS_DESCRIBE, input),
     h('p', { class: 'savedas', 'aria-live': 'polite', text: W.windowsSavedAs(name) }),
-    h('div', { class: 'row' }, h('button', { class: 'btn primary', 'data-key': 'window-save', onclick: () => on.saveWindow(words) }, W.WINDOWS_SAVE)),
+    risky ? h('div', { class: 'warn', id: 'win-risky' }, icon('warn'), h('span', { text: W.windowsRisky(w.risky) })) : null,
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', 'data-key': 'window-save', 'aria-describedby': risky ? 'win-risky' : null,
+      onclick: () => on.saveWindow(input.value) }, risky ? W.WINDOWS_SAVE_ANYWAY : W.WINDOWS_SAVE)),
     h('p', { class: 'note', text: w.granted ? W.WINDOWS_SAVE_NOTE : `${W.WINDOWS_SAVE_NOTE} ${W.WINDOWS_ASKS}` }));
   const saved = h('section', { class: 'part', 'aria-labelledby': 'win-list-h' },
     h('h3', { class: 'parthead', id: 'win-list-h' }, W.WINDOWS_SAVED, h('span', { class: 'count', text: String(w.saved.length) })));
@@ -518,7 +522,7 @@ function settingsScreen(view, ui, on) {
     h('section', { class: 'card', 'aria-labelledby': 'key-h' },
       h('h2', { id: 'key-h', text: W.SHORTCUT_TITLE }),
       h('dl', { class: 'keys' },
-        ...[[W.SHORTCUT_THIS, st.shortcuts.tab], [W.SHORTCUT_OTHERS, st.shortcuts.others]].flatMap(([name, key]) => [
+        ...[[W.SHORTCUT_THIS, st.shortcuts.tab], [W.SHORTCUT_OTHERS, st.shortcuts.others], [W.SHORTCUT_WINDOW, st.shortcuts.window]].flatMap(([name, key]) => [
           h('dt', { text: name }), h('dd', {}, key ? h('kbd', { text: key }) : h('span', { class: 'muted', text: W.SHORTCUT_NONE }))])),
       h('p', { class: 'why', text: W.SHORTCUT_WHAT }),
       h('div', { class: 'row' },

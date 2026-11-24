@@ -22,7 +22,11 @@ const ui = {
   safe: null,
   laterNote: false, // after "Do it later": home says where to find the move again, until the popup closes
   offered: false,   // the move was offered on this opening already
+  windowWords: '',      // Saved windows: the words typed for the folder's name
+  confirmWindow: null,  // { id, action: 'reopen' | 'remove' }: the saved window asking in its row
+  windowRisky: false,   // Save and close was pressed with tabs that have unsent typing or a call; the next press closes
 };
+const BOOKMARKS = { permissions: ['bookmarks'] };
 let view = null;
 let closeLevels = null;
 
@@ -57,6 +61,13 @@ async function refresh() {
   }
   // Tabs a suspender holds are offered once, when the popup first finds them, unless the person put it off; a move
   // under way, or its result, shows whenever the popup opens.
+  // the shortcut for saving a window opens the popup at Saved windows, ready for its words
+  if (view.openScreen === 'windows') {
+    ui.screen = 'windows';
+    draw();
+    root.querySelector('[data-key="window-words"]')?.focus();
+    return;
+  }
   const m = view.migrate;
   if (!before && m && ui.screen === 'home' && (m.running || m.result || (m.count && !m.later))) ui.screen = 'migrate';
   // Nothing the popup shows has changed (a tab finished loading, the worker saved its own bookkeeping): no redraw,
@@ -93,12 +104,47 @@ async function openTool(screen) {
   if (screen === 'protected') await loadSafe();
   ui.screen = screen;
   ui.confirm = null;
+  ui.confirmWindow = null;
+  ui.windowRisky = false;
   draw();
 }
 
 const on = {
   openSettings() { openTool('settings').catch(console.error); },
   openProtected() { openTool('protected').catch(console.error); },
+  openWindows() { openTool('windows').catch(console.error); },
+  // Typing updates the folder's name shown under the field, without a redraw, which would move the caret.
+  windowWords(v) {
+    ui.windowWords = v;
+    const w = view.windows;
+    const words = v.replace(/\s+/g, ' ').trim() || w.defaultWords;
+    const line = root.querySelector('.savedas');
+    if (line) line.textContent = W.windowsSavedAs(W.windowFolderName(words, w.tabsHere, w.day));
+  },
+  // The first time, Chrome asks about bookmarks; with tabs that have unsent typing or a call, the first press says so
+  // and the second closes. The window then closes, and this popup with it; the worker finishes the work.
+  async saveWindow(words) {
+    if (!view.windows.granted) {
+      const ok = await chrome.permissions.request(BOOKMARKS).catch(() => false);
+      if (!ok) return;
+      view = await ask({ type: 'view' });
+    }
+    if (view.windows.risky.length && !ui.windowRisky) {
+      ui.windowRisky = true;
+      draw();
+      announce(W.windowsRisky(view.windows.risky));
+      return;
+    }
+    await act({ action: 'saveWindow', words, anyway: ui.windowRisky });
+  },
+  askWindow(id, action) {
+    ui.confirmWindow = id ? { id, action } : null;
+    draw();
+    root.querySelector(`[data-key="${id ? `win-yes-${id}` : 'window-words'}"]`)?.focus({ preventScroll: true });
+  },
+  reopenWindow(id) { ui.confirmWindow = null; act({ action: 'reopenWindow', id }); },
+  removeWindow(id) { ui.confirmWindow = null; act({ action: 'removeWindow', id }); },
+  tidyWindows() { act({ action: 'tidyWindows' }); },
   // The effort choices slide down as they open; later redraws draw them still.
   openEffort() { clearTimeout(closeLevels); ui.levelSet = null; openTool('effort').catch(console.error); },
   // Back home from a tool, by the band's pill, the band, or the open tool again; focus goes to the tool that was open.
@@ -251,7 +297,9 @@ function soon() {
   pending = setTimeout(() => {
     if (Date.now() - scrolledAt < 400) { soon(); return; }
     // Not while the group name is being typed: a redraw would move the caret and break input methods.
-    if ((ui.screen === 'home' && !ui.ending) || ['settings', 'protected', 'effort', 'migrate'].includes(ui.screen)) refresh().catch(console.error);
+    // nor while a saved window's words are being typed
+    const typingWords = document.activeElement?.dataset?.key === 'window-words';
+    if ((ui.screen === 'home' && !ui.ending) || ['settings', 'protected', 'effort', 'migrate'].includes(ui.screen) || (ui.screen === 'windows' && !typingWords)) refresh().catch(console.error);
   }, 200);
 }
 chrome.storage.onChanged.addListener(soon);

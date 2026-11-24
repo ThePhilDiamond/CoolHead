@@ -25,6 +25,7 @@ What it does
 • Doesn't sleep tabs while you're offline, when they couldn't reload, unless you choose otherwise.
 • Moving from another tab suspender: its tabs move over one at a time, each asleep at its real address, so you can remove the suspender without losing them. A tab whose address downloads a file moves to a page of its own, with Download it again.
 • Finds pages open twice and closes the extra copy, keeping the one you used last.
+• Saved windows: save a window you're done with for now into a bookmark folder named with a few words, how many tabs, and the date, and close it. Reopen it later with every tab asleep, or open it with Chrome's own Open all.
 • Pauses extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. Essentials such as password managers and security tools stay on by default, and you can switch any extension on or off at any time. One that runs on every site is listed first, since it adds memory to every tab. Pausing is off until you turn it on.
 
 Works on its own, or with Cool Head
@@ -52,7 +53,7 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 **Single purpose:**
 
 ```
-Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep and, if the user turns it on, temporarily pauses extensions they don't need, while keeping awake what they need: calls, sound, unsent typing, and the tabs, sites, and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, keyboard shortcuts to sleep tabs, closing duplicate tabs, moving tabs held by another tab suspender so they can sleep natively, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
+Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep and, if the user turns it on, temporarily pauses extensions they don't need, while keeping awake what they need: calls, sound, unsent typing, and the tabs, sites, and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, keyboard shortcuts to sleep tabs, closing duplicate tabs, saving a window as a bookmark folder to reopen later with its tabs asleep, moving tabs held by another tab suspender so they can sleep natively, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
 ```
 
 **Permission justifications:**
@@ -69,6 +70,7 @@ Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep 
 | favicon | Shows each tab's icon in the popup's lists, from Chrome's own icon cache. |
 | system.memory | Reads the computer's free memory, to show and decide how hard to work. |
 | management (optional, asked for when used) | Asked for only when the person turns on "Pause extensions", or asks to remove a tab suspender after its tabs are moved. During a session, or when Cool Head reports memory is very tight, pauses extensions the person hasn't kept on, and turns them back on when the session ends or memory clears. Never pauses an extension with tabs open on its own pages. Removing a suspender uses Chrome's own confirmation. |
+| bookmarks (optional, asked for when used) | Asked for only the first time the person saves a window. Saved windows writes the window's pages to a bookmark folder in its own "Cool Head windows" folder, lists that folder's contents, reopens a saved folder with its tabs asleep and then removes it, deletes one the person removes, and moves anything the person put in that folder to Other bookmarks. It reads no other bookmarks beyond the top folders' names, to find Other bookmarks. |
 | Host permissions, all sites (optional, asked for when used) | Asked for only when the person turns on "Unsent typing and calls". Lets its page scripts check whether a tab has unsent typing or a camera, microphone, or screen-sharing call, so those tabs never sleep and lose typing or end a call. Only a yes or no leaves the page. The person can turn it off at any time. |
 
 **Remote code:** No, I am not using remote code. (Every script is in the package; the content security policy allows only the extension's own scripts.)

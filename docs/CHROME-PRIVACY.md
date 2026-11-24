@@ -1,6 +1,6 @@
 # Cool Head for Chrome: privacy
 
-Last changed 21 November 2026.
+Last changed 24 November 2026.
 
 Cool Head for Chrome puts tabs you aren't using to sleep, so Chrome holds less memory. Everything it reads stays on your computer. It sends nothing over the internet: it has no account, no analytics, no ads, and no server, and its pages are built so they can't open a network connection at all (their content security policy sets `connect-src 'none'`).
 
@@ -14,10 +14,11 @@ All of this is read and used on your computer only.
 - **Whether a page is using your camera, microphone, or screen sharing,** so a call isn't put to sleep. Only a yes or no leaves the page, never sound or video. This also needs access to sites.
 - **Your list of extensions,** only if you turn on resting extensions, so that during a session, or when memory is very tight, it can turn off extensions that aren't on your safe list, and turn them back on when the session ends or memory clears.
 - **How much memory your computer has free,** from Chrome.
+- **Its own bookmark folder,** only if you use Saved windows. Saving a window writes its pages' addresses and titles to a folder named "Cool Head windows" in Other bookmarks. It reads that folder to list what's saved, and Tidy moves anything it didn't put there to Other bookmarks. Of your other bookmarks, it reads only the names of the top folders, to find Other bookmarks. This needs permission to change your bookmarks, which Chrome asks you for the first time.
 
 ## What it keeps
 
-In Chrome's own storage on your computer: your settings, the tabs you've chosen to keep loaded (with their address and title, so it can find them again after Chrome restarts), the tabs it put to sleep, your session, and your safe list of extensions. Removing the extension deletes all of it.
+In Chrome's own storage on your computer: your settings, the tabs you've chosen to keep loaded (with their address and title, so it can find them again after Chrome restarts), the tabs it put to sleep, your session, your safe list of extensions, and which bookmark folders it saved. Removing the extension deletes all of it. A saved window is an ordinary bookmark folder, so it stays in your bookmarks until you reopen or remove it, even if you remove the extension, and Chrome syncs it like any bookmark if you use Chrome sync.
 
 ## With Cool Head on a Mac
 
