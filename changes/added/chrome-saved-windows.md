@@ -1,0 +1,1 @@
+- Cool Head for Chrome: Saved windows. Save a window you're done with for now into a bookmark folder named with a few words, how many tabs, and the date, and close it; reopen it later with every tab asleep, which removes the folder, or open it with Chrome's own Open all. Command-Shift-Y (Ctrl+Shift+Y) opens it.

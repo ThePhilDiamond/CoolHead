@@ -12,7 +12,8 @@ import { startPlan, join, leave, groupPlan } from './logic/session.js';
 import { rematch, keepRecord, windowOrdinals } from './logic/keep.js';
 import { restPlan, shouldWake, columns, move, withOpenTabs } from './logic/extensions.js';
 import { migrationPlan, suspenders, suspendedAt } from './logic/migrate.js';
-import { heldCounts, siteOf, siteRuleFor } from './logic/reasons.js';
+import { heldCounts, siteOf, siteRuleFor, heldReasons, risk } from './logic/reasons.js';
+import { savable, defaultWords, cleanWords, folderTitle, dayText, splitParent, urlsIn } from './logic/windows.js';
 import { report, sameReport, reportDue, REPORT_EVERY_MS } from './logic/protocol.js';
 import { buildView, buildStart, contextFrom, asleepCount } from './logic/view.js';
 import { LinkClient } from './link-client.js';
@@ -23,6 +24,7 @@ import { host, explainCheck, checkSentence, ago } from './logic/explain.js';
 const VERSION = chrome.runtime.getManifest().version;
 const ALL_SITES = { origins: ['<all_urls>'] };
 const MANAGEMENT = { permissions: ['management'] };
+const BOOKMARKS = { permissions: ['bookmarks'] };
 
 // ---------- gathering ----------
 
@@ -514,6 +516,136 @@ async function checkBrowserRun() {
   await refreshBadge();
 }
 
+// ---------- saved windows ----------
+
+// A window saved as a bookmark folder and closed, then reopened asleep (logic/windows.js). Bookmarks is an optional
+// permission, asked for in the popup the first time a window is saved.
+async function hasBookmarks() {
+  return chrome.permissions.contains(BOOKMARKS);
+}
+
+async function otherBookmarksId() {
+  const [root] = await chrome.bookmarks.getTree();
+  const kids = root.children || [];
+  return (kids.find((n) => n.folderType === 'other') || kids[1] || kids[0]).id;
+}
+
+// The "Cool Head windows" folder, made under Other bookmarks when first needed, and again if it was deleted.
+async function windowsParent(s, make) {
+  if (s.windowsFolderId) {
+    const [got] = await chrome.bookmarks.get(s.windowsFolderId).catch(() => []);
+    if (got && !got.url) return got.id;
+  }
+  if (!make) return null;
+  const made = await chrome.bookmarks.create({ parentId: await otherBookmarksId(), title: W.WINDOWS_FOLDER });
+  await store.save({ windowsFolderId: made.id });
+  return made.id;
+}
+
+// The window to save: the last one used, never a popup or an app window.
+async function windowToSave() {
+  const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'], populate: true }).catch(() => null);
+  return win ? { id: win.id, tabs: [...(win.tabs || [])].sort((a, b) => a.index - b.index) } : null;
+}
+
+async function windowsView(tabs, s, now) {
+  const win = await windowToSave();
+  const here = win ? win.tabs : [];
+  const urls = here.map((t) => t.url || t.pendingUrl).filter(savable);
+  const ctx = contextFrom(s, tabs, win?.id ?? null, now);
+  const risky = here.filter((t) => risk(heldReasons(t, { ...ctx, sessionIds: null }))).map((t) => t.title || host(t.url));
+  const granted = await hasBookmarks();
+  let saved = [];
+  let others = [];
+  if (granted) {
+    const parent = await windowsParent(s, false);
+    const [tree] = parent ? await chrome.bookmarks.getSubTree(parent).catch(() => []) : [];
+    if (tree) ({ saved, others } = splitParent(tree.children, s.savedWindows || [], now));
+  }
+  return { tabsHere: urls.length, defaultWords: defaultWords(urls), day: dayText(now), granted, risky, saved, others };
+}
+
+// Saves every page in the window to a new folder, checks they're all there, and only then closes the window. When
+// it's the only window, a new one opens first, so Chrome stays open.
+async function saveWindow(m) {
+  if (!(await hasBookmarks())) return W.WINDOWS_ASKS;
+  const s = await store.load();
+  const now = Date.now();
+  const win = await windowToSave();
+  if (!win) return W.WINDOWS_NOTHING;
+  const pages = win.tabs.map((t) => ({ url: t.url || t.pendingUrl, title: t.title })).filter((p) => savable(p.url));
+  if (!pages.length) return W.WINDOWS_NOTHING;
+  const ctx = contextFrom(s, await chrome.tabs.query({}), win.id, now);
+  const risky = win.tabs.filter((t) => risk(heldReasons(t, { ...ctx, sessionIds: null })));
+  if (risky.length && !m.anyway) return W.windowsRisky(risky.map((t) => t.title || host(t.url)));
+  const words = cleanWords(m.words) || defaultWords(pages.map((p) => p.url));
+  const parent = await windowsParent(s, true);
+  const folder = await chrome.bookmarks.create({ parentId: parent, index: 0, title: folderTitle(words, pages.length, now) });
+  for (const p of pages) await chrome.bookmarks.create({ parentId: folder.id, title: p.title || host(p.url), url: p.url }).catch(() => null);
+  const inFolder = await chrome.bookmarks.getChildren(folder.id).catch(() => []);
+  if (inFolder.length !== pages.length) {
+    log('windows', `Saved ${inFolder.length} of ${pages.length} tabs, so the window stays open`);
+    return W.WINDOWS_FAILED;
+  }
+  await store.change((st) => ({ savedWindows: [...(st.savedWindows || []), { id: folder.id, savedAt: now }] }));
+  const normal = await chrome.windows.getAll({ windowTypes: ['normal'] }).catch(() => []);
+  if (normal.length <= 1) await chrome.windows.create({ focused: true }).catch(() => {});
+  await chrome.windows.remove(win.id).catch(() => {});
+  log('windows', `Saved a window of ${pages.length} tabs as a bookmark folder and closed it`);
+  return W.windowsSaved(words, pages.length);
+}
+
+// Opens a saved folder in a new window: its first page in front, the rest asleep until clicked. The folder is
+// removed only once every page is open, so a failure halfway leaves it in the bookmarks.
+async function reopenWindow(id) {
+  const [node] = await chrome.bookmarks.getSubTree(id).catch(() => []);
+  if (!node) { await forgetWindow(id); return W.WINDOWS_GONE; }
+  const urls = urlsIn(node);
+  if (!urls.length) { await chrome.bookmarks.removeTree(id).catch(() => {}); await forgetWindow(id); return W.WINDOWS_REMOVED; }
+  const win = await chrome.windows.create({ url: urls[0], focused: true });
+  const asleep = [];
+  let failed = 0;
+  for (const url of urls.slice(1)) {
+    const t = await chrome.tabs.create({ windowId: win.id, url, active: false }).catch(() => null);
+    if (!t) { failed++; continue; }
+    const r = await sleepTab(t.id, { force: true });
+    if (r.id != null) asleep.push(r.id);
+  }
+  if (asleep.length) await store.change((st) => ({ asleep: [...new Set([...st.asleep, ...asleep])] }));
+  if (failed) {
+    log('windows', `Reopened ${urls.length - failed} of ${urls.length} tabs; the folder stays`);
+    return W.WINDOWS_REOPEN_FAILED;
+  }
+  await chrome.bookmarks.removeTree(id).catch(() => {});
+  await forgetWindow(id);
+  log('windows', `Reopened a saved window of ${urls.length} tabs, ${asleep.length} asleep, and removed its folder`);
+  return W.windowsReopened(urls.length);
+}
+
+async function removeWindow(id) {
+  await chrome.bookmarks.removeTree(id).catch(() => {});
+  await forgetWindow(id);
+  log('windows', 'Removed a saved window');
+  return W.WINDOWS_REMOVED;
+}
+
+async function forgetWindow(id) {
+  await store.change((st) => ({ savedWindows: (st.savedWindows || []).filter((r) => r.id !== id) }));
+}
+
+// Moves what Cool Head didn't save out of its folder, to Other bookmarks; it never deletes them.
+async function tidyWindows() {
+  const s = await store.load();
+  const parent = await windowsParent(s, false);
+  const [tree] = parent ? await chrome.bookmarks.getSubTree(parent).catch(() => []) : [];
+  if (!tree) return W.windowsTidied(0);
+  const { others } = splitParent(tree.children, s.savedWindows || [], Date.now());
+  const other = await otherBookmarksId();
+  for (const o of others) await chrome.bookmarks.move(o.id, { parentId: other }).catch(() => {});
+  log('windows', `Moved ${others.length} bookmarks out of the saved windows folder`);
+  return W.windowsTidied(others.length);
+}
+
 // ---------- popup messages ----------
 
 async function viewFor() {
@@ -523,10 +655,11 @@ async function viewFor() {
     chrome.system.memory.getInfo().catch(() => null),
     chrome.permissions.contains(ALL_SITES),
     hasManagement(),
-    chrome.commands.getAll().then((cs) => ({ tab: cs.find((c) => c.name === 'sleep-tab')?.shortcut || '', others: cs.find((c) => c.name === 'sleep-others')?.shortcut || '' })).catch(() => ({ tab: '', others: '' })),
+    chrome.commands.getAll().then((cs) => ({ tab: cs.find((c) => c.name === 'sleep-tab')?.shortcut || '', others: cs.find((c) => c.name === 'sleep-others')?.shortcut || '', window: cs.find((c) => c.name === 'save-window')?.shortcut || '' })).catch(() => ({ tab: '', others: '', window: '' })),
   ]);
   const view = buildView({ tabs, s, now, focusedWindowId, isMac, memInfo, version: VERSION, sitesGranted, managementGranted, favicon, shortcuts, online: self.navigator.onLine !== false });
   view.migrate = await migrateView(tabs, s, managementGranted);
+  view.windows = await windowsView(tabs, s, now);
   view.openScreen = s.popupScreen;
   if (s.popupScreen) await store.save({ popupScreen: null });
   return view;
@@ -647,6 +780,10 @@ async function act(m) {
     case 'migrateClose':
       await store.change(() => ({ migrated: null }));
       return '';
+    case 'saveWindow': return saveWindow(m);
+    case 'reopenWindow': return reopenWindow(m.id);
+    case 'removeWindow': return removeWindow(m.id);
+    case 'tidyWindows': return tidyWindows();
     case 'openCoolHead':
       await chrome.tabs.create({ url: W.COOL_HEAD_URL });
       return '';
@@ -971,6 +1108,12 @@ async function sleepOtherTabs(tab) {
 }
 
 chrome.commands.onCommand.addListener((command, tab) => {
+  // Save and close this window opens the popup at Saved windows, for its few words and, the first time, Chrome's
+  // question about bookmarks, which only a page can ask
+  if (command === 'save-window') {
+    store.save({ popupScreen: 'windows' }).then(() => chrome.action.openPopup()).catch(oops);
+    return;
+  }
   const run = { 'sleep-tab': sleepFrontTab, 'sleep-others': sleepOtherTabs }[command];
   if (!run) return;
   const front = tab ? Promise.resolve(tab) : chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([t]) => t);

@@ -24,6 +24,8 @@ export const LOCAL_DEFAULTS = {
   iconStyle: 'badge',        // the toolbar icon: 'badge' (shapes and colors) or 'melting' (no color needed)
   toolbarDark: false,        // whether Chrome's toolbar is dark, as the popup last saw, for the toolbar icon's color
   migrateLater: false,       // the person chose "Do it later" for moving a suspender's tabs (Settings still has it)
+  savedWindows: [],          // [{ id, savedAt }]: bookmark folders Saved windows made (logic/windows.js)
+  windowsFolderId: null,     // the "Cool Head windows" folder they live in
 };
 
 export const SESSION_DEFAULTS = {

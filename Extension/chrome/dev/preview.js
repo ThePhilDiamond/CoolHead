@@ -110,6 +110,20 @@ if (protectedScreen) {
   ], null, 'self', new Set(['Tab napper']));
 }
 
+// Saved windows (made-up folders): ?screen=windows, windows-reopen, windows-remove, windows-empty
+view.windows = {
+  tabsHere: 12, defaultWords: 'mail.example.com and 4 more', day: '24 November 2026', granted: screen !== 'windows-empty',
+  saved: screen === 'windows-empty' ? [] : [
+    { id: 'f1', name: 'Kitchen renovation · 18 tabs · 21 November 2026', words: 'Kitchen renovation', n: 18, ago: '3 days ago' },
+    { id: 'f2', name: 'Spring proposal research · 9 tabs · 17 November 2026', words: 'Spring proposal research', n: 9, ago: 'a week ago' },
+    { id: 'f3', name: 'docs.example.com and 2 more · 4 tabs · 2 November 2026', words: 'docs.example.com and 2 more', n: 4, ago: '3 weeks ago' },
+  ],
+  others: screen === 'windows-empty' ? [] : [{ id: 'o1', title: 'Recipe ideas' }, { id: 'o2', title: 'Holiday gift list' }],
+};
+if (screen.startsWith('windows')) ui.screen = 'windows';
+if (screen === 'windows-reopen') { ui.confirmWindow = { id: 'f1', action: 'reopen' }; ui.windowWords = 'Trip planning'; }
+if (screen === 'windows-remove') ui.confirmWindow = { id: 'f2', action: 'remove' };
+
 const noop = () => {};
 const on = new Proxy({}, { get: () => noop });
 const root = document.getElementById('app');

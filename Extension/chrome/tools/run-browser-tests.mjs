@@ -429,6 +429,45 @@ const B = [
     await waitFor('the helper back on', async () => ((await w(`chrome.management.get(${JSON.stringify(dummy.id)})`)).enabled === true ? true : null));
     assert.deepEqual((await state(w)).rest.ids, []);
   }],
+  ['saved windows: a window saves to a folder and closes, then reopens asleep at its addresses, and the folder goes', async ({ w }) => {
+    const urls = [1, 2, 3].map((n) => `${BASE}/page?n=sw${n}`);
+    const win = await w(`chrome.windows.create({ url: ${JSON.stringify(urls)}, focused: true }).then((x) => x.id)`);
+    await waitFor('the window to load', async () => {
+      const t = await w(`chrome.tabs.query({ windowId: ${win} })`);
+      return t.length === 3 && t.every((x) => x.status === 'complete') ? t : null;
+    });
+    await w(`chrome.windows.update(${win}, { focused: true })`);
+    const before = await w('coolHead.viewFor()');
+    assert.equal(before.windows.tabsHere, 3);
+    const said = await act(w, { action: 'saveWindow', words: 'Test trip' });
+    assert.match(said, /Saved 3 tabs as "Test trip"/);
+    await waitFor('the window to close', async () => ((await w('chrome.windows.getAll()')).some((x) => x.id === win) ? null : true));
+    const view = await w('coolHead.viewFor()');
+    assert.equal(view.windows.saved.length, 1);
+    const f = view.windows.saved[0];
+    assert.deepEqual([f.words, f.n, f.ago], ['Test trip', 3, 'today']);
+    assert.match(f.name, /^Test trip · 3 tabs · \d+ [A-Z][a-z]+ \d{4}$/);
+    // something the person put in the folder by hand is listed apart, and Tidy moves it out without deleting it
+    const parent = (await state(w)).windowsFolderId;
+    const own = await w(`chrome.bookmarks.create({ parentId: ${JSON.stringify(parent)}, title: 'Recipe ideas', url: '${BASE}/page?n=recipes' }).then((b) => b.id)`);
+    assert.deepEqual((await w('coolHead.viewFor()')).windows.others.map((o) => o.title), ['Recipe ideas']);
+    await act(w, { action: 'tidyWindows' });
+    const moved = (await w(`chrome.bookmarks.get(${JSON.stringify(own)})`))[0];
+    assert.notEqual(moved.parentId, parent, 'moved out of the folder');
+    assert.deepEqual((await w('coolHead.viewFor()')).windows.others, []);
+    // reopening: a new window with every page, all but the first asleep at its own address; then the folder goes
+    await act(w, { action: 'reopenWindow', id: f.id });
+    const back = await waitFor('the reopened tabs', async () => {
+      const t = await tabsNow(w);
+      const mine = t.filter((x) => urls.includes(x.url) || urls.includes(x.pendingUrl));
+      return mine.length === 3 ? mine : null;
+    });
+    const asleep = back.filter((x) => x.discarded);
+    assert.equal(asleep.length, 2, `two asleep: ${JSON.stringify(back)}`);
+    assert.deepEqual(back.map((x) => x.url).sort(), [...urls].sort(), 'every page at its own address');
+    assert.deepEqual(await w(`chrome.bookmarks.get(${JSON.stringify(f.id)}).then(() => 'still there', () => 'gone')`), 'gone');
+    assert.deepEqual((await state(w)).savedWindows, []);
+  }],
 ];
 
 function copyWithAllSites() {
@@ -438,7 +477,7 @@ function copyWithAllSites() {
   const m = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
   m.host_permissions = ['<all_urls>'];
   // As if the person had also said yes to "Manage your apps, extensions, and themes".
-  m.permissions = [...m.permissions, 'management'];
+  m.permissions = [...m.permissions, 'management', 'bookmarks'];
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(m, null, 2));
   return dir;
 }
