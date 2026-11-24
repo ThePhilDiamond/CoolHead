@@ -64,8 +64,9 @@ public final class Watcher {
     public private(set) var firstLook = true
     /// During the first look, the programs busy since the first measurement that it's waiting to judge.
     public private(set) var firstLookJudging = 0
-    /// When the first full reading was taken, for the first look; read and written on the sampling queue only.
+    /// When the first full reading was taken, and how many there have been, for the first look; on the sampling queue only.
     @ObservationIgnored private var firstMeasured: Date?
+    @ObservationIgnored private var fullReadings = 0
     /// How long a program must be busy before it gets a card.
     static let busyMinute: TimeInterval = 60
     /// Share of the whole Mac that Cool Head itself used over the last tick.
@@ -176,8 +177,9 @@ public final class Watcher {
 
     @ObservationIgnored public var interval: TimeInterval = 10
     @ObservationIgnored private var tracks: [pid_t: Track] = [:]
-    /// When the last sample was taken, on a clock that never goes back (it counts sleep too), so a change of the Mac's
-    /// clock can't make a sample look unmeasurable and clear every card.
+    /// When the last sample was taken, in the Mac's awake time: like the CPU time it divides, it stops while the Mac
+    /// sleeps, so a rate after waking isn't spread over the whole sleep, and it never goes back, so a change of the
+    /// Mac's clock can't make a sample look unmeasurable and clear every card.
     @ObservationIgnored private var lastTick: UInt64?
     @ObservationIgnored private var firstSeen: [String: Date] = [:]
     @ObservationIgnored private var alerted: Set<String> = []
@@ -908,7 +910,7 @@ public final class Watcher {
 
     private func tick() {
         let now = Date()
-        let ticked = clock_gettime_nsec_np(CLOCK_MONOTONIC)
+        let ticked = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
         let dt = lastTick.map { Double(ticked &- $0) / 1_000_000_000 } ?? 0
         lastTick = ticked
         let me = getpid()
@@ -983,9 +985,10 @@ public final class Watcher {
             limitBusy = (playing, playing == nil ? BusyWith.soundOpenNow() : [], BusyWith.remember(BusyWith.readDownloads(now: now), in: limitBusy.samples),
                          BusyWith.recordingNow() ?? [])
         }
-        let look = noteSample(dt: dt, busySince: tracks.filter { $0.key != me && ($0.value.cores >= 0.5 || $0.value.gpu >= GPU.busyShare) }.compactMap(\.value.busySince),
-                              now: now)
-        guard dt > 0 else { publish(state, [], own: 0, ruled: ruled, look: look); return }
+        let look = noteSample(dt: dt, busySince: Watcher.busySince(tracks, me: me), now: now)
+        // the first sample measures no usage, but memory and heat are read at once: their cards show now, with no "nothing
+        // is working hard" (explained: true), which can't be known yet
+        guard dt > 0 else { publish(state, macCards(state, now: now, explained: true), own: 0, ruled: ruled, look: look); return }
 
         let warm = state.thermal != "nominal"
         // suspects: using half a core or half the graphics chip, for over a minute
@@ -1259,8 +1262,23 @@ public final class Watcher {
         guard dt > 0 else { return (false, 0) }
         let first = firstMeasured ?? now
         firstMeasured = first
+        fullReadings += 1
         let judging = busySince.filter { $0 <= first }.count
-        return (judging == 0 || now.timeIntervalSince(first) >= Watcher.busyMinute, judging)
+        // the minute by the Mac's clock, or by count of readings (one more than a minute's), so setting the clock back
+        // can't stretch it
+        let minuteUp = now.timeIntervalSince(first) >= Watcher.busyMinute || fullReadings > Int(Watcher.busyMinute / interval) + 1
+        return (judging == 0 || minuteUp, judging)
+    }
+
+    /// When each program busy now became busy: half a core or half the graphics chip, Cool Head itself left out.
+    static func busySince(_ tracks: [pid_t: Track], me: pid_t) -> [Date] {
+        tracks.filter { $0.key != me && ($0.value.cores >= 0.5 || $0.value.gpu >= GPU.busyShare) }.compactMap(\.value.busySince)
+    }
+
+    /// A sample's part in the first look, on the main thread (see `noteSample`): it ends once, and never comes back.
+    func applyLook(_ look: (over: Bool, judging: Int)) {
+        if look.over { firstLook = false }
+        firstLookJudging = firstLook ? look.judging : 0
     }
 
     /// `look`: this sample's part in the first look (see `noteSample`).
@@ -1268,8 +1286,7 @@ public final class Watcher {
         let now = Date()
         DispatchQueue.main.async { [self] in
             mac = state
-            if look.over { firstLook = false }
-            firstLookJudging = firstLook ? look.judging : 0
+            applyLook(look)
             overhead = own
             let pausedPIDs = Set(pausedJobs.map(\.pid))
             queue.async { [self] in ownPauses = pausedPIDs }

@@ -139,8 +139,23 @@ extension Fixture {
                      Watcher().noteSample(dt: 0, busySince: [], now: now, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p", "COOLHEAD_SNAPSHOT_FIRSTLOOK": "1"]).over]
         let want: [(Bool, Int)] = [(false, 0), (true, 0), (false, 0), (false, 2), (false, 1), (true, 0), (false, 1), (true, 1)]
         let stepsOK = steps.count == want.count && zip(steps, want).allSatisfy { $0.over == $1.0 && $0.judging == $1.1 }
-        review.append(("first-look", w.firstLook && stepsOK && shots == [true, false],
-                       "starts looking \(w.firstLook); steps \(steps.map { "\($0.over)/\($0.judging)" }); screenshots \(shots)"))
+        // setting the clock back can't stretch it: the eighth full reading ends it whatever the clock says
+        let stuck = Watcher()
+        let counted = (0..<8).map { _ in stuck.noteSample(dt: 10, busySince: [t1], now: t1, environment: none).over }
+        // what ends it, once: a reading that's over ends it, and a later one can't bring it back
+        let shown = Watcher()
+        shown.applyLook((false, 2)); let waiting = (shown.firstLook, shown.firstLookJudging)
+        shown.applyLook((true, 0)); let lookEnded = shown.firstLook
+        shown.applyLook((false, 1)); let stays = (shown.firstLook, shown.firstLookJudging)
+        // what counts as busy: half a core or half the graphics chip, never Cool Head itself
+        var hog = Watcher.Track(cpu: 0, written: 0); hog.cores = 0.6; hog.busySince = t1
+        var drawing = Watcher.Track(cpu: 0, written: 0); drawing.gpu = 0.6; drawing.busySince = now
+        var idle = Watcher.Track(cpu: 0, written: 0); idle.cores = 0.1
+        let busyList = Watcher.busySince([10: hog, 11: drawing, 12: idle, 99: hog], me: 99).sorted()
+        let wiringOK = counted == [false, false, false, false, false, false, false, true] && waiting == (true, 2) && !lookEnded && stays == (false, 0)
+            && busyList == [now, t1]
+        review.append(("first-look", w.firstLook && stepsOK && shots == [true, false] && wiringOK,
+                       "starts looking \(w.firstLook); steps \(steps.map { "\($0.over)/\($0.judging)" }); screenshots \(shots); by count \(counted); applied \(waiting) \(lookEnded) \(stays); busy \(busyList.count)"))
         return review
     }
 
