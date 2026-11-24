@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var item: NSStatusItem!
     private let panel = MenuPanel()
     private var lastLevel: Watcher.Level?
+    private var lastLooking = true
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)          // menu bar only, no Dock icon
@@ -28,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         watcher.onReminder = { text in Alerts.remind(text) }
 
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = MenuIcon.image(level: .good)
+        item.button?.image = MenuIcon.image(level: .good, looking: true)     // no verdict before the first reading
         item.button?.setAccessibilityLabel("Cool Head")
         item.button?.target = self
         item.button?.action = #selector(clicked)
@@ -46,14 +47,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // redraw the icon when the status level changes
         watcher.onPublish = { [weak self] in
             // every card on screen, the whole-Mac ones too (see CardSources.swift), by the same rule as the panel's snowflake
-            let level = watcher.screenLevel
-            guard let self, self.lastLevel != level else { return }
-            self.lastLevel = level
-            self.item.button?.image = MenuIcon.image(level: level)
+            let level = watcher.screenLevel, looking = watcher.firstLook
+            guard let self, self.lastLevel != level || self.lastLooking != looking else { return }
+            self.lastLevel = level; self.lastLooking = looking
+            self.item.button?.image = MenuIcon.image(level: level, looking: looking)
         }
         // the icon picked on the Settings page or the welcome, drawn at once
         NotificationCenter.default.addObserver(forName: MenuIcon.changed, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel) }
+            MainActor.assumeIsolated { self?.item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel, looking: Watcher.shared.firstLook) }
         }
         watcher.start()
         // the link with Cool Head for Chrome, not while taking screenshots (see ChromeLinkServer)
@@ -228,9 +229,12 @@ enum MenuIcon {
         set { UserDefaults.standard.set(newValue, forKey: "iconStyle") }
     }
 
-    static func image(level: Watcher.Level, style: String = MenuIcon.style) -> NSImage {
+    /// `looking`: Cool Head's first look after launch (see Watcher.firstLook), before it has a reading: the Status badge
+    /// style shows no badge, as Cool Head for Chrome's icon shows none without a reading, and the melting style its whole
+    /// snowflake, so neither says all is well before anything was measured.
+    static func image(level: Watcher.Level, looking: Bool = false, style: String = MenuIcon.style) -> NSImage {
         let img = NSImage(size: NSSize(width: 20, height: 18), flipped: false) { _ in
-            if style == "melting" { melting(level) } else { badged(level) }
+            if style == "melting" { melting(looking ? .good : level) } else { badged(level, looking: looking) }
             return true
         }
         img.isTemplate = false
@@ -267,11 +271,12 @@ enum MenuIcon {
     /// puddle, the same at every level, so only the badge changes. It ties the style to the app icon's melting snowflake.
     /// The app icon's paler drops and quieter puddle were not used here: they're harder to see at the menu bar's size, so
     /// the ice-blue ones keep the contrast. See docs/BRAND.md.
-    static func badged(_ level: Watcher.Level) {
+    static func badged(_ level: Watcher.Level, looking: Bool = false) {
         let tips = droopingFlake(center: NSPoint(x: 8.5, y: 10.2), r: 6.4)
         ice.setFill()
         for (k, t) in tips.enumerated() { drop(at: NSPoint(x: t.x, y: t.y - 2.2 - CGFloat(k % 2) * 0.7), size: 1.0) }
         NSBezierPath(ovalIn: NSRect(x: 3.5, y: 0.4, width: 10, height: 1.8)).fill()
+        if looking { return }
         // clear a ring for the badge so it stands apart from the flake
         let box = NSRect(x: 12, y: 10.5, width: 7.5, height: 7.5)
         NSGraphicsContext.current?.compositingOperation = .clear
@@ -523,8 +528,10 @@ enum Snapshot {
             for (row, (bg, look, style)) in rows.enumerated() {
                 bg.setFill(); NSRect(x: 0, y: CGFloat(row) * 80, width: 360, height: 80).fill()
                 NSAppearance(named: look)!.performAsCurrentDrawingAppearance {
+                    // with COOLHEAD_SNAPSHOT_FIRSTLOOK, the first column is the first look's icon
+                    let looking = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FIRSTLOOK"] != nil
                     for (i, level) in [Watcher.Level.good, .warning, .issue].enumerated() {
-                        MenuIcon.image(level: level, style: style).draw(in: NSRect(x: 20 + CGFloat(i) * 120, y: CGFloat(row) * 80 + 4, width: 80, height: 72))
+                        MenuIcon.image(level: level, looking: looking && i == 0, style: style).draw(in: NSRect(x: 20 + CGFloat(i) * 120, y: CGFloat(row) * 80 + 4, width: 80, height: 72))
                     }
                 }
             }

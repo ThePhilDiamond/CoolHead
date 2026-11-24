@@ -99,8 +99,8 @@ struct PanelView: View {
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
                     } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
-                        Text(watcher.firstLook ? "Taking a first look…" : "Nothing needs a look.")
-                            .foregroundStyle(Ink.muted)
+                        if watcher.firstLook { FirstLookView() }
+                        else { Text("Nothing needs a look.").foregroundStyle(Ink.muted) }
                     } else {
                         ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
                     }
@@ -125,9 +125,9 @@ struct PanelView: View {
             .padding(.trailing, extra)           // the tools stay where they were while the panel is wider
             // the same wash of the level's color as the top, so the two bars match as the frame outside the active
             // items in the middle
-            .background(Color(nsColor: Badge.color(level)).opacity(0.10))
+            .background(Color(nsColor: Badge.color(level)).opacity(watcher.firstLook ? 0 : 0.10))
             .background(BarFrost.bar)
-            .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(0.10))
+            .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(watcher.firstLook ? 0 : 0.10))
         }
         .frame(width: PanelView.width + extra)
         // macOS's own controls (filled buttons) in Cool Head blue too, not the Mac's accent color (see Ink.accent)
@@ -195,6 +195,27 @@ struct PanelView: View {
         }
     }
 
+}
+
+/// Where the cards go while Cool Head takes its first look after launch (see Watcher.firstLook): what it's doing and how
+/// long, over a stone skipping across water.
+struct FirstLookView: View {
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        VStack(spacing: 6) {
+            // Cool Head blue for the water, light #1769D1 or dark #4A9EFF, given as fixed colors: Canvas drew the dynamic
+            // one in its light blue on a dark panel
+            SkippingStoneView(water: scheme == .dark ? Color(red: 0.290, green: 0.620, blue: 1.0) : Color(red: 0.090, green: 0.412, blue: 0.820),
+                              stone: scheme == .dark ? Color(white: 0.85) : Color(white: 0.25))
+            Text("Scanning your Mac…").font(.body.weight(.medium))
+            Text("Reading memory, heat, and what's running. This takes about 10 seconds.")
+                .font(.callout).foregroundStyle(Ink.muted).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+    }
 }
 
 /// Over each group of options: what pressing one means, in words, once for the group.

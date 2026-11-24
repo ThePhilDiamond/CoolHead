@@ -285,7 +285,7 @@ struct RunningStrip: View {
         let r = running
         HStack(spacing: 12) {
             Image(nsImage: Snowflake.image(icon: r.icon, scale: 2.2))
-                .accessibilityLabel(level == .good ? "All good" : level == .warning ? "Worth watching" : "Problem")
+                .accessibilityLabel(watcher.firstLook ? "Taking a first look" : level == .good ? "All good" : level == .warning ? "Worth watching" : "Problem")
             VStack(alignment: .leading, spacing: 2) {
                 // each part kept whole, so a line breaks only at the "·": "Running hot ·" over "1 to watch", never "1" over "to watch"
                 Text(title.components(separatedBy: " · ").map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: " · "))
@@ -307,8 +307,8 @@ struct RunningStrip: View {
         .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
         .padding(.trailing, extra)
         // a gentle wash of the level's color (green, yellow, or red), never the only sign: the snowflake's shape
-        // (whole, melting, in flames) and the title's words say the same
-        .background(Color(nsColor: Badge.color(level)).opacity(0.10))
+        // (whole, melting, in flames) and the title's words say the same. None during the first look: no green before a reading
+        .background(Color(nsColor: Badge.color(level)).opacity(watcher.firstLook ? 0 : 0.10))
         .background(BarFrost.bar)
         .onAppear { load.start() }
         .onDisappear { load.stop() }
