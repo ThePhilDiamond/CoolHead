@@ -345,7 +345,7 @@ function toolbar(view, ui, on) {
 function windowsTool(view, ui, on, tool) {
   const n = view.windows?.saved.length || 0;
   const open = ui.screen === 'windows';
-  const t = tool('windows', 'bookmark', W.WINDOWS_TOOL, open, {
+  const t = tool('windows', 'windowSaved', W.WINDOWS, open, {
     'aria-current': open ? 'page' : null, 'aria-label': `${W.WINDOWS}, ${n}`, onclick: on.openWindows,
   });
   if (n) t.querySelector('.toolicon').append(h('span', { class: 'badge', 'aria-hidden': 'true', text: String(n) }));
@@ -383,7 +383,7 @@ function windowsScreen(view, ui, on) {
     h('p', { class: 'lede', text: W.WINDOWS_OTHERS_WHY }),
     h('ul', { class: 'sitelist' }, w.others.map((o) => h('li', { class: 'ext' }, h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', title: o.title, text: o.title }))))),
     h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'win-tidy', onclick: on.tidyWindows }, W.WINDOWS_TIDY))) : null;
-  const main = h('main', { class: 'middle', 'aria-label': W.WINDOWS }, screenTitle(W.WINDOWS, 'bookmark', on), save, saved, others);
+  const main = h('main', { class: 'middle', 'aria-label': W.WINDOWS }, screenTitle(W.WINDOWS, 'windowSaved', on), save, saved, others);
   return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 

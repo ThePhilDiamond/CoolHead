@@ -6,7 +6,7 @@ Get it from the [Chrome Web Store](https://chromewebstore.google.com/detail/pobn
 
 ## What it does
 
-The menu has a bottom bar like Cool Head's: Effort, Protected, and Settings. Each opens in the middle of the menu, and the pill under the top band's title goes back home.
+The menu has a bottom bar like Cool Head's: Effort, Protected, Saved windows, and Settings. Each opens in the middle of the menu, and the pill under the top band's title goes back home.
 
 - **Effort.** Light keeps your 5 most used tabs loaded, Balanced 3, Focus only the tab you're on; the others sleep 30 seconds after you leave them (or at once, in Settings), so going back and forth within half a minute never reloads. Auto, with Cool Head, sleeps nothing while memory is fine; when memory slows your Mac, it sleeps tabs you haven't used for 30 minutes, one at a time, oldest first (5 minutes when memory is very tight), and stops after memory has been fine for 5 minutes.
 - **Protected: tabs.** Every tab that doesn't sleep on its own, with the reason: on a call, sharing your screen, unsent typing, playing sound, kept by you, on a site you keep awake, or pinned. Each has Keep, Sleep, and Close. Sleep or Close on a call or on unsent typing asks once first, since it would end the call or lose the typing. Keep isn't offered on a pinned tab, which stays loaded already.

@@ -8,6 +8,8 @@ export const PATHS = {
   pencil: '<path d="M10.8 2.2l3 3L5.8 13.2H2.8v-3z"/><path d="M9.3 3.7l3 3"/>',
   pin: '<path d="M5.5 1.8h5l-.6 4.4 2.3 2.3H3.8l2.3-2.3z"/><path d="M8 8.5v5.7"/>',
   bookmark: '<path d="M4.2 1.8h7.6v12.4L8 11.3l-3.8 2.9z"/>',
+  // Saved windows: a window in front of another, with a bookmark ribbon hanging from its title bar
+  windowSaved: '<path d="M4.6 2.2h8.3a1.4 1.4 0 0 1 1.4 1.4v7.6"/><rect x="1.7" y="4.6" width="10.4" height="9.4" rx="1.4"/><path d="M1.7 7.1h10.4"/><path d="M4 7.1v5.2l1.5-1.1 1.5 1.1V7.1"/>',
   sync: '<path d="M13.2 6.2A5.3 5.3 0 0 0 3.4 4.6"/><path d="M3.1 1.9v2.9H6"/><path d="M2.8 9.8a5.3 5.3 0 0 0 9.8 1.6"/><path d="M12.9 14.1v-2.9H10"/>',
   syncOff: '<path d="M13.2 6.2A5.3 5.3 0 0 0 3.4 4.6"/><path d="M3.1 1.9v2.9H6"/><path d="M2.8 9.8a5.3 5.3 0 0 0 9.8 1.6"/><path d="M12.9 14.1v-2.9H10"/><path d="M2 2l12 12"/>',
   chevRight: '<path d="M6 3.5L10.5 8 6 12.5"/>',
