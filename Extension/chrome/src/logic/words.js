@@ -443,3 +443,30 @@ export const OFFLINE_CARD_BUTTON = 'Open Settings';
 
 export const SHORTCUT_THIS = 'This tab';
 export const SHORTCUT_OTHERS = 'Other tabs in this window';
+
+// Saved windows: a window saved as a bookmark folder and closed, then reopened with every tab asleep. A folder is
+// named from a few words the person gives, how many tabs it holds, and the day; reopening it removes it, so saved
+// windows never pile up (decided 24 November 2026).
+export const WINDOWS = 'Saved windows';
+export const WINDOWS_TOOL = 'Windows';
+export const WINDOWS_FOLDER = 'Cool Head windows';
+export const WINDOWS_SAVE_TITLE = 'Save this window and close it';
+export const WINDOWS_SAVE_WHY = "Its tabs go into a bookmark folder, so you can open them again later, here or with Chrome's own Open all in new window.";
+export const WINDOWS_DESCRIBE = 'Describe it (optional)';
+export const WINDOWS_DESCRIBE_HINT = 'Trip planning';
+export const windowFolderName = (words, n, day) => `${words} · ${n} ${n === 1 ? 'tab' : 'tabs'} · ${day}`;
+export const windowsSavedAs = (name) => `Saved as "${name}"`;
+export const WINDOWS_SAVE = 'Save and close';
+export const WINDOWS_SAVE_NOTE = 'A tab with unsent typing or a call asks first. The window closes only once its folder is saved.';
+export const WINDOWS_SAVED = 'Saved';
+export const windowsLine = (n, ago) => `${n} ${n === 1 ? 'tab' : 'tabs'} · saved ${ago}`;
+export const WINDOWS_REOPEN = 'Reopen';
+export const WINDOWS_REMOVE = 'Remove';
+export const windowsReopenAsk = (n) => `Reopen ${n === 1 ? 'this tab' : `these ${n} tabs`} in a new window? ${n === 1 ? 'It opens' : 'They open'} asleep and load when you click them, and the folder leaves your bookmarks.`;
+export const windowsRemoveAsk = (n) => `Remove this folder and its ${n} ${n === 1 ? 'bookmark' : 'bookmarks'}? This can't be undone.`;
+export const WINDOWS_CANCEL = 'Cancel';
+export const WINDOWS_EMPTY = "No saved windows yet. Save a window above when you're done with it for now.";
+export const WINDOWS_OTHERS = 'Not saved by Cool Head';
+export const WINDOWS_OTHERS_WHY = `These are in the ${WINDOWS_FOLDER} folder, but Cool Head for Chrome didn't put them there. Tidy moves them to Other bookmarks; it never deletes them.`;
+export const WINDOWS_TIDY = 'Tidy';
+export const WINDOWS_ASKS = 'The first time, Chrome asks to let Cool Head for Chrome change your bookmarks.';
