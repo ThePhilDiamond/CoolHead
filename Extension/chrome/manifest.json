@@ -14,10 +14,11 @@
   },
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
   "permissions": ["tabs", "tabGroups", "storage", "nativeMessaging", "alarms", "contextMenus", "scripting", "favicon", "system.memory"],
-  "optional_permissions": ["management"],
+  "optional_permissions": ["management", "bookmarks"],
   "commands": {
     "sleep-tab": { "description": "Put this tab to sleep", "suggested_key": { "default": "Ctrl+Shift+S", "mac": "Command+Shift+S" } },
-    "sleep-others": { "description": "Put the other tabs in this window to sleep" }
+    "sleep-others": { "description": "Put the other tabs in this window to sleep" },
+    "save-window": { "description": "Save this window as a bookmark folder and close it", "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" } }
   },
   "optional_host_permissions": ["<all_urls>"],
   "content_security_policy": {

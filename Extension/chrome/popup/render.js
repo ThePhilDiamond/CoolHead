@@ -49,7 +49,7 @@ function band(view, ui, on) {
   }
   // With a tool open (Effort, Protected, or Settings), a pill under the title goes back home, saying what waits there, and the
   // whole band goes back on a click, as in Cool Head.
-  const toolOpen = ['effort', 'protected', 'settings'].includes(ui.screen);
+  const toolOpen = ['effort', 'protected', 'windows', 'settings'].includes(ui.screen);
   const pill = toolOpen ? h('button', { class: `pill tone-${b.tone}`, 'data-key': 'home', onclick: on.home },
     icon('chevLeft'), W.backTo({ suggestions: view.questions.length + (view.duplicates ? 1 : 0), session: Boolean(view.session) })) : null;
   return h('header', { class: `band tone-${b.tone}${toolOpen ? ' goes-home' : ''}`, onclick: toolOpen ? on.home : null }, brand,
@@ -335,9 +335,76 @@ function toolbar(view, ui, on) {
         'aria-current': ui.screen === 'effort' ? 'page' : null, 'aria-label': `${W.LEVEL_LABEL}: ${chosen}`, onclick: on.openEffort,
       }),
       shield,
+      windowsTool(view, ui, on, tool),
       tool('settings', 'gear', W.SETTINGS, ui.screen === 'settings', {
         'aria-current': ui.screen === 'settings' ? 'page' : null, onclick: on.openSettings,
       })));
+}
+
+// Saved windows' tool, with how many are saved beside it.
+function windowsTool(view, ui, on, tool) {
+  const n = view.windows?.saved.length || 0;
+  const open = ui.screen === 'windows';
+  const t = tool('windows', 'bookmark', W.WINDOWS_TOOL, open, {
+    'aria-current': open ? 'page' : null, 'aria-label': `${W.WINDOWS}, ${n}`, onclick: on.openWindows,
+  });
+  if (n) t.querySelector('.toolicon').append(h('span', { class: 'badge', 'aria-hidden': 'true', text: String(n) }));
+  return t;
+}
+
+// ---------- saved windows ----------
+
+// Save this window: a few words to name its folder, with the whole name shown as it will be, and Save and close.
+// Below, each saved window with Reopen and Remove, both asking first in the row itself; then anything in the parent
+// folder Cool Head didn't put there, with Tidy, which moves it out and never deletes it.
+function windowsScreen(view, ui, on) {
+  const w = view.windows;
+  const words = (ui.windowWords ?? '').trim();
+  const name = W.windowFolderName(words || w.defaultWords, w.tabsHere, w.day);
+  const input = h('input', { type: 'text', maxlength: '40', value: ui.windowWords ?? '', placeholder: W.WINDOWS_DESCRIBE_HINT,
+    'data-key': 'window-words', oninput: (e) => on.windowWords(e.target.value),
+    onkeydown: (e) => { if (e.key === 'Enter') on.saveWindow(e.target.value); } });
+  const risky = ui.windowRisky && w.risky.length;
+  const save = h('section', { class: 'card', 'aria-labelledby': 'win-save-h' },
+    h('h2', { id: 'win-save-h', text: W.WINDOWS_SAVE_TITLE }),
+    h('p', { text: W.WINDOWS_SAVE_WHY }),
+    h('label', { class: 'field' }, W.WINDOWS_DESCRIBE, input),
+    h('p', { class: 'savedas', 'aria-live': 'polite', text: W.windowsSavedAs(name) }),
+    risky ? h('div', { class: 'warn', id: 'win-risky' }, icon('warn'), h('span', { text: W.windowsRisky(w.risky) })) : null,
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', 'data-key': 'window-save', 'aria-describedby': risky ? 'win-risky' : null,
+      onclick: () => on.saveWindow(input.value) }, risky ? W.WINDOWS_SAVE_ANYWAY : W.WINDOWS_SAVE)),
+    h('p', { class: 'note', text: w.granted ? W.WINDOWS_SAVE_NOTE : `${W.WINDOWS_SAVE_NOTE} ${W.WINDOWS_ASKS}` }));
+  const saved = h('section', { class: 'part', 'aria-labelledby': 'win-list-h' },
+    h('h3', { class: 'parthead', id: 'win-list-h' }, W.WINDOWS_SAVED, h('span', { class: 'count', text: String(w.saved.length) })));
+  if (!w.saved.length) saved.append(h('p', { class: 'lede', text: W.WINDOWS_EMPTY }));
+  else saved.append(h('ul', { class: 'sitelist', 'aria-labelledby': 'win-list-h' }, w.saved.map((f) => savedRow(f, ui, on))));
+  const others = w.others.length ? h('section', { class: 'part', 'aria-labelledby': 'win-others-h' },
+    h('h3', { class: 'parthead', id: 'win-others-h' }, W.WINDOWS_OTHERS, h('span', { class: 'count', text: String(w.others.length) })),
+    h('p', { class: 'lede', text: W.WINDOWS_OTHERS_WHY }),
+    h('ul', { class: 'sitelist' }, w.others.map((o) => h('li', { class: 'ext' }, h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', title: o.title, text: o.title }))))),
+    h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'win-tidy', onclick: on.tidyWindows }, W.WINDOWS_TIDY))) : null;
+  const main = h('main', { class: 'middle', 'aria-label': W.WINDOWS }, screenTitle(W.WINDOWS, 'bookmark', on), save, saved, others);
+  return [band(view, ui, on), main, toolbar(view, ui, on)];
+}
+
+// A saved window: its words, with its count and age under them, Reopen, and a small bin to remove it. Either asks in
+// the row itself: the line under the words says what will happen, and the row's buttons become the answer and Cancel,
+// so the list keeps its shape and nothing opens below it.
+function savedRow(f, ui, on) {
+  const asking = ui.confirmWindow?.id === f.id ? ui.confirmWindow.action : null;
+  const reopen = asking === 'reopen';
+  const line = asking ? (reopen ? W.windowsReopenAsk(f.n) : W.windowsRemoveAsk(f.n)) : W.windowsLine(f.n, f.ago);
+  const acts = asking
+    ? [h('button', { class: reopen ? 'btn primary' : 'btn danger solid', 'data-key': `win-yes-${f.id}`, onclick: () => (reopen ? on.reopenWindow(f.id) : on.removeWindow(f.id)) },
+        reopen ? W.WINDOWS_REOPEN : W.WINDOWS_DELETE),
+      h('button', { class: 'btn', 'data-key': `win-no-${f.id}`, onclick: () => on.askWindow(null) }, W.WINDOWS_CANCEL)]
+    : [h('button', { class: 'btn', 'data-key': `win-reopen-${f.id}`, 'aria-label': `${W.WINDOWS_REOPEN}: ${f.name}`, onclick: () => on.askWindow(f.id, 'reopen') }, W.WINDOWS_REOPEN),
+      h('button', { class: 'iconbtn bin', 'data-key': `win-remove-${f.id}`, 'aria-label': `${W.WINDOWS_REMOVE}: ${f.name}`, title: W.WINDOWS_REMOVE, onclick: () => on.askWindow(f.id, 'remove') }, icon('trash'))];
+  // the folder's own words as the title; its count and age on the line under, so the title isn't cut short by them
+  return h('li', { class: `ext savedwin${asking ? ` asking ${asking}` : ''}`, role: asking ? 'group' : null, 'aria-label': asking ? f.name : null },
+    h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', title: f.name, text: f.words }),
+      h('span', { class: 'why', 'aria-live': 'polite', text: line })),
+    h('span', { class: 'acts' }, ...acts));
 }
 
 function home(view, ui, on) {
@@ -455,7 +522,7 @@ function settingsScreen(view, ui, on) {
     h('section', { class: 'card', 'aria-labelledby': 'key-h' },
       h('h2', { id: 'key-h', text: W.SHORTCUT_TITLE }),
       h('dl', { class: 'keys' },
-        ...[[W.SHORTCUT_THIS, st.shortcuts.tab], [W.SHORTCUT_OTHERS, st.shortcuts.others]].flatMap(([name, key]) => [
+        ...[[W.SHORTCUT_THIS, st.shortcuts.tab], [W.SHORTCUT_OTHERS, st.shortcuts.others], [W.SHORTCUT_WINDOW, st.shortcuts.window]].flatMap(([name, key]) => [
           h('dt', { text: name }), h('dd', {}, key ? h('kbd', { text: key }) : h('span', { class: 'muted', text: W.SHORTCUT_NONE }))])),
       h('p', { class: 'why', text: W.SHORTCUT_WHAT }),
       h('div', { class: 'row' },
@@ -524,7 +591,7 @@ function migrateScreen(view, ui, on) {
 // ---------- the whole popup ----------
 
 export function render(root, view, ui, on) {
-  const screens = { home, start: startScreen, settings: settingsScreen, protected: protectedScreen, effort: effortScreen, migrate: migrateScreen };
+  const screens = { home, start: startScreen, settings: settingsScreen, protected: protectedScreen, effort: effortScreen, migrate: migrateScreen, windows: windowsScreen };
   const parts = (screens[ui.screen] || home)(view, ui, on);
   // Keep the person's place: the focused control and the scroll position survive a redraw.
   const focusKey = document.activeElement?.dataset?.key;

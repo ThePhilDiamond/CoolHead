@@ -167,7 +167,7 @@ button.tabtitle.show:hover svg { color: var(--accent); }
 /* the bottom bar, with the same wash as the top, as in the app: each tool is an icon over its name; the open one is
    white on Cool Head blue. */
 .bottom { border-top: 1px solid var(--edge); padding: 6px 10px 8px; }
-.tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .tool { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 48px; padding: 6px 4px 5px; border: 0; border-radius: 9px; background: transparent; color: var(--text); font: 12px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; cursor: pointer; }
 .tool:hover { background: var(--fill-hover); }
 .tool .ico { width: 20px; height: 20px; stroke-width: 1.5; }
@@ -274,3 +274,16 @@ button.tabtitle.show:hover svg { color: var(--accent); }
 .laternote { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--accent-soft); color: var(--text); }
 
 .sitelist { list-style: none; margin: 6px 0 0; padding: 0; }
+
+/* Saved windows: the folder's whole name under the field, each saved window's row, and the question under a row */
+.savedas { font-size: 12px; color: var(--muted); margin: 6px 0 0; overflow-wrap: anywhere; }
+.savedwin .tabmain { flex: 1; }
+.savedwin .acts { display: flex; gap: 6px; flex: none; }
+.savedwin .iconbtn.bin { color: var(--muted); }
+.savedwin .iconbtn.bin:hover { color: var(--danger); }
+.savedwin.asking { margin: 0 -8px; padding: 7px 8px; border-radius: 8px; border-top-color: transparent; }
+.savedwin.asking + .savedwin { border-top-color: transparent; }
+.savedwin.asking.reopen { background: var(--accent-soft); }
+.savedwin.asking.remove { background: var(--fill); }
+.savedwin.asking .why { color: var(--text); }
+.btn.danger.solid { background: var(--danger); border-color: var(--danger); color: light-dark(#FFFFFF, #2B0A07); font-weight: 600; }   /* white on the light red, near black on the dark one: 4.5 to 1 either way */
