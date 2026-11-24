@@ -448,7 +448,6 @@ export const SHORTCUT_OTHERS = 'Other tabs in this window';
 // named from a few words the person gives, how many tabs it holds, and the day; reopening it removes it, so saved
 // windows never pile up (decided 24 November 2026).
 export const WINDOWS = 'Saved windows';
-export const WINDOWS_TOOL = 'Windows';
 export const WINDOWS_FOLDER = 'Cool Head windows';
 export const WINDOWS_SAVE_TITLE = 'Save this window and close it';
 export const WINDOWS_SAVE_WHY = "Its tabs go into a bookmark folder, so you can open them again later, here or with Chrome's own Open all in new window.";
