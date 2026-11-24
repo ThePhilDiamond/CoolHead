@@ -66,11 +66,16 @@ extension Fixture {
         let w3 = PressureHistory.week(PressureHistory.sample(now: now), now: now)
         let w1 = PressureHistory.week([ep(2, 12.4, .chrome), ep(3, 30, .chrome, slowed: false), ep(9, 50, .chrome)], now: now)
         let w0 = PressureHistory.week([], now: now)
+        // tight but never slowed by the gate (the 23 November state): said as tight, never as "hasn't slowed"
+        let wTight = PressureHistory.week([ep(1, 16, .chrome, slowed: false), ep(3, 30, .chrome, slowed: false)], now: now)
+        let wTight1 = PressureHistory.week([ep(1, 16, .chrome, slowed: false)], now: now)
         let lines = [PressureHistory.weekLine(w3), PressureHistory.chromeLine(w3) ?? "-", PressureHistory.weekLine(w1), PressureHistory.chromeLine(w1) ?? "-",
-                     PressureHistory.weekLine(w0), PressureHistory.chromeLine(w0) ?? "-"]
+                     PressureHistory.weekLine(w0), PressureHistory.chromeLine(w0) ?? "-", PressureHistory.weekLine(wTight), PressureHistory.chromeLine(wTight) ?? "-",
+                     PressureHistory.weekLine(wTight1)]
         review.append(("pressure-week-line", lines == ["Memory slowed your Mac 3 times this week, about 40 minutes in all.", "Chrome was using the most memory in 2 of them.",
                                                        "Memory slowed your Mac once this week, for about 12 minutes.", "Chrome was using the most memory.",
-                                                       "Memory hasn't slowed your Mac this week.", "-"], lines.joined(separator: " | ")))
+                                                       "Memory hasn't been tight this week.", "-", "Memory was tight 2 times this week, about 46 minutes in all.", "-",
+                                                       "Memory was tight once this week, for about 16 minutes."], lines.joined(separator: " | ")))
 
         // saved in Cool Head's preferences and read back, with no names in it
         let suite = "coolhead-selftest-pressure"
@@ -120,11 +125,22 @@ extension Fixture {
                        (tight.trustNote ?? "no note") + " | " + (veryTight.trustNote ?? "no note")))
 
         // the first look: no "All calm" before the first full reading (an update relaunch opened the panel 1.5 seconds in,
-        // on 23 November 2026, and said all was calm). Screenshots skip it unless they ask for it.
-        let ends = [Watcher.endsFirstLook(reading: true, environment: [:]), Watcher.endsFirstLook(reading: false, environment: [:]),
-                    Watcher.endsFirstLook(reading: false, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p"]),
-                    Watcher.endsFirstLook(reading: false, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p", "COOLHEAD_SNAPSHOT_FIRSTLOOK": "1"])]
-        review.append(("first-look", w.firstLook && ends == [true, false, true, false], "starts looking \(w.firstLook); ends on \(ends)"))
+        // on 23 November 2026, and said all was calm), nor while a program busy since then can't be judged yet, at most a
+        // minute; one busy later doesn't hold it. Screenshots skip it unless they ask for it.
+        let none: [String: String] = [:], t1 = now.addingTimeInterval(10)
+        let quiet = Watcher(), busy = Watcher(), capped = Watcher()
+        let steps = [quiet.noteSample(dt: 0, busySince: [], now: now, environment: none), quiet.noteSample(dt: 10, busySince: [], now: t1, environment: none),
+                     busy.noteSample(dt: 0, busySince: [], now: now, environment: none), busy.noteSample(dt: 10, busySince: [now, t1], now: t1, environment: none),
+                     busy.noteSample(dt: 10, busySince: [t1, t1.addingTimeInterval(20)], now: t1.addingTimeInterval(30), environment: none),
+                     busy.noteSample(dt: 10, busySince: [t1.addingTimeInterval(20)], now: t1.addingTimeInterval(40), environment: none),
+                     capped.noteSample(dt: 10, busySince: [t1], now: t1, environment: none),
+                     capped.noteSample(dt: 10, busySince: [t1], now: t1.addingTimeInterval(60), environment: none)]
+        let shots = [Watcher().noteSample(dt: 0, busySince: [], now: now, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p"]).over,
+                     Watcher().noteSample(dt: 0, busySince: [], now: now, environment: ["COOLHEAD_SNAPSHOT": "/tmp/p", "COOLHEAD_SNAPSHOT_FIRSTLOOK": "1"]).over]
+        let want: [(Bool, Int)] = [(false, 0), (true, 0), (false, 0), (false, 2), (false, 1), (true, 0), (false, 1), (true, 1)]
+        let stepsOK = steps.count == want.count && zip(steps, want).allSatisfy { $0.over == $1.0 && $0.judging == $1.1 }
+        review.append(("first-look", w.firstLook && stepsOK && shots == [true, false],
+                       "starts looking \(w.firstLook); steps \(steps.map { "\($0.over)/\($0.judging)" }); screenshots \(shots)"))
         return review
     }
 

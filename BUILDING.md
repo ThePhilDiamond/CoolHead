@@ -45,6 +45,7 @@ Screenshots for the project must never show your own processes. These settings s
 - `-toolLabels YES` or `-toolLabels NO`, after the command: show or hide the tools' names for this screenshot only, without changing your own setting.
 - `COOLHEAD_SNAPSHOT_STEPS=1`: show each option's mini-guide open.
 - `COOLHEAD_SNAPSHOT_WARM=1`: treat the Mac as warm.
+- `COOLHEAD_SNAPSHOT_FIRSTLOOK=1`: show the first look after launch (screenshots skip it otherwise). It ends at the first full reading, about 10 seconds in, so use it with `COOLHEAD_SNAPSHOT_AFTER=4`.
 - `COOLHEAD_SNAPSHOT_ENERGY=1`, with `COOLHEAD_SNAPSHOT_BATTERY=1` and `COOLHEAD_SNAPSHOT_SAMPLES`: the Battery page with "What used the most energy this week" open, on made-up history.
 - `COOLHEAD_TEST_MEMORY=1`: treat memory as tight, so the memory card shows.
 - `COOLHEAD_HANG_SECONDS=<seconds>`, such as `COOLHEAD_HANG_SECONDS=10`: show a card for a paused, drive-waiting, or Not Responding process after this long, instead of minutes.

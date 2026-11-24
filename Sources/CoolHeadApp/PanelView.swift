@@ -98,9 +98,12 @@ struct PanelView: View {
                         CleanerView(close: { tools.cleaner = false })
                     } else if watcher.showReport {
                         ProblemView(watcher: watcher)
+                    } else if watcher.firstLook {
+                        // what's already known shows at once (tight memory, say), with the first look under it
+                        ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
+                        FirstLookView(judging: watcher.firstLookJudging)
                     } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
-                        if watcher.firstLook { FirstLookView() }
-                        else { Text("Nothing needs a look.").foregroundStyle(Ink.muted) }
+                        Text("Nothing needs a look.").foregroundStyle(Ink.muted)
                     } else {
                         ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
                     }
@@ -125,9 +128,9 @@ struct PanelView: View {
             .padding(.trailing, extra)           // the tools stay where they were while the panel is wider
             // the same wash of the level's color as the top, so the two bars match as the frame outside the active
             // items in the middle
-            .background(Color(nsColor: Badge.color(level)).opacity(watcher.firstLook ? 0 : 0.10))
+            .background(Color(nsColor: Badge.color(level)).opacity(looking ? 0 : 0.10))
             .background(BarFrost.bar)
-            .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(watcher.firstLook ? 0 : 0.10))
+            .environment(\.barWash, Color(nsColor: Badge.color(level)).opacity(looking ? 0 : 0.10))
         }
         .frame(width: PanelView.width + extra)
         // macOS's own controls (filled buttons) in Cool Head blue too, not the Mac's accent color (see Ink.accent)
@@ -140,6 +143,8 @@ struct PanelView: View {
     /// so a screenshot never shows the person's own processes.
     /// The header's level: the same rule, and the same cards, as the snowflake below it and the menu bar icon.
     var level: Watcher.Level { watcher.level(shownCards, thermal: RunningStrip.snapshotThermal) }
+    /// The first look with nothing yet needing a look: no green, since nothing has said all is well (see Watcher.firstLook).
+    var looking: Bool { watcher.firstLook && level == .good }
 
     /// A tool, Settings, or Report a problem is open in the middle.
     /// With a tool open and cards waiting, the pill in the top bar that goes back to them, saying what they hold: the
@@ -177,11 +182,11 @@ struct PanelView: View {
 
     /// The heat word appears only when the Mac is warm or hot; otherwise the line is about what needs watching.
     var status: String {
-        // no reading yet, so no "All calm" (see Watcher.firstLook)
-        if watcher.firstLook { return "Taking a first look" }
         let n = shownCards.filter { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }.count
             + watcher.syncPauses.filter { $0.until <= Date() }.count                    // syncing to resume
         let stuck = shownCards.filter { $0.card.state == .stalled }.count
+        // not measured enough to say all is calm (see Watcher.firstLook), unless something already needs a look
+        if watcher.firstLook && n == 0 && stuck == 0 { return "Taking a first look" }
         let jobs = shownCards.filter { ($0.card.state == .working || $0.card.state == .starting) && !$0.id.hasPrefix("memory") }.count
         var watch: String?
         if stuck > 0 { watch = "\(stuck) looks stuck" + (n > stuck ? ", \(n - stuck) to watch" : "") }
@@ -197,9 +202,10 @@ struct PanelView: View {
 
 }
 
-/// Where the cards go while Cool Head takes its first look after launch (see Watcher.firstLook): what it's doing and how
-/// long, over a stone skipping across water.
+/// Under the cards while Cool Head takes its first look after launch (see Watcher.firstLook): what it's doing and how
+/// long, over a stone skipping across water. `judging`: programs busy since the first reading, watched for a minute.
 struct FirstLookView: View {
+    var judging = 0
     @Environment(\.colorScheme) private var scheme
     var body: some View {
         VStack(spacing: 6) {
@@ -208,7 +214,8 @@ struct FirstLookView: View {
             SkippingStoneView(water: scheme == .dark ? Color(red: 0.290, green: 0.620, blue: 1.0) : Color(red: 0.090, green: 0.412, blue: 0.820),
                               stone: scheme == .dark ? Color(white: 0.85) : Color(white: 0.25))
             Text("Scanning your Mac…").font(.body.weight(.medium))
-            Text("Reading memory, heat, and what's running. This takes about 10 seconds.")
+            Text(judging == 0 ? "Reading memory, heat, and what's running. This takes about 10 seconds."
+                 : "Watching \(judging == 1 ? "a busy program" : "\(judging) busy programs") for up to a minute, so a short burst of work isn't flagged.")
                 .font(.callout).foregroundStyle(Ink.muted).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }

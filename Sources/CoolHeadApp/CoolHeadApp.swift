@@ -47,14 +47,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // redraw the icon when the status level changes
         watcher.onPublish = { [weak self] in
             // every card on screen, the whole-Mac ones too (see CardSources.swift), by the same rule as the panel's snowflake
-            let level = watcher.screenLevel, looking = watcher.firstLook
+            let level = watcher.screenLevel, looking = watcher.firstLook && level == .good
             guard let self, self.lastLevel != level || self.lastLooking != looking else { return }
             self.lastLevel = level; self.lastLooking = looking
             self.item.button?.image = MenuIcon.image(level: level, looking: looking)
         }
         // the icon picked on the Settings page or the welcome, drawn at once
         NotificationCenter.default.addObserver(forName: MenuIcon.changed, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel, looking: Watcher.shared.firstLook) }
+            MainActor.assumeIsolated { self?.item.button?.image = MenuIcon.image(level: Watcher.shared.screenLevel, looking: Watcher.shared.firstLook && Watcher.shared.screenLevel == .good) }
         }
         watcher.start()
         // the link with Cool Head for Chrome, not while taking screenshots (see ChromeLinkServer)
@@ -229,12 +229,14 @@ enum MenuIcon {
         set { UserDefaults.standard.set(newValue, forKey: "iconStyle") }
     }
 
-    /// `looking`: Cool Head's first look after launch (see Watcher.firstLook), before it has a reading: the Status badge
-    /// style shows no badge, as Cool Head for Chrome's icon shows none without a reading, and the melting style its whole
-    /// snowflake, so neither says all is well before anything was measured.
+    /// `looking`: Cool Head's first look after launch (see Watcher.firstLook), with nothing yet needing a look: the Status
+    /// badge style shows no badge, as Cool Head for Chrome's icon shows none without a reading, and the melting style a
+    /// faint snowflake, so neither says all is well before it was measured.
     static func image(level: Watcher.Level, looking: Bool = false, style: String = MenuIcon.style) -> NSImage {
         let img = NSImage(size: NSSize(width: 20, height: 18), flipped: false) { _ in
-            if style == "melting" { melting(looking ? .good : level) } else { badged(level, looking: looking) }
+            if style == "melting" {
+                if looking { flake(center: NSPoint(x: 10, y: 9), r: 7.5, color: NSColor.labelColor.withAlphaComponent(0.4)) } else { melting(level) }
+            } else { badged(level, looking: looking) }
             return true
         }
         img.isTemplate = false

@@ -33,7 +33,7 @@ public enum Trust {
     }
 
     /// What it means to trust something, in one line, for the card.
-    public static let promise = "Trusted. We still flag it if it looks stuck, your Mac gets hot, memory runs short, or it runs nonstop for \(Int(limitHours)) hours."
+    public static let promise = "Trusted. We still flag it if it looks stuck, your Mac gets hot, or it runs nonstop for \(Int(limitHours)) hours."
 
     /// Why a trusted item is flagged anyway, in a few words, or nil while it is within its limits.
     public static func overLimit(state: JobState, thermal: String, busyFor: TimeInterval) -> String? {

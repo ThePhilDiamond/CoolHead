@@ -56,11 +56,18 @@ public final class Watcher {
 
     public private(set) var cards: [LiveCard] = []
     public private(set) var mac = MacState()
-    /// True until Cool Head has its first full reading (the second sample, about 10 seconds after launch): until then it
-    /// has no cards because it hasn't measured anything yet, not because all is well, so the panel says it's taking a
-    /// first look rather than "All calm" (24 November 2026: an update relaunch opened the panel 1.5 seconds in, and it
-    /// said all was calm while memory was very tight). Screenshots skip it unless COOLHEAD_SNAPSHOT_FIRSTLOOK is set.
+    /// True until Cool Head has measured enough to say all is well: its first full reading (the second sample, about 10
+    /// seconds after launch), and, when programs were already busy then, until they can be judged (a card needs a minute
+    /// of work), at most a minute more. Until then no card isn't a verdict, so the panel says it's taking a first look
+    /// rather than "All calm" (24 November 2026: an update relaunch opened the panel 1.5 seconds in, and it said all was
+    /// calm while memory was very tight). See `noteSample`; set false once, on the main thread, never true again.
     public private(set) var firstLook = true
+    /// During the first look, the programs busy since the first measurement that it's waiting to judge.
+    public private(set) var firstLookJudging = 0
+    /// When the first full reading was taken, for the first look; read and written on the sampling queue only.
+    @ObservationIgnored private var firstMeasured: Date?
+    /// How long a program must be busy before it gets a card.
+    static let busyMinute: TimeInterval = 60
     /// Share of the whole Mac that Cool Head itself used over the last tick.
     public private(set) var overhead: Double = 0
     public private(set) var dismissed: Set<String> = []
@@ -169,7 +176,9 @@ public final class Watcher {
 
     @ObservationIgnored public var interval: TimeInterval = 10
     @ObservationIgnored private var tracks: [pid_t: Track] = [:]
-    @ObservationIgnored private var lastTick: Date?
+    /// When the last sample was taken, on a clock that never goes back (it counts sleep too), so a change of the Mac's
+    /// clock can't make a sample look unmeasurable and clear every card.
+    @ObservationIgnored private var lastTick: UInt64?
     @ObservationIgnored private var firstSeen: [String: Date] = [:]
     @ObservationIgnored private var alerted: Set<String> = []
     @ObservationIgnored private var seenIDs: Set<String> = []
@@ -899,8 +908,9 @@ public final class Watcher {
 
     private func tick() {
         let now = Date()
-        let dt = lastTick.map { now.timeIntervalSince($0) } ?? 0
-        lastTick = now
+        let ticked = clock_gettime_nsec_np(CLOCK_MONOTONIC)
+        let dt = lastTick.map { Double(ticked &- $0) / 1_000_000_000 } ?? 0
+        lastTick = ticked
         let me = getpid()
         var seen = Set<pid_t>()
         var own = 0.0
@@ -973,12 +983,14 @@ public final class Watcher {
             limitBusy = (playing, playing == nil ? BusyWith.soundOpenNow() : [], BusyWith.remember(BusyWith.readDownloads(now: now), in: limitBusy.samples),
                          BusyWith.recordingNow() ?? [])
         }
-        guard dt > 0 else { publish(state, [], own: 0, ruled: ruled, reading: false); return }
+        let look = noteSample(dt: dt, busySince: tracks.filter { $0.key != me && ($0.value.cores >= 0.5 || $0.value.gpu >= GPU.busyShare) }.compactMap(\.value.busySince),
+                              now: now)
+        guard dt > 0 else { publish(state, [], own: 0, ruled: ruled, look: look); return }
 
         let warm = state.thermal != "nominal"
         // suspects: using half a core or half the graphics chip, for over a minute
         let busy = tracks.filter { $0.key != me && ($0.value.cores >= 0.5 || $0.value.gpu >= GPU.busyShare)
-                && now.timeIntervalSince($0.value.busySince ?? now) >= 60 }
+                && now.timeIntervalSince($0.value.busySince ?? now) >= Watcher.busyMinute }
             .sorted { max($0.value.cores, $0.value.gpu) > max($1.value.cores, $1.value.gpu) }.prefix(5)
         var live: [LiveCard] = []
         let gathered = busy.compactMap { pid, tr in
@@ -1079,7 +1091,7 @@ public final class Watcher {
             FileHandle.standardError.write("t+\(Int(ProcessInfo.processInfo.systemUptime - Watcher.launchUptime))s tick busy=\(busy.count) cards=\(live.map { $0.card.headline.prefix(50) }) top=\(top)\n".data(using: .utf8)!)
         }
 
-        publish(state, live, own: own / Double(max(1, state.cores)), ruled: ruled)
+        publish(state, live, own: own / Double(max(1, state.cores)), ruled: ruled, look: look)
     }
 
     /// Cards for processes that are stuck while using almost nothing (see `Hang`), once each has been stuck long enough.
@@ -1236,18 +1248,28 @@ public final class Watcher {
         return out
     }
 
-    /// Whether an update ends the first look: a full reading does; the first sample doesn't, except for screenshots, which
-    /// show their made-up cards at once unless COOLHEAD_SNAPSHOT_FIRSTLOOK asks for the first look.
-    static func endsFirstLook(reading: Bool, environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
-        reading || (environment["COOLHEAD_SNAPSHOT"] != nil && environment["COOLHEAD_SNAPSHOT_FIRSTLOOK"] == nil)
+    /// One sample's part in the first look (see `firstLook`), on the sampling queue: whether the first look is over after
+    /// it, and how many programs it's waiting to judge. `busySince`: when each program busy now became busy. A sample
+    /// that can't measure usage (dt 0, the first) never ends it. A full reading does, unless programs have been busy
+    /// since the first measurement and their minute isn't up; programs that get busy later are judged as at any time.
+    /// Screenshots end it at once unless COOLHEAD_SNAPSHOT_FIRSTLOOK asks for it.
+    func noteSample(dt: TimeInterval, busySince: [Date], now: Date,
+                    environment: [String: String] = ProcessInfo.processInfo.environment) -> (over: Bool, judging: Int) {
+        if environment["COOLHEAD_SNAPSHOT"] != nil, environment["COOLHEAD_SNAPSHOT_FIRSTLOOK"] == nil { return (true, 0) }
+        guard dt > 0 else { return (false, 0) }
+        let first = firstMeasured ?? now
+        firstMeasured = first
+        let judging = busySince.filter { $0 <= first }.count
+        return (judging == 0 || now.timeIntervalSince(first) >= Watcher.busyMinute, judging)
     }
 
-    /// `reading`: false for the first sample, which can't measure usage yet (see `firstLook`).
-    private func publish(_ state: MacState, _ live: [LiveCard], own: Double, ruled: [Ruled] = [], reading: Bool = true) {
+    /// `look`: this sample's part in the first look (see `noteSample`).
+    private func publish(_ state: MacState, _ live: [LiveCard], own: Double, ruled: [Ruled] = [], look: (over: Bool, judging: Int)) {
         let now = Date()
         DispatchQueue.main.async { [self] in
             mac = state
-            if Watcher.endsFirstLook(reading: reading) { firstLook = false }
+            if look.over { firstLook = false }
+            firstLookJudging = firstLook ? look.judging : 0
             overhead = own
             let pausedPIDs = Set(pausedJobs.map(\.pid))
             queue.async { [self] in ownPauses = pausedPIDs }
