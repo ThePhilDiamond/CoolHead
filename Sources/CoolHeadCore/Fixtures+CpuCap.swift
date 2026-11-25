@@ -160,27 +160,38 @@ extension Fixture {
         }
         guard let a = busy() else { return ("cpu-limit-holds-the-amount", false, "couldn't start /usr/bin/yes") }
         let limiter = CPULimiter()
-        func used(_ key: String, after seconds: Double) -> Double {
-            Thread.sleep(forTimeInterval: seconds)
-            return limiter.snapshot[key]?.used ?? -1
+        // the limiter narrows toward the amount a step a second, so it settles sooner on a quick Mac than on a busy test
+        // machine (a CI runner read 0.69 and 0.90 at a fixed 4 seconds, 25 November 2026): wait, up to 20 seconds,
+        // for two readings a second apart both within the level's range, and say how long it took
+        func settle(_ key: String, _ fits: (Double) -> Bool) -> (used: Double, seconds: Int) {
+            var inRow = 0, last = -1.0
+            for s in 1...20 {
+                Thread.sleep(forTimeInterval: 1)
+                last = limiter.snapshot[key]?.used ?? -1
+                inRow = fits(last) ? inRow + 1 : 0
+                if inRow == 2 { return (last, s) }
+            }
+            return (last, 20)
         }
+        let barelyFits = { (u: Double) in u > 0 && u < 0.35 }, slowFits = { (u: Double) in abs(u - 0.5) < 0.15 }
         let pid = a.processIdentifier
         limiter.set("a", pids: [pid], trust: nil, root: pid, level: .barely)
-        let atBarely = used("a", after: 4)
+        let barely = settle("a", barelyFits)
         limiter.set("a", pids: [pid], trust: nil, root: pid, level: .slow)
-        let afterChange = used("a", after: 4)
+        let change = settle("a", slowFits)
         limiter.remove("a")
-        var fresh = -1.0
+        var fresh = (used: -1.0, seconds: 0)
         if let b = busy() {
             let bp = b.processIdentifier
             limiter.set("b", pids: [bp], trust: nil, root: bp, level: .slow)
-            fresh = used("b", after: 4)
+            fresh = settle("b", slowFits)
             limiter.remove("b")
             b.terminate()
         }
         a.terminate()
-        let ok = atBarely > 0 && atBarely < 0.35 && abs(afterChange - 0.5) < 0.15 && abs(fresh - 0.5) < 0.15
+        let ok = barelyFits(barely.used) && slowFits(change.used) && slowFits(fresh.used)
+        func say(_ r: (used: Double, seconds: Int)) -> String { String(format: "%.2f", r.used) + " core after \(r.seconds) s" }
         return ("cpu-limit-holds-the-amount", ok,
-                "Barely running \(String(format: "%.2f", atBarely)) core; then Slow and steady \(String(format: "%.2f", afterChange)); a fresh group at Slow and steady \(String(format: "%.2f", fresh))")
+                "Barely running \(say(barely)); then Slow and steady \(say(change)); a fresh group at Slow and steady \(say(fresh))")
     }
 }
