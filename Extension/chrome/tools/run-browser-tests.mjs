@@ -141,6 +141,11 @@ async function run(name, extDir, steps) {
     });
     const version = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
     cdp = await CDP.open(version.webSocketDebuggerUrl);
+    // Downloads go to the test profile's own folder, never ~/Downloads: the moving-tabs test opens an address that
+    // downloads a file.
+    const downloads = path.join(data, 'Downloads');
+    fs.mkdirSync(downloads, { recursive: true });
+    await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
     const worker = await waitFor('the service worker', async () => {
       const { targetInfos } = await cdp.send('Target.getTargets');
       return targetInfos.find((t) => t.type === 'service_worker' && t.url === `chrome-extension://${ID}/src/worker.js`);
@@ -148,7 +153,7 @@ async function run(name, extDir, steps) {
     const { sessionId } = await cdp.send('Target.attachToTarget', { targetId: worker.targetId, flatten: true });
     const w = (expr) => evaluate(cdp, sessionId, expr);
     await waitFor('the worker to be ready', () => w('Boolean(globalThis.coolHead)'));
-    const ctx = { cdp, w, scenario, logLines, browser: version.Browser };
+    const ctx = { cdp, w, scenario, logLines, browser: version.Browser, downloads };
     for (const [title, fn] of steps) {
       const started = Date.now();
       try {
@@ -427,7 +432,7 @@ const A = [
     assert.equal(await w("chrome.storage.session.get('popupScreen').then((r) => r.popupScreen)"), null, 'used once');
     await cdp.send('Target.closeTarget', { targetId: again.targetId }).catch(() => {});
   }],
-  ['moving tabs: one whose address downloads a file moves to a page of the extension\'s own, so the suspender can go', async ({ w }) => {
+  ['moving tabs: one whose address downloads a file moves to a page of the extension\'s own, so the suspender can go', async ({ w, downloads }) => {
     const fake = 'abcdefghijklmnopabcdefghijklmnop';
     const ids = await openTabs(w, [`chrome-extension://${fake}/suspended.html#ttl=Q3%20pack&pos=0&uri=${BASE}/download`,
       `chrome-extension://${fake}/suspended.html#ttl=Web&pos=0&uri=${BASE}/page?n=web`]);
@@ -441,6 +446,7 @@ const A = [
     const parked = t.find((x) => x.id === ids[0]).url;
     assert.ok(parked.startsWith(`chrome-extension://${ID}/parked/parked.html#`), parked);
     assert.match(decodeURIComponent(parked), /\/download/);
+    assert.ok(fs.readdirSync(downloads).some((f) => f.startsWith('probe')), 'the download landed in the test profile, not ~/Downloads');
     assert.equal((await w('coolHead.viewFor()')).migrate.count, 0, 'nothing is left on the suspender, so its removal can be offered');
     await w(`chrome.tabs.remove(${JSON.stringify(ids)})`);
     await act(w, { action: 'migrateClose' });
