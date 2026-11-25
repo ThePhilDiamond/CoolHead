@@ -656,13 +656,22 @@ async function reopenWindow(id) {
   const win = await chrome.windows.create({ url: urls[0], focused: true });
   const asleep = [];
   let failed = 0;
+  // Each tab sleeps once its page has loaded, as Moving tabs does: one put to sleep before its page answers keeps no
+  // address or title, and shows as Untitled. They open together and each sleeps as soon as it's ready; one that
+  // hasn't an address after 15 seconds stays awake and loads, rather than sleeping blank.
+  const opened = [];
   for (const p of pages.slice(1)) {
     const t = await chrome.tabs.create({ windowId: win.id, url: p.url, active: false }).catch(() => null);
-    if (!t) { failed++; continue; }
-    // asleep before it loads, so the mark goes before the title saved in its bookmark
+    if (!t) failed++;
+    else opened.push({ t, p });
+  }
+  await Promise.all(opened.map(async ({ t, p }) => {
+    await loaded(t.id, 15000);
+    const now = await tabNow(t.id).catch(() => null);
+    if (!now?.url) return;
     const r = await sleepTab(t.id, { force: true, shown: p.title });
     if (r.id != null) asleep.push(r.id);
-  }
+  }));
   if (asleep.length) await store.change((st) => ({ asleep: [...new Set([...st.asleep, ...asleep])] }));
   if (failed) {
     log('windows', `Reopened ${urls.length - failed} of ${urls.length} tabs; the folder stays`);
