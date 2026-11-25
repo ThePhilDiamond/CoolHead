@@ -106,10 +106,8 @@ public final class Watcher {
         public var rule: String? = nil
         /// What identifies it for trusting and for rules (Trust.key), so a rule added later can take it over.
         public var trustKey: String? = nil
-        /// The CPU limit on it (see CPUCap), or nil when it's only running cooler, and the cores' worth it used before
-        /// the limit, measured once for this launch.
+        /// The CPU limit on it (see CPUCap), or nil when it's only running cooler.
         public var capLevel: CPUCap.Level? = nil
-        public var capBefore: Double? = nil
         /// A rule's line while it's at full speed as an exception until it quits (nothing is slowed; the rule stays).
         public var fullSpeed = false
         /// Where its slider sits: Full speed, a limit, or Cooler.
@@ -125,7 +123,7 @@ public final class Watcher {
     public var cooledList: [CooledItem] { cooled.values.sorted { $0.since < $1.since } }
 
     /// A process of yours that an every-time rule covers, found on each sample.
-    struct Ruled { let pid: pid_t; let start: Date; let key: String; var cores = 0.0; var id: String { "\(pid)-\(start.timeIntervalSince1970)" } }
+    struct Ruled { let pid: pid_t; let start: Date; let key: String; var id: String { "\(pid)-\(start.timeIntervalSince1970)" } }
     /// The app in front, by its rule key, and when each app with a rule last left the front (on the main thread).
     @ObservationIgnored private var frontKey: String?
     @ObservationIgnored private var leftFront: [String: Date] = [:]
@@ -619,7 +617,7 @@ public final class Watcher {
 
     /// Limit it, from a card's slider (on the main thread): it runs cooler first if it isn't already, then its group is
     /// held to the level. Full speed lifts the limit and leaves it running cooler.
-    public func limit(_ c: LiveCard, level: CPUCap.Level, before: Double) -> Outcome {
+    public func limit(_ c: LiveCard, level: CPUCap.Level) -> Outcome {
         guard let p = c.pid, sameProcess(c) else { log("Limit pressed for \(c.reportSubject): it had already gone"); return .gone }
         let key = Watcher.key(c)
         if cooled[key] == nil, case .failed(let why) = setCooler(c, on: true) { return .failed(why) }
@@ -627,12 +625,12 @@ public final class Watcher {
         if level == .full { return setCooler(c, on: false) }
         if level == .cooler {
             limiter.remove(key)
-            cooled[key]?.capLevel = nil; cooled[key]?.capBefore = nil
+            cooled[key]?.capLevel = nil
             log("Limit lifted for \(c.reportSubject)")
             return .done("\(name) has no limit now. It still runs cooler.")
         }
-        limiter.set(key, pids: Watcher.groupPIDs(trust: c.trustKey, root: p), trust: c.trustKey, root: p, level: level, before: before)
-        cooled[key]?.capLevel = level; cooled[key]?.capBefore = before > 0 ? before : nil
+        limiter.set(key, pids: Watcher.groupPIDs(trust: c.trustKey, root: p), trust: c.trustKey, root: p, level: level)
+        cooled[key]?.capLevel = level
         log("Limit set for \(c.reportSubject): \(level.rawValue)")
         return .done("\(name) \(CPUCap.phrase(level)) while you aren't using it. Full speed when you switch to it, or while it plays sound, records, or downloads.")
     }
@@ -670,7 +668,7 @@ public final class Watcher {
         var c = LiveCard(id: "pinned", pid: item.pid, start: item.start, card: Card(state: .working, headline: "", explanation: "", fixes: []),
                          details: [], reportSubject: item.reportSubject)
         c.displaySubject = item.name; c.trustKey = item.trustKey
-        return limit(c, level: level, before: item.capBefore ?? 0)    // 0: the limiter measures it in its first second
+        return limit(c, level: level)
     }
 
     /// Each sample (on the main thread): limited groups pick up new helpers and lose ones that quit, and run freely
@@ -685,7 +683,7 @@ public final class Watcher {
                 || !pids.isDisjoint(with: limitBusy.recording)
             limiter.hold(key, busy || (g.trust != nil && g.trust == frontKey))
         }
-        // rules with a level: each running rule's processes as one group, measured fresh for this launch
+        // rules with a level: each running rule's processes as one group, held to the level's amount
         let levels = activeLevels
         var byRule: [String: [Ruled]] = [:]
         for r in ruled where levels[r.key] != nil { byRule[r.key, default: []].append(r) }
@@ -703,7 +701,7 @@ public final class Watcher {
                 limiter.hold(key, busy)
                 _ = g
             } else {
-                limiter.set(key, pids: pids, trust: rule, root: rs[0].pid, level: level, before: max(rs.reduce(0) { $0 + $1.cores }, 0.2))
+                limiter.set(key, pids: pids, trust: rule, root: rs[0].pid, level: level)
             }
             for (k, i) in cooled where i.rule == rule { cooled[k]?.capLevel = level }
         }
@@ -792,7 +790,7 @@ public final class Watcher {
     @discardableResult public func addRule(_ c: LiveCard) -> Bool {
         guard let k = c.trustKey else { return false }
         CoolerRules.add(k, name: c.trustName)
-        // limited when Every time is pressed: the rule carries the level, measured fresh each time it starts
+        // limited when Every time is pressed: the rule carries the level, a fixed amount
         if let level = cooled[Watcher.key(c)]?.capLevel {
             CoolerRules.setLevel(k, level)
             limiter.remove(Watcher.key(c))
@@ -826,9 +824,9 @@ public final class Watcher {
 
     /// Rules and limits applied once, now, from a fresh read of your own processes, outside the 10-second sample (on
     /// the main thread, only while the sample isn't running). For notes/cpu-cap.md's live check, which needs only this,
-    /// not the whole sample. `cores`: what each process is using, for a limit measured fresh.
-    public func applyRulesNow(cores: [pid_t: Double] = [:]) {
-        let ruled = ruledProcesses(Proc.allPIDs(), me: getpid()).map { r -> Ruled in var r = r; r.cores = cores[r.pid] ?? 0; return r }
+    /// not the whole sample.
+    public func applyRulesNow() {
+        let ruled = ruledProcesses(Proc.allPIDs(), me: getpid())
         applyRules(ruled, Date())
         applyLimits(ruled, Date())
     }
@@ -978,7 +976,7 @@ public final class Watcher {
             }
         }
         tightSince = state.memoryPressure == "warning" || state.memoryPressure == "critical" ? (tightSince ?? now) : nil
-        let ruled = ruledProcesses(readable, me: me).map { r -> Ruled in var r = r; r.cores = tracks[r.pid]?.cores ?? 0; return r }
+        let ruled = ruledProcesses(readable, me: me)
         // while anything is limited: what plays sound and what downloads, so a limited app runs freely meanwhile
         if !limiter.isEmpty {
             let playing = BusyWith.playingNow()
@@ -1063,7 +1061,7 @@ public final class Watcher {
             // limited and still adding to the heat, the card says where it is and recommends the next level down
             if let item = cooled["\(pid)-\(e.start?.timeIntervalSince1970 ?? 0)"], item.rule == nil {
                 c = c.runningCooler(subject: Card.subject(e), app: e.appBundle != nil, since: item.since, level: item.capLevel,
-                                    before: item.capBefore, cores: e.coresNow, now: now, neverLimited: CPUCap.neverLimited(e))
+                                    cores: e.coresNow, now: now, neverLimited: CPUCap.neverLimited(e))
             }
             var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice?.line.map { [$0] } ?? []))
             lc.pauseGroup = pauseGroup

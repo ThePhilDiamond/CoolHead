@@ -17,9 +17,8 @@ public final class CPULimiter {
         /// process it started from (with what that started).
         public var trust: String?
         public var root: pid_t
+        /// Its level, which is a fixed amount of CPU time (CPUCap.Level.cores).
         public var level: CPUCap.Level
-        /// Cores' worth it used before the limit, measured once for this launch (never stored); 0 until measured.
-        public var before: Double
         /// The share of each period it runs, from 0.05 to 1.
         public var share: Double = 1
         /// Running freely for now: you're using it, or it plays sound or downloads.
@@ -58,13 +57,13 @@ public final class CPULimiter {
     public var snapshot: [String: Group] { queue.sync { groups } }
 
     /// Starts or changes a group's limit. Full speed removes it.
-    public func set(_ key: String, pids: Set<pid_t>, trust: String?, root: pid_t, level: CPUCap.Level, before: Double) {
+    public func set(_ key: String, pids: Set<pid_t>, trust: String?, root: pid_t, level: CPUCap.Level) {
         guard level != .full else { remove(key); return }
         queue.sync {
-            var g = groups[key] ?? Group(pids: pids, trust: trust, root: root, level: level, before: before)
+            var g = groups[key] ?? Group(pids: pids, trust: trust, root: root, level: level)
             let gone = g.pids.subtracting(pids)
             for p in gone { kill(p, SIGCONT) }
-            g.pids = pids; g.level = level; g.before = before
+            g.pids = pids; g.level = level
             groups[key] = g
             saveLocked()
             startLocked()
@@ -152,9 +151,7 @@ public final class CPULimiter {
                 let spent = cpu.reduce(0.0) { $0 + max(0, $1.value - (g.lastCPU[$1.key] ?? $1.value)) }
                 let used = spent / now.timeIntervalSince(at)
                 g.used = used
-                // not measured before the limit (set from a line that was only running cooler): its first second is
-                if g.before <= 0 { g.before = max(used / g.share, 0.2) }
-                if let target = g.level.cores(before: g.before) { g.share = CPULimiter.nextShare(g.share, target: target, used: used) }
+                if let target = g.level.cores { g.share = CPULimiter.nextShare(g.share, target: target, used: used) }
             }
             g.lastCPU = cpu; g.lastAt = now
             groups[key] = g
