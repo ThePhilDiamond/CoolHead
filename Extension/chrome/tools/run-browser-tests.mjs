@@ -588,7 +588,8 @@ const B = [
     await waitFor('the typing page', async () => ((await evaluate(cdp, fs2, "document.readyState === 'complete' && !!document.getElementById('t')")) ? true : null));
     await evaluate(cdp, fs2, "document.getElementById('t').focus()");
     await cdp.send('Input.insertText', { text: 'Half a sentence' }, fs2);
-    const formTab = await w(`chrome.tabs.query({}).then((t) => t.find((x) => x.url === ${JSON.stringify(formUrl)}))`);
+    // values stay in the worker or are written out, never spliced into the scripts these tests run
+    const formTab = await w("chrome.tabs.query({}).then((t) => t.find((x) => x.url.endsWith('/typing?n=dialog')))");
     const formWin = formTab.windowId;
     await waitFor('typing recorded', async () => ((await state(w)).typing[formTab.id] ? true : null));
     await w(`chrome.windows.update(${formWin}, { focused: true })`);
@@ -600,29 +601,33 @@ const B = [
     assert.match(await ev("document.querySelector('#win-risky')?.innerText || ''"), /Expense form/);
     assert.ok((await w('chrome.windows.getAll()')).some((x) => x.id === formWin), 'the window stays open until the second press');
     // the second press saves and closes it; this popup, a tab in another window, outlives it and shows no warning
-    const savedBefore = await w('coolHead.store.load().then((s) => (s.savedWindows || []).map((x) => x.id))');
+    await w('coolHead.store.load().then((s) => { globalThis.dialogTestBefore = (s.savedWindows || []).map((x) => x.id); })');
     await ev("document.querySelector('[data-key=window-save]').click()");
     await waitFor('the form window to close', async () => ((await w('chrome.windows.getAll()')).some((x) => x.id === formWin) ? null : true));
     await sleep(300);
     assert.equal(await ev("Boolean(document.querySelector('[data-key=window-said]'))"), false, 'a save that worked is not a warning');
-    const madeHere = (await w('coolHead.store.load().then((s) => (s.savedWindows || []).map((x) => x.id))')).filter((id) => !savedBefore.includes(id));
-    assert.equal(madeHere.length, 1);
+    assert.equal(await w('coolHead.store.load().then((s) => (s.savedWindows || []).filter((x) => !globalThis.dialogTestBefore.includes(x.id)).length)'), 1);
     // Cancel in a saved window's row puts focus back on the button that asked, Remove or Reopen
     await ev("document.querySelector('[data-key=close-dialog]').click()");
-    // Cool Head's folder, made here if this test runs without the save test before it
-    const parent = await w(`coolHead.store.load().then(async (s) => s.windowsFolderId
-      || chrome.bookmarks.create({ title: 'Cool Head windows' }).then(async (b) => { await coolHead.store.save({ windowsFolderId: b.id }); return b.id; }))`);
-    const folder = await w(`chrome.bookmarks.create({ parentId: ${JSON.stringify(parent)}, title: 'Focus check · 1 tab · 1 January 2026' }).then((b) => b.id)`);
-    await w(`chrome.bookmarks.create({ parentId: ${JSON.stringify(folder)}, title: 'Page', url: '${BASE}/page?n=fc' })`);
-    await w(`coolHead.store.change((st) => ({ savedWindows: [...(st.savedWindows || []), { id: ${JSON.stringify(folder)}, savedAt: Date.now() }] }))`);
+    // a saved window of its own, in Cool Head's folder (made here if this test runs without the save test before it)
+    await w(`coolHead.store.load().then(async (s) => {
+      const parent = s.windowsFolderId || await chrome.bookmarks.create({ title: 'Cool Head windows' }).then(async (b) => { await coolHead.store.save({ windowsFolderId: b.id }); return b.id; });
+      const f = await chrome.bookmarks.create({ parentId: parent, title: 'Focus check · 1 tab · 1 January 2026' });
+      await chrome.bookmarks.create({ parentId: f.id, title: 'Page', url: 'http://127.0.0.1/focus-check' });
+      await coolHead.store.change((st) => ({ savedWindows: [...(st.savedWindows || []), { id: f.id, savedAt: Date.now() }] }));
+      globalThis.dialogTestFolder = f.id;
+    })`);
+    const inRow = (prefix) => `[...document.querySelectorAll('li.savedwin')].find((li) => li.innerText.includes('Focus check'))?.querySelector('[data-key^="${prefix}"]')`;
     for (const action of ['remove', 'reopen']) {
-      await waitFor('the saved row', async () => (await ev(`Boolean(document.querySelector('[data-key="win-${action}-${folder}"]'))`) ? true : null));
-      await ev(`document.querySelector('[data-key="win-${action}-${folder}"]').click()`);
-      assert.equal(await ev("document.activeElement?.dataset?.key"), `win-yes-${folder}`);
-      await ev(`document.querySelector('[data-key="win-no-${folder}"]').click()`);
-      assert.equal(await ev("document.activeElement?.dataset?.key"), `win-${action}-${folder}`, `Cancel goes back to ${action}`);
+      const asked = await waitFor('the saved row', async () => ev(`${inRow(`win-${action}-`)}?.dataset.key || null`));
+      const id = asked.slice(`win-${action}-`.length);
+      await ev(`${inRow(`win-${action}-`)}.click()`);
+      assert.equal(await ev("document.activeElement?.dataset?.key"), `win-yes-${id}`);
+      await ev(`${inRow('win-no-')}.click()`);
+      assert.equal(await ev("document.activeElement?.dataset?.key"), asked, `Cancel goes back to ${action}`);
     }
-    for (const id of [folder, ...madeHere]) await w(`chrome.bookmarks.removeTree(${JSON.stringify(id)})`);
+    await w(`coolHead.store.load().then((s) => Promise.all([...new Set([globalThis.dialogTestFolder,
+      ...(s.savedWindows || []).map((x) => x.id).filter((id) => !globalThis.dialogTestBefore.includes(id))])].map((id) => chrome.bookmarks.removeTree(id).catch(() => {}))))`);
     await cdp.send('Target.closeTarget', { targetId: popup.targetId }).catch(() => {});
     await w(`Promise.all([${blank}, ${formWin}].map((id) => chrome.windows.remove(id).catch(() => {})))`);
   }],
