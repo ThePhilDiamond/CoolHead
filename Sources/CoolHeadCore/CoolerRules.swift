@@ -19,11 +19,11 @@ public enum CoolerRules {
     }
     public static func contains(_ key: String?) -> Bool { key.map { all[$0] != nil } ?? false }
 
-    /// A CPU limit a rule carries (CPUCap.Level), by rule key; kept on this Mac like the rules. Only the level is kept:
-    /// what "half speed" means is measured fresh each time the app starts.
+    /// A CPU limit a rule carries (CPUCap.Level), by rule key; kept on this Mac like the rules. Only the level is kept,
+    /// and each level is a fixed amount, so it means the same every launch.
     static let levelsKey = "alwaysCoolerLimit"
     public static var levels: [String: CPUCap.Level] {
-        (Trust.defaults.dictionary(forKey: levelsKey) as? [String: String] ?? [:]).compactMapValues(CPUCap.Level.init(rawValue:))
+        (Trust.defaults.dictionary(forKey: levelsKey) as? [String: String] ?? [:]).compactMapValues(CPUCap.Level.init(stored:))
     }
     public static func setLevel(_ key: String, _ level: CPUCap.Level?) {
         var d = Trust.defaults.dictionary(forKey: levelsKey) as? [String: String] ?? [:]

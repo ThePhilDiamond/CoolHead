@@ -1,0 +1,1 @@
+- Dragging a Limit it slider applies only where you let go, so a drag from Slow and steady to Full speed no longer passes through Cooler and loses an Every time rule's level. A rule's limit also holds its amount each time it slows the app, where before it held the app to about a tenth of a core until it was first in front.

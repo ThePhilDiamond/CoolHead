@@ -581,10 +581,10 @@ struct CardView: View {
             // a stuck process is searched for as stuck, not as busy
             u.queryItems = [URLQueryItem(name: "q", value: "macOS \(name) " + (live.id.hasPrefix("hang-") ? "stuck not responding" : "high CPU"))]
             if let url = u.url { NSWorkspace.shared.open(url) }
-        case .cpuCap(let o):
+        case .cpuCap:
             // the slider acts at once; a level, or Full speed to lift the limit
             guard let level else { return }
-            show(watcher.limit(live, level: level, before: o.before))
+            show(watcher.limit(live, level: level))
         case .cooler:
             // background priority: macOS runs it on the efficiency cores and slows its disk use; checked and undoable
             show(watcher.setCooler(live, on: !watcher.isCooled(live)))
@@ -1224,13 +1224,13 @@ enum FrozenItem: Identifiable {
         func item(_ name: String, _ rule: String?) -> Watcher.CooledItem {
             Watcher.CooledItem(key: "sample-" + name, pid: 0, start: nil, name: name, reportSubject: "a sample", since: at, before: nil, after: nil, rule: rule)
         }
-        // with "cpu-cap" too: the exporter at Half speed this once, Huddle's rule at Barely running, and Site at full speed
+        // with "cpu-cap" too: the exporter at Easy pace this once, Huddle's rule at Slow and steady, and Site at full speed
         let cap = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SAMPLES"]?.split(separator: "|").contains("cpu-cap") ?? false
         var exporter = item("Exporter", nil), huddle = item("Huddle", "app:com.example.huddle")
         var site = item("Site", "script:/Users/you/Sites/site/server.js")
         exporter.trustKey = "script:/Users/you/export.py"
         // with "cpu-cap", the Site rule is at full speed for now, an exception until it quits
-        if cap { exporter.capLevel = .half; huddle.capLevel = .barely; site.fullSpeed = true }
+        if cap { exporter.capLevel = .easy; huddle.capLevel = .slow; site.fullSpeed = true }
         return [.cooled(exporter), .rule(huddle, app: true, every: true), .rule(site, app: false, every: true)]
     }
 
@@ -1265,7 +1265,6 @@ enum FrozenItem: Identifiable {
     static func phrase(_ l: CPUCap.Level) -> String { CPUCap.phrase(l) }
     /// A limited item's level, for the gauge on its line.
     var capLevel: CPUCap.Level? { cooledItem?.capLevel }
-    var capBefore: Double? { cooledItem?.capBefore }
     var cooledItem: Watcher.CooledItem? {
         switch self { case .cooled(let c), .rule(let c, _, _): return c; default: return nil }
     }
@@ -1412,7 +1411,7 @@ struct FrozenList: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(group.enumerated()), id: \.element.id) { i, item in
                             if i > 0 { Divider().opacity(0.6).padding(.horizontal, FrozenList.inset) }
-                            FrozenLine(item: item, watcher: watcher, inset: FrozenList.inset, top: i == 0 ? 10 : 0, bottom: i == group.count - 1 ? 10 : 0)
+                            FrozenLine(item: item, watcher: watcher, inset: FrozenList.inset, top: i == 0 ? 26 : 0, bottom: i == group.count - 1 ? 10 : 0)
                         }
                     }
                     .frozen()
@@ -1440,7 +1439,7 @@ struct FrozenList: View {
                 // the same margin above the first line and below the last, so the lines sit centered in the frame.
                 // The margin is inside each line, so a click anywhere in the frame opens the line it's beside, and the
                 // whole area is the target
-                FrozenLine(item: item, watcher: watcher, inset: FrozenList.inset, top: i == 0 ? 14 : 0, bottom: i == items.count - 1 ? 14 : 0)
+                FrozenLine(item: item, watcher: watcher, inset: FrozenList.inset, top: i == 0 ? 26 : 0, bottom: i == items.count - 1 ? 14 : 0)
             }
         }
         // one titled section: the frosted lines, then Report a problem, outside the lines but inside the section, whose
@@ -1580,24 +1579,14 @@ struct FrozenLine: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+            // the headline has the line's whole width, so it's never cut short (25 November 2026: beside the switch,
+            // "Busy Test is running slow and steady while you aren't using it" lost its middle)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: item.icon).frame(width: 18)
-                Text(item.line).font(.callout.weight(.semibold)).lineLimit(2).truncationMode(.middle)
+                Text(item.line).font(.callout.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
-                // something slowed: the slider is its only range, and one switch says whether it's kept for next time
-                if let c = item.cooledItem {
-                    if c.rule != nil || c.trustKey != nil {
-                        Picker("Keep it", selection: Binding(get: { item.everyTime }, set: { on in
-                            if case .failed(let why) = watcher.setEveryTime(c, on) { failed = "That didn't work: \(why)." }
-                        })) {
-                            Text("This once").tag(false)
-                            Text("Every time").tag(true)
-                        }
-                        .pickerStyle(.segmented).labelsHidden().controlSize(.small).font(.caption).fixedSize()
-                        .help("This once: back to normal the next time it starts. Every time: the same each time it runs.")
-                    }
-                } else {
+                if item.cooledItem == nil {
                     Button(item.button) { undo() }
                         .buttonStyle(IceButton()).font(.subheadline)
                         .fixedSize()
@@ -1605,12 +1594,18 @@ struct FrozenLine: View {
                 }
             }
             .foregroundStyle(item.due ? Color.orange : Ink.text)
-            Text(item.detail).font(.caption).foregroundStyle(Ink.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
+            // every word in full-strength ink, over the lighter glass (25 November 2026: hard to read over the frost)
+            Text(item.detail).font(.caption).foregroundStyle(Ink.text).fixedSize(horizontal: false, vertical: true)
+            keep
             // from Barely running to Full speed, either way at once
             if let c = item.cooledItem {
-                LimitGauge(offer: CPUCap.Offer(levels: CPUCap.levels(before: c.capBefore ?? 3), current: c.level, suggested: c.level,
-                                               before: c.capBefore ?? 3, app: true), words: false) { level in
-                    if case .failed(let why) = watcher.setLimit(c, level: level) { failed = "That didn't work: \(why)." }
+                LimitGauge(offer: CPUCap.Offer(current: c.level, suggested: c.level, now: nil, app: true), words: false, onIce: true) { level in
+                    // a pick that didn't take says so, which also puts the slider back on its level
+                    switch watcher.setLimit(c, level: level) {
+                    case .failed(let why): failed = "That didn't work: \(why)."
+                    case .gone: failed = "It already quit, so nothing changed."
+                    case .done: failed = nil
+                    }
                 }
                 .padding(.vertical, 2)
             }
@@ -1618,6 +1613,20 @@ struct FrozenLine: View {
         }
         .padding(.horizontal, inset).padding(.top, 8 + top).padding(.bottom, 8 + bottom)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Something slowed: the slider is its only range, and Just this once | Every time on a row of its own under the
+    /// words says whether it's kept for next time. On its own row (25 November 2026), so the headline keeps the line's
+    /// whole width; drawn for the frost (FrostSwitch), since macOS's own switch showed its chosen half only faintly on
+    /// the ice. A checkbox, a move button, and a menu were each rendered and set aside (notes/cpu-cap.md).
+    @ViewBuilder var keep: some View {
+        if let c = item.cooledItem, c.rule != nil || c.trustKey != nil {
+            FrostSwitch(every: item.everyTime) { on in set(c, on) }.padding(.top, 2)
+        }
+    }
+
+    func set(_ c: Watcher.CooledItem, _ on: Bool) {
+        if case .failed(let why) = watcher.setEveryTime(c, on) { failed = "That didn't work: \(why)." }
     }
 
     func undo() {
@@ -1742,13 +1751,67 @@ struct Frozen: ViewModifier {
 
 extension View { func frozen() -> some View { modifier(Frozen()) } }
 
-/// Pale ice blue, deep enough in light mode for white frost to show, and a cool slate in dark mode.
+/// Pale ice blue, still deep enough in light mode for white frost to show, and a deep slate in dark mode: both
+/// lightened or deepened (25 November 2026) so the words over them have more contrast.
 enum IceTint {
     static let color = Color(nsColor: NSColor(name: nil) { a in
         a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             ? NSColor(srgbRed: 0.20, green: 0.30, blue: 0.40, alpha: 1)
-            : NSColor(srgbRed: 0.56, green: 0.75, blue: 0.94, alpha: 1)
+            : NSColor(srgbRed: 0.72, green: 0.85, blue: 0.97, alpha: 1)
     })
+}
+
+/// This once | Every time, drawn for the frost rather than macOS's own switch: on the ice, macOS's chosen half was only
+/// faintly lighter than the other in dark mode. The chosen side is a solid tile that slides across, in full ink, with
+/// the icon of the heading the line sits under (a clock for Just this once, two arrows for Every time).
+struct FrostSwitch: View {
+    let every: Bool
+    let set: (Bool) -> Void
+    @Namespace private var space
+    static let track = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.08, green: 0.13, blue: 0.19, alpha: 0.55)
+            : NSColor(srgbRed: 0.25, green: 0.42, blue: 0.62, alpha: 0.16)
+    })
+    static let thumb = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.40, green: 0.53, blue: 0.67, alpha: 1)
+            : NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)
+    })
+    var body: some View {
+        HStack(spacing: 0) {
+            side(false, "Just this once", "clock")
+            side(true, "Every time", "repeat")
+        }
+        .padding(2)
+        .background(Capsule().fill(FrostSwitch.track))
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.14), lineWidth: 1))
+        .fixedSize()
+        .accessibilityElement(children: .contain).accessibilityLabel("Keep it")
+        .help("Just this once: back to normal the next time it starts. Every time: the same each time it runs.")
+    }
+    func side(_ value: Bool, _ title: String, _ icon: String) -> some View {
+        let chosen = every == value
+        return Button { if !chosen { withAnimation(.easeInOut(duration: 0.2)) { set(value) } } } label: {
+            HStack(spacing: 4) {
+                Image(systemName: icon).font(.caption.weight(.semibold)).accessibilityHidden(true)
+                Text(title)
+            }
+            .font(.subheadline.weight(chosen ? .semibold : .regular))
+            .foregroundStyle(Color.primary.opacity(chosen ? 1 : 0.72))
+            .padding(.horizontal, 10).padding(.vertical, 3.5)
+            .background {
+                if chosen {
+                    Capsule().fill(FrostSwitch.thumb)
+                        .shadow(color: .black.opacity(0.18), radius: 1.5, y: 0.5)
+                        .matchedGeometryEffect(id: "chosen", in: space)
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(chosen ? .isSelected : [])
+    }
 }
 
 /// A button on the frosted frame: a pale backing, so it has better contrast and stands out from the ice instead of
@@ -2405,9 +2468,13 @@ enum Ink {
     /// Text in the accent color on the panel.
     static let accentText = accent
     static func rgb(_ h: Int) -> NSColor { NSColor(srgbRed: CGFloat(h >> 16 & 255) / 255, green: CGFloat(h >> 8 & 255) / 255, blue: CGFloat(h & 255) / 255, alpha: 1) }
-    static func dynamic(_ light: Int, _ dark: Int) -> Color {
-        Color(nsColor: NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(dark) : rgb(light) })
+    static func dynamic(_ light: Int, _ dark: Int) -> Color { Color(nsColor: dynamicNS(light, dark)) }
+    static func dynamicNS(_ light: Int, _ dark: Int) -> NSColor {
+        NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? rgb(dark) : rgb(light) }
     }
+    /// Cool Head blue for AppKit controls, which don't take SwiftUI's tint (the CPU limit's slider would otherwise fill
+    /// in the Mac's own accent color: orange on one Mac, 25 November 2026).
+    static let accentNS = dynamicNS(0x1769D1, 0x4A9EFF)
     /// Supporting text: still well above 7:1 contrast on the card in light and dark.
     static let muted = Color.primary.opacity(0.82)
     /// A card: a slightly raised surface with a visible edge.
