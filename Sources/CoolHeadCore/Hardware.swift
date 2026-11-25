@@ -425,12 +425,26 @@ public struct PortErrors: Equatable {
 // MARK: - Cards
 
 extension HardwareReport {
+    /// This report with the battery's live temperature and charging (read every 10 seconds) when its heat level has
+    /// changed since the report was read, so the battery's card, the heat dial, the snowflake, and the Power page agree
+    /// within one sample rather than up to 10 minutes apart; nil when nothing changed.
+    public func followingLive(_ mac: MacState) -> HardwareReport? {
+        guard var b = battery, let t = mac.batteryTempC else { return nil }
+        let was = b.temperatureC.map { HardwarePage.batteryHeatLevel($0, charging: b.charging) } ?? 0
+        guard HardwarePage.batteryHeatLevel(t, charging: mac.charging) != was else { return nil }
+        b.temperatureC = t; b.charging = mac.charging
+        var r = self; r.battery = b
+        return r
+    }
+
     /// A card for each hardware finding worth showing, worst first. Nothing found, no cards: the panel stays as it is.
     public func cards(now: Date = Date()) -> [LiveCard] {
         var out: [LiveCard] = []
-        func card(_ id: String, _ state: JobState, _ headline: String, _ explanation: String, _ fixes: [Fix], _ details: [String], subject: String) {
+        func card(_ id: String, _ state: JobState, _ headline: String, _ explanation: String, _ fixes: [Fix], _ details: [String], subject: String,
+                  serious: Bool = false, safety: Bool = false) {
             var c = LiveCard(id: "hardware-\(id)", pid: nil, card: Card(state: state, headline: headline, explanation: explanation, fixes: fixes), details: details)
             c.causeKey = "hardware-\(id)"
+            c.serious = serious; c.safety = safety
             c.displaySubject = subject
             c.reportSubject = subject
             out.append(c)
@@ -506,7 +520,7 @@ extension HardwareReport {
             }
         }
 
-        // heat beyond the battery's or drive's own line needs a look, so it's warned on, as the temperature ring shows it;
+        // heat beyond the battery's or drive's own line needs a look, so it's warned on, as the heat dial shows it;
         // the battery's says when it has paused charging, in place of that card
         if let b = battery, let t = b.temperatureC, HardwarePage.batteryHeatLevel(t, charging: b.charging) > 0 {
             let hot = HardwarePage.batteryHeatLevel(t, charging: b.charging) == 2
@@ -514,12 +528,12 @@ extension HardwareReport {
             card("battery-heat", .unknown, hot ? "The battery is hot." : "The battery is warm.",
                  "It's at \(Fmt.temperature(t)): a battery is warm from \(Fmt.temperature(40)) and hot from \(Fmt.temperature(45)), and heat wears it faster"
                     + (paused ? ", so macOS has paused charging until it cools" : "") + ". Let it cool: use the Mac on a hard surface, out of the sun, and give it a break from heavy work.",
-                 [], b.lines, subject: "the battery's temperature")
+                 [], b.lines, subject: "the battery's temperature", serious: hot, safety: true)
         }
         if let d = drive, let t = d.temperatureC, HardwarePage.driveHeatLevel(Double(t)) > 0 {
             card("drive-heat", .unknown, "The internal drive is warm.",
                  "It's at \(Fmt.temperature(Double(t))), warmer than drives usually run (Cool Head's line is \(Fmt.temperature(70))). Long copies and a hot Mac warm it, and heat wears it faster. Give the Mac a break, out of the sun.",
-                 [], d.lines, subject: "the drive's temperature")
+                 [], d.lines, subject: "the drive's temperature", safety: true)
         }
 
         // crash restarts: one after a crash is worth a look; several in a week more so

@@ -51,21 +51,36 @@ final class HardwareWatch {
                     b.condition = old.condition; b.maxCapacity = old.maxCapacity; fresh.battery = b
                 }
                 if profile { watch.lastProfile = now }
-                watch.report = fresh
-                watch.cards = watch.snapshot ? [] : fresh.cards(now: now)
+                watch.report = fresh.followingLive(Watcher.shared.mac) ?? fresh
+                Watcher.shared.partHeat = RunningStrip.partHeat()          // heat counts whether or not its card shows
+                watch.cards = watch.snapshot ? [] : watch.report?.cards(now: now) ?? []
                 watch.lastRead = now
                 watch.reading = false
-                for c in watch.cards where c.needsLook && !watch.alerted.contains(c.id) {
-                    watch.alerted.insert(c.id)
-                    watch.onAlert?("Cool Head found something about this Mac's hardware worth a look.")
-                }
+                watch.alertNew()
             }
+        }
+    }
+
+    /// Follows the battery's live temperature (every 10 seconds) between reads: when its heat level changes, the report
+    /// takes the live reading and the cards are made again, so a battery that heats up shows its card, and the panel and
+    /// the menu bar icon turn, within one sample, and a cooled one loses its red card as soon.
+    func followLive(_ mac: MacState) {
+        guard !snapshot, let r = report?.followingLive(mac) else { return }
+        report = r
+        cards = r.cards(now: Date())
+        alertNew()
+    }
+    /// Says once per card when a new hardware card needs a look.
+    private func alertNew() {
+        for c in cards where c.needsLook && !alerted.contains(c.id) {
+            alerted.insert(c.id)
+            onAlert?("Cool Head found something about this Mac's hardware worth a look.")
         }
     }
 
     /// The cards to show: those the person hasn't chosen to wait on (the clock in a card's corner).
     func visible(_ watcher: Watcher, now: Date = Date()) -> [LiveCard] {
-        cards.filter { c in watcher.snoozed[c.cause].map { $0.until <= now || c.severity > $0.severity } ?? true }
+        cards.filter { !watcher.isWaitedOn($0, now: now) }
     }
 }
 

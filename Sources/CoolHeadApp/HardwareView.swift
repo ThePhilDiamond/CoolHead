@@ -16,7 +16,7 @@ struct HardwareView: View {
             var r = HardwarePage.sample(kind); if !MacOutline.laptop { r.battery = nil }; return r
         }
         if PanelView.sampleSnapshot { var r = HardwarePage.sample(); if !MacOutline.laptop { r.battery = nil }; return r }
-        // the chip's temperature is the Temperature ring's live one, not the report's (read up to 10 minutes ago)
+        // the chip's temperature is the heat dial's live one, not the report's (read up to 10 minutes ago)
         var r = HardwareWatch.shared.report
         if let c = load.chipC { r?.chipC = c }
         return r
@@ -205,7 +205,7 @@ struct HardwareView: View {
 
 /// How the Mac is running, at the top of the panel whenever it opens, rather than only on the Hardware page: simple
 /// visual cues for heat and heavy use that aren't busy or confusing. The menu bar icon's snowflake (whole, melting, in
-/// flames) with a few words, and two small gauges, the chip and memory, colored by level. Numbers and meanings are in
+/// flames) with a few words, and three dials, chip load, memory, and heat, each showing its step. Their meanings are in
 /// the tooltips.
 struct RunningStrip: View {
     let watcher: Watcher
@@ -214,10 +214,10 @@ struct RunningStrip: View {
     /// The panel's status ("1 to watch", "All calm"), the row's title, and its level, for VoiceOver.
     let title: String
     let level: Watcher.Level
-    /// The scroll bar's room while the panel is wider, so the row's words and gauges stay where they were.
+    /// The scroll bar's room while the panel is wider, so the row's words and dials stay where they were.
     var extra: CGFloat = 0
     @ObservedObject private var load = ChipLoad.shared
-    /// The gauges are a setting, off to start: the snowflake and its words say how the Mac is without them, and someone
+    /// The dials are a setting, off to start: the snowflake and its words say how the Mac is without them, and someone
     /// who doesn't know or care what the figures mean gets less clutter.
     nonisolated static let gaugesKey = "showGauges"
     @AppStorage(RunningStrip.gaugesKey) private var showGauges = false
@@ -241,11 +241,12 @@ struct RunningStrip: View {
         }
         return HardwarePage.running(thermal: RunningStrip.snapshotThermal ?? watcher.mac.thermal, signs: watcher.signs(cards), fans: fans)
     }
+    /// The three dials: chip load, memory, and the heat of the part nearest its own limit.
     var gauges: [HardwarePage.Gauge] {
-        // a screenshot's made-up memory follows its cards, so a "memory is tight" card never sits beside a green gauge
+        // a screenshot's made-up memory follows its cards, so a "memory is tight" card never sits beside a green dial
         let signs = watcher.signs(cards)
-        let memory = signs.memoryCritical ? HardwarePage.memory(freePercent: 8, pressure: "critical")
-            : signs.memoryTight ? HardwarePage.memory(freePercent: 22, pressure: "warning") : nil
+        let memory = signs.memoryCritical ? HardwarePage.memory(pressure: "critical")
+            : signs.memoryTight ? HardwarePage.memory(pressure: "warning") : nil
         let thermal = RunningStrip.snapshotThermal ?? watcher.mac.thermal
         // made-up chip temperatures in a screenshot; this Mac's own only once Cool Head reads them (see HardwareReport.chipC)
         let chipC: Double? = switch snapshot {
@@ -254,25 +255,44 @@ struct RunningStrip: View {
         case .some: 55
         case nil: PanelView.limitedSnapshot ? 55 : load.chipC
         }
-        // the battery's and drive's from the hardware report (they change slowly); made up in a screenshot, where
-        // COOLHEAD_SNAPSHOT_RUNNING=battery shows a hot battery beside a calm chip
-        let report = PanelView.limitedSnapshot || snapshot != nil ? nil : HardwareWatch.shared.report
-        let batteryC: Double? = snapshot == "battery" ? 46 : snapshot != nil || PanelView.limitedSnapshot ? 31 : report?.battery?.temperatureC
-        let driveC: Double? = snapshot != nil || PanelView.limitedSnapshot ? 34 : report?.drive?.temperatureC.map(Double.init)
-        let heat = HardwarePage.heat(chipC: chipC, thermal: thermal, batteryC: batteryC, charging: report?.battery?.charging ?? false,
-                                     driveC: driveC).map { [$0] } ?? []
+        let parts = RunningStrip.partTemperatures()
+        let heat = HardwarePage.heat(chipC: chipC, thermal: thermal, batteryC: parts.batteryC, charging: parts.charging,
+                                     driveC: parts.driveC).map { [$0] } ?? []
         switch snapshot {
-        case "hot": return [HardwarePage.chip(busy: 0.62), memory ?? HardwarePage.memory(freePercent: 22, pressure: "warning")] + heat
-        case "fire": return [HardwarePage.chip(busy: 0.93), memory ?? HardwarePage.memory(freePercent: 8, pressure: "critical")] + heat
-        case .some: return [HardwarePage.chip(busy: 0.18), memory ?? HardwarePage.memory(freePercent: 58, pressure: "normal")] + heat
+        case "hot": return [HardwarePage.chip(busy: 0.62), memory ?? HardwarePage.memory(pressure: "warning")] + heat
+        case "fire": return [HardwarePage.chip(busy: 0.93), memory ?? HardwarePage.memory(pressure: "critical")] + heat
+        case .some: return [HardwarePage.chip(busy: 0.18), memory ?? HardwarePage.memory(pressure: "normal")] + heat
         case nil:
-            if PanelView.limitedSnapshot { return [HardwarePage.chip(busy: 0.18), memory ?? HardwarePage.memory(freePercent: 58, pressure: "normal")] + heat }
-            return [HardwarePage.chip(busy: load.busy), HardwarePage.memory(freePercent: load.memoryFree, pressure: watcher.mac.memoryPressure)] + heat
+            if PanelView.limitedSnapshot { return [HardwarePage.chip(busy: 0.18), memory ?? HardwarePage.memory(pressure: "normal")] + heat }
+            return [HardwarePage.chip(busy: load.average.value), HardwarePage.memory(watcher.mac)] + heat
         }
     }
 
-    /// The sentence under the status. When the temperature ring shows the battery or the drive, it names that part first, so the
-    /// line beside a warm ring never says only "a normal temperature" (that sentence is the chip's).
+    /// The battery's and drive's temperatures: the battery's live reading (every 10 seconds, as on the Power page), else
+    /// the hardware report's, and the drive's from the report (it changes slowly). Made up in a screenshot: a hot battery
+    /// with COOLHEAD_SNAPSHOT_RUNNING=battery or a hardware-battery-hot sample, a warm one with battery-warm or a
+    /// hardware-battery-warm sample, so a sample card never sits under a calmer row. One reading for the heat dial, the
+    /// snowflake, the title, and the menu bar icon, so they never disagree.
+    static func partTemperatures() -> (batteryC: Double?, charging: Bool, driveC: Double?) {
+        let env = ProcessInfo.processInfo.environment
+        let snap = env["COOLHEAD_SNAPSHOT_RUNNING"], samples = (env["COOLHEAD_SNAPSHOT_SAMPLES"] ?? "").split(separator: "|")
+        if snap != nil || PanelView.limitedSnapshot {
+            let hot = snap == "battery" || samples.contains("hardware-battery-hot")
+            let warm = snap == "battery-warm" || samples.contains("hardware-battery-warm")
+            return (hot ? 46 : warm ? 42 : 31, false, 34)
+        }
+        let report = HardwareWatch.shared.report, mac = Watcher.shared.mac
+        return (mac.batteryTempC ?? report?.battery?.temperatureC, mac.batteryTempC != nil ? mac.charging : report?.battery?.charging ?? false,
+                report?.drive?.temperatureC.map(Double.init))
+    }
+    /// The battery's or drive's own heat, for the watcher's level (see HardwarePage.PartHeat).
+    static func partHeat() -> HardwarePage.PartHeat? {
+        let p = partTemperatures()
+        return HardwarePage.partHeat(batteryC: p.batteryC, charging: p.charging, driveC: p.driveC)
+    }
+
+    /// The sentence under the status. When the heat dial shows the battery or the drive, it names that part first, so the
+    /// line beside a warm dial never says only "a normal temperature" (that sentence is the chip's).
     func meaning(_ r: HardwarePage.Running) -> String {
         guard let g = gauges.last, g.level > 0, g.name == "Battery temperature" || g.name == "Drive temperature" else { return r.meaning }
         let part = g.name == "Battery temperature" ? "The battery" : "The drive"
@@ -296,15 +316,10 @@ struct RunningStrip: View {
                 Text(meaning(r)).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 6)
-            // two groups, each titled, with a line between, which is cleaner and clearer: how busy the chip and memory
-            // are, then whose heat
+            // the three dials side by side, close together, with no headings: each label says what it is ("Chip load",
+            // "Memory", "Chip temp"), which leaves the sentence beside them room to stay short
             if showGauges {
-                let all = gauges
-                gaugeGroup("Usage", all.filter { !$0.isTemperature })
-                if all.contains(where: \.isTemperature) {
-                    Divider().frame(height: 64)
-                    gaugeGroup("Temperature", all.filter(\.isTemperature))
-                }
+                HStack(spacing: 6) { ForEach(gauges, id: \.name) { gauge($0) } }
             }
         }
         .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
@@ -317,55 +332,64 @@ struct RunningStrip: View {
         .onDisappear { load.stop() }
     }
 
-    /// A titled group of gauges in the top strip.
-    func gaugeGroup(_ title: String, _ gs: [HardwarePage.Gauge]) -> some View {
-        VStack(spacing: 4) {
-            Text(title).font(.caption2.weight(.semibold)).foregroundStyle(Ink.muted).textCase(.uppercase)
-                .accessibilityAddTraits(.isHeader)
-            HStack(spacing: 12) { ForEach(gs, id: \.name) { gauge($0) } }
-        }
-    }
-
-    /// A gauge: a ring filled to its share in its level's color, the percentage inside and the name under it, larger
-    /// and easier to read than the bars it replaced. macOS's own gauge, so VoiceOver reads it as one.
+    /// A dial, like a car's temperature gauge: green, yellow, and red zones over the top half, the zone for its level
+    /// full strength and the others faint, each with a border in its own color so all three stay distinct; the needle
+    /// in the middle of the zone (the zone is the step: no position inside it is claimed, see HardwarePage.Gauge); the
+    /// word or temperature under it, and the label under that. Where the needle points carries the level without color.
+    /// Before the first reading, no needle and "…".
     func gauge(_ g: HardwarePage.Gauge) -> some View {
-        VStack(spacing: 3) {
-            Gauge(value: Double(g.percent), in: 0...100) {
-                Text(g.name)
-            } currentValueLabel: {
-                Text(g.text ?? "\(g.percent)%").font(.system(.body, design: .rounded).weight(.semibold)).monospacedDigit()
-                    .lineLimit(1).minimumScaleFactor(0.6)
+        let rOut: CGFloat = 23, rIn: CGFloat = 11, needle: CGFloat = 17, center = CGPoint(x: 23, y: 27)
+        func band(_ i: Int) -> Path {
+            Path { p in
+                let a0 = Angle.degrees(180 + 60 * Double(i) + 1.5), a1 = Angle.degrees(180 + 60 * Double(i + 1) - 1.5)
+                p.addArc(center: center, radius: rOut, startAngle: a0, endAngle: a1, clockwise: false)
+                p.addArc(center: center, radius: rIn, startAngle: a1, endAngle: a0, clockwise: true)
+                p.closeSubpath()
             }
-            .gaugeStyle(.accessoryCircularCapacity)
-            .tint(NetworkView.color(g.level))
-            // macOS draws this gauge at a fixed size; smaller, so the title beside it keeps its room
-            .scaleEffect(0.8).frame(width: 46, height: 46)
-            // the part's icon beside its name, so the temperature ring says whose heat it is
+        }
+        return VStack(spacing: 3) {
+            ZStack {
+                ForEach(0..<3, id: \.self) { i in
+                    band(i).fill(NetworkView.color(i).opacity(i == g.level ? 1 : 0.18))
+                    band(i).stroke(NetworkView.color(i).opacity(i == g.level ? 1 : 0.7), lineWidth: 1)
+                }
+                if let at = g.needle {
+                    Path { p in
+                        let a = Angle.degrees(180 + 180 * at).radians
+                        p.move(to: center)
+                        p.addLine(to: CGPoint(x: center.x + needle * cos(a), y: center.y + needle * sin(a)))
+                    }
+                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    Circle().fill(Color.primary).frame(width: 6, height: 6).position(center)
+                }
+                Text(g.text).font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.6).position(x: 23, y: 41)
+            }
+            .frame(width: 46, height: 46)
+            // the part's icon beside its label, so the heat dial says whose heat it is
             HStack(spacing: 3) {
-                if let s = g.symbol { Image(systemName: s).font(.system(size: 9, weight: .semibold)) }
-                // under the Temperature title, only the part: "Battery", not "Battery temperature"
-                Text(g.isTemperature ? String(g.name.dropLast(" temperature".count)) : g.name)
+                if let s = g.symbol { Image(systemName: s).font(.system(size: 10, weight: .semibold)) }
+                Text(g.label)
             }
-            .font(.caption).foregroundStyle(Ink.muted).fixedSize()           // grey, like every label: the ring's color carries the level
+            .font(.subheadline).foregroundStyle(Ink.muted).fixedSize()           // grey, like every label: the dial's color carries the level
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(g.text.map { "\(g.name) \($0)" } ?? "\(g.name) \(g.percent) percent")
-        .help(HardwarePage.heatHelp(g.name))
+        .accessibilityLabel(g.spoken)
+        .help(HardwarePage.help(g))
     }
 }
 
-/// The share of the chip's cores in use, from macOS's own counters, the memory macOS counts as free when it judges
-/// pressure (kern.memorystatus_level), and the chip's temperature (ChipTemperature), read every 3 seconds while the
-/// panel is open and not at all while it's closed.
+/// The share of the chip's cores in use, from macOS's own counters, averaged over about the last 30 seconds, and the
+/// chip's temperature (ChipTemperature), read every 3 seconds while the panel is open and not at all while it's closed.
 @MainActor
 final class ChipLoad: ObservableObject {
-    /// One reading for the Temperature ring and the Hardware page's chip tile, so the two always agree. They didn't
+    /// One reading for the heat dial and the Hardware page's chip tile, so the two always agree. They didn't
     /// when the page showed the reading from its report, up to 10 minutes old, since the hottest sensor moves several
     /// degrees in seconds.
     static let shared = ChipLoad()
-    @Published var busy = 0.0
-    @Published var memoryFree = 100
-    /// The hottest chip sensor, for the Temperature ring (see ChipTemperature); nil where it can't be read.
+    /// Chip load over about the last 30 seconds (see HardwarePage.LoadAverage); empty until the second reading.
+    @Published var average = HardwarePage.LoadAverage()
+    /// The hottest chip sensor, for the heat dial (see ChipTemperature); nil where it can't be read.
     @Published var chipC: Double?
     private var last: (busy: UInt64, total: UInt64)?
     private var timer: Timer?
@@ -374,12 +398,10 @@ final class ChipLoad: ObservableObject {
         sample()
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in Task { @MainActor in self.sample() } }
     }
-    func stop() { timer?.invalidate(); timer = nil; last = nil }
+    /// Stops reading and forgets the readings, so the next opening never shows an old load as now.
+    func stop() { timer?.invalidate(); timer = nil; last = nil; average.clear() }
 
     private func sample() {
-        var level: Int32 = 0
-        var size = MemoryLayout<Int32>.size
-        if sysctlbyname("kern.memorystatus_level", &level, &size, nil, 0) == 0 { memoryFree = Int(level) }
         // about a twentieth of a second, so off the main thread
         DispatchQueue.global(qos: .utility).async {
             let c = ChipTemperature.read()
@@ -394,7 +416,7 @@ final class ChipLoad: ObservableObject {
         let t = info.cpu_ticks
         let busyTicks = UInt64(t.0) + UInt64(t.1) + UInt64(t.3)          // user, system, nice
         let total = busyTicks + UInt64(t.2)                               // plus idle
-        if let l = last, total > l.total { busy = Double(busyTicks - l.busy) / Double(total - l.total) }
+        if let l = last, total > l.total { average.add(Double(busyTicks - l.busy) / Double(total - l.total)) }
         last = (busyTicks, total)
     }
 }

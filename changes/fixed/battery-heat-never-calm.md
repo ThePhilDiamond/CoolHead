@@ -1,0 +1,1 @@
+- A warm or hot battery or drive now turns the top of the panel and the menu bar icon yellow or red, and the title says so ("Battery hot"), even when its card has been set aside; before, a hot battery could sit under "All calm". A card set aside while yellow comes back as soon as it turns red, and a hot battery's card can't be set aside, since heat is a safety matter.

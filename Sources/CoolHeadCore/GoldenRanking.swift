@@ -104,6 +104,8 @@ enum GoldenRanking {
     hardware-battery-fault · - · unknown · → none · diagnostics, note
     hardware-battery-service · - · unknown · → battery · battery, diagnostics
     hardware-battery-worn · - · quiet · → none · battery
+    hardware-battery-warm · - · unknown · → none · no options
+    hardware-battery-hot · - · unknown · → none · no options
     hardware-charging-on-hold · - · quiet · → none · full
     hardware-charging-too-warm · - · unknown · → none · no options
     hardware-charging-charger-too-weak · - · quiet · → none · no options

@@ -116,7 +116,7 @@ public enum HardwarePage {
             let worst = temps.map(\.level).max() ?? 0
             out.insert(Part(kind: .temps, symbol: "thermometer.medium", name: "Temperatures", value: ["Normal", "Warm", "Hot"][worst],
                             level: worst, lines: [],
-                            // no lines under the tiles: the ring at the top names its part, the ring and the chip tile share
+                            // no lines under the tiles: the heat dial at the top names its part, the dial and the chip tile share
                             // one reading, and a heat card says what heat means when it matters, so text here would
                             // only repeat them
                             tiles: temps), at: 0)            // first: heat is what slows a Mac
@@ -146,6 +146,9 @@ public enum HardwarePage {
         public var addingHeat = false
         public var toWatch = 0
         public var resumeSync = false
+        /// The battery's or drive's own heat, warm or hot (see `partHeat(batteryC:charging:driveC:)`). Heat is a safety
+        /// matter, so it counts whether or not its card is on the list.
+        public var partHeat: PartHeat? = nil
         public init(stuck: Int = 0, memoryCritical: Bool = false, memoryTight: Bool = false, addingHeat: Bool = false,
                     toWatch: Int = 0, resumeSync: Bool = false) {
             self.stuck = stuck; self.memoryCritical = memoryCritical; self.memoryTight = memoryTight
@@ -172,9 +175,11 @@ public enum HardwarePage {
             if thermal == "critical" { return (2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun.") }
             if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower.") }
             if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program isn't making progress." : "\(signs.stuck) programs aren't making progress.") }
+            if let p = signs.partHeat, p.level >= 2 { return (2, "The \(p.part) is hot.") }
             // moderate: melting
             if thermal == "serious" { return (1, "macOS is slowing your Mac a little to cool it.") }
             if signs.memoryTight { return (1, "Memory is tight, so your Mac is slower than it could be.") }
+            if let p = signs.partHeat, p.level == 1 { return (1, "The \(p.part) is warm.") }
             if signs.addingHeat { return (1, "Your Mac is warm, and something running is adding to the heat.") }
             // cards to watch melt the snowflake, but the row doesn't point at them: the title already counts them, and with
             // a tool open the pill ("2 fixes recommended") goes back to them, so saying it here too would repeat the pill
@@ -186,23 +191,34 @@ public enum HardwarePage {
         return Running(icon: icon, meaning: meaning, fans: fanText)
     }
 
-    /// How busy the chip and memory are, for the gauges beside it: a percentage, shown so the gauge needs no text on
-    /// pointing, and a level for its color. The chip is the share of all its cores in use. Memory is the share macOS
-    /// itself counts as in use when it judges memory pressure (100 minus kern.memorystatus_level, the "free percentage"
-    /// memory_pressure reports), colored by that pressure; never Activity Monitor's "Memory Used", which is high on any
-    /// healthy Mac (rule 10 in the research).
+    /// A dial at the top of the panel: green, yellow, and red zones, the needle in the middle of the zone for its level,
+    /// a word or value under it, and a label. Each dial shows a step, never an amount: the zone is the step, so no
+    /// position inside it is claimed. Chip load (Light, Medium, Heavy), memory as macOS itself judges its pressure (OK,
+    /// Tight, Full), never Activity Monitor's "Memory Used", which is high on any healthy Mac (rule 10 in the research),
+    /// and the heat of the part nearest its own limit, with its temperature.
     public struct Gauge: Equatable {
-        public let name: String; public let percent: Int; public let level: Int
-        /// What's written inside, when it isn't the percentage.
-        public var text: String? = nil
-        /// The part it's about, drawn beside its name, on the usage gauges as on the temperature ring.
+        /// "Chip", "Memory", or the part and " temperature".
+        public let name: String
+        /// 0 green, 1 yellow, 2 red; -1 before the first reading, drawn with no needle.
+        public let level: Int
+        /// Under the needle: the word for the step, or the temperature.
+        public var text: String
+        /// The part it's about, drawn beside its label.
         public var symbol: String? = nil
-        /// The temperature ring, under the Temperature title; the others are under Usage.
         public var isTemperature: Bool { name.hasSuffix(" temperature") }
+        /// Under the dial: "Chip load", "Memory", "Chip temp", "Battery temp", or "Drive temp".
+        public var label: String { isTemperature ? String(name.dropLast(" temperature".count)) + " temp" : name == "Chip" ? "Chip load" : name }
+        /// What VoiceOver says: the label and the word, and for a temperature its step too, since the needle carries it
+        /// ("Battery temp 115°F, hot").
+        public var spoken: String {
+            if level < 0 { return "\(label) not read yet" }
+            return isTemperature ? "\(label) \(text), \(["normal", "warm", "hot"][level])" : "\(label) \(text)"
+        }
+        /// Where the needle points, 0 at the left to 1 at the right: the middle of its level's zone; nil with no reading.
+        public var needle: Double? { (0...2).contains(level) ? (Double(level) + 0.5) / 3 : nil }
     }
-    /// The chip's heat, beside the chip and memory, since heat affects speed: its temperature written inside, the ring
-    /// filled by macOS's own four steps, since those, not the number, decide when it's slowed. Nil when the chip's
-    /// temperature isn't known.
+    /// The heat dial: the part nearest its own limit, with its temperature under the needle; the chip's level by macOS's
+    /// own four steps, since those, not the number, decide when it's slowed. Nil when the chip's temperature isn't known.
     ///
     /// The part furthest toward its own limit, the most worrying, named with its icon, the chip on a tie. Not the highest
     /// number: a chip runs at 40 to 100°C, so it would nearly always win, while a battery is warm at 40°C and hot at 45°C.
@@ -216,22 +232,54 @@ public enum HardwarePage {
         let batteryLevel = batteryC.map { batteryHeatLevel($0, charging: charging) } ?? -1
         let driveLevel = driveC.map(driveHeatLevel) ?? -1
         if let b = batteryC, batteryLevel > chipLevel, batteryLevel >= driveLevel, batteryLevel > 0 || chipC == nil {
-            return Gauge(name: "Battery temperature", percent: [25, 75, 100][batteryLevel], level: batteryLevel, text: Fmt.temperature(b), symbol: "battery.75percent")
+            return Gauge(name: "Battery temperature", level: batteryLevel, text: Fmt.temperature(b), symbol: "battery.75percent")
         }
         if let d = driveC, driveLevel > chipLevel, driveLevel > 0 {
-            return Gauge(name: "Drive temperature", percent: 75, level: driveLevel, text: Fmt.temperature(d), symbol: "internaldrive")
+            return Gauge(name: "Drive temperature", level: driveLevel, text: Fmt.temperature(d), symbol: "internaldrive")
         }
         guard let c = chipC else { return nil }
-        return Gauge(name: "Chip temperature", percent: (step + 1) * 25, level: chipLevel, text: Fmt.temperature(c), symbol: "cpu")
+        return Gauge(name: "Chip temperature", level: chipLevel, text: Fmt.temperature(c), symbol: "cpu")
+    }
+    /// The battery's or drive's own heat, warm (1) or hot (2), for the snowflake, the panel's title, and the menu bar
+    /// icon: heat is a safety matter (a laptop warming on a bed), so it counts even when the chip is calm and even when its
+    /// card was set aside. The battery on a tie. Nil when both are normal.
+    public struct PartHeat: Equatable {
+        /// "battery" or "drive".
+        public let part: String
+        public let level: Int
+        /// For the panel's title: "Battery hot", "Battery warm", "Drive warm".
+        public var title: String { part.prefix(1).uppercased() + part.dropFirst() + (level >= 2 ? " hot" : " warm") }
+    }
+    /// Part heat for this Mac: the battery's live reading (every 10 seconds, the one the Power page shows) when there is
+    /// one, else the hardware report's; the drive's from the report (it changes slowly).
+    public static func partHeat(report: HardwareReport?, mac: MacState) -> PartHeat? {
+        let live = mac.batteryTempC != nil
+        return partHeat(batteryC: mac.batteryTempC ?? report?.battery?.temperatureC,
+                        charging: live ? mac.charging : report?.battery?.charging ?? false,
+                        driveC: report?.drive?.temperatureC.map(Double.init))
+    }
+    /// The heat word for the panel's title: the chip's as macOS judges it ("Running warm" for fair, "Running hot" for
+    /// serious or critical) or the battery's or drive's own ("Battery hot"), whichever is worse, the chip on a tie, so a
+    /// hot battery never sits under a calmer word than its red row. Nil when neither is above normal.
+    public static func heatTitle(thermal: String, partHeat: PartHeat?) -> String? {
+        let chip = ["fair": 1, "serious": 2, "critical": 2][thermal] ?? 0
+        if let p = partHeat, p.level > chip { return p.title }
+        return chip == 0 ? nil : chip == 1 ? "Running warm" : "Running hot"
+    }
+    public static func partHeat(batteryC: Double?, charging: Bool, driveC: Double?) -> PartHeat? {
+        let b = batteryC.map { batteryHeatLevel($0, charging: charging) } ?? 0
+        let d = driveC.map(driveHeatLevel) ?? 0
+        guard max(b, d) > 0 else { return nil }
+        return b >= d ? PartHeat(part: "battery", level: b) : PartHeat(part: "drive", level: d)
     }
     /// How warm the battery is on its own scale: 0 normal, 1 warm, 2 hot. Warm from 40°C (where macOS starts pausing
     /// charging, see BatteryHealth.notCharging), except while it charges, when warmth is expected; hot from 45°C always.
-    /// The temperature ring and the battery temperature card both use it, so they never disagree.
+    /// The heat dial, part heat, and the battery temperature card both use it, so they never disagree.
     public static func batteryHeatLevel(_ c: Double, charging: Bool) -> Int { c >= 45 ? 2 : c >= 40 && !charging ? 1 : 0 }
     /// The drive's: warm from 70°C (Cool Head's own line, as on the Hardware page); never "hot", with no source for one.
     public static func driveHeatLevel(_ c: Double) -> Int { c >= 70 ? 1 : 0 }
 
-    /// What the temperature ring is showing, when pointed at.
+    /// What the heat dial is showing, when pointed at.
     public static func heatHelp(_ name: String) -> String {
         switch name {
         case "Chip temperature": return "The hottest of the chip's sensors, read every 3 seconds. The battery's or the drive's shows here instead when one is nearer its own limit."
@@ -240,13 +288,45 @@ public enum HardwarePage {
         default: return ""
         }
     }
-    public static func chip(busy: Double) -> Gauge {
-        let b = min(max(busy, 0), 1)
-        return Gauge(name: "Chip", percent: Int((b * 100).rounded()), level: b >= 0.8 ? 2 : b >= 0.5 ? 1 : 0, symbol: "cpu")
+    /// Chip load from the share of all its cores in use over about the last 30 seconds (see `LoadAverage`): Light under
+    /// half, Medium from half, Heavy from 80%. Nil busy (no reading yet) has no needle and "…" under it. A word for a
+    /// load, never a verdict: Heavy on a cool Mac is just work, so it doesn't count toward the snowflake.
+    public static func chip(busy: Double?) -> Gauge {
+        guard let busy else { return Gauge(name: "Chip", level: -1, text: "…", symbol: "cpu") }
+        let b = min(max(busy, 0), 1), level = b >= 0.8 ? 2 : b >= 0.5 ? 1 : 0
+        return Gauge(name: "Chip", level: level, text: ["Light", "Medium", "Heavy"][level], symbol: "cpu")
     }
-    public static func memory(freePercent: Int, pressure: String) -> Gauge {
-        Gauge(name: "Memory", percent: min(max(100 - freePercent, 0), 100),
-              level: pressure == "critical" ? 2 : pressure == "warning" ? 1 : 0, symbol: "memorychip")
+    /// Memory by macOS's own pressure: OK (normal), Tight (warning), Full (critical); "…" with no needle when it
+    /// couldn't be read, rather than claiming OK.
+    public static func memory(pressure: String) -> Gauge {
+        let level = ["normal": 0, "warning": 1, "critical": 2][pressure] ?? -1
+        return Gauge(name: "Memory", level: level, text: level < 0 ? "…" : ["OK", "Tight", "Full"][level], symbol: "memorychip")
+    }
+    /// The memory dial for this Mac: the same verdict as the memory card and the snowflake (MacState.memoryLevel, which
+    /// counts heavy swapping as tight even while macOS says normal), so "Memory is tight" never sits beside "OK".
+    public static func memory(_ mac: MacState) -> Gauge { memory(pressure: mac.memoryLevel ?? mac.memoryPressure) }
+    /// What a dial shows, when pointed at.
+    public static func help(_ g: Gauge) -> String {
+        switch g.name {
+        case "Chip": return "How busy the chip has been over about the last 30 seconds: Light under half its capacity, Medium from half, Heavy from 80%. Activity Monitor shows what's using it."
+        case "Memory": return "How tight memory is, as macOS itself judges it: OK, Tight, or Full. When it's tight, your Mac uses its disk as extra memory, which is slower."
+        default: return heatHelp(g.name)
+        }
+    }
+
+    /// Chip load over about the last 30 seconds: the last ten readings, taken 3 seconds apart while the panel is open, so
+    /// a moment's spike doesn't move the dial. Emptied when the panel closes, so an old reading never stands for now.
+    public struct LoadAverage: Equatable {
+        public static let span = 10
+        public private(set) var readings: [Double] = []
+        public init() {}
+        public mutating func add(_ busy: Double) {
+            readings.append(min(max(busy, 0), 1))
+            if readings.count > Self.span { readings.removeFirst(readings.count - Self.span) }
+        }
+        public mutating func clear() { readings = [] }
+        /// Nil before the first reading.
+        public var value: Double? { readings.isEmpty ? nil : readings.reduce(0, +) / Double(readings.count) }
     }
 
     /// For screenshots: made-up hardware, never this Mac's. "issue" shows a worn drive and one crash restart.

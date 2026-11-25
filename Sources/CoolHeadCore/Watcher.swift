@@ -39,10 +39,15 @@ public struct LiveCard: Identifiable {
     public var cause: String { causeKey ?? pid.map { "pid-\($0)" } ?? id }
     /// Overrides the cause, so a card keeps one identity as it changes (the memory card, warning or critical).
     public var causeKey: String? = nil
+    /// Red: as bad as its cause gets (a hot battery, not a warm one), so a card set aside while it was yellow comes back
+    /// at once when it turns red. Set by the card's maker, which knows the level, rather than guessed from its words.
+    public var serious = false
+    /// A safety matter (a part's own heat): while it's red it can't be set aside, so it stays on the list until it eases.
+    public var safety = false
     /// How bad it is, to tell whether a card the person chose to wait on has got meaningfully worse:
     /// 2 for stuck or critical memory, 1 for something that needs a look, 0 otherwise.
     public var severity: Int {
-        if card.state == .stalled || id.hasPrefix("memory-critical") { return 2 }
+        if card.state == .stalled || id.hasPrefix("memory-critical") || serious { return 2 }
         return needsLook || heatCause ? 1 : 0
     }
 }
@@ -458,6 +463,7 @@ public final class Watcher {
 
     /// Hides a card until a time; it comes back then if its cause is still there.
     public func snooze(_ card: LiveCard, until: Date) {
+        guard Watcher.canWait(card) else { return }                   // a red safety card stays (see canWait)
         log("Chose to wait on \(card.reportSubject) until \(Fmt.clock(until))")
         snoozed[card.cause] = (until, card.severity)
         cards.removeAll { $0.cause == card.cause }
@@ -878,6 +884,19 @@ public final class Watcher {
 
     public var needsLook: Bool { level != .good }
 
+    /// The battery's or drive's own heat (see `HardwarePage.Signs.partHeat`): set by the app each time it reads its
+    /// hardware report (at launch, on waking, when the panel opens, and every 10 minutes), the same reading the heat
+    /// dial and the battery's card use; nil until then.
+    public var partHeat: HardwarePage.PartHeat? = nil
+
+    /// Whether a card set aside with Check back in is still hidden: until its time, unless it has got worse since (a
+    /// warm battery card set aside comes back the moment it's hot). Every card source and the watcher's own cards use it.
+    public func isWaitedOn(_ c: LiveCard, now: Date = Date()) -> Bool {
+        snoozed[c.cause].map { $0.until > now && c.severity <= $0.severity } ?? false
+    }
+    /// Whether a card offers Check back in: not a red safety card (a hot battery), which stays until it eases.
+    public static func canWait(_ c: LiveCard) -> Bool { !(c.safety && c.severity >= 2) }
+
     /// What the menu bar shows, by shape and colour, so it reads without relying on colour alone:
     /// a green circle when all is well, a yellow triangle when something needs a look, a red octagon for a problem.
     public enum Level { case good, warning, issue }
@@ -901,6 +920,7 @@ public final class Watcher {
         s.addingHeat = cards.contains { $0.heatCause && !isCooled($0) }
         s.toWatch = cards.filter { !memory($0) && $0.card.state != .stalled && $0.needsLook }.count
         s.resumeSync = syncPauses.contains { $0.until <= Date() }                       // time to resume syncing
+        s.partHeat = partHeat
         return s
     }
 
@@ -1298,7 +1318,7 @@ public final class Watcher {
             refreshHeldBack()
             snoozed = snoozed.filter { $0.value.until > now }
             // a waited-on card stays hidden (and the badge green) until its time, unless it gets meaningfully worse
-            func waitingOn(_ c: LiveCard) -> Bool { snoozed[c.cause].map { c.severity <= $0.severity } ?? false }
+            func waitingOn(_ c: LiveCard) -> Bool { isWaitedOn(c, now: now) }
             let before = Dictionary(cards.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             let after = Dictionary(live.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             for (id, c) in after where before[id] == nil && seenIDs.insert(id).inserted {

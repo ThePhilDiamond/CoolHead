@@ -116,7 +116,7 @@ final class PowerWatch {
 
     /// The cards to show: those the person hasn't chosen to wait on (the clock in a card's corner).
     func visible(_ watcher: Watcher, now: Date = Date()) -> [LiveCard] {
-        cards.filter { c in watcher.snoozed[c.cause].map { $0.until <= now || c.severity > $0.severity } ?? true }
+        cards.filter { !watcher.isWaitedOn($0, now: now) }
     }
 }
 
