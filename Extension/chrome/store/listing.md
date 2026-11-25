@@ -97,7 +97,7 @@ The extension works on its own; the Cool Head Mac app is optional and not needed
 3. Click "Start a session", keep a few tabs ticked, and press Start: the unticked tabs sleep. End the session from the menu.
 4. Press Command-Shift-S (Ctrl+Shift+S on Windows and Linux) on a tab: it sleeps, and the next awake tab to its right shows. Press it again to sleep that one too.
 5. Optional: in Settings, turn on "Keep tabs with unsent typing or a call awake" and allow access, then type in a form without sending it; that tab is held as "Unsent typing". With that access on, a tab that goes to sleep shows "zzZ" before its title.
-6. Click Saved windows in the bottom bar, then Save and close, and allow bookmarks when Chrome asks: the window closes and appears under Saved. Reopen brings its tabs back asleep in a new window and removes the folder.
+6. Click Saved windows in the bottom bar, then Save this window, then Save and close, and allow bookmarks when Chrome asks: the window closes and appears under Saved. Reopen brings its tabs back asleep in a new window and removes the folder. Command-Shift-Y (Ctrl+Shift+Y) opens the same save dialog directly.
 No account or sign-in is needed.
 ```
 

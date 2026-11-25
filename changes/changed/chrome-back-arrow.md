@@ -1,0 +1,1 @@
+- Cool Head for Chrome: each tool (Effort, Protected, Saved windows, Settings, and Moving from a tab suspender) has a back arrow beside its title in place of the X, since it goes back a level; an X now only cancels a task, as in Start a session and the new save dialog.

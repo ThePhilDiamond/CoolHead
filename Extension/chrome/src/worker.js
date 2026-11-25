@@ -1159,8 +1159,8 @@ async function sleepOtherTabs(tab) {
 }
 
 chrome.commands.onCommand.addListener((command, tab) => {
-  // Save and close this window opens the popup at Saved windows, for its few words and, the first time, Chrome's
-  // question about bookmarks, which only a page can ask
+  // Save this window opens the popup at Saved windows with its save dialog open, for its few words and, the first
+  // time, Chrome's question about bookmarks, which only a page can ask
   if (command === 'save-window') {
     store.save({ popupScreen: 'windows' }).then(() => chrome.action.openPopup()).catch(oops);
     return;

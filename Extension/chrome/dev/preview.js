@@ -110,7 +110,8 @@ if (protectedScreen) {
   ], null, 'self', new Set(['Tab napper']));
 }
 
-// Saved windows (made-up folders): ?screen=windows, windows-reopen, windows-remove, windows-empty
+// Saved windows (made-up folders): ?screen=windows, windows-reopen, windows-remove, windows-empty, and the save dialog:
+// windows-dialog, windows-dialog-risky (a tab with unsent typing), windows-dialog-failed (a tab not saved)
 view.windows = {
   tabsHere: 12, defaultWords: 'mail.example.com and 4 more', day: '24 November 2026', granted: screen !== 'windows-empty',
   saved: screen === 'windows-empty' ? [] : [
@@ -123,6 +124,9 @@ view.windows = {
 if (screen.startsWith('windows')) ui.screen = 'windows';
 if (screen === 'windows-reopen') { ui.confirmWindow = { id: 'f1', action: 'reopen' }; ui.windowWords = 'Trip planning'; }
 if (screen === 'windows-remove') ui.confirmWindow = { id: 'f2', action: 'remove' };
+if (screen.startsWith('windows-dialog')) { ui.saveDialog = true; ui.windowWords = 'Trip planning'; }
+if (screen === 'windows-dialog-risky') { view.windows.risky = ['Travel expense form']; ui.windowRisky = true; }
+if (screen === 'windows-dialog-failed') ui.windowSaid = W.WINDOWS_FAILED;
 
 const noop = () => {};
 const on = new Proxy({}, { get: () => noop });
@@ -133,6 +137,7 @@ document.body.dataset.height = String(Math.ceil(root.getBoundingClientRect().bot
 // ?scroll=end, or a number of pixels, or the id of a part to show at the top
 { const m = root.querySelector('main'); const v = q.get('scroll'); if (m && v) m.scrollTop = v === 'end' ? m.scrollHeight : /^\d+$/.test(v) ? Number(v) : (root.querySelector(`#${v}`)?.offsetTop ?? 0) - m.offsetTop; }
 
+if (screen.startsWith('windows-dialog')) { const i = root.querySelector('[data-key="window-words"]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 if (screen === 'confirm') root.querySelector(`[data-key="close-${form.id}"]`).focus();
 if (screen === 'protected-ext') {
   const main = root.querySelector('main');

@@ -14,6 +14,7 @@ export const PATHS = {
   syncOff: '<path d="M13.2 6.2A5.3 5.3 0 0 0 3.4 4.6"/><path d="M3.1 1.9v2.9H6"/><path d="M2.8 9.8a5.3 5.3 0 0 0 9.8 1.6"/><path d="M12.9 14.1v-2.9H10"/><path d="M2 2l12 12"/>',
   chevRight: '<path d="M6 3.5L10.5 8 6 12.5"/>',
   chevDown: '<path d="M3.5 6L8 10.5 12.5 6"/>',
+  back: '<path d="M13 8H3.5M7.5 4L3.5 8l4 4"/>',   // an arrow: back a level, beside a tool's title
   chevLeft: '<path d="M10 3.5L5.5 8 10 12.5"/>',
   x: '<path d="M4 4l8 8M12 4l-8 8"/>',
   check: '<path d="M3.2 8.4l3 3 6.6-7"/>',

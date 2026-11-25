@@ -18,7 +18,7 @@
   "commands": {
     "sleep-tab": { "description": "Put this tab to sleep", "suggested_key": { "default": "Ctrl+Shift+S", "mac": "Command+Shift+S" } },
     "sleep-others": { "description": "Put the other tabs in this window to sleep" },
-    "save-window": { "description": "Save this window as a bookmark folder and close it", "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" } }
+    "save-window": { "description": "Save this window", "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" } }
   },
   "optional_host_permissions": ["<all_urls>"],
   "content_security_policy": {

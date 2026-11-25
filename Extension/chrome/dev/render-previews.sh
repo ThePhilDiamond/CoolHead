@@ -31,6 +31,11 @@ shot "protected-extensions-light" protected-ext light
 shot "protected-extensions-dark" protected-ext dark
 shot "settings-dark" settings dark
 shot "migrate-light" migrate light
-# scrolled so the save button and the saved list both show, for the store image
-shot "saved-windows-light" windows light 252
+shot "saved-windows-light" windows light
+shot "saved-windows-dark" windows dark
+# the save dialog, which Command-Shift-Y opens directly, and the store image's render
+shot "save-window-light" windows-dialog light
+shot "save-window-dark" windows-dialog dark
+shot "save-window-risky-light" windows-dialog-risky light
+shot "save-window-failed-dark" windows-dialog-failed dark
 ls "$OUT"
