@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cool Head for Chrome",
   "short_name": "Cool Head",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Sleeps unused tabs and temporarily turns off extensions you don't need, so Chrome holds less memory. Works alone or with Cool Head.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAugwqCqihzQk5qKxsMjwYH7qMrxvOuAzBAkQpwhuZzp/gqu9YfjnPgXH2itsW9nE7APFOhyMC2eS4a3KLJVeBChLBKZVccfE+kNyCJurbcBcGyc0f28On8ZrocaLEBExMwjfKv+z1W++Amsv2hcwgiApQjLLj/xO8kvTcGV/KuTbqilLKENx/ZYCEqy5lcP5WseFPqEuY2JW3jPg060it3Lw4D/s2bljhF3uIWcbQvPcxbz/VNJC78JSOsrc9mKbLTPGcKLkvEywYx8NiTVv9sh1c0tuimbEdjuXWo6naJ1gvGbUCds6+8TwtXe2ltWnEgYkODUbW5k8+debdReqs1wIDAQAB",
   "minimum_chrome_version": "123",
@@ -18,7 +18,7 @@
   "commands": {
     "sleep-tab": { "description": "Put this tab to sleep", "suggested_key": { "default": "Ctrl+Shift+S", "mac": "Command+Shift+S" } },
     "sleep-others": { "description": "Put the other tabs in this window to sleep" },
-    "save-window": { "description": "Save this window as a bookmark folder and close it", "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" } }
+    "save-window": { "description": "Save this window", "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" } }
   },
   "optional_host_permissions": ["<all_urls>"],
   "content_security_policy": {

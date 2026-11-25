@@ -159,7 +159,7 @@ function protectedScreen(view, ui, on) {
     tabs.append(h('p', { class: 'lede', text: W.PROTECTED_LEDE }),
       h('ul', { class: 'tabs', 'aria-labelledby': 'p-tabs' }, view.held.tabs.map((r) => heldRow(r, ui, on))));
   }
-  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, screenTitle(W.PROTECTED, 'shield', on), tabs, sitesPart(view, on), extensionsPart(view, ui, on));
+  const main = h('main', { class: 'middle', 'aria-label': W.PROTECTED }, screenTitle(W.PROTECTED, on), tabs, sitesPart(view, on), extensionsPart(view, ui, on));
   return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
 
@@ -306,7 +306,7 @@ function effortScreen(view, ui, on) {
   // What the chosen level is doing right now, when that's more than its line says (view.js).
   const status = l.status;
   const main = h('main', { class: 'middle', 'aria-label': W.LEVEL_LABEL },
-    screenTitle(W.LEVEL_LABEL, 'gauge', on),
+    screenTitle(W.LEVEL_LABEL, on),
     h('div', { class: 'levelrows', role: 'radiogroup', 'aria-label': W.LEVEL_LABEL }, rows),
     status ? h('p', { class: 'note', text: status }) : null,
     l.needs ? h('p', { class: 'note', id: 'auto-needs', text: l.needs }) : null);
@@ -354,8 +354,8 @@ function windowsTool(view, ui, on, tool) {
 
 // ---------- saved windows ----------
 
-// Save this window: a few words to name its folder, with the whole name shown as it will be, and Save and close.
-// Below, each saved window with Reopen and Remove, both asking first in the row itself; then anything in the parent
+// Save this window: a button that opens a dialog over the tool, with a few words to name its folder, the whole name
+// shown as it will be, and Save and close. Below, each saved window with Reopen and Remove, both asking first in the row itself; then anything in the parent
 // folder Cool Head didn't put there, with Tidy, which moves it out and never deletes it.
 function windowsScreen(view, ui, on) {
   const w = view.windows;
@@ -363,17 +363,31 @@ function windowsScreen(view, ui, on) {
   const name = W.windowFolderName(words || w.defaultWords, w.tabsHere, w.day);
   const input = h('input', { type: 'text', maxlength: '40', value: ui.windowWords ?? '', placeholder: W.WINDOWS_DESCRIBE_HINT,
     'data-key': 'window-words', oninput: (e) => on.windowWords(e.target.value),
-    onkeydown: (e) => { if (e.key === 'Enter') on.saveWindow(e.target.value); } });
+    onkeydown: (e) => { if (e.key === 'Enter' && !e.isComposing) on.saveWindow(e.target.value); } });
   const risky = ui.windowRisky && w.risky.length;
-  const save = h('section', { class: 'card', 'aria-labelledby': 'win-save-h' },
-    h('h2', { id: 'win-save-h', text: W.WINDOWS_SAVE_TITLE }),
-    h('p', { text: W.WINDOWS_SAVE_WHY }),
-    h('label', { class: 'field' }, W.WINDOWS_DESCRIBE, input),
-    h('p', { class: 'savedas', 'aria-live': 'polite', text: W.windowsSavedAs(name) }),
-    risky ? h('div', { class: 'warn', id: 'win-risky' }, icon('warn'), h('span', { text: W.windowsRisky(w.risky) })) : null,
-    h('div', { class: 'row' }, h('button', { class: 'btn primary', 'data-key': 'window-save', 'aria-describedby': risky ? 'win-risky' : null,
-      onclick: () => on.saveWindow(input.value) }, risky ? W.WINDOWS_SAVE_ANYWAY : W.WINDOWS_SAVE)),
-    h('p', { class: 'note', text: w.granted ? W.WINDOWS_SAVE_NOTE : `${W.WINDOWS_SAVE_NOTE} ${W.WINDOWS_ASKS}` }));
+  // The tool shows Save this window as a button; the dialog it opens sits over the tool, holding the words, the name
+  // as it will be, any warning, and Save and close. Its X goes back to the tool; the shortcut opens it directly.
+  const opener = h('div', { class: 'winopen' },
+    h('button', { class: 'btn primary wide', 'data-key': 'window-open', 'aria-haspopup': 'dialog', onclick: on.saveDialog }, W.SAVE_DIALOG_OPEN),
+    h('p', { class: 'note', text: W.SAVE_DIALOG_WHY }));
+  // A click outside the dialog closes it, only when it both starts and ends there, so a selection dragged out of
+  // the field doesn't.
+  let pressedOutside = false;
+  const dialog = ui.saveDialog ? h('div', { class: 'veil',
+    onpointerdown: (e) => { pressedOutside = e.target === e.currentTarget; },
+    onclick: (e) => { if (pressedOutside && e.target === e.currentTarget) on.closeDialog(); pressedOutside = false; } },
+    h('section', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'win-dlg-h', 'aria-describedby': 'win-dlg-p' },
+      h('div', { class: 'screenhead' }, h('h2', { id: 'win-dlg-h', text: W.SAVE_DIALOG_TITLE }),
+        h('button', { class: 'iconbtn', 'aria-label': W.CLOSE_DIALOG, title: W.CLOSE_DIALOG, 'data-key': 'close-dialog', onclick: on.closeDialog }, icon('x'))),
+      h('p', { class: 'lede', id: 'win-dlg-p', text: W.SAVE_DIALOG_LEDE }),
+      h('label', { class: 'field' }, W.WINDOWS_DESCRIBE, input),
+      h('p', { class: 'savedas', 'aria-live': 'polite', text: W.windowsSavedAs(name) }),
+      risky ? h('div', { class: 'warn', id: 'win-risky' }, icon('warn'), h('span', { text: W.windowsRisky(w.risky) })) : null,
+      // why the last Save didn't close the window; already said aloud, so not a live region itself
+      ui.windowSaid ? h('div', { class: 'warn', 'data-key': 'window-said' }, icon('warn'), h('span', { text: ui.windowSaid })) : null,
+      h('button', { class: 'btn primary wide', 'data-key': 'window-save', 'aria-describedby': risky ? 'win-risky' : null,
+        onclick: () => on.saveWindow(input.value) }, risky ? W.WINDOWS_SAVE_ANYWAY : W.WINDOWS_SAVE),
+      h('p', { class: 'note', text: w.granted ? W.WINDOWS_SAVE_NOTE : `${W.WINDOWS_SAVE_NOTE} ${W.WINDOWS_ASKS}` }))) : null;
   const saved = h('section', { class: 'part', 'aria-labelledby': 'win-list-h' },
     h('h3', { class: 'parthead', id: 'win-list-h' }, W.WINDOWS_SAVED, h('span', { class: 'count', text: String(w.saved.length) })));
   if (!w.saved.length) saved.append(h('p', { class: 'lede', text: W.WINDOWS_EMPTY }));
@@ -383,8 +397,11 @@ function windowsScreen(view, ui, on) {
     h('p', { class: 'lede', text: W.WINDOWS_OTHERS_WHY }),
     h('ul', { class: 'sitelist' }, w.others.map((o) => h('li', { class: 'ext' }, h('span', { class: 'tabmain' }, h('span', { class: 'tabtitle', title: o.title, text: o.title }))))),
     h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'win-tidy', onclick: on.tidyWindows }, W.WINDOWS_TIDY))) : null;
-  const main = h('main', { class: 'middle', 'aria-label': W.WINDOWS }, screenTitle(W.WINDOWS, 'windowSaved', on), save, saved, others);
-  return [band(view, ui, on), main, toolbar(view, ui, on)];
+  const main = h('main', { class: 'middle', 'aria-label': W.WINDOWS }, screenTitle(W.WINDOWS, on), opener, saved, others);
+  const parts = [band(view, ui, on), main, toolbar(view, ui, on)];
+  // While the dialog is open, everything under it is out of reach of the keyboard and screen readers.
+  if (dialog) for (const p of parts) p.inert = true;
+  return [...parts, dialog];
 }
 
 // A saved window: its words, with its count and age under them, Reopen, and a small bin to remove it. Either asks in
@@ -472,13 +489,12 @@ function startScreen(view, ui, on) {
 
 // ---------- settings ----------
 
-// A tool's title: its icon and name, and a close button, as Cool Head's tools have. The pill in the band, the band,
-// and the tool again go back home too.
-function screenTitle(title, ico, on) {
+// A tool's title: a back arrow before its name, which goes back a level, home; an X is kept for cancelling a task, as
+// Start a session and the save dialog do. The pill in the band, the band, and the tool again go back home too.
+function screenTitle(title, on) {
   return h('div', { class: 'screenhead' },
-    h('span', { class: 'headicon', 'aria-hidden': 'true' }, icon(ico)),
-    h('h2', { text: title }),
-    h('button', { class: 'iconbtn', 'aria-label': W.CLOSE_TOOL, title: W.CLOSE_TOOL, 'data-key': 'close-tool', onclick: on.home }, icon('x')));
+    h('button', { class: 'iconbtn back', 'aria-label': W.BACK, title: W.BACK, 'data-key': 'tool-back', onclick: on.home }, icon('back')),
+    h('h2', { text: title }));
 }
 
 function radio(name, value, checked, title, why, onchange) {
@@ -490,7 +506,7 @@ function radio(name, value, checked, title, why, onchange) {
 function settingsScreen(view, ui, on) {
   const st = view.settings;
   const main = h('main', { class: 'middle', 'aria-label': W.SETTINGS },
-    screenTitle(W.SETTINGS, 'gear', on),
+    screenTitle(W.SETTINGS, on),
     // while tabs are moving, how far along, with no button to start another move
     view.migrate?.running ? h('section', { class: 'card', 'aria-labelledby': 'mig-h' },
       h('h2', { id: 'mig-h', text: W.MIGRATE_SETTINGS }),
@@ -583,7 +599,7 @@ function migrateScreen(view, ui, on) {
         h('button', { class: 'btn', 'data-key': 'mig-later', onclick: on.migrateLater }, W.MIGRATE_LATER)));
   }
   const main = h('main', { class: 'middle', 'aria-label': W.MIGRATE_TITLE },
-    screenTitle(W.MIGRATE_TITLE, 'tray', { home: m.running || m.result ? on.migrateClose : on.migrateLater }),
+    screenTitle(W.MIGRATE_TITLE, { home: m.running || m.result ? on.migrateClose : on.migrateLater }),
     h('section', { class: 'card migrate' }, ...body));
   return [band(view, ui, on), main, toolbar(view, ui, on)];
 }
@@ -597,7 +613,7 @@ export function render(root, view, ui, on) {
   const focusKey = document.activeElement?.dataset?.key;
   const scroll = root.querySelector('main')?.scrollTop ?? 0;
   const sameScreen = root.dataset.screen === ui.screen;
-  root.replaceChildren(...parts);
+  root.replaceChildren(...parts.filter(Boolean));
   root.dataset.screen = ui.screen;
   const main = root.querySelector('main');
   if (main && sameScreen) main.scrollTop = scroll;

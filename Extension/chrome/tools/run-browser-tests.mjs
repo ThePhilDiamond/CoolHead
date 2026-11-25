@@ -334,6 +334,91 @@ const A = [
     await act(w, { action: 'keep', tabId: id, on: false });
     await cdp.send('Target.closeTarget', { targetId }).catch(() => {});
   }],
+  ['Saved windows: the save dialog opens over the tool, keeps focus inside, and its X and Escape go back to the tool', async ({ w, cdp }) => {
+    const { targetId } = await cdp.send('Target.createTarget', { url: `chrome-extension://${ID}/popup/popup.html` });
+    const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
+    await cdp.send('Runtime.enable', {}, sessionId);
+    const ev = (x) => evaluate(cdp, sessionId, x);
+    const focused = () => ev("document.activeElement?.dataset?.key || ''");
+    const state = () => ev(`({ dialog: Boolean(document.querySelector('[role=dialog]')), inert: [...document.querySelectorAll('#app > :not(.veil)')].map((e) => e.inert),
+      screen: document.querySelector('#app').dataset.screen })`);
+    const escape = async () => {
+      for (const type of ['keyDown', 'keyUp']) await cdp.send('Input.dispatchKeyEvent', { type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, sessionId);
+    };
+    await waitFor('the popup to draw', async () => ((await ev("document.querySelector('#app')?.innerText || ''")).includes('Effort') ? true : null));
+    await ev("document.querySelector('[data-key=windows]').click()");
+    await waitFor('the tool', async () => (await ev("Boolean(document.querySelector('[data-key=window-open]'))") ? true : null));
+    assert.equal((await state()).dialog, false, 'the tool opens without the dialog');
+    assert.equal(await ev("Boolean(document.querySelector('[data-key=window-words]'))"), false, 'the words are only in the dialog');
+    // the button opens it: focus in its field, everything under it inert
+    await ev("document.querySelector('[data-key=window-open]').click()");
+    let st = await state();
+    assert.equal(st.dialog, true);
+    assert.deepEqual(st.inert, [true, true, true], 'the band, the tool, and the bottom bar are out of reach');
+    assert.equal(await focused(), 'window-words');
+    await ev("(() => { const i = document.querySelector('[data-key=window-words]'); i.value = 'Kept words'; i.dispatchEvent(new Event('input')); })()");
+    // a selection dragged out of the field and let go over the veil leaves the dialog open
+    const box = await ev("(() => { const r = document.querySelector('[data-key=window-words]').getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2 }; })()");
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: box.x, y: box.y, button: 'left', clickCount: 1 }, sessionId);
+    for (const x of [box.x - 10, 20, 5]) await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y: box.y, button: 'left', buttons: 1 }, sessionId);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 5, y: box.y, button: 'left', clickCount: 1 }, sessionId);
+    assert.equal((await state()).dialog, true, 'a drag let go over the veil keeps the dialog');
+    await ev("document.querySelector('[data-key=window-words]').focus()");
+    // Escape that cancels an input method's composition leaves the dialog open
+    await cdp.send('Input.imeSetComposition', { text: 'にほ', selectionStart: 2, selectionEnd: 2 }, sessionId);
+    await escape();
+    assert.equal((await state()).dialog, true, 'Escape while composing keeps the dialog');
+    await cdp.send('Input.insertText', { text: '' }, sessionId);
+    await ev("(() => { const i = document.querySelector('[data-key=window-words]'); i.value = 'Kept words'; i.dispatchEvent(new Event('input')); })()");
+    // the shortcut pressed while the words are typed: the dialog stays as it is, and nothing is left for the next opening
+    await w("chrome.storage.session.set({ popupScreen: 'windows' })");
+    await waitFor('the shortcut used up', async () => ((await w("chrome.storage.session.get('popupScreen').then((r) => r.popupScreen ?? null)")) === null ? true : null));
+    assert.equal(await ev("document.querySelector('[data-key=window-words]').value"), 'Kept words');
+    assert.equal(await focused(), 'window-words');
+    // Escape closes the dialog, not the popup, and focus goes back to the button
+    await escape();
+    st = await state();
+    assert.equal(st.dialog, false, 'Escape closes the dialog');
+    assert.equal(st.screen, 'windows', 'and leaves the tool open');
+    assert.deepEqual(st.inert, [false, false, false]);
+    assert.equal(await focused(), 'window-open');
+    // opened again, the words typed before are still there; its X goes back to the tool the same way
+    await ev("document.querySelector('[data-key=window-open]').click()");
+    assert.equal(await ev("document.querySelector('[data-key=window-words]').value"), 'Kept words');
+    await ev("document.querySelector('[data-key=close-dialog]').click()");
+    assert.equal((await state()).dialog, false, 'the X closes the dialog');
+    assert.equal(await focused(), 'window-open');
+    // a click on the veil outside the dialog closes it too; a click inside doesn't
+    await ev("document.querySelector('[data-key=window-open]').click()");
+    await ev("document.querySelector('.dialog').click()");
+    assert.equal((await state()).dialog, true, 'a click inside the dialog keeps it');
+    for (const type of ['mousePressed', 'mouseReleased']) await cdp.send('Input.dispatchMouseEvent', { type, x: 5, y: 5, button: 'left', clickCount: 1 }, sessionId);
+    assert.equal((await state()).dialog, false, 'a click outside it closes it');
+    // Cool Head's "Turn off extensions" arriving with the dialog open goes to Protected and leaves the dialog behind,
+    // so Escape there is Chrome's again, and Saved windows opens without it
+    await ev("document.querySelector('[data-key=window-open]').click()");
+    await ev("document.querySelector('[data-key=close-dialog]').focus()");
+    await w("chrome.storage.session.set({ popupScreen: 'safe' })");
+    await waitFor('Protected', async () => ((await state()).screen === 'protected' ? true : null));
+    assert.equal(await ev("(() => { const e = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true }); document.body.dispatchEvent(e); return e.defaultPrevented; })()"), false, 'Escape on Protected is left alone');
+    await ev("document.querySelector('[data-key=windows]').click()");
+    assert.equal((await state()).dialog, false, 'Saved windows opens without the dialog');
+    // the back arrow goes home, focus on the tool's button
+    await ev("document.querySelector('[data-key=tool-back]').click()");
+    assert.equal((await state()).screen, 'home');
+    assert.equal(await focused(), 'windows');
+    await cdp.send('Target.closeTarget', { targetId }).catch(() => {});
+    // The shortcut's way in: the worker leaves popupScreen for the popup, which opens on the dialog, focus in its field.
+    await w("chrome.storage.session.set({ popupScreen: 'windows' })");
+    const again = await cdp.send('Target.createTarget', { url: `chrome-extension://${ID}/popup/popup.html` });
+    const s2 = (await cdp.send('Target.attachToTarget', { targetId: again.targetId, flatten: true })).sessionId;
+    await cdp.send('Runtime.enable', {}, s2);
+    await waitFor('the dialog from the shortcut', async () => (await evaluate(cdp, s2, "Boolean(document.querySelector('[role=dialog]'))") ? true : null));
+    assert.equal(await evaluate(cdp, s2, "document.activeElement?.dataset?.key || ''"), 'window-words');
+    assert.equal(await evaluate(cdp, s2, "document.querySelector('#app').dataset.screen"), 'windows');
+    assert.equal(await w("chrome.storage.session.get('popupScreen').then((r) => r.popupScreen)"), null, 'used once');
+    await cdp.send('Target.closeTarget', { targetId: again.targetId }).catch(() => {});
+  }],
   ['moving tabs: one whose address downloads a file moves to a page of the extension\'s own, so the suspender can go', async ({ w }) => {
     const fake = 'abcdefghijklmnopabcdefghijklmnop';
     const ids = await openTabs(w, [`chrome-extension://${fake}/suspended.html#ttl=Q3%20pack&pos=0&uri=${BASE}/download`,
@@ -444,8 +529,9 @@ const B = [
     await w(`chrome.windows.update(${win}, { focused: true })`);
     const before = await w('coolHead.viewFor()');
     assert.equal(before.windows.tabsHere, 3);
-    const said = await act(w, { action: 'saveWindow', words: 'Test trip' });
-    assert.match(said, /Saved 3 tabs as "Test trip"/);
+    const r = await act(w, { action: 'saveWindow', words: 'Test trip' });
+    assert.match(r.said, /Saved 3 tabs as "Test trip"/);
+    assert.equal(r.saved, true);
     await waitFor('the window to close', async () => ((await w('chrome.windows.getAll()')).some((x) => x.id === win) ? null : true));
     const view = await w('coolHead.viewFor()');
     assert.equal(view.windows.saved.length, 1);
@@ -472,6 +558,78 @@ const B = [
     assert.deepEqual(back.map((x) => x.url).sort(), [...urls].sort(), 'every page at its own address');
     assert.deepEqual(await w(`chrome.bookmarks.get(${JSON.stringify(f.id)}).then(() => 'still there', () => 'gone')`), 'gone');
     assert.deepEqual((await state(w)).savedWindows, []);
+  }],
+  ['the save dialog: a save that doesn\'t close the window says why in the dialog, and a tab found risky only then asks first; Cancel in a row goes back to its button', async ({ w, cdp }) => {
+    const popup = await cdp.send('Target.createTarget', { url: `chrome-extension://${ID}/popup/popup.html`, newWindow: true });
+    const { sessionId } = await cdp.send('Target.attachToTarget', { targetId: popup.targetId, flatten: true });
+    await cdp.send('Runtime.enable', {}, sessionId);
+    const ev = (x) => evaluate(cdp, sessionId, x);
+    await waitFor('the popup to draw', async () => ((await ev("document.querySelector('#app')?.innerText || ''")).includes('Effort') ? true : null));
+    // the window in front holds nothing that can be saved, so Save leaves it open and the dialog says so
+    const blank = await w("chrome.windows.create({ url: 'about:blank', focused: true }).then((x) => x.id)");
+    await sleep(500);
+    await ev("document.querySelector('[data-key=windows]').click()");
+    await waitFor('the tool', async () => (await ev("Boolean(document.querySelector('[data-key=window-open]'))") ? true : null));
+    await ev("document.querySelector('[data-key=window-open]').click()");
+    // Enter that confirms an input method's composition doesn't save
+    await ev("document.querySelector('[data-key=window-words]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true }))");
+    await sleep(500);
+    assert.equal(await ev("Boolean(document.querySelector('[data-key=window-said]'))"), false, 'no save while composing');
+    await ev("document.querySelector('[data-key=window-save]').click()");
+    const said = await waitFor('the reason in the dialog', async () => ev("document.querySelector('[role=dialog] [data-key=window-said]')?.innerText || null"));
+    assert.equal(said, 'This window has no pages to save.');
+    assert.ok((await w('chrome.windows.getAll()')).some((x) => x.id === blank), 'the window stays open');
+    // Typing in the field holds the popup's view still, so a tab with unsent typing in front now is found only by the
+    // worker: the press asks, as the first press does, and the button becomes Save and close anyway.
+    await ev("document.querySelector('[data-key=window-words]').focus()");
+    const formUrl = `${BASE}/typing?n=dialog`;
+    const form = await cdp.send('Target.createTarget', { url: formUrl, newWindow: true });
+    const fs2 = (await cdp.send('Target.attachToTarget', { targetId: form.targetId, flatten: true })).sessionId;
+    await waitFor('the typing page', async () => ((await evaluate(cdp, fs2, "document.readyState === 'complete' && !!document.getElementById('t')")) ? true : null));
+    await evaluate(cdp, fs2, "document.getElementById('t').focus()");
+    await cdp.send('Input.insertText', { text: 'Half a sentence' }, fs2);
+    // values stay in the worker or are written out, never spliced into the scripts these tests run
+    const formTab = await w("chrome.tabs.query({}).then((t) => t.find((x) => x.url.endsWith('/typing?n=dialog')))");
+    const formWin = formTab.windowId;
+    await waitFor('typing recorded', async () => ((await state(w)).typing[formTab.id] ? true : null));
+    await w(`chrome.windows.update(${formWin}, { focused: true })`);
+    await sleep(300);
+    assert.equal(await ev("document.querySelector('[data-key=window-save]').innerText"), 'Save and close', 'the view had not seen the typing');
+    await ev("document.querySelector('[data-key=window-words]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))");
+    await waitFor('the second-press button', async () => ((await ev("document.querySelector('[data-key=window-save]')?.innerText")) === 'Save and close anyway' ? true : null));
+    assert.equal(await ev("Boolean(document.querySelector('[data-key=window-said]'))"), false, 'the old reason is gone');
+    assert.match(await ev("document.querySelector('#win-risky')?.innerText || ''"), /Expense form/);
+    assert.ok((await w('chrome.windows.getAll()')).some((x) => x.id === formWin), 'the window stays open until the second press');
+    // the second press saves and closes it; this popup, a tab in another window, outlives it and shows no warning
+    await w('coolHead.store.load().then((s) => { globalThis.dialogTestBefore = (s.savedWindows || []).map((x) => x.id); })');
+    await ev("document.querySelector('[data-key=window-save]').click()");
+    await waitFor('the form window to close', async () => ((await w('chrome.windows.getAll()')).some((x) => x.id === formWin) ? null : true));
+    await sleep(300);
+    assert.equal(await ev("Boolean(document.querySelector('[data-key=window-said]'))"), false, 'a save that worked is not a warning');
+    assert.equal(await w('coolHead.store.load().then((s) => (s.savedWindows || []).filter((x) => !globalThis.dialogTestBefore.includes(x.id)).length)'), 1);
+    // Cancel in a saved window's row puts focus back on the button that asked, Remove or Reopen
+    await ev("document.querySelector('[data-key=close-dialog]').click()");
+    // a saved window of its own, in Cool Head's folder (made here if this test runs without the save test before it)
+    await w(`coolHead.store.load().then(async (s) => {
+      const parent = s.windowsFolderId || await chrome.bookmarks.create({ title: 'Cool Head windows' }).then(async (b) => { await coolHead.store.save({ windowsFolderId: b.id }); return b.id; });
+      const f = await chrome.bookmarks.create({ parentId: parent, title: 'Focus check · 1 tab · 1 January 2026' });
+      await chrome.bookmarks.create({ parentId: f.id, title: 'Page', url: 'http://127.0.0.1/focus-check' });
+      await coolHead.store.change((st) => ({ savedWindows: [...(st.savedWindows || []), { id: f.id, savedAt: Date.now() }] }));
+      globalThis.dialogTestFolder = f.id;
+    })`);
+    const inRow = (prefix) => `[...document.querySelectorAll('li.savedwin')].find((li) => li.innerText.includes('Focus check'))?.querySelector('[data-key^="${prefix}"]')`;
+    for (const action of ['remove', 'reopen']) {
+      const asked = await waitFor('the saved row', async () => ev(`${inRow(`win-${action}-`)}?.dataset.key || null`));
+      const id = asked.slice(`win-${action}-`.length);
+      await ev(`${inRow(`win-${action}-`)}.click()`);
+      assert.equal(await ev("document.activeElement?.dataset?.key"), `win-yes-${id}`);
+      await ev(`${inRow('win-no-')}.click()`);
+      assert.equal(await ev("document.activeElement?.dataset?.key"), asked, `Cancel goes back to ${action}`);
+    }
+    await w(`coolHead.store.load().then((s) => Promise.all([...new Set([globalThis.dialogTestFolder,
+      ...(s.savedWindows || []).map((x) => x.id).filter((id) => !globalThis.dialogTestBefore.includes(id))])].map((id) => chrome.bookmarks.removeTree(id).catch(() => {}))))`);
+    await cdp.send('Target.closeTarget', { targetId: popup.targetId }).catch(() => {});
+    await w(`Promise.all([${blank}, ${formWin}].map((id) => chrome.windows.remove(id).catch(() => {})))`);
   }],
   ['the zzZ mark: a sleeping tab\'s title starts with it, never a bookmark or a kept record, and waking brings the page\'s own back', async ({ w }) => {
     const MARK = 'zzZ\u2002';

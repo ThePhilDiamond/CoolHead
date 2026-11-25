@@ -9,10 +9,10 @@ DATA="$2/chrome-data"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$OUT" "$DATA"
-shot() { # name screen theme
+shot() { # name screen theme [scroll: pixels, end, or a part's id, as dev/preview.js reads it]
   "$CHROME" --headless=new --user-data-dir="$DATA" --no-first-run --no-default-browser-check --hide-scrollbars \
     --allow-file-access-from-files --force-device-scale-factor=2 --window-size=360,600 --virtual-time-budget=3000 \
-    --screenshot="$OUT/$1.png" "file://$HERE/preview.html?screen=$2&theme=$3" 2>/dev/null || true
+    --screenshot="$OUT/$1.png" "file://$HERE/preview.html?screen=$2&theme=$3${4:+&scroll=$4}" 2>/dev/null || true
   # Chrome can exit with an error after a good screenshot, so the file decides
   [ -s "$OUT/$1.png" ] || { echo "No render for $1" >&2; exit 1; }
 }
@@ -31,4 +31,11 @@ shot "protected-extensions-light" protected-ext light
 shot "protected-extensions-dark" protected-ext dark
 shot "settings-dark" settings dark
 shot "migrate-light" migrate light
+shot "saved-windows-light" windows light
+shot "saved-windows-dark" windows dark
+# the save dialog, which Command-Shift-Y opens directly, and the store image's render
+shot "save-window-light" windows-dialog light
+shot "save-window-dark" windows-dialog dark
+shot "save-window-risky-light" windows-dialog-risky light
+shot "save-window-failed-dark" windows-dialog-failed dark
 ls "$OUT"

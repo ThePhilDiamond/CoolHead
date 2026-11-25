@@ -34,7 +34,7 @@ SHOTS = [
     ("1-tabs", "home-light.png", "home", "light", "Tabs you aren't using go to sleep, so Chrome holds less memory.", "A sleeping tab stays in your tab bar and reloads when you click it. Nothing closes."),
     ("2-extensions", "protected-extensions-light.png", "protected-ext", "light", "Extensions you don't need pause for a while, then come back on by themselves.", "Nothing is removed. During a session, or when memory is tight, they give back their memory. Password managers, blockers, VPNs, and security tools stay on."),
     ("3-protected", "protected-light.png", "held", "light", "Calls, sound, unsent typing, and sites you choose stay awake.", "Protected shows each tab it keeps loaded and why, so you choose: keep it, sleep it, or close it."),
-    ("4-session", "start-session-light.png", "start", "light", "Start a session for the task in front of you.", "Tick the tabs a meeting or project needs. The rest sleep until you want them back."),
+    ("4-windows", "save-window-light.png", "windows-dialog", "light", "Done with a window for now? Save it and close it.", "Its tabs go into a bookmark folder. Reopen it later with every tab asleep, or with Chrome's own Open all."),
     ("5-alone", "alone-dark.png", "alone", "dark", "Works on its own, or with Cool Head on a Mac.", "On its own, you set the Effort: how many tabs stay loaded. With Cool Head, a free Mac app, tabs sleep only when memory is actually short."),
 ]
 

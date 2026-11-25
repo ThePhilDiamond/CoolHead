@@ -449,8 +449,12 @@ export const SHORTCUT_OTHERS = 'Other tabs in this window';
 // windows never pile up (decided 24 November 2026).
 export const WINDOWS = 'Saved windows';
 export const WINDOWS_FOLDER = 'Cool Head windows';
-export const WINDOWS_SAVE_TITLE = 'Save this window and close it';
-export const WINDOWS_SAVE_WHY = "Its tabs go into a bookmark folder, so you can open them again later, here or with Chrome's own Open all in new window.";
+// the tool's button and the dialog it opens; the dialog's X cancels, back to the tool
+export const SAVE_DIALOG_OPEN = 'Save this window';
+export const SAVE_DIALOG_TITLE = 'Save this window';
+export const SAVE_DIALOG_LEDE = 'Its tabs go into a bookmark folder, and the window closes.';
+export const SAVE_DIALOG_WHY = "Its tabs go into a bookmark folder, so you can open them again later, here or with Chrome's own Open all in new window.";
+export const CLOSE_DIALOG = 'Cancel';
 export const WINDOWS_DESCRIBE = 'Describe it (optional)';
 export const WINDOWS_DESCRIBE_HINT = 'Trip planning';
 export const windowFolderName = (words, n, day) => `${words} · ${n} ${n === 1 ? 'tab' : 'tabs'} · ${day}`;
@@ -480,4 +484,4 @@ export const WINDOWS_REOPEN_FAILED = "Not every tab could be reopened, so the fo
 export const WINDOWS_REMOVED = 'Removed the folder.';
 export const windowsTidied = (n) => `Moved ${n} ${n === 1 ? 'bookmark' : 'bookmarks'} to Other bookmarks.`;
 export const WINDOWS_GONE = 'That folder is no longer in your bookmarks.';
-export const SHORTCUT_WINDOW = 'Save and close this window';
+export const SHORTCUT_WINDOW = 'Save this window';

@@ -25,6 +25,11 @@ const ui = {
   windowWords: '',      // Saved windows: the words typed for the folder's name
   confirmWindow: null,  // { id, action: 'reopen' | 'remove' }: the saved window asking in its row
   windowRisky: false,   // Save and close was pressed with tabs that have unsent typing or a call; the next press closes
+  // The save dialog over Saved windows: opened by its button or the shortcut, closed by its X, Escape, a click
+  // outside it, leaving the tool, or the window closing with the popup. windowSaid is why a save didn't close the
+  // window (nothing to save, a tab not saved), shown in the dialog until it closes or Save is pressed again.
+  saveDialog: false,
+  windowSaid: null,
 };
 const BOOKMARKS = { permissions: ['bookmarks'] };
 let view = null;
@@ -58,14 +63,14 @@ async function refresh() {
   if (view.openScreen === 'safe') {
     await loadSafe();
     ui.screen = 'protected';
+    dropDialog();
   }
   // Tabs a suspender holds are offered once, when the popup first finds them, unless the person put it off; a move
   // under way, or its result, shows whenever the popup opens.
-  // the shortcut for saving a window opens the popup at Saved windows, ready for its words
+  // the shortcut for saving a window opens the popup at Saved windows with its dialog open, ready for the words
   if (view.openScreen === 'windows') {
     ui.screen = 'windows';
-    draw();
-    root.querySelector('[data-key="window-words"]')?.focus();
+    on.saveDialog();
     return;
   }
   const m = view.migrate;
@@ -99,13 +104,20 @@ async function openSafe() {
 }
 
 // A tool in the bottom bar: pressing the open one again goes back home, as in Cool Head. Focus stays on the tool.
+// The save dialog belongs to Saved windows: any change of screen leaves it closed, with nothing it said kept.
+function dropDialog() {
+  ui.saveDialog = false;
+  ui.windowRisky = false;
+  ui.windowSaid = null;
+}
+
 async function openTool(screen) {
   if (ui.screen === screen) { on.home(); return; }
   if (screen === 'protected') await loadSafe();
   ui.screen = screen;
   ui.confirm = null;
   ui.confirmWindow = null;
-  ui.windowRisky = false;
+  dropDialog();
   draw();
 }
 
@@ -113,6 +125,22 @@ const on = {
   openSettings() { openTool('settings').catch(console.error); },
   openProtected() { openTool('protected').catch(console.error); },
   openWindows() { openTool('windows').catch(console.error); },
+  // The dialog opens with the words typed before, if any, and focus in its field; closing it goes back to the tool,
+  // focus on the button that opens it again.
+  saveDialog() {
+    ui.saveDialog = true;
+    ui.confirmWindow = null;
+    ui.windowRisky = false;
+    ui.windowSaid = null;
+    draw();
+    root.querySelector('[data-key="window-words"]')?.focus();
+  },
+  closeDialog() {
+    if (!ui.saveDialog) return;
+    dropDialog();
+    draw();
+    root.querySelector('[data-key="window-open"]')?.focus({ preventScroll: true });
+  },
   // Typing updates the folder's name shown under the field, without a redraw, which would move the caret.
   windowWords(v) {
     ui.windowWords = v;
@@ -129,18 +157,28 @@ const on = {
       if (!ok) return;
       view = await ask({ type: 'view' });
     }
+    ui.windowSaid = null;
     if (view.windows.risky.length && !ui.windowRisky) {
       ui.windowRisky = true;
       draw();
       announce(W.windowsRisky(view.windows.risky));
       return;
     }
-    await act({ action: 'saveWindow', words, anyway: ui.windowRisky });
+    // Saved, the window closes and the popup with it; still here, the save didn't go through, and the dialog says why.
+    const r = await act({ action: 'saveWindow', words, anyway: ui.windowRisky });
+    // A tab found risky only now (the view was a moment old) asks as the first press does, so the next press saves.
+    if (!ui.saveDialog || r.saved || !r.said) return;
+    if (!ui.windowRisky && r.view.windows.risky.length) ui.windowRisky = true;
+    else ui.windowSaid = r.said;
+    draw();
   },
+  // Asking in a row; Cancel puts focus back on the button that asked.
   askWindow(id, action) {
+    const was = ui.confirmWindow;
     ui.confirmWindow = id ? { id, action } : null;
     draw();
-    root.querySelector(`[data-key="${id ? `win-yes-${id}` : 'window-words'}"]`)?.focus({ preventScroll: true });
+    const back = was ? `win-${was.action}-${was.id}` : 'window-open';
+    root.querySelector(`[data-key="${id ? `win-yes-${id}` : back}"]`)?.focus({ preventScroll: true });
   },
   reopenWindow(id) { ui.confirmWindow = null; act({ action: 'reopenWindow', id }); },
   removeWindow(id) { ui.confirmWindow = null; act({ action: 'removeWindow', id }); },
@@ -153,6 +191,7 @@ const on = {
     if (from === 'home') return;
     ui.screen = 'home';
     ui.confirm = null;
+    dropDialog();
     draw();
     root.querySelector(`[data-key="${from}"]`)?.focus({ preventScroll: true });
   },
@@ -299,10 +338,24 @@ function soon() {
     // Not while the group name is being typed: a redraw would move the caret and break input methods.
     // nor while a saved window's words are being typed
     const typingWords = document.activeElement?.dataset?.key === 'window-words';
+    // Asking for the view uses up a screen the shortcut left for the popup, so it isn't left for the next opening;
+    // while the words are typed, the dialog is already open and nothing is redrawn.
+    if (typingWords) ask({ type: 'view' }).catch(() => {});
     if ((ui.screen === 'home' && !ui.ending) || ['settings', 'protected', 'effort', 'migrate'].includes(ui.screen) || (ui.screen === 'windows' && !typingWords)) refresh().catch(console.error);
   }, 200);
 }
 chrome.storage.onChanged.addListener(soon);
+
+// Escape closes the save dialog, back to the tool, rather than the whole popup; Tab stays inside the dialog, since
+// what is under it is inert.
+document.addEventListener('keydown', (e) => {
+  // not while an input method is composing, where Escape cancels the composition
+  if (e.key === 'Escape' && ui.saveDialog && !e.isComposing) {
+    e.preventDefault();
+    e.stopPropagation();
+    on.closeDialog();
+  }
+}, { capture: true });
 for (const ev of [chrome.tabs.onUpdated, chrome.tabs.onRemoved, chrome.tabs.onCreated, chrome.tabs.onActivated]) ev.addListener(soon);
 
 refresh().catch((e) => {

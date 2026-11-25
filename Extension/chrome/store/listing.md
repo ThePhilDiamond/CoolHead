@@ -42,7 +42,7 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 
 **Graphic assets:**
 - Store icon, 128 by 128: `Extension/chrome/icons/icon128.png`, the melting snowflake, the same as the package's.
-- Screenshots, 1280 by 800, in this order: `1-tabs.png`, `2-extensions.png`, `3-protected.png`, `4-session.png`, `5-alone.png`.
+- Screenshots, 1280 by 800, in this order: `1-tabs.png`, `2-extensions.png`, `3-protected.png`, `4-windows.png`, `5-alone.png`.
 - Small promo tile, 440 by 280: `promo-tile.png`.
 - Marquee promo tile, 1400 by 560: `marquee-tile.png`.
 
@@ -67,7 +67,7 @@ Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep 
 | nativeMessaging | Optionally links to Cool Head, a Mac app, through its helper, so tabs sleep only when the Mac's memory is short. Only counts are sent (tabs asleep, tabs held by reason), never addresses or titles, and only on the Mac. |
 | alarms | Wakes the service worker to put tabs to sleep after the person leaves them, and to find kept tabs again after Chrome restarts. |
 | contextMenus | Adds "Keep this tab loaded" and "Keep every tab of this site loaded" checkboxes to the page and toolbar menus. |
-| scripting | Registers its two page scripts, which say only whether a page has unsent typing or a live call, and runs them in tabs already open when the person turns on "Unsent typing and calls". Neither reads page content. Just before a tab sleeps, it also runs one line in that tab that puts "zzZ" before the page's title, so the person can see the tab is asleep; the page's own title comes back when it wakes. |
+| scripting | Registers its two page scripts, which say only whether a page has unsent typing or a live call, and runs them in tabs already open when the person turns on "Unsent typing and calls". Neither reads page content. Just before a tab sleeps, it also runs a short script in that tab that puts "zzZ" before the page's title, so the person can see the tab is asleep; the page's own title comes back when it wakes. |
 | favicon | Shows each tab's icon in the popup's lists, from Chrome's own icon cache. |
 | system.memory | Reads the computer's free memory, to show and decide how hard to work. |
 | management (optional, asked for when used) | Asked for only when the person turns on "Pause extensions", or asks to remove a tab suspender after its tabs are moved. During a session, or when Cool Head reports memory is very tight, pauses extensions the person hasn't kept on, and turns them back on when the session ends or memory clears. Never pauses an extension with tabs open on its own pages. Removing a suspender uses Chrome's own confirmation. |
@@ -95,8 +95,9 @@ The extension works on its own; the Cool Head Mac app is optional and not needed
 1. Open several tabs, then click the toolbar button. Effort, in the bottom bar, sets how many of the most used tabs stay loaded (Balanced: 3). Leave a tab and it goes to sleep 30 seconds later; it stays in the tab bar and reloads when clicked.
 2. Play a video or sound in a tab: it stays awake and appears in Protected with Keep, Sleep, and Close.
 3. Click "Start a session", keep a few tabs ticked, and press Start: the unticked tabs sleep. End the session from the menu.
-4. Press Command-Shift-S (Ctrl+Shift+S on Windows and Linux) on a tab: it sleeps, and the next tab to its right shows. Press it again to sleep that one too.
-5. Optional: in Settings, turn on "Keep tabs with unsent typing or a call awake" and allow access, then type in a form without sending it; that tab is held as "Unsent typing".
+4. Press Command-Shift-S (Ctrl+Shift+S on Windows and Linux) on a tab: it sleeps, and the next awake tab to its right shows. Press it again to sleep that one too.
+5. Optional: in Settings, turn on "Keep tabs with unsent typing or a call awake" and allow access, then type in a form without sending it; that tab is held as "Unsent typing". With that access on, a tab that goes to sleep shows "zzZ" before its title.
+6. Click Saved windows in the bottom bar, then Save this window, then Save and close, and allow bookmarks when Chrome asks: the window closes and appears under Saved. Reopen brings its tabs back asleep in a new window and removes the folder. Command-Shift-Y (Ctrl+Shift+Y) opens the same save dialog directly.
 No account or sign-in is needed.
 ```
 
