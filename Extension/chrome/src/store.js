@@ -38,6 +38,8 @@ export const SESSION_DEFAULTS = {
   media: {},                 // { tabId: { frameId: { call, screen } } }
   typing: {},                // { tabId: { frameId: true } }
   activeByWindow: {},
+  minimizedAt: {},           // { windowId: when it was first seen minimized } (logic/minimized.js)
+  frontAsleep: {},           // { tabId: { inPlace } }: minimized windows' front tabs this worker slept, to wake when back
   link: { status: 'connecting', app: '', state: null, stateAt: null, attemptAt: null },
   auto: AUTO_OFF,
   lastReport: null,

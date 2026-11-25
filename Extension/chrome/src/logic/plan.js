@@ -3,17 +3,18 @@
 import { heldReasons, isWebPage } from './reasons.js';
 import { lastUsed, rankMostUsed } from './usage.js';
 import { IDLE_MS } from './auto.js';
+import { inFront } from './minimized.js';
 
 // Light keeps your 5 most used, Balanced 3, Focus only the tab you're on (README, "How hard it works").
 export const KEEP_LOADED = { light: 5, balanced: 3, focus: 1 };
 export const LEVELS = ['auto', 'light', 'balanced', 'focus'];
 export const LEAVE_DELAYS_MS = [30000, 0];
 
-// A tab may sleep on its own only if it is loaded, a web page, not in front in its window (Chrome refuses
-// that, and test T12 found a hidden window's front tab stays blank until shown), not protected by another
-// extension or by Chrome's own setting, and held for no reason (call, screen, typing, sound, kept, pinned, session).
+// A tab may sleep on its own only if it is loaded, a web page, not in front in a window on screen (a minimized
+// window's front tab may sleep, see minimized.js), not protected by another extension or by Chrome's own setting,
+// and held for no reason (call, screen, typing, sound, kept, pinned, session).
 export function canSleepOnItsOwn(tab, ctx) {
-  if (tab.discarded || tab.active) return false;
+  if (tab.discarded || inFront(tab, ctx)) return false;
   if (!isWebPage(tab.url)) return false;
   if (tab.autoDiscardable === false) return false;
   return heldReasons(tab, ctx).length === 0;

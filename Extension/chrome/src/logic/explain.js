@@ -1,6 +1,7 @@
 // Words for the test log (src/log.js): why each tab is loaded or asleep at a check, and how a log reads as text.
 // Pure, so the tests can run it in Node.
 import { canSleepOnItsOwn, KEEP_LOADED } from './plan.js';
+import { inFront } from './minimized.js';
 import { heldReasons, primaryReason, isWebPage } from './reasons.js';
 import { lastUsed, rankMostUsed } from './usage.js';
 import { IDLE_MS } from './auto.js';
@@ -33,7 +34,7 @@ export function explainCheck(tabs, ctx) {
   for (const t of web) {
     n.pages += 1;
     if (t.discarded) { n.asleep += 1; continue; }
-    if (t.active) { n.front += 1; continue; }
+    if (inFront(t, ctx)) { n.front += 1; continue; }
     const p = primaryReason(heldReasons(t, ctx));
     if (p) { n.held[p] = (n.held[p] || 0) + 1; continue; }
     if (t.autoDiscardable === false) { n.chromeKeeps += 1; continue; }
