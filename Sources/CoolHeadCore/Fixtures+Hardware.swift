@@ -184,6 +184,8 @@ extension Fixture {
                 ("battery-fault", HardwareReport(battery: failed)),
                 ("battery-service", HardwareReport(battery: service)),
                 ("battery-worn", HardwareReport(battery: wornBattery)),
+                ("battery-warm", HardwareReport(battery: { var x = b; x.temperatureC = 42; return x }())),
+                ("battery-hot", HardwareReport(battery: { var x = b; x.temperatureC = 46; return x }())),
                 ("charging-on-hold", HardwareReport(battery: onHold)),
                 ("charging-too-warm", HardwareReport(battery: warm)),
                 ("charging-charger-too-weak", HardwareReport(battery: weak)),

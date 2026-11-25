@@ -170,6 +170,13 @@ struct PanelView: View {
             let samples = Wording.samples()
             return wanted.compactMap { w in samples.first { $0.0 == w }.map { s in
                 // the night card's Nerdy stuff, made up to match its sample, so a screenshot shows the terminal filled
+                // a hardware card carries what its report gives it (red, a safety matter), under the sample's own name,
+                // so two samples of one kind never share an ID or a cause
+                if s.0.hasPrefix("hardware-"), let made = Fixture.hardwareReports(Date()).first(where: { "hardware-\($0.0)" == s.0 })?
+                    .1.cards().first(where: { $0.card.headline == s.1.headline }) {
+                    var c = LiveCard.sample(s.0, s.1); c.serious = made.serious; c.safety = made.safety; c.causeKey = s.0
+                    return c
+                }
                 guard s.0 == "power-night-upkeep" else { return LiveCard.sample(s.0, s.1) }
                 return LiveCard.sample(s.0, s.1, details: ["Slept: 11:40pm on 15 November to 7:15am on 16 November",
                     "Charge: 85% to 66%", "Woke for macOS's own upkeep: 23", "Woke for the network: 7"])
@@ -185,7 +192,9 @@ struct PanelView: View {
         let n = shownCards.filter { $0.needsLook || ($0.heatCause && !watcher.isCooled($0)) }.count
             + watcher.syncPauses.filter { $0.until <= Date() }.count                    // syncing to resume
         let stuck = shownCards.filter { $0.card.state == .stalled }.count
-        let heatWord: String? = ["serious": "Running hot", "critical": "Running hot", "fair": "Running warm"][RunningStrip.snapshotThermal ?? watcher.mac.thermal]
+        // the chip's heat as macOS judges it; with the chip calm, the battery's or drive's own ("Battery hot"), so a hot
+        // battery never sits under "All calm" (with its card set aside, say): heat is a safety matter
+        let heatWord = HardwarePage.heatTitle(thermal: RunningStrip.snapshotThermal ?? watcher.mac.thermal, partHeat: watcher.partHeat)
         // not measured enough to say all is calm (see Watcher.firstLook), unless something already needs a look; heat is
         // read at once, so it still says so
         if watcher.firstLook && n == 0 && stuck == 0 { return heatWord.map { "\($0) · taking a first look" } ?? "Taking a first look" }
@@ -193,7 +202,7 @@ struct PanelView: View {
         var watch: String?
         if stuck > 0 { watch = "\(stuck) looks stuck" + (n > stuck ? ", \(n - stuck) to watch" : "") }
         else if n > 0 { watch = "\(n) to watch" }
-        let heat: String? = ["serious": "Running hot", "critical": "Running hot", "fair": "Running warm"][RunningStrip.snapshotThermal ?? watcher.mac.thermal]
+        let heat = heatWord
         switch (heat, watch) {
         case let (h?, w?): return "\(h) · \(w)"
         case let (nil, w?): return w.prefix(1).uppercased() + w.dropFirst()
@@ -360,7 +369,9 @@ struct CardView: View {
                     .font(.body.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
-                // waiting is a reminder, not an option: hide the card for a while; it comes back sooner if it gets worse
+                // waiting is a reminder, not an option: hide the card for a while; it comes back sooner if it gets worse.
+                // Not on a red safety card (a hot battery): heat that's a safety matter stays on the list until it eases
+                if Watcher.canWait(live) {
                 Menu {
                     Text("Check back in…")
                     ForEach([(10, "10 minutes"), (30, "30 minutes"), (60, "1 hour")], id: \.0) { m, label in
@@ -379,6 +390,7 @@ struct CardView: View {
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .help("Check back later")
                 .accessibilityLabel("Check back later")
+                }
             }
             if let t = live.trustNote {
                 Label(t, systemImage: live.trusted ? "checkmark.shield" : "exclamationmark.shield")

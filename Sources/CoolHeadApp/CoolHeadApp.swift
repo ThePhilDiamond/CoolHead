@@ -31,6 +31,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let watcher = Watcher.shared
         watcher.onAlert = { card in Alerts.send(card) }
         watcher.onReminder = { text in Alerts.remind(text) }
+        // a warm or hot battery or drive counts toward the level from the start (made up in a screenshot; this Mac's once
+        // its hardware report is read, see HardwareWatch.refresh)
+        watcher.partHeat = RunningStrip.partHeat()
 
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = MenuIcon.image(level: .good, looking: true)     // no verdict before the first reading
@@ -51,6 +54,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         // redraw the icon when the status level changes
         watcher.onPublish = { [weak self] in
+            // the battery's heat follows the watcher's 10-second reading, so the card, the dial, and this icon agree
+            HardwareWatch.shared.followLive(watcher.mac)
+            watcher.partHeat = RunningStrip.partHeat()
             // every card on screen, the whole-Mac ones too (see CardSources.swift), by the same rule as the panel's snowflake
             let level = watcher.screenLevel, looking = watcher.firstLook && level == .good
             guard let self, self.lastLevel != level || self.lastLooking != looking else { return }

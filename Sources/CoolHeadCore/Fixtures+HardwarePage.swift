@@ -96,13 +96,114 @@ extension Fixture {
             && HardwarePage.running(thermal: "nominal", fans: nil).fans == nil
         review.append(("hardware-page-running", r1, zip(cases2, states).map { "\($0.0.0) \($0.1.icon): \($0.1.meaning)" }.joined(separator: " | ")))
 
-        // the gauges: a percentage each, coloured by level; memory by macOS's own pressure, not "memory used"
-        let g = [HardwarePage.chip(busy: 0.2), HardwarePage.chip(busy: 0.6), HardwarePage.chip(busy: 0.9),
-                 HardwarePage.memory(freePercent: 58, pressure: "normal"), HardwarePage.memory(freePercent: 22, pressure: "warning"),
-                 HardwarePage.memory(freePercent: 8, pressure: "critical")]
-        let g1 = g.map(\.level) == [0, 1, 2, 0, 1, 2] && g.map(\.percent) == [20, 60, 90, 42, 78, 92]
-        review.append(("hardware-page-gauges", g1, g.map { "\($0.name) \($0.percent)%" }.joined(separator: ", ")))
-        // the temperature ring: the part nearest its own limit, the chip on a tie; a battery warm while charging is expected
+        // the dials: a step each, never an amount. Chip load by its share over about 30 seconds (Light, Medium from half,
+        // Heavy from 80%; "…" and no needle before a reading), memory by macOS's own pressure (OK, Tight, Full); the needle
+        // in the middle of its level's zone; the labels under them
+        let chips = [0.2, 0.49, 0.5, 0.79, 0.8, 1.0].map { HardwarePage.chip(busy: $0) } + [HardwarePage.chip(busy: nil)]
+        let mems = ["normal", "warning", "critical"].map { HardwarePage.memory(pressure: $0) }
+        let dialTemps = [HardwarePage.heat(chipC: 55, thermal: "nominal"), HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 46),
+                     HardwarePage.heat(chipC: 55, thermal: "nominal", driveC: 72)].compactMap { $0 }
+        let chipLevels: [Int] = chips.map { $0.level }, chipWords: [String] = chips.map { $0.text }
+        let memLevels: [Int] = mems.map { $0.level }, memWords: [String] = mems.map { $0.text }
+        let needles: [Double?] = chips.map { $0.needle } + mems.map { $0.needle }
+        let wantNeedles: [Double?] = [1.0 / 6, 1.0 / 6, 0.5, 0.5, 5.0 / 6, 5.0 / 6, nil, 1.0 / 6, 0.5, 5.0 / 6]
+        let labels: [String] = ([chips[0], mems[0]] + dialTemps).map { $0.label }
+        let dg1 = chipLevels == [0, 0, 1, 1, 2, 2, -1] && chipWords == ["Light", "Light", "Medium", "Medium", "Heavy", "Heavy", "…"]
+        let dg2 = memLevels == [0, 1, 2] && memWords == ["OK", "Tight", "Full"] && needles == wantNeedles
+        let dg3 = labels == ["Chip load", "Memory", "Chip temp", "Battery temp", "Drive temp"]
+        review.append(("dial-steps", dg1 && dg2 && dg3, (chips + mems).map { "\($0.label) \($0.text) at \($0.needle.map { String(format: "%.2f", $0) } ?? "none")" }.joined(separator: ", ")))
+
+        // chip load over the last ten readings: a moment's spike doesn't move the dial; a sustained load does; old readings
+        // drop off; closing the panel forgets them
+        var avg = HardwarePage.LoadAverage()
+        let empty = avg.value == nil
+        for _ in 0..<9 { avg.add(0.1) }
+        avg.add(1.0)
+        let spike = HardwarePage.chip(busy: avg.value).text
+        for _ in 0..<12 { avg.add(0.9) }
+        let sustained = HardwarePage.chip(busy: avg.value).text, kept = avg.readings.count
+        avg.add(1.5)
+        let clamped = avg.readings.last == 1.0
+        avg.clear()
+        let a1 = empty && spike == "Light" && sustained == "Heavy" && kept == HardwarePage.LoadAverage.span && clamped && avg.value == nil
+        review.append(("chip-load-average", a1, "spike \(spike), sustained \(sustained), kept \(kept), cleared \(avg.value == nil)"))
+
+        // the battery's or drive's own heat counts toward the snowflake, the title, and the menu bar icon, whatever the
+        // chip says and whether or not its card is on the list; warmth while charging is expected; the battery on a tie
+        let ph = [HardwarePage.partHeat(batteryC: 42, charging: false, driveC: nil), HardwarePage.partHeat(batteryC: 42, charging: true, driveC: nil),
+                  HardwarePage.partHeat(batteryC: 46, charging: true, driveC: nil), HardwarePage.partHeat(batteryC: 31, charging: false, driveC: 72),
+                  HardwarePage.partHeat(batteryC: 42, charging: false, driveC: 72), HardwarePage.partHeat(batteryC: nil, charging: false, driveC: nil)]
+        let ph1 = ph.map { $0?.title ?? "none" } == ["Battery warm", "none", "Battery hot", "Drive warm", "Battery warm", "none"]
+        var hotSigns = HardwarePage.Signs(); hotSigns.partHeat = ph[2]
+        var warmSigns = HardwarePage.Signs(); warmSigns.partHeat = ph[0]
+        var warmAndTight = HardwarePage.Signs(memoryTight: true); warmAndTight.partHeat = ph[0]
+        let runs = [HardwarePage.running(thermal: "nominal", signs: hotSigns, fans: nil), HardwarePage.running(thermal: "nominal", signs: warmSigns, fans: nil),
+                 HardwarePage.running(thermal: "critical", signs: hotSigns, fans: nil), HardwarePage.running(thermal: "nominal", signs: warmAndTight, fans: nil),
+                 HardwarePage.running(thermal: "nominal", signs: HardwarePage.Signs(), fans: nil)]
+        let hw = Watcher()
+        let calmLevel = hw.level([], thermal: "nominal")
+        hw.partHeat = ph[2]
+        let hotLevel = hw.level([], thermal: "nominal")
+        hw.partHeat = ph[3]
+        let driveLevel = hw.level([], thermal: "nominal")
+        let heatIcons: [Int] = runs.map { $0.icon }
+        let ph2 = heatIcons == [2, 1, 2, 1, 0] && runs[0].meaning == "The battery is hot." && runs[1].meaning == "The battery is warm."
+            && runs[2].meaning.hasPrefix("macOS is slowing your Mac a lot") && runs[3].meaning.hasPrefix("Memory is tight")
+            && calmLevel == .good && hotLevel == .issue && driveLevel == .warning
+        review.append(("part-heat-counts", ph1 && ph2, ph.map { $0?.title ?? "none" }.joined(separator: ", ") + "; icons \(heatIcons); levels \(calmLevel) \(hotLevel) \(driveLevel)"))
+
+        // a card set aside at yellow comes back at red: a warm battery card waited on stays hidden while warm and shows the
+        // moment it's hot; a hot battery card can't be set aside at all; the drive's warm card can
+        let reports = Fixture.hardwareReports(now)
+        func heatCard(_ name: String, _ id: String) -> LiveCard? { reports.first { $0.0 == name }?.1.cards(now: now).first { $0.id == id } }
+        if let warmCard = heatCard("battery-warm", "hardware-battery-heat"), let hotCard = heatCard("battery-hot", "hardware-battery-heat") {
+            let wait = Watcher()
+            wait.snooze(warmCard, until: now.addingTimeInterval(3600))
+            let hiddenWarm = wait.isWaitedOn(warmCard, now: now), shownHot = !wait.isWaitedOn(hotCard, now: now)
+            let backLater = !wait.isWaitedOn(warmCard, now: now.addingTimeInterval(7200))
+            wait.snooze(hotCard, until: now.addingTimeInterval(3600))                 // refused: still waiting at yellow only
+            let refused = !wait.isWaitedOn(hotCard, now: now) && wait.snoozed[hotCard.cause]?.severity == 1
+            let fresh = Watcher(); fresh.snooze(hotCard, until: now.addingTimeInterval(3600))
+            let neverWaited = fresh.snoozed[hotCard.cause] == nil
+            var drive = HardwareReport(); var d = DriveHealth(); d.temperatureC = 72; drive.drive = d
+            let driveCard = drive.cards(now: now).first { $0.id == "hardware-drive-heat" }
+            let wr1 = warmCard.severity == 1 && hotCard.severity == 2 && warmCard.cause == hotCard.cause && hiddenWarm && shownHot && backLater
+                && refused && neverWaited && Watcher.canWait(warmCard) && !Watcher.canWait(hotCard)
+                && driveCard.map { $0.safety && Watcher.canWait($0) } == true
+            review.append(("heat-card-returns-at-red", wr1, "warm \(warmCard.severity), hot \(hotCard.severity); hidden warm \(hiddenWarm), shown hot \(shownHot), hot refused \(refused && neverWaited)"))
+        } else {
+            review.append(("heat-card-returns-at-red", false, "no battery heat card in the samples"))
+        }
+        // from the independent review (25 November 2026): the memory dial gives the memory card's verdict (heavy swapping
+        // while macOS says normal is Tight, not OK) and "…" when pressure can't be read; the title takes the worse heat,
+        // the chip on a tie; the battery's heat follows its live reading; VoiceOver hears the heat dial's step
+        var swapping = MacState(); swapping.memoryPressure = "normal"; swapping.swappedOutMB = 2000
+        var unread = MacState(); unread.memoryPressure = "unknown"
+        var calmMac = MacState(); calmMac.memoryPressure = "normal"
+        let reviewMem = [HardwarePage.memory(swapping).text, HardwarePage.memory(unread).text, HardwarePage.memory(calmMac).text]
+        let hotPart = HardwarePage.PartHeat(part: "battery", level: 2), warmPart = HardwarePage.PartHeat(part: "battery", level: 1)
+        let titles = [HardwarePage.heatTitle(thermal: "fair", partHeat: hotPart), HardwarePage.heatTitle(thermal: "serious", partHeat: hotPart),
+                      HardwarePage.heatTitle(thermal: "nominal", partHeat: warmPart), HardwarePage.heatTitle(thermal: "fair", partHeat: warmPart),
+                      HardwarePage.heatTitle(thermal: "fair", partHeat: nil), HardwarePage.heatTitle(thermal: "nominal", partHeat: nil)].map { $0 ?? "none" }
+        var coolBattery = BatteryHealth(); coolBattery.temperatureC = 38
+        var hotBattery = BatteryHealth(); hotBattery.temperatureC = 46
+        var liveHot = MacState(); liveHot.batteryTempC = 46
+        var liveCool = MacState(); liveCool.batteryTempC = 35
+        let readCool = HardwareReport(battery: coolBattery), readHot = HardwareReport(battery: hotBattery)
+        let followedUp = readCool.followingLive(liveHot), followedDown = readHot.followingLive(liveCool)
+        let live1 = HardwarePage.partHeat(report: readCool, mac: liveHot)?.title == "Battery hot"
+            && HardwarePage.partHeat(report: readHot, mac: MacState())?.title == "Battery hot"
+            && followedUp?.cards(now: now).contains { $0.id == "hardware-battery-heat" && $0.serious } == true
+            && followedDown.map { r in !r.cards(now: now).contains { $0.id == "hardware-battery-heat" } } == true
+            && readCool.followingLive(liveCool) == nil && readCool.followingLive(MacState()) == nil
+        let spoken = [HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 46)?.spoken ?? "", HardwarePage.chip(busy: 0.9).spoken,
+                      HardwarePage.chip(busy: nil).spoken]
+        let rv = reviewMem == ["Tight", "…", "OK"]
+            && titles == ["Battery hot", "Running hot", "Battery warm", "Running warm", "Running warm", "none"] && live1
+            && spoken[0].hasPrefix("Battery temp ") && spoken[0].hasSuffix(", hot") && spoken[1] == "Chip load Heavy" && spoken[2] == "Chip load not read yet"
+        review.append(("dials-review-fixes", rv, "memory \(reviewMem); titles \(titles); live \(live1); spoken \(spoken)"))
+
+        // the heat dial: the part nearest its own limit, the chip on a tie; a battery warm while charging is expected
         let h = [HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 31, driveC: 34),          // all calm: chip
                  HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 46, driveC: 34),          // hot battery
                  HardwarePage.heat(chipC: 55, thermal: "nominal", batteryC: 42, charging: true),      // warm, charging: chip
