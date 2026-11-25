@@ -57,7 +57,7 @@ function planCtx(s, ctx, now) {
 // Tabs this worker is unloading right now, so the test log can tell its own sleeps from Chrome's.
 const unloading = new Set();
 
-// shown: the page's title when Chrome doesn't know it yet (a tab put to sleep as it opens).
+// shown: a title for the mark to go before when the page has none of its own.
 async function sleepTab(tabId, { force = false, shown = '' } = {}) {
   const t = await tabNow(tabId).catch(() => null);
   if (!t) return { why: 'it closed meanwhile' };
@@ -647,7 +647,16 @@ async function saveWindow(m) {
 
 // Opens a saved folder in a new window: its first page in front, the rest asleep until clicked. The folder is
 // removed only once every page is open, so a failure halfway leaves it in the bookmarks.
+// Saved windows being reopened right now: a second Reopen while the first waits for its pages would open it twice.
+const reopening = new Set();
+
 async function reopenWindow(id) {
+  if (reopening.has(id)) return W.WINDOWS_REOPENING;
+  reopening.add(id);
+  try { return await reopenNow(id); } finally { reopening.delete(id); }
+}
+
+async function reopenNow(id) {
   const [node] = await chrome.bookmarks.getSubTree(id).catch(() => []);
   if (!node) { await forgetWindow(id); return W.WINDOWS_GONE; }
   const pages = pagesIn(node);
@@ -656,9 +665,10 @@ async function reopenWindow(id) {
   const win = await chrome.windows.create({ url: urls[0], focused: true });
   const asleep = [];
   let failed = 0;
-  // Each tab sleeps once its page has loaded, as Moving tabs does: one put to sleep before its page answers keeps no
-  // address or title, and shows as Untitled. They open together and each sleeps as soon as it's ready; one that
-  // hasn't an address after 15 seconds stays awake and loads, rather than sleeping blank.
+  // Each tab sleeps once its page has loaded, or after 15 seconds, as Moving tabs does: one put to sleep before its
+  // page answers keeps no address or title, and shows as Untitled. They open together and each sleeps as soon as it's
+  // ready, recorded as asleep then, so a tab clicked meanwhile or a worker stopped partway leaves the list right; one
+  // with no address yet at 15 seconds stays awake and loads, rather than sleeping blank.
   const opened = [];
   for (const p of pages.slice(1)) {
     const t = await chrome.tabs.create({ windowId: win.id, url: p.url, active: false }).catch(() => null);
@@ -670,9 +680,10 @@ async function reopenWindow(id) {
     const now = await tabNow(t.id).catch(() => null);
     if (!now?.url) return;
     const r = await sleepTab(t.id, { force: true, shown: p.title });
-    if (r.id != null) asleep.push(r.id);
+    if (r.id == null) return;
+    asleep.push(r.id);
+    await store.change((st) => ({ asleep: [...new Set([...st.asleep, r.id])] }));
   }));
-  if (asleep.length) await store.change((st) => ({ asleep: [...new Set([...st.asleep, ...asleep])] }));
   if (failed) {
     log('windows', `Reopened ${urls.length - failed} of ${urls.length} tabs; the folder stays`);
     return W.WINDOWS_REOPEN_FAILED;
@@ -948,15 +959,18 @@ async function migrateView(tabs, s, managementGranted) {
   };
 }
 
-// Resolves when the tab has finished loading, is closed, or after the time given.
+// Resolves when the tab has finished loading, is closed, or after the time given. A tab that finished before the
+// listeners were on (Reopen opens every tab first, then waits) resolves at once rather than at the time limit.
 function loaded(tabId, ms) {
   return new Promise((done) => {
-    const finish = () => { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(upd); chrome.tabs.onRemoved.removeListener(rem); done(); };
+    let over = false;
+    const finish = () => { if (over) return; over = true; clearTimeout(timer); chrome.tabs.onUpdated.removeListener(upd); chrome.tabs.onRemoved.removeListener(rem); done(); };
     const upd = (id, change) => { if (id === tabId && change.status === 'complete') finish(); };
     const rem = (id) => { if (id === tabId) finish(); };
     const timer = setTimeout(finish, ms);
     chrome.tabs.onUpdated.addListener(upd);
     chrome.tabs.onRemoved.addListener(rem);
+    tabNow(tabId).then((t) => { if (t.status === 'complete' && t.url) finish(); }, finish);
   });
 }
 

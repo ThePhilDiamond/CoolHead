@@ -484,4 +484,5 @@ export const WINDOWS_REOPEN_FAILED = "Not every tab could be reopened, so the fo
 export const WINDOWS_REMOVED = 'Removed the folder.';
 export const windowsTidied = (n) => `Moved ${n} ${n === 1 ? 'bookmark' : 'bookmarks'} to Other bookmarks.`;
 export const WINDOWS_GONE = 'That folder is no longer in your bookmarks.';
+export const WINDOWS_REOPENING = 'That window is already reopening.';
 export const SHORTCUT_WINDOW = 'Save this window';

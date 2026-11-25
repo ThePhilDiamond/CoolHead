@@ -574,23 +574,51 @@ const B = [
     assert.deepEqual(await w(`chrome.bookmarks.get(${JSON.stringify(f.id)}).then(() => 'still there', () => 'gone')`), 'gone');
     assert.deepEqual((await state(w)).savedWindows, []);
   }],
-  ['reopening: a page that never answers stays awake rather than asleep blank, and the rest sleep under their own titles', async ({ w }) => {
+  ['reopening: a page that never answers stays awake rather than asleep blank, the rest sleep under their own titles and are listed as asleep as they go, and a second Reopen meanwhile does nothing', async ({ w }) => {
     await w(`coolHead.store.load().then(async (s) => {
       const parent = s.windowsFolderId || await chrome.bookmarks.create({ title: 'Cool Head windows' }).then(async (b) => { await coolHead.store.save({ windowsFolderId: b.id }); return b.id; });
       const f = await chrome.bookmarks.create({ parentId: parent, title: 'Hang check · 3 tabs · 1 January 2026' });
       for (const [title, path] of [['First', '/page?n=h1'], ['Never answers', '/hang'], ['Third', '/page?n=h3']]) await chrome.bookmarks.create({ parentId: f.id, title, url: '${BASE}' + path });
       await coolHead.store.change((st) => ({ savedWindows: [...(st.savedWindows || []), { id: f.id, savedAt: Date.now() }] }));
       globalThis.hangFolder = f.id;
+      globalThis.hangSaid = null;
     })`);
-    await w("coolHead.act({ action: 'reopenWindow', id: globalThis.hangFolder })");
+    // started, not awaited: it waits 15 seconds for the page that never answers
+    await w("void coolHead.act({ action: 'reopenWindow', id: globalThis.hangFolder }).then((r) => { globalThis.hangSaid = r; })");
+    const third = await waitFor('the quick tab asleep', async () => (await w('chrome.tabs.query({})')).find((x) => x.url.endsWith('/page?n=h3') && x.discarded) || null);
+    assert.equal(await w('globalThis.hangSaid'), null, 'still waiting for the page that never answers');
+    assert.ok((await state(w)).asleep.includes(third.id), 'listed as asleep as soon as it sleeps');
+    assert.equal(await w("coolHead.act({ action: 'reopenWindow', id: globalThis.hangFolder })"), 'That window is already reopening.');
+    await waitFor('the reopen to finish', async () => w('globalThis.hangSaid'), 30000);
     const t = await w('chrome.tabs.query({})');
-    const third = t.find((x) => x.url.endsWith('/page?n=h3'));
+    assert.equal(t.filter((x) => x.url.endsWith('/page?n=h3')).length, 1, 'opened once');
     // Chrome reports no address for a page that never answered, so it's the window's other tab
     const hang = t.find((x) => x.windowId === third.windowId && x.id !== third.id && !x.url.endsWith('/page?n=h1'));
     assert.equal(hang.discarded, false, `the page that never answered stays awake: ${JSON.stringify(hang)}`);
-    assert.equal(third.discarded, true);
-    assert.equal(third.title.replace('zzZ\u2002', ''), 'Page h3', 'asleep under its page\'s own title');
-    await w(`chrome.windows.remove(${hang.windowId})`);
+    assert.equal(third.title.replace('zzZ ', ''), 'Page h3', 'asleep under its page\'s own title');
+    await w(`chrome.windows.remove(${third.windowId})`);
+  }],
+  ['reopening: the tabs load together, so a window of quick and slow pages reopens in about the time of the slowest', async ({ w }) => {
+    const paths = [...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `/page?n=q${n}`), ...[1, 2, 3, 4].map((n) => `/slow?n=${n}`)];
+    await w(`coolHead.store.load().then(async (s) => {
+      const parent = s.windowsFolderId || await chrome.bookmarks.create({ title: 'Cool Head windows' }).then(async (b) => { await coolHead.store.save({ windowsFolderId: b.id }); return b.id; });
+      const f = await chrome.bookmarks.create({ parentId: parent, title: 'Speed check · 12 tabs · 1 January 2026' });
+      const paths = [...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => '/page?n=q' + n), ...[1, 2, 3, 4].map((n) => '/slow?n=' + n)];
+      for (const path of paths) await chrome.bookmarks.create({ parentId: f.id, title: path, url: '${BASE}' + path });
+      await coolHead.store.change((st) => ({ savedWindows: [...(st.savedWindows || []), { id: f.id, savedAt: Date.now() }] }));
+      globalThis.speedFolder = f.id;
+    })`);
+    const at = Date.now();
+    await w("coolHead.act({ action: 'reopenWindow', id: globalThis.speedFolder })");
+    const took = Date.now() - at;
+    // one at a time would take 6 seconds for the slow pages alone; a quick page waiting out the time limit, 15
+    assert.ok(took < 4500, `reopened in ${took} ms`);
+    const all = await w('chrome.tabs.query({})');
+    const winId = all.find((x) => x.url.endsWith('/page?n=q1')).windowId;
+    const mine = all.filter((x) => x.windowId === winId);
+    assert.equal(mine.length, 12);
+    assert.equal(mine.filter((x) => x.discarded).length, 11, 'all but the first asleep');
+    await w(`chrome.windows.remove(${mine[0].windowId})`);
   }],
   ['the save dialog: a save that doesn\'t close the window says why in the dialog, and a tab found risky only then asks first; Cancel in a row goes back to its button', async ({ w, cdp }) => {
     const popup = await cdp.send('Target.createTarget', { url: `chrome-extension://${ID}/popup/popup.html`, newWindow: true });
@@ -753,8 +781,8 @@ const B = [
     const f = (await w('coolHead.viewFor()')).windows.saved.find((x) => x.words === 'Marked');
     const marks = (await w(`chrome.bookmarks.getChildren(${JSON.stringify(f.id)})`)).map((x) => x.title).sort();
     assert.deepEqual(marks, ['Page zs1', 'Page zs2', swShown].sort());
-    // reopened, each tab after the first sleeps as it opens, before it has a title, so the mark goes before the
-    // bookmark's: an untitled page keeps what Chrome showed for it, not just the site's name
+    // reopened, each tab after the first sleeps once its page has loaded: an untitled page is marked before what
+    // Chrome shows for it, not just the site's name
     await act(w, { action: 'reopenWindow', id: f.id });
     const again = await waitFor('the reopened tabs asleep', async () => {
       const t = (await tabsNow(w)).filter((x) => x.discarded && (x.url === swUrls[1] || x.url === swUrls[2]));
