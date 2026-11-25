@@ -615,17 +615,19 @@ async function windowsView(tabs, s, now) {
 
 // Saves every page in the window to a new folder, checks they're all there, and only then closes the window. When
 // it's the only window, a new one opens first, so Chrome stays open.
+// Answers { said, saved }: saved only once the folder holds every page and the window is closing.
 async function saveWindow(m) {
-  if (!(await hasBookmarks())) return W.WINDOWS_ASKS;
+  const no = (said) => ({ said, saved: false });
+  if (!(await hasBookmarks())) return no(W.WINDOWS_ASKS);
   const s = await store.load();
   const now = Date.now();
   const win = await windowToSave();
-  if (!win) return W.WINDOWS_NOTHING;
+  if (!win) return no(W.WINDOWS_NOTHING);
   const pages = win.tabs.map((t) => ({ url: t.url || t.pendingUrl, title: t.title })).filter((p) => savable(p.url));
-  if (!pages.length) return W.WINDOWS_NOTHING;
+  if (!pages.length) return no(W.WINDOWS_NOTHING);
   const ctx = contextFrom(s, await tabsNow({}), win.id, now);
   const risky = win.tabs.filter((t) => risk(heldReasons(t, { ...ctx, sessionIds: null })));
-  if (risky.length && !m.anyway) return W.windowsRisky(risky.map((t) => t.title || host(t.url)));
+  if (risky.length && !m.anyway) return no(W.windowsRisky(risky.map((t) => t.title || host(t.url))));
   const words = cleanWords(m.words) || defaultWords(pages.map((p) => p.url));
   const parent = await windowsParent(s, true);
   const folder = await chrome.bookmarks.create({ parentId: parent, index: 0, title: folderTitle(words, pages.length, now) });
@@ -633,14 +635,14 @@ async function saveWindow(m) {
   const inFolder = await chrome.bookmarks.getChildren(folder.id).catch(() => []);
   if (inFolder.length !== pages.length) {
     log('windows', `Saved ${inFolder.length} of ${pages.length} tabs, so the window stays open`);
-    return W.WINDOWS_FAILED;
+    return no(W.WINDOWS_FAILED);
   }
   await store.change((st) => ({ savedWindows: [...(st.savedWindows || []), { id: folder.id, savedAt: now }] }));
   const normal = await chrome.windows.getAll({ windowTypes: ['normal'] }).catch(() => []);
   if (normal.length <= 1) await chrome.windows.create({ focused: true }).catch(() => {});
   await chrome.windows.remove(win.id).catch(() => {});
   log('windows', `Saved a window of ${pages.length} tabs as a bookmark folder and closed it`);
-  return W.windowsSaved(words, pages.length);
+  return { said: W.windowsSaved(words, pages.length), saved: true };
 }
 
 // Opens a saved folder in a new window: its first page in front, the rest asleep until clicked. The folder is
@@ -903,10 +905,11 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       }
       case 'safe': return safeColumns();
       case 'act': {
-        const said = await act(m);
+        // most actions answer with words; Save this window also says whether it saved
+        const r = await act(m);
         await refreshBadge();
         await maybeReport();
-        return { said, view: await viewFor() };
+        return r && typeof r === 'object' ? { ...r, view: await viewFor() } : { said: r, view: await viewFor() };
       }
       default: return null;
     }

@@ -297,3 +297,4 @@ button.tabtitle.show:hover svg { color: var(--accent); }
 .dialog .lede { margin: 6px 0 10px; }
 .dialog .btn.wide { margin-top: 10px; }
 .dialog .note { margin: 8px 0 0; }
+.warn span { min-width: 0; overflow-wrap: anywhere; }   /* a long address in a warning wraps inside its box */

@@ -363,14 +363,19 @@ function windowsScreen(view, ui, on) {
   const name = W.windowFolderName(words || w.defaultWords, w.tabsHere, w.day);
   const input = h('input', { type: 'text', maxlength: '40', value: ui.windowWords ?? '', placeholder: W.WINDOWS_DESCRIBE_HINT,
     'data-key': 'window-words', oninput: (e) => on.windowWords(e.target.value),
-    onkeydown: (e) => { if (e.key === 'Enter') on.saveWindow(e.target.value); } });
+    onkeydown: (e) => { if (e.key === 'Enter' && !e.isComposing) on.saveWindow(e.target.value); } });
   const risky = ui.windowRisky && w.risky.length;
   // The tool shows Save this window as a button; the dialog it opens sits over the tool, holding the words, the name
   // as it will be, any warning, and Save and close. Its X goes back to the tool; the shortcut opens it directly.
   const opener = h('div', { class: 'winopen' },
     h('button', { class: 'btn primary wide', 'data-key': 'window-open', 'aria-haspopup': 'dialog', onclick: on.saveDialog }, W.SAVE_DIALOG_OPEN),
-    h('p', { class: 'note', text: W.SAVE_DIALOG_LEDE }));
-  const dialog = ui.saveDialog ? h('div', { class: 'veil', onclick: (e) => { if (e.target === e.currentTarget) on.closeDialog(); } },
+    h('p', { class: 'note', text: W.SAVE_DIALOG_WHY }));
+  // A click outside the dialog closes it, only when it both starts and ends there, so a selection dragged out of
+  // the field doesn't.
+  let pressedOutside = false;
+  const dialog = ui.saveDialog ? h('div', { class: 'veil',
+    onpointerdown: (e) => { pressedOutside = e.target === e.currentTarget; },
+    onclick: (e) => { if (pressedOutside && e.target === e.currentTarget) on.closeDialog(); pressedOutside = false; } },
     h('section', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'win-dlg-h', 'aria-describedby': 'win-dlg-p' },
       h('div', { class: 'screenhead' }, h('h2', { id: 'win-dlg-h', text: W.SAVE_DIALOG_TITLE }),
         h('button', { class: 'iconbtn', 'aria-label': W.CLOSE_DIALOG, title: W.CLOSE_DIALOG, 'data-key': 'close-dialog', onclick: on.closeDialog }, icon('x'))),
