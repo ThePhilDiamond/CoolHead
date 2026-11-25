@@ -3,6 +3,7 @@
 import { heldReasons, isWebPage, primaryReason } from './reasons.js';
 import { lastUsed } from './usage.js';
 import { canSleepOnItsOwn } from './plan.js';
+import { inFront } from './minimized.js';
 import { usedAgo, WHY } from './words.js';
 
 // Tabs used in the last 10 minutes are suggested (design, "Sessions").
@@ -53,7 +54,7 @@ export function startPlan(tabs, tickedIds, ctx) {
   for (const t of tabs) {
     if (sessionIds.has(t.id) || t.discarded || !isWebPage(t.url)) continue;
     if (canSleepOnItsOwn(t, inner)) sleep.push(t.id);
-    else if (t.active) stayLoaded.push({ id: t.id, reason: 'active' });
+    else if (inFront(t, inner)) stayLoaded.push({ id: t.id, reason: 'active' });
     else {
       const r = primaryReason(heldReasons(t, inner));
       if (r) stayLoaded.push({ id: t.id, reason: r });

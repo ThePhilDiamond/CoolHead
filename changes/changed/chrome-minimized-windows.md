@@ -1,0 +1,1 @@
+- Cool Head for Chrome: the tab in front of a minimized window now sleeps by the same rules as any tab you've left, counting from when you minimized the window, and loads again when you bring the window back. A window that's only behind another keeps its tab in front awake, since it may be on screen.

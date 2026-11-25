@@ -21,6 +21,7 @@ import * as sites from './sites.js';
 import { log, oops, testBuild } from './log.js';
 import { host, explainCheck, checkSentence, ago } from './logic/explain.js';
 import { SLEEP_MARK, withRealTitle, markInPage, unmarkInPage } from './logic/mark.js';
+import { noteWindows, restorePlan, RESTORE_CHECK_MS } from './logic/minimized.js';
 
 const VERSION = chrome.runtime.getManifest().version;
 const ALL_SITES = { origins: ['<all_urls>'] };
@@ -35,13 +36,20 @@ function tabsNow(query) { return chrome.tabs.query(query).then((tabs) => tabs.ma
 function tabNow(tabId) { return chrome.tabs.get(tabId).then(withRealTitle); }
 
 async function gather() {
-  const [tabs, s, win] = await Promise.all([
+  const [tabs, s, win, windows] = await Promise.all([
     tabsNow({}),
     store.load(),
     chrome.windows.getLastFocused().catch(() => null),
+    chrome.windows.getAll({ windowTypes: ['normal'] }).catch(() => []),
   ]);
   const now = Date.now();
-  return { tabs, s, now, focusedWindowId: win?.id ?? null, ctx: contextFrom(s, tabs, win?.id ?? null, now) };
+  const minimizedIds = windows.filter((w) => w.state === 'minimized').map((w) => w.id);
+  return { tabs, s, now, focusedWindowId: win?.id ?? null, minimizedIds, ctx: contextFrom(s, tabs, win?.id ?? null, now, minimizedIds) };
+}
+
+// Whether a window is minimized now, for the check just before a tab sleeps.
+function isMinimized(windowId) {
+  return chrome.windows.get(windowId).then((w) => w.state === 'minimized', () => false);
 }
 
 function planCtx(s, ctx, now) {
@@ -61,7 +69,9 @@ const unloading = new Set();
 async function sleepTab(tabId, { force = false, shown = '' } = {}) {
   const t = await tabNow(tabId).catch(() => null);
   if (!t) return { why: 'it closed meanwhile' };
-  if (t.active) return { why: 'it came to the front', t };
+  // the tab in front sleeps only when its window is minimized (logic/minimized.js)
+  const front = t.active;
+  if (front && !(await isMinimized(t.windowId))) return { why: 'it came to the front', t };
   if (t.discarded) return { why: 'it was already asleep', t };
   if (!force && t.audible) return { why: 'it started playing sound', t };
   marking.add(tabId);
@@ -70,7 +80,8 @@ async function sleepTab(tabId, { force = false, shown = '' } = {}) {
     // Marking can take up to a second on a busy page, and Chrome unloads even the tab in front, so the checks above
     // are made again; a tab that stays awake gets its own title back.
     const now = await tabNow(tabId).catch(() => null);
-    const why = !now ? 'it closed meanwhile' : now.discarded ? 'it was already asleep' : now.active ? 'it came to the front'
+    const onScreen = now && now.active && !(await isMinimized(now.windowId));
+    const why = !now ? 'it closed meanwhile' : now.discarded ? 'it was already asleep' : onScreen ? 'it came to the front'
       : (!force && now.audible) ? 'it started playing sound' : null;
     if (why) {
       if (now && !now.discarded) await titleMark(tabId, false);
@@ -79,7 +90,12 @@ async function sleepTab(tabId, { force = false, shown = '' } = {}) {
     unloading.add(tabId);
     setTimeout(() => unloading.delete(tabId), 5000);
     const d = await chrome.tabs.discard(tabId).catch(() => null);
-    if (d && d.discarded !== false) return { id: d.id, t };
+    if (d && d.discarded !== false) {
+      // a minimized window's front tab: noted at once, whoever asked for the sleep, so it's woken as soon as its window
+      // comes back; Chrome unloaded it in place when the ID stays the same (test T23), and then won't reload it itself
+      if (now.active) await store.change((s) => ({ frontAsleep: { ...s.frontAsleep, [d.id]: { inPlace: d.id === tabId } } }));
+      return { id: d.id, t };
+    }
     // still awake, so its title goes back to the page's own
     await titleMark(tabId, false);
     return { why: 'Chrome refused', t };
@@ -142,6 +158,7 @@ function sweepSoon(ms) {
 let lastCheck = '';
 
 async function sweep() {
+  await windowsChanged();
   const { tabs, s, now, ctx } = await gather();
   const pc = planCtx(s, ctx, now);
   if (testBuild) {
@@ -920,8 +937,8 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     switch (m?.type) {
       case 'view': return viewFor();
       case 'start': {
-        const { tabs, s, now, focusedWindowId } = await gather();
-        return buildStart({ tabs, s, now, focusedWindowId, favicon });
+        const { tabs, s, now, focusedWindowId, minimizedIds } = await gather();
+        return buildStart({ tabs, s, now, focusedWindowId, minimizedIds, favicon });
       }
       case 'safe': return safeColumns();
       case 'act': {
@@ -1081,7 +1098,7 @@ chrome.tabs.onRemoved.addListener((tabId, info) => {
   store.change((s) => {
     const drop = (map) => { const n = { ...map }; delete n[tabId]; return n; };
     return {
-      use: drop(s.use), audibleAt: drop(s.audibleAt), media: drop(s.media), typing: drop(s.typing),
+      use: drop(s.use), audibleAt: drop(s.audibleAt), media: drop(s.media), typing: drop(s.typing), frontAsleep: drop(s.frontAsleep),
       session: leave(s.session, tabId),
       asleep: s.asleep.filter((id) => id !== tabId),
       // A kept tab closing with its window may be Chrome quitting: keep the record so it can be found after the
@@ -1104,6 +1121,7 @@ chrome.tabs.onReplaced.addListener((addedId, removedId) => {
       activeByWindow: Object.fromEntries(Object.entries(s.activeByWindow).map(([w, id]) => [w, swap(id)])),
       session: s.session ? { ...s.session, tabIds: s.session.tabIds.map(swap) } : null,
       asleep: [...new Set(s.asleep.map(swap))],
+      frontAsleep: replaceId(s.frontAsleep, removedId, addedId),
       kept: s.kept.map((r) => ({ ...r, tabId: swap(r.tabId) })),
     };
   }).catch(oops);
@@ -1138,7 +1156,7 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
       if (change.discarded === false) {
         patch.asleep = s.asleep.filter((id) => id !== tabId);
         // woken from this extension's sleep: noted, so leaving it again within GLANCE_MS puts it back (onActivated)
-        if (s.asleep.includes(tabId)) patch.woke = { ...(s.woke || {}), [tabId]: Date.now() };
+        if (s.asleep.includes(tabId) && !waking.has(tabId) && !s.frontAsleep?.[tabId]) patch.woke = { ...(s.woke || {}), [tabId]: Date.now() };
       }
       return patch;
     }).then(() => refreshBadge()).then(() => maybeReport()).catch(oops);
@@ -1199,10 +1217,70 @@ chrome.commands.onCommand.addListener((command, tab) => {
 
 self.addEventListener('online', () => sweepSoon(0));
 
+// a window minimized or back changes what may sleep: the next check comes after the usual wait
+// Read again half a second later too, in case Chrome reports the window's new state a little after the event.
+function windowsChangedThenCheck() {
+  const once = () => windowsChanged().then((s) => { if (s) sweepSoon(s.leaveDelayMs + 250); }).catch(oops);
+  once();
+  setTimeout(once, 500);
+}
+
 chrome.windows.onFocusChanged.addListener((windowId) => {
+  windowsChangedThenCheck();
   if (windowId === chrome.windows.WINDOW_ID_NONE) return;
   tabsNow({ active: true, windowId }).then(([t]) => refreshMenu(t)).catch(() => {});
 });
+chrome.windows.onBoundsChanged.addListener(windowsChangedThenCheck);
+
+// A window minimized or brought back (logic/minimized.js): a minimized window's front tab counts as left from then,
+// so it can sleep by the same rules as any tab out of sight; a window back counts its front tab as in use again, and
+// a front tab this worker slept while it was minimized is woken if Chrome won't reload it by itself.
+async function windowsChanged() {
+  // the tabs in front come through tabsNow, like every tab the worker looks at, so they never carry the sleep mark
+  const [plain, actives] = await Promise.all([chrome.windows.getAll({ windowTypes: ['normal'] }).catch(() => []), tabsNow({ active: true }).catch(() => [])]);
+  const windows = plain.map((w) => ({ ...w, front: actives.find((t) => t.windowId === w.id) }));
+  const fronts = Object.fromEntries(windows.filter((w) => w.front).map((w) => [w.id, w.front.id]));
+  const now = Date.now();
+  // which front tabs to wake is decided inside the one queued change, so two window events at once wake a tab once
+  let wake = [];
+  let changed = false;
+  const s = await store.change((st) => {
+    const patch = noteWindows(windows, fronts, st.minimizedAt, st.use, now) || {};
+    const plan = restorePlan(windows, st.frontAsleep);
+    wake = plan.wake;
+    if (plan.frontAsleep) patch.frontAsleep = plan.frontAsleep;
+    changed = Object.keys(patch).length > 0;
+    return patch;
+  });
+  const byId = new Map(windows.filter((w) => w.front).map((w) => [w.front.id, w.front]));
+  for (const { id, what } of wake) {
+    if (what === 'reload') { await wakeFront(byId.get(id), 'its window came back'); continue; }
+    if (checking.has(id)) continue;
+    checking.add(id);
+    setTimeout(() => {
+      checking.delete(id);
+      tabNow(id).then(async (t) => {
+        // still blank, still in front, and its window still on screen (not minimized again meanwhile)
+        if (t.status !== 'unloaded' || !t.active || (await isMinimized(t.windowId))) return null;
+        return wakeFront(t, 'still blank after its window came back');
+      }).catch(() => {});
+    }, RESTORE_CHECK_MS);
+  }
+  return changed ? s : null;
+}
+
+// Front tabs with a check pending (see windowsChanged), so several window events schedule one check.
+const checking = new Set();
+// Front tabs the worker is reloading because their window came back. Their waking isn't the person's: it doesn't
+// count toward the quick-glance rule, so switching to another tab right after doesn't put them straight back to sleep.
+const waking = new Set();
+async function wakeFront(tab, why) {
+  if (!tab) return;
+  waking.add(tab.id);
+  setTimeout(() => waking.delete(tab.id), GLANCE_MS);
+  log('woke', `${host(tab.url)} reloaded: ${why}`, { tab: tab.id });
+  await chrome.tabs.reload(tab.id).catch(() => {});
+}
 
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === 'tick') {

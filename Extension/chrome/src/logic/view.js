@@ -5,14 +5,19 @@ import { heldReasons, primaryReason, risk, isWebPage, REASON_ORDER, siteOf, site
 import { currentMemory } from './auto.js';
 import { findDuplicates } from './duplicates.js';
 import { canSleepOnItsOwn } from './plan.js';
+import { inFront } from './minimized.js';
 import { suggest } from './session.js';
 import { lastUsed } from './usage.js';
 
 const TONE = { fine: 'good', tight: 'warn', slowed: 'warn', veryTight: 'bad' };
 
 // The worker's stored state, turned into the context the rules read.
-export function contextFrom(s, tabs, focusedWindowId, now) {
-  const front = tabs.find((t) => t.active && t.windowId === focusedWindowId) ?? tabs.find((t) => t.active);
+export function contextFrom(s, tabs, focusedWindowId, now, minimizedIds = []) {
+  // the tab in use: in front of a window on screen, never a minimized window's (Chrome can report a minimized window as
+  // the one last focused, and the tab in use always keeps its place among the most used)
+  const min = new Set(minimizedIds);
+  const shown = (t) => t.active && !min.has(t.windowId);
+  const front = tabs.find((t) => shown(t) && t.windowId === focusedWindowId) ?? tabs.find(shown);
   const anyFrame = (byTab) => Object.fromEntries(
     Object.entries(byTab || {}).map(([id, frames]) => [id, Object.values(frames || {}).reduce(
       (acc, f) => (typeof f === 'object' ? { call: acc.call || !!f.call, screen: acc.screen || !!f.screen } : true),
@@ -32,6 +37,7 @@ export function contextFrom(s, tabs, focusedWindowId, now) {
     typing: anyFrame(s.typing),
     frontTabId: front?.id ?? null,
     focusedWindowId: front?.windowId ?? focusedWindowId ?? null,
+    minimized: new Set(minimizedIds),         // windows minimized now: their front tabs may sleep (minimized.js)
   };
 }
 
@@ -240,7 +246,7 @@ export function buildView(i) {
 // popup can count what sleeps as the person ticks, without asking the worker each time.
 export function buildStart(i) {
   const { tabs, s, now } = i;
-  const ctx = contextFrom(s, tabs, i.focusedWindowId, now);
+  const ctx = contextFrom(s, tabs, i.focusedWindowId, now, i.minimizedIds);
   const { suggested, others } = suggest(tabs, ctx);
   const byId = new Map(tabs.map((t) => [t.id, t]));
   const noSession = { ...ctx, sessionIds: new Set() };
@@ -249,7 +255,7 @@ export function buildStart(i) {
     let ifUnticked = 'none';
     if (!t.discarded && isWebPage(t.url)) {
       if (canSleepOnItsOwn(t, noSession)) ifUnticked = 'sleep';
-      else ifUnticked = t.active ? 'active' : primaryReason(heldReasons(t, noSession)) || 'none';
+      else ifUnticked = inFront(t, noSession) ? 'active' : primaryReason(heldReasons(t, noSession)) || 'none';
     }
     return { ...face(t, i.favicon), why: r.why, windowId: t.windowId, ticked, ifUnticked, used: lastUsed(t, ctx.use) ?? 0 };
   };

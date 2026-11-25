@@ -42,7 +42,7 @@ export function rankMostUsed(tabs, use, now, frontTabId = null) {
   }).map((t) => t.id);
 }
 
-// The tab to show when the person puts the one in front to sleep (Chrome can't unload the tab in front): the next
+// The tab to show when the person puts the one in front to sleep (Chrome won't unload the tab in front of a window in use): the next
 // awake tab to its right in the same window, going round to the first tab after the last, so pressing the shortcut
 // again and again sleeps the window's tabs one after another. It used to be the tab used before it, which made the
 // shortcut go back and forth between two tabs, waking each the other had just put to sleep. A tab already asleep is
