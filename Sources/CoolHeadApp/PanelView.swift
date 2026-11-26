@@ -292,9 +292,12 @@ final class ReportDraft: ObservableObject {
     func clear() { kind = ProblemReport.kinds[0]; words = ""; summary = ""; heldProblem = ProblemReport.heldProblems[0]; about = nil }
 }
 
-/// A group of options folded to one line with how many it holds; a click opens it. Only the one recommended action
+/// A group of options in one box: its heading is the box's top line, quieter than the options, and a click on it opens
+/// or folds the group. Folded, the box is that one line with how many options it holds; open, the options sit inside it
+/// under the heading, which then says only what the group is, since nothing is hidden any more. One box open or folded,
+/// so the two read as the same thing; the options inside, not a second box beside them. Only the one recommended action
 /// stays out of the groups, always shown.
-struct GroupBar: View {
+struct GroupBar<Content: View>: View {
     let doer: Fix.Doer
     let count: Int
     /// A recommendation is shown above the groups, so every group holds more, and both groups say "more" the same way,
@@ -302,26 +305,38 @@ struct GroupBar: View {
     let more: Bool
     let open: Bool
     let toggle: () -> Void
+    @ViewBuilder let content: () -> Content
+    var name: String { doer == .coolHead ? "ONE CLICK" : "DO IT YOURSELF" }
+    var howMany: String { "\(count)\(more ? " more" : "") option\(count == 1 ? "" : "s")" }
     var body: some View {
-        Button(action: toggle) {
-            HStack(spacing: 5) {
-                Image(systemName: doer == .coolHead ? "bolt.fill" : "hand.point.up.left.fill")
-                Text(doer == .coolHead ? "ONE CLICK" : "DO IT YOURSELF").fontWeight(.bold).tracking(0.5)
-                Text("\(count)\(more ? " more" : "") option\(count == 1 ? "" : "s")").foregroundStyle(Ink.muted)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(Ink.muted)
-                    .rotationEffect(.degrees(open ? 90 : 0))
+        let shape = RoundedRectangle(cornerRadius: 12)
+        VStack(alignment: .leading, spacing: 6) {
+            Button(action: toggle) {
+                HStack(spacing: 5) {
+                    Image(systemName: doer == .coolHead ? "bolt.fill" : "hand.point.up.left.fill")
+                    Text(name).fontWeight(.bold).tracking(0.5)
+                    if !open { Text(howMany).foregroundStyle(Ink.muted) }
+                    Spacer(minLength: 0)
+                    // lighter than an option's arrow: this one opens the group, an option's acts
+                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(Color.primary.opacity(0.55))
+                        .rotationEffect(.degrees(open ? 90 : 0))
+                }
+                .font(.caption)
+                .foregroundStyle(Ink.text)
+                .padding(.horizontal, 4).padding(.vertical, 2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .font(.caption)
-            .foregroundStyle(Ink.text)
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(open ? (doer == .coolHead ? "One click" : "Do it yourself")
+                                     : "\(doer == .coolHead ? "One click" : "Do it yourself"): \(howMany)")
+            .accessibilityValue(open ? "shown" : "hidden")
+            if open { content() }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(doer == .coolHead ? "One click" : "Do it yourself"): \(count)\(more ? " more" : "") option\(count == 1 ? "" : "s")")
-        .accessibilityValue(open ? "shown" : "hidden")
+        .padding(6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.04), in: shape)
+        .overlay(shape.strokeBorder(Ink.edge, lineWidth: 1))
     }
 }
 
@@ -434,10 +449,9 @@ struct CardView: View {
                         ForEach(groups, id: \.0) { doer, fixes in
                             let rest = fixes.filter { $0.id != rec?.id }
                             if !rest.isEmpty {
-                                GroupBar(doer: doer, count: rest.count, more: rec != nil, open: shownGroup == doer) {
+                                GroupBar(doer: doer, count: rest.count, more: rec != nil, open: shownGroup == doer, toggle: {
                                     withAnimation(.easeOut(duration: 0.15)) { shownGroup = shownGroup == doer ? nil : doer }
-                                }
-                                if shownGroup == doer { ForEach(rest) { row($0) } }
+                                }) { ForEach(rest) { row($0) } }
                             }
                         }
                         // an option that's no longer listed (the card changed): the note goes at the end
