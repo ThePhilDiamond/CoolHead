@@ -309,7 +309,7 @@ public struct Fixture {
             pw.resumeAllPaused(why: "selftest")
             usleep(100_000)
             let resumed = Proc.bsd(spid)?.stopped == false && pw.pausedJobs.isEmpty
-            sleeper.terminate()
+            Fixture.end(sleeper)
             review.append(("pause-and-resume", paused && resumed, "paused \(paused), resumed \(resumed)"))
         }
         // Trust: a trusted item is calm, but flagged anyway if it looks stuck, the Mac is hot, or it has been busy
@@ -341,7 +341,7 @@ public struct Fixture {
             let w = Watcher()
             let on = w.setCooler(lc, on: true), down = Proc.schedulingPriority(cpid) ?? -1
             let off = w.setCooler(lc, on: false), up = Proc.schedulingPriority(cpid) ?? -1
-            child.terminate()
+            Fixture.end(child)
             func ok(_ o: Watcher.Outcome) -> Bool { if case .done(_) = o { return true }; return false }
             review.append(("run-it-cooler-really-works", ok(on) && ok(off) && down <= 4 && up > 4,
                            "background priority \(down), back to \(up)"))

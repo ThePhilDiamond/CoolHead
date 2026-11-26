@@ -152,13 +152,8 @@ extension Fixture {
     /// A child process that keeps one core busy, limited to Barely running and then to Slow and steady, and a second
     /// group started at Slow and steady: each should settle at its level's amount.
     static func cpuLimitHoldsChecks() -> (String, Bool, String) {
-        func busy() -> Process? {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/bin/yes")
-            p.standardOutput = FileHandle.nullDevice
-            return (try? p.run()) != nil ? p : nil
-        }
-        guard let a = busy() else { return ("cpu-limit-holds-the-amount", false, "couldn't start /usr/bin/yes") }
+        guard let a = busyLoop() else { return ("cpu-limit-holds-the-amount", false, "couldn't start a busy loop") }
+        defer { end(a) }
         let limiter = CPULimiter()
         // the limiter narrows toward the amount a step a second, so it settles sooner on a quick Mac than on a busy test
         // machine (a CI runner read 0.69 and 0.90 at a fixed 4 seconds, 25 November 2026): wait, up to 20 seconds,
@@ -181,14 +176,13 @@ extension Fixture {
         let change = settle("a", slowFits)
         limiter.remove("a")
         var fresh = (used: -1.0, seconds: 0)
-        if let b = busy() {
+        if let b = busyLoop() {
             let bp = b.processIdentifier
             limiter.set("b", pids: [bp], trust: nil, root: bp, level: .slow)
             fresh = settle("b", slowFits)
             limiter.remove("b")
-            b.terminate()
+            end(b)
         }
-        a.terminate()
         let ok = barelyFits(barely.used) && slowFits(change.used) && slowFits(fresh.used)
         func say(_ r: (used: Double, seconds: Int)) -> String { String(format: "%.2f", r.used) + " core after \(r.seconds) s" }
         return ("cpu-limit-holds-the-amount", ok,

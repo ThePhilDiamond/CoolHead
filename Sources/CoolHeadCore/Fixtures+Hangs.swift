@@ -64,7 +64,7 @@ extension Fixture {
             let found = Proc.psTable()[pid].flatMap { Hang.kind(psState: $0.state) } == .paused
             let lc = LiveCard(id: "hang-paused-\(pid)", pid: pid, start: Proc.bsd(pid)?.start, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: [])
             let resumed = { if case .done = Watcher().resumeStopped(lc) { return true }; return false }() && Proc.bsd(pid)?.stopped == false
-            sleeper.terminate()
+            Fixture.end(sleeper)
             out.append(("hang-paused-really-found-and-resumed", found && resumed, "found \(found), resumed \(resumed)"))
         }
         // Stop on a paused process (it must carry on to act on the signal), and Force quit, each on a child of our own
@@ -77,7 +77,8 @@ extension Fixture {
             let pid = p.processIdentifier
             return (p, LiveCard(id: "hang-\(pid)", pid: pid, start: Proc.bsd(pid)?.start, card: Card(state: .unknown, headline: "", explanation: "", fixes: []), details: []))
         }
-        if let (a, ca) = child(), let (b, cb) = child() {
+        let one = child(), two = child()
+        if let (a, ca) = one, let (b, cb) = two {
             kill(a.processIdentifier, SIGSTOP)
             usleep(100_000)
             let w = Watcher()
@@ -85,9 +86,8 @@ extension Fixture {
             for _ in 0..<20 where a.isRunning || b.isRunning { usleep(50_000) }
             out.append(("hang-stop-and-force-quit-really-work", !a.isRunning && !b.isRunning,
                         "paused process stopped \(!a.isRunning), force quit \(!b.isRunning)"))
-            if a.isRunning { kill(a.processIdentifier, SIGKILL) }
-            if b.isRunning { b.terminate() }
         }
+        [one?.0, two?.0].compactMap { $0 }.forEach { Fixture.end($0) }
         return out
     }
 

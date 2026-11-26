@@ -164,6 +164,11 @@ extension Fixture {
             guard (try? process.run()) != nil else { return nil }
         }
 
+        /// A run let go without `finish` (a check that gave up part way) closes Chrome's side, and the host ends, as it
+        /// does when Chrome disconnects: otherwise the host stays, and links to the next check's socket in place of that
+        /// check's own host (26 November 2026).
+        deinit { try? input.fileHandleForWriting.close() }
+
         func send(_ bytes: [UInt8]) -> Bool { ChromeLink.writeAll(input.fileHandleForWriting.fileDescriptor, bytes) }
 
         /// The next message the host sends Chrome, or nil if none comes within the time.
@@ -177,7 +182,7 @@ extension Fixture {
             try? input.fileHandleForWriting.close()
             let deadline = Date().addingTimeInterval(3)
             while process.isRunning && Date() < deadline { usleep(20_000) }
-            if process.isRunning { process.terminate(); return false }
+            if process.isRunning { Fixture.end(process); return false }
             let printed = (try? errors.fileHandleForReading.readToEnd()) ?? nil
             return process.terminationStatus == 0 && (printed ?? Data()).isEmpty
         }
@@ -308,6 +313,13 @@ extension Fixture {
                         "a socket open to others and a link to the socket: refused, nothing connected (\(noneConnected)); "
                         + "once the socket is 600 again: \(later.map { String(decoding: $0, as: UTF8.self) } ?? "no link")"))
         } else { out.append(("chrome-link-host-this-user-only", false, "the host didn't start")) }
+
+        // a run let go part way, without finish, ends its host (at a socket nothing listens at, so a host left running
+        // can't reach a later check)
+        var pid: pid_t = 0
+        do { if let run = HostRun(host, socket: folder + "/nobody.sock") { pid = run.process.processIdentifier } }
+        let gone = pid != 0 && (0..<50).contains { _ in usleep(20_000); return Proc.bsd(pid) == nil }
+        out.append(("chrome-link-host-ended-when-let-go", gone, pid == 0 ? "the host didn't start" : "ended once its run was let go \(gone)"))
         return out
     }
 }
