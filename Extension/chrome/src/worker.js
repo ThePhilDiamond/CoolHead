@@ -537,6 +537,8 @@ async function maybeReport(force = false) {
     duplicates: duplicateCount(findDuplicates(tabs, ctx)),
     extensionsResting: s.rest.ids.length,
     level: s.level,
+    // what "Sleep tabs you aren't looking at" would sleep now, so Cool Head's card can say how many, never how much
+    toSleep: planSleepHidden(tabs, planCtx(s, ctx, now)).length,
   });
   if (!force && sameReport(r, s.lastReport)) return;
   // On change, at most every 10 seconds (protocol, "report").

@@ -353,7 +353,19 @@ struct CardView: View {
         }
     }
 
-    var body: some View { content.onAppear { presetEveryTime() } }
+    var body: some View { content.onAppear { presetEveryTime(); presetSleep() } }
+
+    /// For screenshots (COOLHEAD_SNAPSHOT_SLEEP=measuring, after, small, flat, up, or quit): the card just after "Sleep
+    /// tabs you aren't looking at", with made-up figures, never this Mac's.
+    func presetSleep() {
+        let before: UInt64 = 5_480_000_000
+        let afters: [String: UInt64?] = ["after": 3_330_000_000, "small": before - 55_000_000, "flat": before - 20_000_000,
+                                         "up": before + 210_000_000, "quit": nil]
+        guard let shot = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SLEEP"], shot == "measuring" || afters[shot] != nil,
+              live.card.fixes.contains(where: { $0.id == "sleep" }) else { return }
+        note = ChromeParts.gaveBack(count: 12, done: "", before: before, after: afters[shot] ?? nil, measuring: shot == "measuring")
+        noteFor = "sleep"; noteFailed = false; acted = true
+    }
 
     /// For screenshots (COOLHEAD_SNAPSHOT_EVERY_OFFER): a card with Run it cooler as it looks just after it worked.
     func presetEveryTime() {
@@ -571,10 +583,17 @@ struct CardView: View {
             } else if let a = ChromeLink.Action(rawValue: action) {
                 // asked of the extension, which says what it did (see ChromeLinkServer)
                 note = "Asked \(ChromeCompanion.name)."; noteFailed = false; acted = true
+                // sleeping tabs: Chrome's memory read before, and again once Chrome has closed the slept tabs' processes,
+                // so the card says what it gave back, measured, never a promise beforehand
+                let before = a == .sleepHidden ? ChromeParts.footprintNow() : nil
                 Task {
                     let r = await withCheckedContinuation { c in ChromeLinkServer.shared.request(a) { c.resume(returning: $0) } }
                     note = r.map { $0.done } ?? "\(ChromeCompanion.name) didn't answer. Is Chrome open?"
                     noteFailed = r?.ok != true; acted = r?.ok == true
+                    guard a == .sleepHidden, let r, r.ok, let n = r.count, n > 0 else { return }
+                    note = ChromeParts.gaveBack(count: n, done: r.done, before: before, after: nil, measuring: true)
+                    try? await Task.sleep(for: .seconds(ChromeParts.measureAfter))
+                    note = ChromeParts.gaveBack(count: n, done: r.done, before: before, after: ChromeParts.footprintNow(), measuring: false)
                 }
             }
         case .unloadModels(let names):

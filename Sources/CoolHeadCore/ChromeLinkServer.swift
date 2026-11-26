@@ -18,7 +18,31 @@ public final class ChromeLinkServer: @unchecked Sendable {
     public struct Summary: Equatable, Sendable {
         public var connected = false
         public var report: ChromeLink.Report?
-        public init(connected: Bool = false, report: ChromeLink.Report? = nil) { self.connected = connected; self.report = report }
+        /// Tabs "Sleep tabs you aren't looking at" would sleep, in every linked profile together (toSleep(of:)).
+        public var toSleep: Int?
+        public init(connected: Bool = false, report: ChromeLink.Report? = nil, toSleep: Int? = nil) {
+            self.connected = connected; self.report = report; self.toSleep = toSleep
+        }
+    }
+
+    /// Every linked profile's count added up, since a press asks them all; nil when none has reported, or when one
+    /// hasn't said (an extension from before the count), so the card never shows a count for only some profiles.
+    public static func toSleep(of reports: [ChromeLink.Report?]) -> Int? {
+        guard !reports.isEmpty else { return nil }
+        var total = 0
+        for r in reports { guard let n = r?.toSleep else { return nil }; total += max(0, n) }
+        return total
+    }
+
+    /// The answers from every profile asked, as one: done if any did it, the counts added up, and the sentence of the
+    /// one that did the most (an extension's sentence counts only its own profile; with one profile it's exactly its answer).
+    public static func combined(_ answers: [ChromeLink.ActionResult]) -> ChromeLink.ActionResult? {
+        guard let first = answers.first else { return nil }
+        guard answers.count > 1 else { return first }
+        let counts = answers.compactMap(\.count)
+        let lead = answers.filter(\.ok).max { ($0.count ?? 0) < ($1.count ?? 0) } ?? first
+        return ChromeLink.ActionResult(id: first.id, ok: answers.contains { $0.ok }, done: lead.done,
+                                       count: counts.isEmpty ? nil : counts.reduce(0) { $0 + max(0, $1) })
     }
 
     private let queue = DispatchQueue(label: "coolhead.chrome-link")
@@ -34,7 +58,13 @@ public final class ChromeLinkServer: @unchecked Sendable {
     }
     private var connections: [Int32: Connection] = [:]
     private var lastState: ChromeLink.State?
-    private var results: [String: (ChromeLink.ActionResult) -> Void] = [:]
+    /// A request waiting on its answers: the connections asked and not yet answered, and the answers so far.
+    private struct Pending {
+        var waiting: Set<Int32>
+        var answers: [ChromeLink.ActionResult] = []
+        let done: @Sendable (ChromeLink.ActionResult?) -> Void
+    }
+    private var pending: [String: Pending] = [:]
     private let lock = NSLock()
     private var _summary = Summary()
 
@@ -97,7 +127,9 @@ public final class ChromeLinkServer: @unchecked Sendable {
             case ChromeLink.ExtensionHello.kind: c.hello = ChromeLink.decode(ChromeLink.ExtensionHello.self, from: line)
             case ChromeLink.Report.kind: c.report = ChromeLink.decode(ChromeLink.Report.self, from: line)
             case ChromeLink.ActionResult.kind:
-                if let r = ChromeLink.decode(ChromeLink.ActionResult.self, from: line), let done = results.removeValue(forKey: r.id) { done(r) }
+                if let r = ChromeLink.decode(ChromeLink.ActionResult.self, from: line), var p = pending[r.id], p.waiting.remove(c.fd) != nil {
+                    p.answers.append(r); pending[r.id] = p; finishIfAnswered(r.id)
+                }
             default: break     // unknown types are ignored, so either side can be newer
             }
         }
@@ -108,7 +140,15 @@ public final class ChromeLinkServer: @unchecked Sendable {
         c.source?.cancel()
         close(c.fd)
         connections[c.fd] = nil
+        // a profile gone before it answered isn't waited for
+        for id in Array(pending.keys) { pending[id]?.waiting.remove(c.fd); finishIfAnswered(id) }
         update()
+    }
+
+    private func finishIfAnswered(_ id: String) {
+        guard let p = pending[id], p.waiting.isEmpty else { return }
+        pending[id] = nil
+        p.done(ChromeLinkServer.combined(p.answers))
     }
 
     private func send<M: ChromeLink.Message>(_ m: M, to c: Connection) {
@@ -117,7 +157,7 @@ public final class ChromeLinkServer: @unchecked Sendable {
 
     private func update() {
         let linked = connections.values.filter { $0.hello != nil }
-        let s = Summary(connected: !linked.isEmpty, report: linked.compactMap(\.report).first)
+        let s = Summary(connected: !linked.isEmpty, report: linked.compactMap(\.report).first, toSleep: ChromeLinkServer.toSleep(of: linked.map(\.report)))
         lock.withLock { _summary = s }
     }
 
@@ -129,14 +169,19 @@ public final class ChromeLinkServer: @unchecked Sendable {
         }
     }
 
-    /// A card's button: asks the linked extensions to do it; `done` gets the first answer, or nil after 10 seconds.
+    /// A card's button: asks every connected extension (one per Chrome profile) to do it; `done` gets their answers as
+    /// one (combined), once each has answered or gone, or after 10 seconds what had come by then (nil if none had).
     public func request(_ action: ChromeLink.Action, done: @escaping @Sendable (ChromeLink.ActionResult?) -> Void) {
         queue.async { [self] in
             guard !connections.isEmpty else { done(nil); return }
             let id = UUID().uuidString
-            results[id] = { done($0) }
-            for c in connections.values { send(ChromeLink.Request(id: id, action: action), to: c) }
-            queue.asyncAfter(deadline: .now() + 10) { [self] in if results.removeValue(forKey: id) != nil { done(nil) } }
+            pending[id] = Pending(waiting: Set(connections.keys), done: done)
+            for c in Array(connections.values) { send(ChromeLink.Request(id: id, action: action), to: c) }
+            finishIfAnswered(id)     // every send failed: nothing to wait for
+            queue.asyncAfter(deadline: .now() + 10) { [self] in
+                guard let p = pending.removeValue(forKey: id) else { return }
+                p.done(ChromeLinkServer.combined(p.answers))
+            }
         }
     }
 

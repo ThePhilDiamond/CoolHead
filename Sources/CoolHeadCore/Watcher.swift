@@ -1233,8 +1233,10 @@ public final class Watcher {
             let saver = chromeParts != nil ? ChromeMemorySaver.read() : nil
             let offerSaver = chromeParts != nil && ChromeMemorySaver.shouldOffer(saver, week: week, memoryGB: s.memoryGB,
                                                                                  setAt: UserDefaults.standard.object(forKey: ChromeMemorySaver.setKey) as? Date, now: now)
-            let context = MemoryContext(slowed: slowed, week: week, chrome: chromeParts, memorySaver: saver, offerSaverMaximum: offerSaver,
+            var context = MemoryContext(slowed: slowed, week: week, chrome: chromeParts, memorySaver: saver, offerSaverMaximum: offerSaver,
                                         companion: chromeParts != nil ? ChromeCompanion.status : nil)
+            // the extension's own count of tabs it would sleep (out of sight, not protected), when it's linked and says
+            context.take(ChromeLinkServer.shared.summary)
             // Cool Head's reading for the extension, when one is linked (see ChromeLinkServer)
             let chromeBytes = groups.first { $0.name == "Google Chrome" && $0.kind == .browser }?.bytes ?? 0
             ChromeLinkServer.shared.publish(ChromeLink.State(memory: ChromeLinkServer.memory(s, slowed: slowed), freeMB: ChromeLinkServer.freeMB(),

@@ -193,6 +193,10 @@ public struct MemoryContext: Equatable {
     public var memorySaver: ChromeMemorySaver.State? = nil
     public var offerSaverMaximum = false              // ChromeMemorySaver.shouldOffer
     public var companion: ChromeCompanion.Status? = nil
+    /// How many tabs Cool Head for Chrome would sleep now (its own count: out of sight, not protected); nil when unknown.
+    public var tabsToSleep: Int? = nil
+    /// The link's count, every profile's together (ChromeLinkServer.Summary.toSleep), only while the extension is linked.
+    public mutating func take(_ link: ChromeLinkServer.Summary) { tabsToSleep = companion == .connected ? link.toSleep : nil }
     public init(slowed: Bool? = nil, week: PressureHistory.Week? = nil, chrome: ChromeParts? = nil,
                 memorySaver: ChromeMemorySaver.State? = nil, offerSaverMaximum: Bool = false, companion: ChromeCompanion.Status? = nil) {
         self.slowed = slowed; self.week = week; self.chrome = chrome; self.memorySaver = memorySaver; self.offerSaverMaximum = offerSaverMaximum

@@ -23,7 +23,7 @@ From the host itself:
 
 Extension to Cool Head:
 - `hello`: `extension` (version), `browser` ("chrome"), `level` ("auto" | "light" | "balanced" | "focus").
-- `report`, at most every 10 seconds and on change: `asleep` (tabs it has unloaded and that are still unloaded), `held` (counts by reason: `sound`, `call`, `screen`, `typing`, `pinned`, `kept`, `session`), `session` (`{"active": bool, "tabs": int}`), `duplicates` (int), `extensionsResting` (int), `level`.
+- `report`, at most every 10 seconds and on change: `asleep` (tabs it has unloaded and that are still unloaded), `held` (counts by reason: `sound`, `call`, `screen`, `typing`, `pinned`, `kept`, `session`), `session` (`{"active": bool, "tabs": int}`), `duplicates` (int), `extensionsResting` (int), `level`, and, from the version after 1.3.0, `toSleep` (int: the tabs `sleepHidden` would sleep now, out of sight and not protected; Cool Head's memory card says how many, never how much).
 - `result`: `id` (from the request), `ok` (bool), `done` (a short sentence in Cool Head's voice, such as "Put 23 tabs to sleep."), `count`.
 
 Cool Head to extension:

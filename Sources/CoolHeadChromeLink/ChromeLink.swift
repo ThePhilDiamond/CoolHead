@@ -219,9 +219,22 @@ public enum ChromeLink {
         public var duplicates: Int
         public var extensionsResting: Int
         public var level: Level
-        public init(asleep: Int, held: [String: Int], session: Session, duplicates: Int, extensionsResting: Int, level: Level) {
+        /// Tabs it would sleep now for "Sleep tabs you aren't looking at": out of sight and not protected. Nil from an
+        /// extension from before the version that sends it (after 1.3.0).
+        public var toSleep: Int?
+        public init(asleep: Int, held: [String: Int], session: Session, duplicates: Int, extensionsResting: Int, level: Level, toSleep: Int? = nil) {
             self.asleep = asleep; self.held = held; self.session = session; self.duplicates = duplicates
-            self.extensionsResting = extensionsResting; self.level = level
+            self.extensionsResting = extensionsResting; self.level = level; self.toSleep = toSleep
+        }
+        enum CodingKeys: String, CodingKey { case v, type, asleep, held, session, duplicates, extensionsResting, level, toSleep }
+        /// A toSleep that isn't a whole number reads as unknown, so the rest of the report still counts.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            v = try c.decode(Int.self, forKey: .v); type = try c.decode(String.self, forKey: .type)
+            asleep = try c.decode(Int.self, forKey: .asleep); held = try c.decode([String: Int].self, forKey: .held)
+            session = try c.decode(Session.self, forKey: .session); duplicates = try c.decode(Int.self, forKey: .duplicates)
+            extensionsResting = try c.decode(Int.self, forKey: .extensionsResting); level = try c.decode(Level.self, forKey: .level)
+            toSleep = (try? c.decodeIfPresent(Int.self, forKey: .toSleep)) ?? nil
         }
     }
 
