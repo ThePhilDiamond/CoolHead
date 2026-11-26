@@ -130,9 +130,13 @@ public enum BrowserRestart {
 
     /// Run as the selftest's app: records its launch arguments, one launch per line, in `launches.txt` beside its
     /// bundle, then waits like any app until asked to quit. While `refuse-quit` exists beside its bundle, it declines
-    /// to quit, as a browser asking about a download would. Never returns.
+    /// to quit, as a browser asking about a download would. It ends itself as soon as the selftest run that built it
+    /// has ended, named in `owner` beside its bundle (see `setOwner`), or that file or its folder is gone: so it is
+    /// never left open, however that run ended (26 November 2026: a copy from 17 November was still running, its
+    /// folder long gone). Never returns.
     public static func runTestApp() -> Never {
         let folder = Bundle.main.bundleURL.deletingLastPathComponent()
+        let owner = folder.appendingPathComponent("owner")
         let line = CommandLine.arguments.dropFirst().joined(separator: " ") + "\n"
         let file = folder.appendingPathComponent("launches.txt")
         if let h = try? FileHandle(forWritingTo: file) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
@@ -141,6 +145,8 @@ public enum BrowserRestart {
         app.setActivationPolicy(.accessory)
         let delegate = TestAppDelegate(refuse: folder.appendingPathComponent("refuse-quit").path)
         app.delegate = delegate
+        let watch = Timer(timeInterval: 0.25, repeats: true) { _ in if !ownerRunning(owner) { exit(0) } }
+        RunLoop.main.add(watch, forMode: .common)
         app.run()
         _ = delegate
         exit(0)
@@ -154,14 +160,31 @@ public enum BrowserRestart {
         }
     }
 
-    /// Builds the selftest's app in `folder`, with identifier `id`: a bundle whose program is a copy of this one.
-    /// Returns its path.
-    public static func makeTestApp(in folder: URL, program: String, id: String) throws -> String {
+    /// Names the process the selftest's app in `folder` belongs to, by number and start time (so a reused number isn't
+    /// taken for it): the app ends itself once that process has ended. Returns false if it couldn't be written.
+    @discardableResult
+    public static func setOwner(_ pid: pid_t, in folder: URL) -> Bool {
+        guard let start = Proc.bsd(pid)?.start else { return false }
+        return (try? "\(pid) \(start.timeIntervalSince1970)\n".write(to: folder.appendingPathComponent("owner"), atomically: true, encoding: .utf8)) != nil
+    }
+
+    /// Whether the process named in an `owner` file is still running: the same number, started at the same time.
+    static func ownerRunning(_ file: URL) -> Bool {
+        let f = ((try? String(contentsOf: file, encoding: .utf8)) ?? "").split(separator: " ")
+        guard f.count == 2, let pid = pid_t(f[0]), let start = Double(f[1].trimmingCharacters(in: .whitespacesAndNewlines)),
+              let b = Proc.bsd(pid) else { return false }
+        return abs(b.start.timeIntervalSince1970 - start) < 1
+    }
+
+    /// Builds the selftest's app in `folder`, with identifier `id`: a bundle whose program is a copy of this one,
+    /// belonging to `owner` (see `setOwner`). Returns its path.
+    public static func makeTestApp(in folder: URL, program: String, id: String, owner: pid_t = getpid()) throws -> String {
         let fm = FileManager.default
         let app = folder.appendingPathComponent("Restart Test.app")
         try? fm.removeItem(at: app)
         try? fm.removeItem(at: folder.appendingPathComponent("launches.txt"))
         try? fm.removeItem(at: folder.appendingPathComponent("refuse-quit"))
+        guard setOwner(owner, in: folder) else { throw CocoaError(.fileWriteUnknown) }
         let macos = app.appendingPathComponent("Contents/MacOS")
         try fm.createDirectory(at: macos, withIntermediateDirectories: true)
         try fm.copyItem(at: URL(fileURLWithPath: program), to: macos.appendingPathComponent("restarttest"))

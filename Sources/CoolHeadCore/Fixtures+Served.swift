@@ -69,7 +69,7 @@ extension Fixture {
             let r = Served.responsible(p.processIdentifier)
             ok = Served.lookup != nil && r != nil && Served.app(pid: p.processIdentifier, path: "/bin/sleep") == nil
             live = "lookup found \(Served.lookup != nil); /bin/sleep's responsible process \(r.map { "\($0)" } ?? "none"); credited to an app \(Served.app(pid: p.processIdentifier, path: "/bin/sleep") ?? "no")"
-            p.terminate(); p.waitUntilExit()
+            Fixture.end(p)
         }
         review.append(("served-this-mac", ok, live))
         return review

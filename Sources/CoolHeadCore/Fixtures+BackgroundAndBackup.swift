@@ -53,8 +53,11 @@ extension Fixture {
         // listed, turned back on (loaded again), and left as it was
         let label = "org.coolhead.selftest.agent"
         let testPlist = dir + "/\(label).plist"
-        plist("\(label).plist", ["Label": label, "ProgramArguments": ["/bin/sleep", "600"], "RunAtLoad": true])
-        let test = BackgroundAgents.Agent(label: label, plist: testPlist, program: "/bin/sleep", owner: "Cool Head's selftest")
+        // its program waits for this selftest to end, then ends too, so a selftest stopped part way doesn't leave it
+        // running (26 November 2026: it was /bin/sleep 600)
+        plist("\(label).plist", ["Label": label, "ProgramArguments": ["/bin/sh", "-c", "while kill -0 \(getpid()) 2>/dev/null; do sleep 1; done"],
+                                  "RunAtLoad": true])
+        let test = BackgroundAgents.Agent(label: label, plist: testPlist, program: "/bin/sh", owner: "Cool Head's selftest")
         let marker = "selftestAgents-\(getpid())"
         let session = BackgroundAgents.launchctl(["print", BackgroundAgents.domain]).status == 0
         if !session {

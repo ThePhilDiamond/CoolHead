@@ -111,12 +111,9 @@ extension Fixture {
 
         // on this Mac, for real: a busy loop of Cool Head's own, run at background priority with taskpolicy, reads as
         // running cool through ps; this Mac's last update reads from its install history
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/sbin/taskpolicy")
-        p.arguments = ["-b", "/bin/sh", "-c", "while :; do :; done"]
         var live = "taskpolicy couldn't start"
         var r6 = false
-        if (try? p.run()) != nil {
+        if let p = Fixture.busyLoop(background: true) {
             // read every second, for up to 10 seconds, until it has used enough of a busy Mac to judge (see RunCooler's check)
             var threads: [BackgroundWork.Thread] = [], c: Bool?
             for _ in 0..<10 {
@@ -125,7 +122,7 @@ extension Fixture {
                 c = BackgroundWork.cool(threads, efficiencyCores: 4)
                 if c != nil { break }
             }
-            p.terminate(); p.waitUntilExit()
+            Fixture.end(p)
             r6 = c == true
             live = "threads \(threads.map { "\($0.priority) at \($0.cpu)%" }): cool \(String(describing: c))"
         }

@@ -37,10 +37,7 @@ extension Fixture {
         // on this Mac, for real: a busy loop of Cool Head's own reads as above background priority, and the same loop
         // started at background priority (taskpolicy -b) reads as already there
         func loop(background: Bool) -> Bool? {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: background ? "/usr/sbin/taskpolicy" : "/bin/sh")
-            p.arguments = background ? ["-b", "/bin/sh", "-c", "while :; do :; done"] : ["-c", "while :; do :; done"]
-            guard (try? p.run()) != nil else { return nil }
+            guard let p = Fixture.busyLoop(background: background) else { return nil }
             // a loop at background priority gets little of a busy Mac, and its priority can't be judged until it has used
             // 5% of a core: read every second, for up to 10 seconds, until it can be (it failed now and then on a busy Mac)
             var v: Bool?
@@ -49,7 +46,7 @@ extension Fixture {
                 v = RunCooler.alreadyBackground(p.processIdentifier)
                 if v != nil { break }
             }
-            p.terminate(); p.waitUntilExit()
+            Fixture.end(p)
             return v
         }
         let normal = loop(background: false), slowed = loop(background: true)
