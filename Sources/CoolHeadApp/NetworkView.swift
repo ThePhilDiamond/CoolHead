@@ -472,10 +472,9 @@ struct NetworkView: View {
                 // a wall of options
                 FixRow(fix: fixes[0], cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
                 if fixes.count > 1 {
-                    GroupBar(doer: .you, count: fixes.count - 1, more: true, open: allFixes) {
+                    GroupBar(doer: .you, count: fixes.count - 1, more: true, open: allFixes, toggle: {
                         withAnimation(.easeOut(duration: 0.15)) { allFixes.toggle() }
-                    }
-                    if allFixes {
+                    }) {
                         ForEach(fixes.dropFirst()) { f in
                             FixRow(fix: f, cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
                         }
