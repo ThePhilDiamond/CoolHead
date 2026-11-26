@@ -292,11 +292,11 @@ final class ReportDraft: ObservableObject {
     func clear() { kind = ProblemReport.kinds[0]; words = ""; summary = ""; heldProblem = ProblemReport.heldProblems[0]; about = nil }
 }
 
-/// A group of options in one box: its heading is the box's top line, quieter than the options, and a click on it opens
-/// or folds the group. Folded, the box is that one line with how many options it holds; open, the options sit inside it
-/// under the heading, which then says only what the group is, since nothing is hidden any more. One box open or folded,
-/// so the two read as the same thing; the options inside, not a second box beside them. Only the one recommended action
-/// stays out of the groups, always shown.
+/// A group of options in one box: its heading is the box's top line, quieter than the options, and a click anywhere on
+/// that line, edge to edge and down to the options, opens or folds the group. Folded, the box is that one line with how
+/// many options it holds; open, the options sit inside it under the heading, which then says only what the group is,
+/// since nothing is hidden any more. One box open or folded, so the two read as the same thing; the options inside, not
+/// a second box beside them. Only the one recommended action stays out of the groups, always shown.
 struct GroupBar<Content: View>: View {
     let doer: Fix.Doer
     let count: Int
@@ -310,7 +310,7 @@ struct GroupBar<Content: View>: View {
     var howMany: String { "\(count)\(more ? " more" : "") option\(count == 1 ? "" : "s")" }
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 12)
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             Button(action: toggle) {
                 HStack(spacing: 5) {
                     Image(systemName: doer == .coolHead ? "bolt.fill" : "hand.point.up.left.fill")
@@ -323,7 +323,9 @@ struct GroupBar<Content: View>: View {
                 }
                 .font(.caption)
                 .foregroundStyle(Ink.text)
-                .padding(.horizontal, 4).padding(.vertical, 2)
+                // the box's own margin is part of the button, so a click near its edge opens the group rather than
+                // falling through to the card, which would fold it
+                .padding(.horizontal, 10).padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
@@ -331,9 +333,8 @@ struct GroupBar<Content: View>: View {
             .accessibilityLabel(open ? (doer == .coolHead ? "One click" : "Do it yourself")
                                      : "\(doer == .coolHead ? "One click" : "Do it yourself"): \(howMany)")
             .accessibilityValue(open ? "shown" : "hidden")
-            if open { content() }
+            if open { VStack(alignment: .leading, spacing: 6) { content() }.padding([.horizontal, .bottom], 6) }
         }
-        .padding(6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.04), in: shape)
         .overlay(shape.strokeBorder(Ink.edge, lineWidth: 1))
