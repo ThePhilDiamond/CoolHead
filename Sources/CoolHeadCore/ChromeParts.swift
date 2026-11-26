@@ -68,6 +68,49 @@ public struct ChromeParts: Equatable {
         return p
     }
 
+    /// Chrome's whole footprint now, as Activity Monitor counts it: every process inside the Google Chrome in
+    /// Applications (the one Cool Head for Chrome links from, ChromeCompanion.status), not a second copy elsewhere, read at
+    /// once with no permission. Nil when Chrome isn't running. For saying what "Sleep tabs you aren't looking at" gave
+    /// back, measured rather than promised.
+    public static func footprintNow() -> UInt64? {
+        var total: UInt64 = 0, any = false
+        for pid in Proc.allPIDs() {
+            guard let path = Proc.path(pid), path.hasPrefix(ChromeCompanion.chromeApp + "/"), let u = Proc.usage(pid) else { continue }
+            total += u.footprint; any = true
+        }
+        return any ? total : nil
+    }
+    /// How long after the tabs sleep Chrome's memory is read again: in test T15 (one run) Chrome had closed the slept
+    /// tabs' processes within about 40 seconds, so the one reading comes after that.
+    public static let measureAfter: TimeInterval = 45
+    /// A change smaller than this, in the megabytes the card shows (Fmt.bytes), is within what Chrome's own work moves
+    /// in under a minute.
+    public static let noticeable: UInt64 = 50 * 1_048_576
+    /// What the card says after "Sleep tabs you aren't looking at". `count`: tabs the extension slept; `done`: its own
+    /// sentence, used when none slept; `before`, `after`: Chrome's footprint (footprintNow); `measuring`: before the
+    /// second reading. A second reading of nil means Chrome had quit, so there's nothing to compare.
+    public static func gaveBack(count: Int, done: String, before: UInt64?, after: UInt64?, measuring: Bool) -> String {
+        guard count > 0 else { return done }
+        let slept = count == 1 ? "Slept 1 tab." : "Slept \(count) tabs."
+        guard let before else { return slept }
+        // the two readings side by side, so what was measured is on the card, not only a conclusion from it
+        let was = Fmt.bytes(before)
+        if measuring { return slept + "\nChrome: \(was) → measuring again in \(Int(measureAfter)) seconds…" }
+        guard let after else { return slept }
+        let now = Fmt.bytes(after)
+        // both readings the same when rounded: one figure, not "5.0 GB → 5.0 GB"
+        let readings = now == was ? "Chrome: \(now)" : "Chrome: \(was) → \(now)"
+        if after > before, after - before >= noticeable {
+            // slept tabs can't grow, so the rest of Chrome grew by more than they gave back
+            return slept + "\n" + readings + ", up rather than down: the rest of Chrome grew by more than the slept tabs gave back."
+        }
+        guard before > after, before - after >= noticeable else {
+            return slept + "\n" + readings + ", not down yet: Chrome frees a slept tab's memory when it closes the tab's process."
+        }
+        let less = Fmt.bytes(before - after)
+        return slept + "\n" + (now == was ? "Chrome: \(now), \(less) less than before." : "Chrome: \(was) → \(now) (\(less) less).")
+    }
+
     /// For Chrome's memory card.
     public var hiddenSentence: String? {
         guard markWorks, hiddenBytes >= ChromeParts.worthSaying else { return nil }

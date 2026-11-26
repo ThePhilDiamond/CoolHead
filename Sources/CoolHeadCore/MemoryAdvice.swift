@@ -254,7 +254,7 @@ public enum MemoryAdvice {
         // recommendation when nothing else is. (When Chrome is the biggest, the extension's options replace Chrome's own, below.)
         let chromeBelowTop = top.name != "Google Chrome" && shown.dropFirst().contains { $0.name == "Google Chrome" && $0.kind == .browser && $0.bundle != nil }
         if chromeBelowTop, context.companion == .connected {
-            fixes.append(sleepChromeTabs(context, title: "Sleep Chrome tabs you aren't looking at", recommended: !fixes.contains { $0.recommended }))
+            fixes.append(sleepChromeTabs(context, chrome: true, recommended: !fixes.contains { $0.recommended }))
         }
         // a Chromium browser among the biggest: restarting it frees the memory it has built up, and its tabs come back
         // (see BrowserRestart); before Quit, since it loses less, and never recommended, since it closes the browser
@@ -297,17 +297,18 @@ public enum MemoryAdvice {
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
         // Cool Head for Chrome connected: the recommendation to close Chrome's heaviest tabs becomes one click, and the
         // tabs it protects stay awake. An extension can't see each tab's memory, so "heaviest" becomes the tabs
-        // you aren't looking at; Cool Head's own figure says how much that is. Not connected, and memory has slowed the
+        // you aren't looking at; the extension's own count says how many. Not connected, and memory has slowed the
         // Mac twice this week: it's offered.
         if top.name == "Google Chrome", top.bundle != nil {
             if context.companion == .connected {
                 let swaps: [String: Fix] = [
-                    "tabs": sleepChromeTabs(context, title: "Sleep tabs you aren't looking at", recommended: true),
+                    "tabs": sleepChromeTabs(context, chrome: false, recommended: true),
                     "extensions": Fix(id: "extensions", title: "Turn off extensions you don't use",
                                       consequence: "Opens Cool Head for Chrome's list of your extensions, each with a switch.", kind: .chromeCompanion("openExtensionsList")),
                     "groups": Fix(id: "groups", title: "Hide tab groups you aren't using",
                                   consequence: "Chrome keeps each group under Tab groups in its menu, so you can open it again.", kind: .chromeCompanion("hideUnusedGroups"))]
-                fixes = fixes.map { f in swaps[f.id].map { var n = $0; n.recommended = f.recommended; return n } ?? f }
+                // a count of 0: nothing to sleep, so it isn't the recommendation (sleepChromeTabs)
+                fixes = fixes.map { f in swaps[f.id].map { var n = $0; n.recommended = f.recommended && !(n.id == "sleep" && context.tabsToSleep == 0); return n } ?? f }
                 fixes.append(Fix(id: "duplicates", title: "Close duplicate tabs", consequence: "Keeps the one you used last of each.", kind: .chromeCompanion("closeDuplicates")))
             }
         }
@@ -318,24 +319,31 @@ public enum MemoryAdvice {
                              kind: .chromeCompanion("setup")))
         }
         var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
-                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" ? (context.companion == .connected ? context.chrome?.hiddenSentence?.replacingOccurrences(of: "closing those", with: "sleeping those") : context.chrome?.hiddenSentence) : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
+                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" && context.companion != .connected ? context.chrome?.hiddenSentence : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
                         fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
         card.facts = also + (context.chrome?.facts ?? [])
         return card
     }
 
-    /// Why tight memory matters: how much the Mac is moving to its disk (or that it's using its disk at all), and, when
-    /// the startup disk is nearly full, that it needs that space as extra memory.
-    /// Cool Head for Chrome's one click for Chrome's memory: the tabs you aren't looking at sleep. An extension can't see
-    /// each tab's memory, so Cool Head's own figure for those tabs says how much that frees, when it has one.
-    static func sleepChromeTabs(_ context: MemoryContext, title: String, recommended: Bool) -> Fix {
-        let hidden = context.chrome.flatMap { $0.markWorks ? $0.hiddenBytes : nil }
-        return Fix(id: "sleep", title: title,
-                   consequence: (hidden.map { "Frees about \(Fmt.bytes($0)). " } ?? "") + "They stay in the tab bar and reload when clicked. Tabs and sites you keep, calls, sound, and unsent typing stay awake.",
-                   kind: .chromeCompanion("sleepHidden"), recommended: recommended)
+    /// Cool Head for Chrome's one click for Chrome's memory: the tabs out of sight sleep. The title carries the
+    /// extension's own count (it leaves out the tabs it protects), so the figure is said once, where it's seen first
+    /// (docs/BRAND.md, Voice). `chrome`: say "Chrome tabs", when the card is about another app. Never an amount of memory,
+    /// which can't be known beforehand (memory already compressed or on the disk, protected tabs among those out of
+    /// sight): afterwards the card says what Chrome gave back (ChromeParts.gaveBack).
+    /// With a count of 0 (every tab out of sight already asleep or kept awake) it says so and isn't recommended.
+    static func sleepChromeTabs(_ context: MemoryContext, chrome: Bool, recommended: Bool) -> Fix {
+        let n = context.tabsToSleep ?? 0
+        let tabs = (chrome ? "Chrome " : "") + (n == 1 ? "tab" : "tabs")
+        let what = context.tabsToSleep == 0
+            ? "None can sleep now: the tabs out of sight are already asleep or kept awake, like calls, sound, and unsent typing."
+            : (n == 1 ? "It stays in the tab bar and reloads" : "They stay in the tab bar and reload") + " when clicked; tabs and sites you keep, calls, sound, and unsent typing stay awake."
+        return Fix(id: "sleep", title: "Sleep " + (n > 0 ? "\(n) " : "") + tabs + " you aren't looking at",
+                   consequence: what, kind: .chromeCompanion("sleepHidden"), recommended: recommended && context.tabsToSleep != 0)
     }
 
+    /// Why tight memory matters: how much the Mac is moving to its disk (or that it's using its disk at all), and, when
+    /// the startup disk is nearly full, that it needs that space as extra memory.
     static func pressure(_ s: MacState) -> String {
         var t: String
         if let mb = s.swappedOutMB, mb >= movingSwapMB {

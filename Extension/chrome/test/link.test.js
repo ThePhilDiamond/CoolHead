@@ -12,12 +12,15 @@ import { LinkClient } from '../src/link-client.js';
 
 test('every message the extension sends carries v 1 and its type', () => {
   assert.deepEqual(hello('1.0.0', 'auto'), { v: 1, type: 'hello', extension: '1.0.0', browser: 'chrome', level: 'auto' });
-  const r = report({ asleep: 23, held: { sound: 1, call: 1, other: 9 }, session: { active: true, tabs: 4 }, duplicates: 2, extensionsResting: 0, level: 'light' });
+  const r = report({ asleep: 23, held: { sound: 1, call: 1, other: 9 }, session: { active: true, tabs: 4 }, duplicates: 2, extensionsResting: 0, level: 'light', toSleep: 12 });
   assert.deepEqual(r, {
     v: 1, type: 'report', asleep: 23,
     held: { sound: 1, call: 1, screen: 0, typing: 0, pinned: 0, kept: 0, session: 0 },
-    session: { active: true, tabs: 4 }, duplicates: 2, extensionsResting: 0, level: 'light',
+    session: { active: true, tabs: 4 }, duplicates: 2, extensionsResting: 0, level: 'light', toSleep: 12,
   });
+  // how many it would sleep is a count like the rest: never anything but a whole number
+  assert.equal(report({ toSleep: 'https://secret.example/' }).toSleep, 0);
+  assert.equal(report({ toSleep: -3 }).toSleep, 0);
   assert.deepEqual(result('r1', true, 'Put 23 tabs to sleep.', 23), { v: 1, type: 'result', id: 'r1', ok: true, done: 'Put 23 tabs to sleep.', count: 23 });
 });
 

@@ -25,7 +25,7 @@ The menu has a bottom bar like Cool Head's: Effort, Protected, Saved windows, an
 
 Everything works without Cool Head, including on Windows, Linux, and ChromeOS, where there is no Cool Head; there it shows Chrome's own reading of free memory. Auto needs Cool Head, since only Cool Head can tell when memory is actually slowing the Mac, and the popup says so.
 
-With Cool Head, Auto follows Cool Head's reading, Cool Head's Chrome card can ask for one-click actions (sleep tabs you aren't looking at, close duplicates, fold groups not used today, pause extensions), and each says what the other did. Only counts and your level cross the link: never addresses, titles, or extension names.
+With Cool Head, Auto follows Cool Head's reading, Cool Head's Chrome card can ask for one-click actions (sleep tabs you aren't looking at, close duplicates, fold groups not used today, pause extensions), and each says what the other did. Cool Head's card says how many tabs would sleep, by the extension's own count, which leaves out the tabs it protects, and afterwards how much less memory Chrome uses, measured; it never promises an amount beforehand, since memory already squeezed or moved to the disk, and protected tabs, make any such figure too high. Only counts and your level cross the link: never addresses, titles, or extension names.
 
 If the link drops at any moment, the extension carries on alone with nothing lost: your level stays as you chose it (Auto waits for Cool Head and says so), tabs asleep stay asleep, and extensions paused because memory was tight come back on.
 

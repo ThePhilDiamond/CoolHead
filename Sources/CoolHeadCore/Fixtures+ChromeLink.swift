@@ -83,6 +83,14 @@ extension Fixture {
         let newer = bytes(#"{"v":1,"type":"report","asleep":4,"held":{"sound":1,"pinned":2,"hologram":1},"session":{"active":true,"tabs":9,"name":"x"},"#
                           + #""duplicates":3,"extensionsResting":2,"level":"turbo","future":{"a":[1,2]}}"#)
         let report = ChromeLink.decode(ChromeLink.Report.self, from: newer)
+        // the count of tabs it would sleep: nil from an extension that doesn't send it (1.3.0 and before), read when sent
+        let withCount = ChromeLink.decode(ChromeLink.Report.self, from: bytes(#"{"v":1,"type":"report","asleep":4,"held":{},"session":{"active":false,"tabs":0},"duplicates":0,"extensionsResting":0,"level":"auto","toSleep":12}"#))
+        // a count that isn't a whole number is unknown, and the rest of the report is still read
+        let oddCounts = [#""12""#, "12.5", "1e21", "true", "-3"].map { n in
+            ChromeLink.decode(ChromeLink.Report.self, from: bytes(#"{"v":1,"type":"report","asleep":4,"held":{},"session":{"active":false,"tabs":0},"duplicates":0,"extensionsResting":0,"level":"auto","toSleep":"# + n + "}"))
+        }
+        let countRead = report?.toSleep == nil && withCount?.toSleep == 12
+            && oddCounts.map { $0?.asleep } == [4, 4, 4, 4, 4] && oddCounts.map { $0?.toSleep } == [nil, nil, nil, nil, -3]
         let request = ChromeLink.decode(ChromeLink.Request.self, from: bytes(#"{"v":1,"type":"request","id":"q7","action":"teleport","extra":true}"#))
         let v2 = bytes(#"{"v":2,"type":"link","app":"running"}"#)
         let link = ChromeLink.encode(ChromeLink.Link(app: .running))
@@ -92,7 +100,7 @@ extension Fixture {
             && ChromeLink.decode(ChromeLink.ActionResult.self, from: ChromeLink.encode(ChromeLink.ActionResult(id: "r1", ok: true, done: "Put 23 tabs to sleep.", count: 23)))?.count == 23
             && ChromeLink.decode(ChromeLink.ExtensionHello.self, from: messages[0]) == ChromeLink.ExtensionHello(extension: "0.1.0", browser: "chrome", level: .auto)
             && ChromeLink.decode(ChromeLink.AppHello.self, from: ChromeLink.encode(ChromeLink.AppHello(app: "0.15.0")))?.app == "0.15.0"
-        review.append(("chrome-link-messages", report?.asleep == 4 && report?.held["hologram"] == 1 && report?.session.tabs == 9 && report?.level == .unknown
+        review.append(("chrome-link-messages", countRead && report?.asleep == 4 && report?.held["hologram"] == 1 && report?.session.tabs == 9 && report?.level == .unknown
                        && request?.action == .unknown && request?.id == "q7"
                        && ChromeLink.decode(ChromeLink.Link.self, from: v2) == nil && ChromeLink.type(of: v2) == nil
                        && ChromeLink.decode(ChromeLink.Link.self, from: newer) == nil && ChromeLink.type(of: bytes("[1]")) == nil

@@ -48,6 +48,7 @@ The system font everywhere, so each feels native: SF Pro on the Mac (SwiftUI's d
 - A card gives the verdict, a brief disclaimer, and the advice, and says what Cool Head thinks rather than leaving it to the reader.
 - Every "why" ends in what it means for the person.
 - Each option says what it does and what it costs before it's pressed.
+- Each figure appears once, in the highest place it fits: the card's headline, then an option's title ("Sleep 12 tabs you aren't looking at"), then the explanation. With the figures up top, the explanation is one or two plain sentences and each option's consequence is one, never fragments divided by dots or pipes, which look quick to scan but read less clearly (25 November 2026).
 
 ## Accessibility
 

@@ -16,7 +16,7 @@ export function hello(extensionVersion, level) {
   return { v: VERSION, type: 'hello', extension: String(extensionVersion), browser: 'chrome', level: LEVELS.includes(level) ? level : 'balanced' };
 }
 
-export function report({ asleep, held, session, duplicates, extensionsResting, level }) {
+export function report({ asleep, held, session, duplicates, extensionsResting, level, toSleep }) {
   return {
     v: VERSION,
     type: 'report',
@@ -26,6 +26,7 @@ export function report({ asleep, held, session, duplicates, extensionsResting, l
     duplicates: int(duplicates),
     extensionsResting: int(extensionsResting),
     level: LEVELS.includes(level) ? level : 'balanced',
+    toSleep: int(toSleep),
   };
 }
 
