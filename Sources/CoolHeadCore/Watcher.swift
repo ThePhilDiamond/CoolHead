@@ -1164,11 +1164,11 @@ public final class Watcher {
         if fastCharging, let w = s.batteryWatts, warm {
             var lc = LiveCard(id: "charging", pid: nil, card: Card(
                 state: .working,
-                headline: "Fast charging is adding heat.",
-                explanation: "It's charging at about \(Int(w.rounded())) W. That slows down after 80%.",
+                CardTemplate("Fast charging", .words("adds heat"), .normal,
+                             evidence: ["Your Mac charges at about \(Int(w.rounded())) W. Charging slows after 80%."]),
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
-                        Fix.guide("unplug", "Unplug for a bit", "Charging stops adding heat until you plug back in.",
-                                  steps: ["Unplug the charger.", "Plug it back in once your Mac feels cooler."], recommended: true)]),
+                        Fix.guide("unplug", "Unplug for a while", "This shows how. Charging stops adding heat until you connect the charger again.",
+                                  steps: ["Unplug the charger.", "Connect it again when your Mac feels cooler."], recommended: true)]),
                 details: s.lines(), reportSubject: "fast charging adding heat")
             lc.heatCause = true
             out.append(lc)
@@ -1180,16 +1180,14 @@ public final class Watcher {
             let busiest = top.flatMap { t in Proc.path(t.key).map { (($0 as NSString).lastPathComponent, t.value.cores) } }
             var lc = LiveCard(id: "heat", pid: nil, card: Card(
                 state: .working,
-                headline: "Your Mac is warm, but nothing is working hard right now.",
-                explanation: (busiest.map { "The busiest is \($0.0), at about \(Fmt.cores($0.1)). " } ?? "")
-                    + (s.memoryLevel != nil
-                       ? "Memory is tight too, so your Mac is moving data to and from its disk, which adds work and some heat. "
-                       : "")
-                    // rule 8: with little load, heat is the room, the surface or the charger (Apple 102336: 10 to 35°C)
-                    + "Heat can linger after heavy work, or come from a warm room, a soft surface, or charging. Apple says Macs are happiest between \(Fmt.temperature(10)) and \(Fmt.temperature(35)).",
+                CardTemplate("Your Mac", .words("is warm, but nothing works hard right now"), .letItCool,
+                             evidence: [busiest.map { "The busiest program is \($0.0), at about \(Fmt.cores($0.1))." },
+                                        s.memoryLevel != nil ? "Apps and programs also use almost all of its memory, so your Mac moves data between memory and storage, which adds work and some heat." : nil].compactMap { $0 },
+                             // rule 8: with little load, heat is the room, the surface or the charger (Apple 102336: 10 to 35°C)
+                             effect: ["Heat can stay after heavy work, or come from a warm room, a soft surface, or charging. Apple says Macs work best between \(Fmt.temperature(10)) and \(Fmt.temperature(35))."]),
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
-                        Fix.guide("air", "Give it air", "A hard surface, out of the sun, helps it cool.",
-                                  steps: ["Move it onto a hard, flat surface: a bed, sofa, or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "If you have a stand that lifts it, use it."], recommended: true)]),
+                        Fix.guide("air", "Give it air", "This shows how. A hard surface, out of the sun, helps it cool.",
+                                  steps: ["Move it onto a hard, flat surface. A bed, sofa, or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "If you have a stand that lifts it, use it."], recommended: true)]),
                 details: s.lines(), reportSubject: "warm with no single cause")
             lc.heatCause = true
             out.append(lc)

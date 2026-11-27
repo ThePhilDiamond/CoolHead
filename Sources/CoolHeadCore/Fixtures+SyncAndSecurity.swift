@@ -21,7 +21,7 @@ extension Fixture {
                                  start: now.addingTimeInterval(-3 * 3600), cores: 2)
         let gdWarm = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600), warm: true)
         let gdCool = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600))
-        let syncOK = gdWarm.headline == "Google Drive is syncing your files." && gdWarm.recommended?.id == "cooler"
+        let syncOK = gdWarm.headline == "Google Drive is syncing your files. This is normal." && gdWarm.recommended?.id == "cooler"
             && gdWarm.fixes.map(\.id) == ["cooler", "quit", "pause"] && gdCool.recommended == nil && !gdWarm.fixes.contains { $0.id == "stop" }
         review.append(("protected-and-sync", secOK && syncOK, "security \(secOK), sync \(syncOK): \(gdWarm.fixes.map(\.id))"))
         // a build writing into a folder the sync app syncs (the Google Drive upload errors in SyncFeed): its own folder
@@ -36,7 +36,7 @@ extension Fixture {
         let fed = Card.make(gd, now: now, busySince: now.addingTimeInterval(-3600), warm: true, syncFeed: feed)
         let fedOK = feed == SyncFeed(who: "java", folder: "Mac.apk", area: "Documents", path: home + "/Documents/AI/Mac.apk") && fed.recommended?.kind == .cooler
             && fed.betterThanRecommended.map(\.title) == ["Keep Mac.apk out of synced folders"]
-            && fed.explanation.contains("It may be uploading the files java is writing in Mac.apk, inside Documents: if Google Drive backs up Documents")
+            && fed.explanation.contains("It probably uploads the files java writes in Mac.apk, inside Documents, if Google Drive backs up that folder.")
             && !fed.explanation.contains("x@example.com")
         review.append(("sync-fed-by-a-build", placesOK && fedOK, "places \(placesOK); \(fed.recommended?.title ?? "none"): \(fed.explanation)"))
         return review

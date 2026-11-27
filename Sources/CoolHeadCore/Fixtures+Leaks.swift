@@ -21,7 +21,7 @@ extension Fixture {
     /// The example card (see Wording).
     static func leaksSamples(_ now: Date) -> [(String, Card)] {
         let pages = MemGroup(key: pagesBundle, name: "Pages", kind: .app, bundle: pagesBundle, bytes: 9_100_000_000, count: 1)
-        let slack = MemGroup(key: "/Applications/Slack.app", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 1_200_000_000, count: 5)
+        let slack = MemGroup(key: "/Applications/Slack.app", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 1_600_000_000, count: 5)   // not Pages' earlier 1.1 GB, so no figure on the card looks like another
         return [("memory-leaking-app", MemoryAdvice.card([pages, slack], mac: leakTightMac(), now: now, leak: Leaks.judge(leakSamples(now))))]
     }
 
@@ -63,11 +63,12 @@ extension Fixture {
         let chromeCard = MemoryAdvice.card([chrome], mac: leakTightMac(), now: now, leak: steady, tabMemoryOn: false)
         let none = MemoryAdvice.card([pages], mac: leakTightMac(), now: now)
         let r = card.recommended
-        let r3 = card.headline == "Memory is tight: Pages is using more than it usually does."
-            && card.explanation == "It's at 8.5 GB, up from 1.1 GB three hours ago with the same windows open, so it's probably a leak."
-            && r?.consequence.hasPrefix("It asks about anything unsaved.") == true && !card.fixes.contains { $0.id == "quit" }
+        // each figure once: the growth in the headline, what reopening gives back in its title
+        let r3 = card.headline == "Pages grew from 1.1 GB to 8.5 GB in the last 3 hours. It probably leaks memory."
+            && card.explanation == "It has the same windows open as before, so the growth is not from new work. Your Mac's memory is now almost full."
+            && r?.consequence == "It asks you to save your work first. Some windows may not open again." && !card.fixes.contains { $0.id == "quit" }
             && (card.headline + " " + card.explanation).split(separator: " ").count <= 40
-            && r?.id == "reopen" && r?.kind == .restartApp(pagesBundle) && r?.caution == false && r?.title == "Quit and reopen Pages"
+            && r?.id == "reopen" && r?.kind == .restartApp(pagesBundle) && r?.caution == false && r?.title == "Restart Pages to free about 7.4 GB"
             && claudeCard.recommended?.caution == true && !chromeCard.fixes.contains { $0.id == "reopen" } && !none.fixes.contains { $0.id == "reopen" }
         let parts = "[claude caution \(claudeCard.recommended?.caution == true) \(claudeCard.recommended?.id ?? "-"); chrome \(!chromeCard.fixes.contains { $0.id == "reopen" }); none \(!none.fixes.contains { $0.id == "reopen" }); words \((card.headline + " " + card.explanation).split(separator: " ").count)] "
         review.append(("leak-card", r3, parts + card.headline + " " + card.explanation + " Options: \(card.fixes.map(\.id)); \(r?.consequence ?? "")"))

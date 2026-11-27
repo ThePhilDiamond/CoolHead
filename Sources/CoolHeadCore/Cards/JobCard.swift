@@ -16,6 +16,8 @@ enum JobCard: ProcessCard {
         default: return .any("we can't tell what it's doing from outside it")
         }
     }
+    /// Before Stop it's cost when nobody can tell what the job is (its state is unknown); the memory card says it too.
+    static let onlyIfKnown = "Use this only if you know what it is. "
     static let samples = ["job-with-progress", "job-stalled", "job-waiting", "job-no-signs", "job-just-started", "virtual-machine", "background-helper", "intel-app-26"]
 
     static func card(_ s: Situation) -> Card? {
@@ -83,56 +85,66 @@ enum JobCard: ProcessCard {
         let drains = s.onBattery && pausable && s.state != .stalled && e.coresNow >= 1 && s.busyFor >= 600
             && (hungry || (s.battery ?? 100) < 50)
         // not while it's playing sound or downloading (see BusyWith): the card says why instead
-        let pauseFix: Fix? = drains && s.busyWith == nil ? Fix(id: "pausejob", title: "Pause until you plug in",
-                                          consequence: "Frozen, nothing lost; it carries on when you plug in. A download may time out.",
-                                          kind: .pauseJob, recommended: true) : nil
+        let pauseFix: Fix? = drains && s.busyWith == nil
+            ? Fix(id: "pausejob", title: "Pause until you connect the charger",
+                  consequence: CardTemplate.says(nil, .nothing) + " A download may stop.",
+                  kind: .pauseJob, recommended: true) : nil
         let cool = cooler.map { c -> Fix in
             var c = c; c.recommended = (warm || forGame) && !RunCooler.isVirtualMachine(e)   // slowing a VM slows all of it: offered, not advised
-            if let g = s.gameRunning { c = Fix(id: c.id, title: c.title, consequence: "Leaves more power for \(g). Undo any time.", kind: c.kind, recommended: c.recommended) }
+            if let g = s.gameRunning { c = Fix(id: c.id, title: c.title, consequence: CardTemplate.says("This lets \(g) run faster.", undo: true), kind: c.kind, recommended: c.recommended) }
             return c
         }
         // an app here for the graphics chip: what lets the chip rest, and quitting it (slowing it wouldn't help: background
         // priority slows its CPU work, not its drawing)
         let gpuApp = s.gpuLed ? e.quittableApp : nil
         let gpuQuit = gpuApp.flatMap { app in e.quittableBundle.map {
-            Fix(id: "quit", title: "Quit \(app)", consequence: "Lets the graphics chip rest. It asks about anything unsaved.", kind: .quitApp($0)) } }
-        // while the Mac is warm, a busy job says it is part of why
-        let heat = Fmt.its([s.gpuClause, warm && s.heating ? "adding to the heat" : nil,
-                            forGame || (s.gameRunning != nil && s.gpuLed) ? "competing with \(s.gameRunning!)" : nil, drains ? "draining your battery" : nil])
-            + (gpuApp != nil ? " Pausing or closing a video, animation, or 3D view in it lets the chip rest." : "")
-            + (drains ? s.busyWith.map { " " + $0.cardLine } ?? "" : "")
+            Fix(id: "quit", title: "Quit \(app)", consequence: CardTemplate.says("This lets the graphics chip rest.", .asksToSave), kind: .quitApp($0)) } }
+        // what it means for you, in one sentence of plain verbs (see CardTemplate.it)
+        let game = forGame || (s.gameRunning != nil && s.gpuLed) ? s.gameRunning : nil
+        let effect = [CardTemplate.it([warm && s.heating ? "adds heat" : nil, game.map { "slows \($0)" },
+                                       drains ? "uses a lot of battery power" : nil])].compactMap { $0 }
+            + (gpuApp != nil ? ["If you pause or close a video, animation, or 3D view in it, the graphics chip can rest."] : [])
+            + (drains ? s.busyWith.map { [$0.cardLine] } ?? [] : [])
+        // how we know, with the graphics chip's share (the job card's reading is never the graphics chip)
+        func evidence(_ first: String?) -> [String] { [first, s.graphics].compactMap { $0 } }
         switch s.state {
         case .working:
             if let p = e.progress {
-                var head = p.headline(who: who)
-                if let fin = p.finish { head += fin > now ? " Ready around \(Fmt.time(fin))." : " Almost done." }
-                return Card(state: s.state, headline: head, explanation: "Its log says \u{201C}\(p.line)\u{201D}." + heat,
+                // the headline gives how far, from the log; the line itself is in Nerdy stuff (Watcher's "Progress:"),
+                // so its figures aren't said again here, and a long machine-written line never fills the card
+                let verdict: CardTemplate.Verdict = p.finish.map { $0 > now ? .finishAt($0) : .almostDone } ?? .normal
+                let reading: CardTemplate.Reading = p.fraction.map { .done($0) } ?? .working
+                return Card(state: s.state, CardTemplate(who, reading, verdict, evidence: evidence("Its own log reports this."), effect: effect),
                             fixes: [pauseFix, Card.wait(until: p.finish, now: now, recommended: !warm || cooler == nil), cool, gpuQuit, stop].compactMap { $0 })
             }
-            return Card(state: s.state, headline: "\(who) is busy and still saving its work.",
-                        explanation: "It doesn't say how far along it is." + heat,
+            return Card(state: s.state, CardTemplate(who, .working, .normal, evidence: evidence("It still writes its results. It does not report how far it is."), effect: effect),
                         fixes: [pauseFix, Card.wait(until: nil, now: now, recommended: !warm || cooler == nil), cool, gpuQuit, stop].compactMap { $0 })
         case .waiting:
-            return Card(state: s.state, headline: "\(who) is waiting for another job.",
-                        explanation: "It isn't using your Mac's power while it waits.",
+            return Card(state: s.state, CardTemplate(who, .waitsFor("another job"), .normal, evidence: ["It does almost no work while it waits."]),
                         fixes: [Card.wait(until: nil, now: now, recommended: true), stop].compactMap { $0 })
         case .stalled:
-            let at = e.progress.map { Fmt.time($0.lineTime) } ?? "a while"
-            return Card(state: s.state, headline: "\(who) hasn't moved since \(at). It looks stuck.",
-                        explanation: "No new progress for \(Fmt.duration(now.timeIntervalSince(e.progress?.lineTime ?? now))).",
-                        fixes: [stop ?? Card.lookUp(e.name, recommended: true), Card.wait(until: nil, now: now, recommended: false), Card.share])
+            let reading: CardTemplate.Reading = e.progress.map { .noProgressAfter($0.lineTime) } ?? .busyFor(s.busyFor)
+            // the headline says it all; no explanation restates it (each fact once, docs/BRAND.md)
+            return Card(state: s.state, CardTemplate(who, reading, .probablyStuck),
+                        // the headline gives the time of its last progress, so Stop doesn't say it again (each fact once)
+                        fixes: [stop.map { Fix(id: $0.id, title: $0.title, consequence: "You lose no work from after its last progress.", kind: $0.kind, recommended: $0.recommended) }
+                                    ?? Card.lookUp(e.name, recommended: true), Card.wait(until: nil, now: now, recommended: false), Card.share])
         case .unknown:
-            return Card(state: s.state, headline: "\(who) has been busy for \(Fmt.duration(s.busyFor)). We can't tell why.",
-                        explanation: "It isn't saying what it's doing." + heat,
+            // nothing says what it's doing, and the card doesn't say so either: a card says what Cool Head knows, so
+            // where it says nothing, Cool Head doesn't know; the verdict says it costs more than usual
+            return Card(state: s.state, CardTemplate(who, .busyFor(s.busyFor), .moreThanUsual, evidence: evidence(nil), effect: effect),
                         fixes: [pauseFix, Card.lookUp(e.name, recommended: !forGame), Card.wait(until: nil, now: now, recommended: false),
                                 forGame ? cool : cooler, gpuQuit,
-                                stop.map { var f = $0; f = Fix(id: f.id, title: f.title, consequence: "Only if you know what it is. " + f.consequence, kind: f.kind); return f },
+                                // when what's at stake is the headline's busy time as shown, it isn't said again
+                                stop.map { f in
+                                    let lose = Fmt.duration(s.atStake) == Fmt.duration(s.busyFor) ? CardTemplate.Loss.workItDid.sentence : f.consequence
+                                    return Fix(id: f.id, title: f.title, consequence: JobCard.onlyIfKnown + lose, kind: f.kind) },
                                 Card.share].compactMap { $0 })
         case .starting:
-            return Card(state: s.state, headline: "\(who) just started. Give it a minute.", explanation: "Started at \(Fmt.time(e.start ?? now))." + heat,
+            return Card(state: s.state, CardTemplate(who, .startedAt(e.start ?? now), .waitAFewMinutes, evidence: evidence(nil), effect: effect),
                         fixes: [pauseFix, Card.wait(until: nil, now: now, recommended: true), forGame ? cool : cooler, gpuQuit, stop].compactMap { $0 })
         case .quiet:
-            return Card(state: s.state, headline: "\(who) is quiet now.", explanation: "", fixes: [])
+            return Card(state: s.state, CardTemplate(who, .quiet, nil), fixes: [])
         }
     }
 }

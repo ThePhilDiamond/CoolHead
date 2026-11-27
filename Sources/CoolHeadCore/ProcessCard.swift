@@ -46,8 +46,13 @@ public struct Situation {
     public let cooler: Fix?
     /// How much work stopping it could lose, from when its work began.
     public let atStake: TimeInterval
-    /// "has used about 1.2 cores for 2 hours." or the graphics chip's share.
+    /// "has used about 1.2 cores for 2 hours.", for cards not yet written from the template (see CardTemplate).
     public let used: String
+    /// How hard it works, as the template's reading: the cores it used, or the graphics chip's share when it's here for
+    /// the graphics chip.
+    public let reading: CardTemplate.Reading
+    /// "It keeps about 60% of the graphics chip busy.", for a card about the CPU that also uses the graphics chip.
+    public let graphics: String?
     /// WebKit's graphics process, which draws web pages.
     public let webkitGPU: Bool
     /// One of WebKit's processes, which run or draw web pages.
@@ -81,9 +86,10 @@ public struct Situation {
         self.atStake = atStake
         let output = e.writing.first { !Evidence.isLog($0) }.map { ($0 as NSString).lastPathComponent }
         func stopConsequence() -> String {
-            if state == .stalled, let p = e.progress { return "Nothing since \(Fmt.time(p.lineTime)) is lost." }
-            let lose = atStake >= 10 * 60 ? "You may lose up to \(Fmt.duration(atStake)) of work." : "Little work is lost."
-            return lose + (output.map { " \($0) may be left unfinished." } ?? "")
+            // the stuck card's headline says it made no progress after then, so the reason isn't said again (each fact once)
+            if state == .stalled, let p = e.progress { return "You lose no work from after \(Fmt.time(p.lineTime))." }
+            let lose: CardTemplate.Loss = atStake >= 10 * 60 ? .upTo(atStake) : .workItDid
+            return CardTemplate.says(nil, lose) + (output.map { " \($0) may stay unfinished." } ?? "")
         }
         let appMain = e.script == nil && (e.path.map { $0.components(separatedBy: ".app/").count == 2 && $0.contains(".app/Contents/MacOS/") } ?? false)
         // a script run by macOS's own interpreter (/usr/bin/python3) is still the person's job
@@ -95,8 +101,9 @@ public struct Situation {
                   holdBack: RunCooler.isVirtualMachine(e))     // never put in place of a task's recommendation for a VM
             : nil
 
-        used = gpuLed ? "has kept \(Fmt.share(gpu)) of the graphics chip busy for \(Fmt.duration(busyFor))."
-            : "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
+        reading = gpuLed ? .graphicsFor(gpu, busyFor) : .coresFor(e.coresNow, busyFor)
+        used = "has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(busyFor))."
+        graphics = e.gpuBusy ? "It keeps \(Fmt.share(gpu)) of the graphics chip busy." : nil
         let webkitGPU = e.name == "com.apple.WebKit.GPU" || (e.path?.contains("com.apple.WebKit.GPU") ?? false)
         self.webkitGPU = webkitGPU
         webkit = webkitGPU || e.name == "com.apple.WebKit.WebContent" || (e.path?.contains("com.apple.WebKit.WebContent") ?? false)

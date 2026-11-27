@@ -46,9 +46,9 @@ extension Fixture {
         // says it ends, and still offers to quit Docker, saying that stops every container
         let docker = catalogueSamples(now).first { $0.0 == "catalogue-docker-vm" }?.1
         let dockerOK = entry("docker-vm")?.endsOnItsOwn == true
-            && docker?.headline == "Docker's virtual machine is running. That's normal."
+            && docker?.headline == "Docker's virtual machine is running. This is normal."
             && docker?.explanation.contains("for 5 minutes after the last one stops. It stops on its own.") == true
-            && docker?.fixes.contains { $0.id == "quit" && $0.consequence == "Quitting Docker stops every container." } == true
+            && docker?.fixes.contains { $0.id == "quit" && $0.consequence == "This stops every container." } == true
         review.append(("catalogue-docker-stops-when-idle", dockerOK, docker.map { $0.headline + " " + $0.explanation } ?? "no card"))
 
         // every example matches its own entry; macOS's names count only for macOS's own copy
@@ -75,7 +75,7 @@ extension Fixture {
             guard let k = entry(x.id) else { cards.append("\(x.id) missing"); continue }
             let calm = Card.make(x.evidence, now: now, busySince: now.addingTimeInterval(-5 * 60))
             let long = Card.make(x.evidence, now: now, busySince: now.addingTimeInterval(-x.long))
-            if calm.state != .working || calm.headline != "\(k.doing). That's normal." || !calm.explanation.hasPrefix(k.usually) { cards.append("\(x.id) usual: \(calm.headline) \(calm.explanation)") }
+            if calm.state != .working || calm.headline != "\(k.doing). This is normal." || !calm.explanation.hasPrefix(k.usually) { cards.append("\(x.id) usual: \(calm.headline) \(calm.explanation)") }
             if long.state != .unknown || !long.headline.contains("longer than usual") || long.recommended?.title != k.whenLong { cards.append("\(x.id) long: \(long.headline) → \(long.recommended?.title ?? "none")") }
             if case .openApp(let b, _) = long.recommended?.kind, b.contains(".framework/") { cards.append("\(x.id) opens \(b)") }
         }

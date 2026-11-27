@@ -92,7 +92,7 @@ extension Fixture {
         let unmoved = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 0), now: now, context: MemoryContext(slowed: false), tabMemoryOn: false)
         let slackUnmoved = MemoryAdvice.card([MemGroup(key: "s", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 3_000_000_000, count: 5)],
                                              mac: mac("warning", swappedMB: 0), now: now, context: MemoryContext(slowed: false))
-        review.append(("memory-chrome-warning-unmoved", unmoved.state == .unknown && unmoved.headline.hasPrefix("Memory is tight. Google Chrome is using the most")
+        review.append(("memory-chrome-warning-unmoved", unmoved.state == .unknown && unmoved.headline.contains("Google Chrome uses the most")
                        && unmoved.fixes.first?.recommended == true && slackUnmoved.state == .unknown,
                        unmoved.headline + " " + unmoved.explanation))
 
@@ -101,7 +101,7 @@ extension Fixture {
                                       context: MemoryContext(slowed: true, week: PressureHistory.Week(count: 3, minutes: 40, chromeCount: 2)), tabMemoryOn: false)
         let once = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 600), now: now,
                                      context: MemoryContext(slowed: true, week: PressureHistory.Week(count: 1, minutes: 12, chromeCount: 1)), tabMemoryOn: false)
-        review.append(("memory-chrome-week", twice.explanation.hasSuffix("It's slowed your Mac 3 times this week, about 40 minutes in all, so it's likely to happen again while Chrome holds this much.")
+        review.append(("memory-chrome-week", twice.explanation.hasSuffix("Full memory slowed your Mac 3 times this week, for about 40 minutes in total, so it will probably happen again.")
                        && !once.explanation.contains("this week"), twice.explanation))
 
         // trusting the biggest user never calms the memory card, at warning or critical: a trusted app's tight memory showed

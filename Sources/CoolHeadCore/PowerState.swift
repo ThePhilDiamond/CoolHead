@@ -92,7 +92,7 @@ public enum PowerState {
     /// "rtc/Maintenance"); on the Mac it was checked on, the tasks that asked for it were Spotlight, Calendar's travel
     /// times, widgets, and keeping the network address.
     static let whyWoke: [String: String] = [
-        "macOS's own upkeep": "Most wakes were macOS waking itself for background tasks, such as indexing files, refreshing widgets, and checking calendars for travel time. Each is short, but they add up.",
+        "macOS's own upkeep": "Most wakes were macOS waking itself for short background tasks, such as indexing files and refreshing widgets, and they add up.",
         "the network": "Most wakes were for the network, which lets it receive messages and Find My while asleep, at a cost in battery.",
         "Bluetooth devices": "Most wakes were Bluetooth devices, such as a mouse, keyboard, or headphones, asking it to wake.",
         "something plugged in": "Most wakes were something plugged in, such as a drive or hub, asking it to wake.",
@@ -157,10 +157,11 @@ public enum PowerState {
         if onPower, lowPowerNow, lowPower?.adapter == true, busy {
             var lc = LiveCard(id: "low-power-adapter", pid: nil, card: Card(
                 state: .quiet,
-                headline: "Low Power Mode is on, even plugged in.",
-                explanation: "It's set for the power adapter as well as battery, so heavy work runs slower by design, and the screen is a little dimmer.",
-                fixes: [Fix(id: "battery-settings", title: "Open Battery settings",
-                            consequence: "Change Low Power Mode to Only on Battery, or Never. It needs your password.",
+                CardTemplate("Low Power Mode", .words("is on, even when your Mac is plugged in"), nil,
+                             evidence: ["It is set for the power adapter as well as the battery."],
+                             effect: ["Heavy work runs slower, and the screen is a little dimmer."]),
+                fixes: [Fix(id: "battery-settings", title: "Change Low Power Mode",
+                            consequence: "This opens Battery settings. Set Low Power Mode to Only on Battery, or Never. It needs your password.",
                             kind: .openPage(settings, batterySettings), recommended: true)]),
                 details: ["Low Power Mode: on, set for battery " + (lowPower?.battery == true ? "and" : "not") + " the power adapter"],
                 reportSubject: "Low Power Mode on with the power adapter")
@@ -184,17 +185,17 @@ public enum PowerState {
             let name = owner?.name ?? h.name
             let sound = h.forPID != nil && h.name == "coreaudiod"
             let hours = h.seconds / 3600
-            let what = h.display ? "kept your screen on" : "kept your Mac from sleeping"
+            let what = h.display ? "keeping your screen on" : "keeping your Mac awake"
             var fixes: [Fix] = []
             if let o = owner, let b = o.bundle, !o.protected {
-                fixes.append(Fix(id: "quit", title: "Quit \(o.name)", consequence: "Lets your Mac sleep again. Reopening it starts fresh.", kind: .quitApp(b)).losingWork())   // Caution, so never the recommended one
+                fixes.append(Fix(id: "quit", title: "Quit \(o.name)", consequence: "This lets your Mac sleep again. When you open it again, it starts fresh.", kind: .quitApp(b)).losingWork())   // Caution, so never the recommended one
             }
             var lc = LiveCard(id: "held-awake-\(h.forPID ?? h.pid)", pid: h.forPID ?? h.pid, card: Card(
                 state: onPower ? .quiet : .working,
-                headline: "\(name) has \(what) for \(hours) hours.",
-                explanation: (sound ? "It has sound open, so macOS's sound service is holding the Mac awake for it" : "macOS lists it as asking the Mac to stay awake")
-                    + ", but it has done almost nothing for \(Fmt.duration(idle)), so it has likely forgotten to let go."
-                    + (onPower ? "" : " On battery, a Mac that can't sleep keeps draining."),
+                CardTemplate(name, .words("is still \(what) after \(hours) hours"), .probablyForgot,
+                             evidence: [sound ? "It has sound open, so the sound part of macOS keeps the Mac awake for it." : "macOS lists it as asking the Mac to stay awake.",
+                                        "It is still doing almost nothing after \(Fmt.duration(idle))."],
+                             effect: onPower ? [] : ["On battery, a Mac that cannot sleep keeps draining."]),
                 fixes: fixes),
                 details: ["Held awake by: \(h.name), process \(h.pid)" + (h.forPID.map { ", for process \($0)" } ?? ""),
                           "For: \(Fmt.duration(TimeInterval(h.seconds)))", h.display ? "Keeps the screen on" : "Keeps the Mac awake",
@@ -212,12 +213,12 @@ public enum PowerState {
             let network = top.key == "the network"
             var lc = LiveCard(id: "night-wakes", pid: nil, card: Card(
                 state: .quiet,
-                headline: "Your Mac lost \(drop)% of its battery while asleep, waking \(n.total) times.",
                 // what woke it most, in words that say what it is, since a class name alone didn't explain the wakes
-                explanation: "It slept from \(Fmt.time(n.from)) to \(Fmt.time(n.to)). " + (whyWoke[top.key] ?? "Most wakes were for \(top.key).")
-                    + " A sleeping Mac usually loses only a few percent overnight.",
-                fixes: [Fix(id: "battery-options", title: "Open Battery settings",
-                            consequence: network ? "Under Options, Wake for network access can be set to Only on Power Adapter." : "Under Options, Power Nap and waking for the network can be turned down.",
+                CardTemplate("Your Mac", .words("lost \(drop)% of its battery while asleep, and woke \(n.total) times"), .moreThanUsual,
+                             evidence: ["It slept from \(Fmt.time(n.from)) to \(Fmt.time(n.to)). " + (whyWoke[top.key] ?? "Most wakes were for \(top.key).")],
+                             effect: ["A sleeping Mac usually loses only a few percent overnight."]),
+                fixes: [Fix(id: "battery-options", title: network ? "Stop network wakes on battery" : "Turn off Power Nap",
+                            consequence: network ? "This opens Battery settings. Under Options, you can set Wake for network access to Only on Power Adapter." : "This opens Battery settings. Under Options, you can turn off Power Nap and waking for the network.",
                             kind: .openPage(settings, batterySettings), recommended: true)]),
                 details: ["Slept: \(Fmt.time(n.from)) to \(Fmt.time(n.to))", "Charge: \(n.chargeFrom ?? 0)% to \(n.chargeTo ?? 0)%"]
                     + n.wakes.sorted { $0.value > $1.value }.map { "Woke for \($0.key): \($0.value)" },

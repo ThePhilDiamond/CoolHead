@@ -27,10 +27,10 @@ extension Fixture {
         let fault = sample("drive-fault").cards(now: now).first
         let errors = sample("drive-errors").cards(now: now).first
         let worn = sample("drive-worn").cards(now: now).first
-        let driveOK = fault?.card.headline == "The Mac's internal drive is reporting a fault." && fault?.needsLook == true
+        let driveOK = fault?.card.headline == "The Mac's internal drive reports a fault. It may fail." && fault?.needsLook == true
             && fault?.card.recommended?.id == "backup" && fault?.card.fixes.contains { $0.id == "diagnostics" } == true
-            && errors?.card.headline == "The Mac's internal drive has found errors it couldn't correct." && errors?.needsLook == true
-            && worn?.card.headline == "The Mac's internal drive has used 85% of its rated life." && worn?.needsLook == false
+            && errors?.card.headline == "The Mac's internal drive found errors it cannot correct. It may fail." && errors?.needsLook == true
+            && worn?.card.headline == "The Mac's internal drive is 85% of the way through its rated life. This is normal wear." && worn?.needsLook == false
             && headlines(HardwareReport(drive: DriveHealth())).isEmpty
         review.append(("hardware-drive-cards", driveOK, [fault, errors, worn].map { $0?.card.headline ?? "none" }.joined(separator: " | ")))
 
@@ -46,11 +46,11 @@ extension Fixture {
         let service = sample("battery-service").cards(now: now).first
         let wornBattery = sample("battery-worn").cards(now: now).first
         let failed = sample("battery-fault").cards(now: now).first
-        let batteryOK = service?.card.headline == "The battery needs service." && service?.needsLook == true && service?.card.recommended?.id == "battery"
+        let batteryOK = service?.card.headline == "The battery needs a repair." && service?.needsLook == true && service?.card.recommended?.id == "battery"
             && service?.card.fixes.contains { if case .guide(let s) = $0.kind { return s.contains { $0.contains("swollen battery is a fire risk") } }; return false } == true
-            && wornBattery?.card.headline == "The battery holds 76% of its original charge." && wornBattery?.needsLook == false
-            && wornBattery?.card.explanation.contains("Apple rates it to keep 80% for 1,000 cycles, and it has done 840") == true
-            && failed?.card.headline == "The battery has recorded a fault." && failed?.needsLook == true
+            && wornBattery?.card.headline == "The battery holds 76% of its original charge. This is normal wear." && wornBattery?.needsLook == false
+            && wornBattery?.card.explanation.contains("Apple rates it to keep 80% for 1,000 cycles, and it is at 840 cycles.") == true
+            && failed?.card.headline == "The battery recorded a fault. It needs a repair." && failed?.needsLook == true
             && headlines(HardwareReport(battery: good)).isEmpty
         review.append(("hardware-battery-cards", batteryOK, [service, wornBattery, failed].map { $0?.card.headline ?? "none" }.joined(separator: " | ")))
 
@@ -64,9 +64,9 @@ extension Fixture {
         let why = [plugged(80).notCharging, plugged(60, temp: 42).notCharging, plugged(60, watts: -8).notCharging, plugged(60).notCharging]
         let chargeOK = why == [.onHold(80), .tooWarm(42), .chargerTooWeak(30), .unknown]
             && charging.notCharging == nil && unplugged.notCharging == nil && full.notCharging == nil
-            && headlines(HardwareReport(battery: plugged(80))) == ["Charging is on hold at 80%."]
-            && headlines(HardwareReport(battery: plugged(60, watts: -8))) == ["The charger isn't keeping up."]
-            && HardwareReport(battery: plugged(60)).cards(now: now).first?.card.explanation.contains("no SMC to reset") == true
+            && headlines(HardwareReport(battery: plugged(80))) == ["Charging is on hold at 80%. This is normal."]
+            && headlines(HardwareReport(battery: plugged(60, watts: -8))) == ["The charger does not give enough power. The battery drains even when it is plugged in."]
+            && HardwareReport(battery: plugged(60)).cards(now: now).first?.card.explanation.contains("charger, then restart the Mac.") == true
             && HardwareReport(battery: plugged(60), appleSilicon: false).cards(now: now).first?.card.explanation.contains("SMC") == false
         review.append(("hardware-not-charging", chargeOK, why.map { "\($0.map { "\($0)" } ?? "none")" }.joined(separator: ", ")))
 
@@ -75,12 +75,12 @@ extension Fixture {
         var hotBattery = good; hotBattery.temperatureC = 46
         var warmCharging = plugged(50, temp: 42); warmCharging.charging = true
         var warmDrive = DriveHealth(); warmDrive.temperatureC = 72
-        let heatOK = headlines(HardwareReport(battery: hotBattery)) == ["The battery is hot."]
+        let heatOK = headlines(HardwareReport(battery: hotBattery)).first?.hasPrefix("The battery is hot, at ") == true
             && HardwareReport(battery: hotBattery).cards(now: now).first?.needsLook == true
             && headlines(HardwareReport(battery: warmCharging)).isEmpty
-            && headlines(HardwareReport(battery: plugged(60, temp: 42))) == ["The battery is warm."]
+            && headlines(HardwareReport(battery: plugged(60, temp: 42))).first?.hasSuffix("Let it cool.") == true && headlines(HardwareReport(battery: plugged(60, temp: 42))).first?.hasPrefix("The battery is warm, at ") == true
             && HardwareReport(battery: plugged(60, temp: 42)).cards(now: now).first?.card.explanation.contains("paused charging") == true
-            && headlines(HardwareReport(drive: warmDrive)) == ["The internal drive is warm."]
+            && headlines(HardwareReport(drive: warmDrive)).first?.hasPrefix("The internal drive is warm, at ") == true
         review.append(("hardware-heat-cards", heatOK, [HardwareReport(battery: hotBattery), HardwareReport(battery: plugged(60, temp: 42)), HardwareReport(drive: warmDrive)]
             .map { headlines($0).joined(separator: "; ") }.joined(separator: " | ")))
 
@@ -96,8 +96,9 @@ extension Fixture {
         let old = CrashRestarts(lastText: watchdog, lastDate: now.addingTimeInterval(-20 * 86400), thisStartFollowedCrash: false, recent: [])
         let crashOK = afterCrash?.card.headline == "Your Mac restarted because of a crash." && afterCrash?.needsLook == true
             && afterCrash?.card.explanation.hasPrefix("WindowServer, the part of macOS that draws the screen, stopped responding, so macOS restarted") == true
-            && afterCrash?.card.explanation.contains("Cool Head can't test the memory") == true
-            && repeated?.card.headline == "Your Mac has crashed and restarted 3 times this week."
+            && afterCrash?.card.fixes.first { $0.id == "diagnostics" }?.consequence.contains("It also tests the memory, which Cool Head cannot.") == true
+            && afterCrash?.card.fixes.first { $0.id == "safemode" }?.consequence.hasSuffix("If they do not stop, run Apple Diagnostics.") == true
+            && repeated?.card.headline == "Your Mac crashed and restarted 3 times this week. This is more than usual."
             && headlines(HardwareReport(crashes: old)).isEmpty
             && CrashRestarts(lastDate: now.addingTimeInterval(-3600), recent: nil).countThisWeek(now: now) == 1
         review.append(("hardware-crash-cards", crashOK, [afterCrash, repeated].map { $0?.card.headline ?? "none" }.joined(separator: " | ")))
@@ -107,7 +108,7 @@ extension Fixture {
         let drops = sample("port-drops").cards(now: now).first
         let portOK = power?.card.headline == "A device asked USB-C port 1 for more power than it can give." && power?.needsLook == true
             && power?.card.recommended?.id == "power"
-            && drops?.card.headline == "A device on USB-C port 2 has failed to connect 3 times." && drops?.needsLook == false
+            && drops?.card.headline == "A device on USB-C port 2 failed to connect 3 times." && drops?.needsLook == false
         review.append(("hardware-port-cards", portOK, [power, drops].map { $0?.card.headline ?? "none" }.joined(separator: " | ")))
 
         // Cool Head's house style, on every hardware card: no em dashes or exclamation marks, the Apple Diagnostics

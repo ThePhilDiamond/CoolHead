@@ -12,7 +12,15 @@ enum ElectronExtra: CardExtra {
               Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == "windowserver",
               let add = AppBuild.electronAddition(f) else { return nil }
         let others = c.fixes.map { f -> Fix in var f = f; f.recommended = false; return f }
-        var out = Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: [add.fix] + others)
+        // the apps make the screen work harder than it should, so the verdict says so (not "This is normal.")
+        var out: Card
+        if var t = c.template {
+            t.verdict = .moreThanUsual
+            t.evidence.append(add.sentence.trimmingCharacters(in: .whitespaces))
+            out = Card(state: c.state, t, fixes: [add.fix] + others)
+        } else {
+            out = Card(state: c.state, headline: c.headline, explanation: c.explanation + add.sentence, fixes: [add.fix] + others)
+        }
         // the decision record: what it saw is now the apps, and updating them is what helps
         let names = String(add.fix.title.dropFirst("Update ".count))
         out.diagnosis = Diagnosis(saw: "\(names) \(names.contains(" and ") ? "are" : "is") built on an older Electron that makes this version of macOS draw slowly")

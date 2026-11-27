@@ -337,17 +337,17 @@ public struct CrashRestarts: Equatable {
     /// What the cause means, in plain words, for the crash card and the Hardware page alike: what stopped and whether
     /// that's usually software or hardware, since a bare "WindowServer stopped responding" needs explaining, along with
     /// what to do about it.
-    public static func plainCause(_ c: Cause) -> String {
+    public static func plainCause(_ c: Cause) -> [String] {
         switch c {
         case .stoppedResponding(let name):
             let what = name == "WindowServer" ? "WindowServer, the part of macOS that draws the screen," : name
-            return "\(what.prefix(1).uppercased() + what.dropFirst()) stopped responding, so macOS restarted. That's usually software, not hardware."
+            return ["\(what.prefix(1).uppercased() + what.dropFirst()) stopped responding, so macOS restarted.", "Software usually causes this, not hardware."]
         case .kernelMemory:
-            return "macOS ran out of its own working memory, which is usually a leak in software, often a driver."
+            return ["macOS ran out of its own working memory, which is usually a leak in software, often a driver."]
         case .driver(let id):
-            return "The report names \(id), a driver that isn't Apple's: update it from its maker, or remove it."
+            return ["The report names \(id), a driver that Apple did not make.", "Update it from its maker, or remove it."]
         case .unclear:
-            return "macOS's report of the last crash doesn't make the cause clear. Most crashes are software, but a faulty accessory or a hardware fault can cause them."
+            return ["The report from macOS does not show the cause of the last crash.", "Most crashes are software, but a faulty accessory or a hardware fault can cause them."]
         }
     }
 
@@ -440,9 +440,9 @@ extension HardwareReport {
     /// A card for each hardware finding worth showing, worst first. Nothing found, no cards: the panel stays as it is.
     public func cards(now: Date = Date()) -> [LiveCard] {
         var out: [LiveCard] = []
-        func card(_ id: String, _ state: JobState, _ headline: String, _ explanation: String, _ fixes: [Fix], _ details: [String], subject: String,
+        func card(_ id: String, _ state: JobState, _ t: CardTemplate, _ fixes: [Fix], _ details: [String], subject: String,
                   serious: Bool = false, safety: Bool = false) {
-            var c = LiveCard(id: "hardware-\(id)", pid: nil, card: Card(state: state, headline: headline, explanation: explanation, fixes: fixes), details: details)
+            var c = LiveCard(id: "hardware-\(id)", pid: nil, card: Card(state: state, t, fixes: fixes), details: details)
             c.causeKey = "hardware-\(id)"
             c.serious = serious; c.safety = safety
             c.displaySubject = subject
@@ -454,67 +454,77 @@ extension HardwareReport {
 
         // the drive is built into the Mac: if it fails, what's on it can be lost
         if let d = drive {
-            let soldered = "The drive is built into the Mac, so if it fails, what's on it can be lost and the repair is a new main board."
+            let soldered = ["The drive is built into the Mac. If it fails, you can lose what is on it, and the repair is a new main board."]
             if d.fault {
-                card("drive", .unknown, "The Mac's internal drive is reporting a fault.",
-                     "The drive's own health check has raised a warning (\(d.warnings.isEmpty ? "running out of spare space" : d.warnings.joined(separator: ", "))). \(soldered)",
+                card("drive", .unknown, CardTemplate("the Mac's internal drive", .words("reports a fault"), .mayFail,
+                                                     evidence: ["Its own health check warns that it is \(d.warnings.isEmpty ? "running out of spare space" : Fmt.list(d.warnings))."], effect: soldered),
                      [Hardware.recommend(backup), diagnostics], d.lines, subject: "the internal drive")
             } else if d.mediaErrors > 0 {
-                card("drive", .unknown, "The Mac's internal drive has found errors it couldn't correct.",
-                     "The drive's own health check has counted \(Hardware.count(d.mediaErrors)) of these errors since it was new. A few can be harmless, but they're often the first sign of a failing drive. \(soldered) In Apple Diagnostics, a code starting VDH means a drive fault.",
-                     [Hardware.recommend(backup), diagnostics], d.lines, subject: "the internal drive")
+                card("drive", .unknown, CardTemplate("the Mac's internal drive", .words("found errors it cannot correct"), .mayFail,
+                                                     evidence: ["Its own health check counted \(Hardware.count(d.mediaErrors)) of these errors in its life.",
+                                                                "A few can be harmless, but they are often the first sign of a failing drive."],
+                                                     effect: ["The drive is built into the Mac, so if it fails, you lose what is on it and need a new main board."]),
+                     [Hardware.recommend(backup), Hardware.diagnostics(appleSilicon: appleSilicon, code: "A code that starts with VDH means a drive fault.")],
+                     d.lines, subject: "the internal drive")
             } else if d.percentUsed >= 80 {
-                card("drive", .quiet, d.percentUsed >= 100 ? "The Mac's internal drive has passed its rated life." : "The Mac's internal drive has used \(d.percentUsed)% of its rated life.",
-                     "Drives wear a little each time they're written to. It still works with no errors, and many drives run well past their rating, but keep your backups current. Low memory adds to the wear, because macOS then writes memory out to the drive.",
+                card("drive", .quiet, CardTemplate("the Mac's internal drive", .words(d.percentUsed >= 100 ? "is past its rated life" : "is \(d.percentUsed)% of the way through its rated life"), .normalWear,
+                                                   evidence: ["Drives wear a little with every write, but this one still works with no errors, and many drives run well past their rating."],
+                                                   effect: ["Keep your backups current. When memory is full, macOS moves data to this drive, which adds to the wear."]),
                      [backup], d.lines, subject: "the internal drive")
             }
         }
 
         if let b = battery {
-            let swollen = "If the case bulges, the lid won't close flat, or the trackpad feels raised, stop using the Mac and take it to Apple: a swollen battery is a fire risk."
-            let check = Fix.guide("battery", "Check the battery with Apple's steps", "Takes a few minutes; the last step restarts the Mac.", steps: [
+            let swollen = "If the case bulges, the lid does not close flat, or the trackpad feels raised, stop using the Mac and take it to Apple. A swollen battery is a fire risk."
+            let check = Fix.guide("battery", "Check the battery with Apple's steps", "This shows Apple's steps. They take a few minutes, and the last step restarts the Mac.", steps: [
                 "Choose \(Fmt.path("Apple menu", "System Settings", "Battery")), and click the ⓘ next to \(Fmt.ui("Battery Health")).",
                 "Make sure \(Fmt.ui("Optimized Battery Charging")) is on.",
                 "Charge with the adapter that came with the Mac, or one with as many watts.",
-                "Shut down the Mac, close the lid for 30 seconds, then start it up.",
+                "Shut down the Mac, close the lid for 30 seconds, then start it again.",
                 "If it still says Service Recommended, run Apple Diagnostics and contact Apple.",
                 swollen])
             if b.permanentFailure != 0 {
-                card("battery", .unknown, "The battery has recorded a fault.",
-                     "The battery's own controller has marked a permanent failure, so it may not charge or hold a charge properly. Have Apple check it; Apple Diagnostics names battery faults with a code starting PPT.",
+                card("battery", .unknown, CardTemplate("the battery", .words("recorded a fault"), .needsService,
+                                                       evidence: ["Its controller marked a permanent failure, so it may not charge or hold a charge properly."],
+                                                       effect: ["Have Apple check it. Apple Diagnostics names battery faults with a code that starts with PPT."]),
                      [diagnostics, Hardware.note(swollen)], b.lines, subject: "the battery")
             } else if !b.conditionNormal {
-                card("battery", .unknown, "The battery needs service.",
-                     "macOS rates its condition as \(b.condition ?? "Service Recommended"): it holds less charge than when it was new, or isn't working normally" + (b.maxCapacity.map { " (it holds \($0)% of its original charge)" } ?? "") + ". Apple says the Mac is safe to keep using.",
+                card("battery", .unknown, CardTemplate("the battery", nil, .needsService,
+                                                       evidence: ["macOS rates its condition as \(b.condition ?? "Service Recommended"), because it holds less charge than when it was new or does not work normally."],
+                                                       effect: [(b.maxCapacity.map { "It holds \($0)% of its original charge, and Apple" } ?? "Apple") + " says the Mac is safe to keep using."]),
                      [Hardware.recommend(check), diagnostics], b.lines, subject: "the battery")
             } else if let m = b.maxCapacity, m < 80 {
                 let rated = b.designCycles.map { "Apple rates it to keep 80% for \(Hardware.count(UInt64($0))) cycles" } ?? "Apple rates it to keep 80% for 1,000 cycles"
-                card("battery", .quiet, "The battery holds \(m)% of its original charge.",
-                     "Batteries wear with use, so you'll get less time unplugged. \(rated)" + (b.cycles.map { ", and it has done \(Hardware.count(UInt64($0)))" } ?? "") + ". Below 80%, AppleCare replaces it.",
+                card("battery", .quiet, CardTemplate("the battery", .words("holds \(m)% of its original charge"), .normalWear,
+                                                     evidence: [rated + (b.cycles.map { ", and it is at \(Hardware.count(UInt64($0))) cycles." } ?? ".")],
+                                                     effect: ["Batteries wear with use, so you get less time on battery. Below 80%, AppleCare replaces it."]),
                      [check], b.lines, subject: "the battery")
             }
             // plugged in but not charging: usually on purpose, so a calm card that says why
             if let why = b.notCharging {
                 switch why {
                 case .onHold(let pct):
-                    card("charging", .quiet, "Charging is on hold at \(pct)%.",
-                         "That's most likely on purpose: Optimized Battery Charging, or a Charge Limit you set, holds the charge to slow battery wear and charges to full before you usually unplug.",
-                         [Fix.guide("full", "Charge to full now", "Charges to 100% this time; it goes back to normal afterwards.", steps: ["Click the battery in the menu bar.", "Choose \(Fmt.ui("Charge to Full Now")). If it isn't there, the hold is a Charge Limit: change it in \(Fmt.path("System Settings", "Battery"))."])],
+                    card("charging", .quiet, CardTemplate("Charging", .words("is on hold at \(pct)%"), .normal,
+                                                          evidence: ["Optimized Battery Charging, or a Charge Limit you set, probably holds it."],
+                                                          effect: ["The hold slows battery wear, and your Mac charges to full before you usually unplug it."]),
+                         [Fix.guide("full", "Charge to full now", "This charges to 100% once, then goes back to normal.", steps: ["Click the battery in the menu bar.", "Choose \(Fmt.ui("Charge to Full Now")). If it is not there, the hold is a Charge Limit. Change it in \(Fmt.path("System Settings", "Battery"))."])],
                          b.lines, subject: "charging")
                 case .tooWarm(let t) where HardwarePage.batteryHeatLevel(t, charging: b.charging) == 0:
-                    card("charging", .quiet, "The battery is too warm to charge.",
-                         "It's at \(Fmt.temperature(t)), and a Mac pauses charging while its battery is warm. It starts again as it cools: use it on a hard surface, out of the sun, and give it a break from heavy work.",
+                    card("charging", .quiet, CardTemplate("the battery", .words("is too warm to charge"), .normal,
+                                                          evidence: ["It is at \(Fmt.temperature(t)), and a Mac pauses charging while its battery is warm."],
+                                                          effect: ["Charging starts again when it cools. Use the Mac on a hard surface, out of the sun, and give it a break from heavy work."]),
                          [], b.lines, subject: "charging")
                 case .tooWarm:
                     break                       // the battery temperature card below says it, and that charging has paused
                 case .chargerTooWeak(let w):
-                    card("charging", .quiet, "The charger isn't keeping up.",
-                         "The Mac is using more power than " + (w.map { "the \($0) W charger" } ?? "the charger") + " gives, so the battery is draining even plugged in. Use a charger with more watts, plug it straight into the Mac rather than through a hub or display, or ease the load.",
+                    card("charging", .quiet, CardTemplate("the charger", .words("does not give enough power"), .batteryDrains,
+                                                          evidence: ["Your Mac uses more power than " + (w.map { "the \($0) W charger" } ?? "the charger") + " gives."],
+                                                          effect: ["Use a charger with more watts, or plug it straight into the Mac, not through a hub or display. You can also lower the load."]),
                          [], b.lines, subject: "charging")
                 case .unknown:
-                    let restart = appleSilicon ? " Restart the Mac: Apple silicon Macs have no SMC to reset, and a restart does that job." : " Restart the Mac."
-                    card("charging", .quiet, "It's plugged in but not charging, and Cool Head can't tell why.",
-                         "The battery isn't warm and isn't near a charge limit. Try another cable, socket, or charger." + restart + " If it still won't charge, run Apple Diagnostics.",
+                    card("charging", .quiet, CardTemplate("Your Mac", .words("is plugged in but does not charge"), nil,
+                                                          evidence: ["The battery is not warm and not near a charge limit."],
+                                                          effect: ["Try another cable, socket, or charger, then restart the Mac. If it still does not charge, run Apple Diagnostics."]),
                          [diagnostics], b.lines, subject: "charging")
                 }
             }
@@ -525,14 +535,16 @@ extension HardwareReport {
         if let b = battery, let t = b.temperatureC, HardwarePage.batteryHeatLevel(t, charging: b.charging) > 0 {
             let hot = HardwarePage.batteryHeatLevel(t, charging: b.charging) == 2
             let paused = b.notCharging.map { if case .tooWarm = $0 { return true }; return false } ?? false
-            card("battery-heat", .unknown, hot ? "The battery is hot." : "The battery is warm.",
-                 "It's at \(Fmt.temperature(t)): a battery is warm from \(Fmt.temperature(40)) and hot from \(Fmt.temperature(45)), and heat wears it faster"
-                    + (paused ? ", so macOS has paused charging until it cools" : "") + ". Let it cool: use the Mac on a hard surface, out of the sun, and give it a break from heavy work.",
+            card("battery-heat", .unknown, CardTemplate("the battery", .words("is \(hot ? "hot" : "warm"), at \(Fmt.temperature(t))"), .letItCool,
+                                                        evidence: ["A battery is warm from \(Fmt.temperature(40)) and hot from \(Fmt.temperature(45)), and heat wears it faster."]
+                                                            + (paused ? ["macOS paused charging until it cools."] : []),
+                                                        effect: ["Use the Mac on a hard surface, out of the sun, and give it a break from heavy work."]),
                  [], b.lines, subject: "the battery's temperature", serious: hot, safety: true)
         }
         if let d = drive, let t = d.temperatureC, HardwarePage.driveHeatLevel(Double(t)) > 0 {
-            card("drive-heat", .unknown, "The internal drive is warm.",
-                 "It's at \(Fmt.temperature(Double(t))), warmer than drives usually run (Cool Head's line is \(Fmt.temperature(70))). Long copies and a hot Mac warm it, and heat wears it faster. Give the Mac a break, out of the sun.",
+            card("drive-heat", .unknown, CardTemplate("the internal drive", .words("is warm, at \(Fmt.temperature(Double(t)))"), .letItCool,
+                                                      evidence: ["Drives usually run cooler. Cool Head's line is \(Fmt.temperature(70))."],
+                                                      effect: ["Long copies and a hot Mac warm it, and heat wears it faster. Give the Mac a break, out of the sun."]),
                  [], d.lines, subject: "the drive's temperature", safety: true)
         }
 
@@ -540,9 +552,13 @@ extension HardwareReport {
         let week = crashes.countThisWeek(now: now)
         if crashes.thisStartFollowedCrash == true || week >= 2 {
             let why = CrashRestarts.plainCause(crashes.lastText.map(CrashRestarts.cause) ?? .unclear)
-            let headline = week >= 2 ? "Your Mac has crashed and restarted \(week) times this week." : "Your Mac restarted because of a crash."
-            let repeatNote = week >= 2 ? " Crashes that keep happening with no common software can point to hardware: disconnect docks and hubs, then try Safe Mode." : " If it happens again, disconnect docks and hubs, then try Safe Mode."
-            let safeMode = Fix.guide("safemode", "Try Safe Mode", "Starts the Mac with only Apple's own software. If the crashes stop there, the cause is software you added.", steps: appleSilicon ? [
+            let t = week >= 2 ? CardTemplate("Your Mac", .words("crashed and restarted \(week) times this week"), .moreThanUsual)
+                              : CardTemplate("Your Mac", .words("restarted because of a crash"), nil)
+            // what macOS says caused it; after several in a week, that repeated crashes can point to hardware. The next
+            // steps after Safe Mode are said on the options, where the reader acts on them
+            let evidence = week >= 2 ? [why[0], "Most crashes are software, but crashes that keep happening can point to a faulty accessory or hardware."] : why
+            let next = week >= 2 ? "Disconnect docks and hubs, then try Safe Mode." : "If it happens again, disconnect docks and hubs, then try Safe Mode."
+            let safeMode = Fix.guide("safemode", "Try Safe Mode", "This starts the Mac with only Apple's software. If the crashes stop there, the cause is software you added. If they do not stop, run Apple Diagnostics.", steps: appleSilicon ? [
                 "Save your work and shut down the Mac.",
                 "Press and hold the power button until the startup options appear, then let go.",
                 "Click your startup disk, then hold Shift and click Continue in Safe Mode.",
@@ -550,24 +566,26 @@ extension HardwareReport {
                 "Save your work and shut down the Mac.",
                 "Press the power button, then at once press and hold Shift until the login window appears.",
                 "Use the Mac as usual, then restart normally to leave Safe Mode."])
-            card("crash", .unknown, headline,
-                 why + repeatNote + " If it crashes in Safe Mode too, run Apple Diagnostics. Cool Head can't test the memory, and Apple Diagnostics is the test for that.",
-                 [safeMode, diagnostics], crashes.lines, subject: "crash restarts")
+            card("crash", .unknown, CardTemplate(t.subject, t.reading, t.verdict, evidence: evidence, effect: [next]),
+                 [safeMode, Hardware.diagnostics(appleSilicon: appleSilicon, note: "It also tests the memory, which Cool Head cannot.")],
+                 crashes.lines, subject: "crash restarts")
         }
 
         // ports: too much power is Apple's "USB Devices Disabled"; failures to connect are a note
         for p in ports {
             if p.overCurrent > 0 {
                 let magsafe = p.name.hasPrefix("the MagSafe")
-                card("port-\(p.name)", .unknown, "A device asked \(p.name) for more power than it can give.",
-                     magsafe ? "The port has recorded this \(Hardware.times(p.overCurrent)). Try another MagSafe cable or charger, and check the connector for dirt or damage."
-                             : "The port has recorded this \(Hardware.times(p.overCurrent)). Each time, macOS turns the port off, and may show a USB Devices Disabled message.",
+                card("port-\(p.name)", .unknown, CardTemplate("a device", .words("asked \(p.name) for more power than it can give"), nil,
+                                                              evidence: ["The port recorded this \(Hardware.times(p.overCurrent))."],
+                                                              effect: [magsafe ? "Try another MagSafe cable or charger, and check the connector for dirt or damage."
+                                                                               : "Each time, macOS turns the port off, and may show a USB Devices Disabled message."]),
                      magsafe ? [diagnostics] : [Hardware.recommend(Hardware.lessPower), diagnostics],
                      ["Port: \(p.name)", "Too much power asked for: \(Hardware.times(p.overCurrent))"], subject: p.name)
             } else {
                 let n = p.failedToConnect + p.linkErrors
-                card("port-\(p.name)", .quiet, "A device on \(p.name) has failed to connect \(Hardware.times(n)).",
-                     "The port counts each failed attempt since it last powered up. A worn or loose cable is the usual cause: try another cable or port. If devices keep dropping on every port, run Apple Diagnostics.",
+                card("port-\(p.name)", .quiet, CardTemplate("a device on \(p.name)", .words("failed to connect \(Hardware.times(n))"), nil,
+                                                            evidence: ["The port counted each failed attempt after it last started."],
+                                                            effect: ["A worn or loose cable is the usual cause, so try another cable or port. If devices keep dropping on every port, run Apple Diagnostics."]),
                      [diagnostics], ["Port: \(p.name)", "Failed to connect: \(Hardware.times(p.failedToConnect))", "Link errors: \(Hardware.times(p.linkErrors))"], subject: p.name)
             }
         }
@@ -607,29 +625,32 @@ public enum Hardware {
         return l
     }
 
-    static func diagnostics(appleSilicon: Bool) -> Fix {
-        Fix.guide("diagnostics", "Run Apple Diagnostics", "Apple's own hardware test. It restarts the Mac and takes a few minutes, so save your work first.", steps: appleSilicon ? [
+    /// Apple's hardware test. `note`: a sentence added to what it does, for the card that needs it (crashes: it tests
+    /// the memory); `code`: what a code it shows means, as a last step, for the part the card is about (the drive).
+    static func diagnostics(appleSilicon: Bool, note: String? = nil, code: String? = nil) -> Fix {
+        Fix.guide("diagnostics", "Run Apple Diagnostics", "This shows how to run Apple's own hardware test." + (note.map { " " + $0 } ?? "")
+                    + " It restarts the Mac and takes a few minutes, so save your work first.", steps: (appleSilicon ? [
             "Save your work and shut down the Mac.",
             "Press and hold the power button until the startup options appear, then let go.",
             "Press and hold Command-D until the test starts.",
             "Write down any code it shows, and give it to Apple."] : [
             "Save your work and shut down the Mac.",
             "Press the power button, then at once press and hold D until the test starts.",
-            "Write down any code it shows, and give it to Apple."])
+            "Write down any code it shows, and give it to Apple."]) + [code].compactMap { $0 })
     }
 
-    static let backUp = Fix.guide("backup", "Back up now", "Copies your files to another drive, so nothing is lost if this one fails.", steps: [
+    static let backUp = Fix.guide("backup", "Back up now", "This shows how to copy your files to another drive, so nothing is lost if this one fails.", steps: [
         "Connect your backup drive.",
         "Click the Time Machine icon in the menu bar and choose \(Fmt.ui("Back Up Now")).",
-        "No Time Machine yet? Set it up in \(Fmt.path("System Settings", "General", "Time Machine")), or copy what matters to another drive."])
+        "If you do not use Time Machine yet, set it up in \(Fmt.path("System Settings", "General", "Time Machine")).", "Or copy what matters to another drive."])
 
-    static let lessPower = Fix.guide("power", "Give the device the power it needs", "Apple's steps for a device that wants too much power.", steps: [
+    static let lessPower = Fix.guide("power", "Give the device the power it needs", "This shows Apple's steps for a device that wants too much power.", steps: [
         "Unplug the device, then plug it in again.",
         "Try another port.",
-        "If it's on a hub, plug it straight into the Mac.",
-        "If the hub has its own power adapter, make sure it's plugged in."])
+        "If it is on a hub, plug it straight into the Mac.",
+        "If the hub has its own power adapter, make sure it is connected to power."])
 
-    static func note(_ text: String) -> Fix { Fix.guide("note", "If the battery is swollen", "Stop using the Mac.", steps: [text]) }
+    static func note(_ text: String) -> Fix { Fix.guide("note", "Check for a swollen battery", "This shows the signs. If you see them, stop using the Mac.", steps: [text]) }
 
     static func recommend(_ f: Fix) -> Fix { var f = f; f.recommended = true; return f }
 

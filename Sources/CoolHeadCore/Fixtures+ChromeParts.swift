@@ -38,9 +38,9 @@ extension Fixture {
         }
         // the hidden-tab sentence, from 500 MB, and its evidence in Nerdy stuff
         let big = card(chromeParts(now)), small = card(chromeParts(now, hiddenGB: 0.3))
-        review.append(("chrome-hidden-line", big.explanation.contains("About 2.1 GB of Chrome's memory is in tabs you aren't looking at")
+        review.append(("chrome-hidden-line", big.explanation.contains("About 2.1 GB of Chrome's memory is in tabs you are not looking at")
                        && big.facts.contains { $0.hasPrefix("Chrome's tabs: 2.1 GB in 7 processes Chrome marks as hidden") }
-                       && !small.explanation.contains("tabs you aren't looking at"), big.explanation))
+                       && !small.explanation.contains("tabs you are not looking at"), big.explanation))
         // open for days: said, and the restart option says so, still not recommended
         let days = card(chromeParts(now, hiddenGB: 0.3, openDays: 6.2))
         let daysRestart = days.fixes.first { $0.id == "restart" }
@@ -48,19 +48,19 @@ extension Fixture {
                        && daysRestart?.consequence.contains("built up over 6 days") == true, days.explanation))
         // Chrome's own program grown: only a restart gives it back, so it's recommended; closing tabs still fixes the cause
         let grown = card(chromeParts(now, hiddenGB: 0.3, browserGB: 3.2))
-        review.append(("chrome-restart-grown", grown.recommended?.id == "restart" && grown.explanation.contains("Chrome's own program has grown to 3.2 GB")
+        review.append(("chrome-restart-grown", grown.recommended?.id == "restart" && grown.explanation.contains("Chrome's own program grew to 3.2 GB")
                        && grown.fixes.contains { $0.id == "tabs" }, (grown.recommended?.id ?? "none") + ": " + grown.explanation))
         // hiding tab groups: from 1 GB hidden, for Chrome only
         let edge = MemoryAdvice.card([MemGroup(key: "e", name: "Microsoft Edge", kind: .browser, bundle: "/Applications/Microsoft Edge.app", bytes: 5_500_000_000, count: 41)],
                                      mac: tight, now: now, context: MemoryContext(slowed: true, chrome: chromeParts(now)))
         let groupsFix = big.fixes.first { $0.id == "groups" }
-        review.append(("chrome-groups-option", groupsFix?.title == "Hide tab groups you aren't using" && !card(chromeParts(now, hiddenGB: 0.6)).fixes.contains { $0.id == "groups" }
+        review.append(("chrome-groups-option", groupsFix?.title == "Hide tab groups you are not using" && !card(chromeParts(now, hiddenGB: 0.6)).fixes.contains { $0.id == "groups" }
                        && !edge.fixes.contains { $0.id == "groups" } && !card(nil).fixes.contains { $0.id == "groups" }, groupsFix?.consequence ?? "not offered"))
         // extensions: said from 500 MB, with where to see which, since unloading tabs never reaches them
         let exts = card(chromeParts(now, extGB: 1.6)), fewExts = card(chromeParts(now))
         let extFix = exts.fixes.first { $0.id == "extensions" }
-        review.append(("chrome-extensions-line", extFix?.consequence.contains("Chrome's extensions are using 1.6 GB, which closing tabs doesn't give back.") == true
-                       && extFix?.title == "Turn off extensions you don't use" && exts.facts.contains { $0.hasPrefix("Chrome's extensions: 1.6 GB in 1 process") }
+        review.append(("chrome-extensions-line", extFix?.consequence.contains("Chrome's extensions use 1.6 GB, and closing tabs does not free that.") == true
+                       && extFix?.title == "Turn off extensions you do not use" && exts.facts.contains { $0.hasPrefix("Chrome's extensions: 1.6 GB in 1 process") }
                        && !fewExts.fixes.contains { $0.id == "extensions" }, extFix?.consequence ?? "not offered"))
         return review
     }

@@ -195,8 +195,9 @@ public enum Disguise {
         return dir.hasPrefix(home + "/") ? "~" + dir.dropFirst(home.count) : dir
     }
 
-    /// The one disclaimer every finding carries, kept short: the terms of use say the rest.
-    static let disclaimer = "We can't be certain it's harmful."
+    /// What every finding's evidence ends with; the verdict's "probably" is the brief disclaimer (the terms of use say
+    /// the rest).
+    static let trick = "Malware often does this."
 
     /// The card for a finding, in place of the usual one: who it is comes before what it's doing (research rules,
     /// "Order of evaluation"). What Cool Head thinks, the disclaimer, then its advice, which is the recommended option,
@@ -204,33 +205,34 @@ public enum Disguise {
     /// option marked Caution says why in its own description.
     public static func card(_ f: Finding, _ e: Evidence) -> Card {
         let reveal = { (path: String, steps: String, rec: Bool) in
-            Fix(id: "delete", title: "Delete it", consequence: "Shows it in Finder, to drag to the Trash; macOS asks for your password.",
+            Fix(id: "delete", title: "Delete it", consequence: "This shows it in Finder, so you can drag it to the Trash. macOS asks for your password.",
                 kind: .reveal(path, steps), recommended: rec).fixingTheCause()
         }
         switch f {
         case .macOSName(let name, let path):
             let fix = e.mine
                 ? Fix(id: "remove", title: "Stop and delete it",
-                      consequence: "Stops it and moves it to the Trash. If it's something you use, it stops working until you put it back from the Trash.",
+                      consequence: "This stops it and moves it to the Trash. If it is something you use, it stops working until you put it back from the Trash.",
                       kind: .stopAndTrash([path], nil), recommended: true)
                 : reveal(path, "Drag it to the Trash, then empty the Trash.", true)
-            return Card(state: .unknown, headline: "\(name) is pretending to be part of macOS.",
-                        explanation: "It uses a macOS name but runs from \(place(path)), without Apple's signature: a common malware trick. \(disclaimer)",
+            return Card(state: .unknown, CardTemplate(name, .words("pretends to be a part of macOS"), .probablyHarmful,
+                                                      evidence: ["It uses a name from macOS, but it runs from \(place(path)) without Apple's signature. \(trick)"]),
                         fixes: [fix, Card.share])
         case .unchecked(let name):
-            return Card(state: .working, headline: "\(name) is probably part of macOS, but we couldn't confirm it.",
-                        explanation: "macOS didn't say where its program lives. Nothing to do unless it stays busy for hours.",
+            return Card(state: .working, CardTemplate(name, .words("is probably a part of macOS"), nil,
+                                                      evidence: ["macOS did not say where its program is, so Cool Head cannot check it."],
+                                                      effect: ["You do not need to do anything unless it stays busy for hours."]),
                         fixes: [Card.share])
         case .notAppleSigned(let name, _):
             let steps = ["Shut down your Mac.", "Press and hold the power button until the startup options appear, then choose Options to start in Recovery.",
                          "Choose \(Fmt.path("Utilities", "Terminal")), type \(Fmt.ui("csrutil enable")), and press Return."]
                 + (protection.sealBroken || !path(isOnDataVolume: f) ? ["Type \(Fmt.ui("csrutil authenticated-root enable")), and press Return."] : [])
                 + ["Restart."]
-            return Card(state: .unknown, headline: "This copy of \(name) isn't Apple's.",
-                        explanation: "macOS's protection is off on this Mac, and this program in macOS's folders has been changed. \(disclaimer)",
-                        fixes: [Fix.guide("protect", "Turn macOS's protection back on", "Stops anything changing macOS's own programs. Needs a restart into Recovery.",
+            return Card(state: .unknown, CardTemplate("This copy of \(name)", .words("is not Apple's"), .probablyHarmful,
+                                                      evidence: ["macOS protection is off on this Mac, and this program in the macOS folders was changed."]),
+                        fixes: [Fix.guide("protect", "Turn on macOS protection", "This shows how. It stops anything from changing macOS programs, and it needs a restart into Recovery.",
                                           steps: steps, recommended: true),
-                                Fix.guide("reinstall", "Reinstall macOS", "Puts back Apple's own programs. Your files and apps are kept, but it takes a long time.",
+                                Fix.guide("reinstall", "Reinstall macOS", "This puts back Apple's own programs. Your files and apps stay, but it takes a long time.",
                                           steps: ["Start in Recovery: shut down, then press and hold the power button until the startup options appear, and choose Options.",
                                                   "Choose Reinstall macOS and follow the steps."]),
                                 Card.share])
@@ -243,17 +245,17 @@ public enum Disguise {
                 // in your login session: turned off as another app's helper is (see BackgroundAgents), stopped, and moved
                 // to the Trash with its item, in one click
                 fix = Fix(id: "remove", title: "Turn off and delete it",
-                          consequence: "Stops it, keeps it from starting again, and moves it to the Trash. If it's something you use, it stops working until you put it back.",
+                          consequence: "This stops it, keeps it from starting again, and moves it to the Trash. If it is something you use, it stops working until you put it back.",
                           kind: .stopAndTrash([program, plist], plist), recommended: true)
             } else {
                 // the system's own launch items need an administrator (see the padlock line in the research)
-                fix = Fix.guide("loginitems", "Turn it off in Login Items", "Needs an administrator password.",
+                fix = Fix.guide("loginitems", "Turn it off in Login Items", "This shows how. It needs an administrator password.",
                                 steps: ["Open \(Fmt.path("System Settings", "General", "Login Items & Extensions")).",
-                                        "Under \(Fmt.ui("Allow in the Background")), find the item for \(file) and switch it off.",
+                                        "Under \(Fmt.ui("Allow in the Background")), find the item for \(file) and turn it off.",
                                         "Enter an administrator password if asked."], recommended: true)
             }
-            return Card(state: .unknown, headline: "A background item is pretending to be Apple's.",
-                        explanation: "\(label) starts \(file) from \(shown), without Apple's signature: a common malware trick. \(disclaimer)",
+            return Card(state: .unknown, CardTemplate("a background item", .words("pretends to be Apple's"), .probablyHarmful,
+                                                      evidence: ["\(label) starts \(file) from \(shown) without Apple's signature. \(trick)"]),
                         fixes: [fix, Card.share])
         }
     }

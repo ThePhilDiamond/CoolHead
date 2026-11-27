@@ -18,9 +18,9 @@ extension Fixture {
         let alike = card("memory-app-and-program-alike")
         let first = card("memory-program-first")
         let child = card("hang-started-a-program-of-its-own-name")
-        let cases = alike?.headline == "Memory is tight. The Claude app is using the most (2.7 GB)."
+        let cases = alike?.headline == "Apps and programs are using almost all of your Mac's memory. The Claude app uses the most, 2.7 GB."
             && alike?.facts == ["Also using a lot: the claude command-line program (1.5 GB)"]
-            && first?.headline.hasPrefix("Memory is tight. node is using the most") == true
+            && first?.headline.contains("node uses the most") == true
             && child?.explanation.contains("another ffmpeg and ffprobe") == true
             && Naming.distinct([.init("a script", .script), .init("a script", .script)]) == ["a script", "another script"]
             && Fmt.sentenceStart("macOS's mds") == "macOS's mds" && Fmt.sentenceStart("the claude command-line program") == "The claude command-line program"
@@ -35,7 +35,7 @@ extension Fixture {
         let lists = [Fmt.list([]), Fmt.list(["a"]), Fmt.list(["a", "b"]), Fmt.list(["a", "b", "c"]), Fmt.list(["a", "b", "c"], or: true),
                      Hang.waitingWords(["ffmpeg", "ffprobe", "node", "python3"]) ?? ""]
         let ok = lists == ["", "a", "a and b", "a, b, and c", "a, b, or c",
-                           "It started 4 programs that may be waiting on it: ffmpeg, ffprobe, node, and others."]
+                           "It started 4 programs that may wait for it: ffmpeg, ffprobe, node, and others."]
         return ("lists-oxford-comma", ok, lists.joined(separator: " | "))
     }
 

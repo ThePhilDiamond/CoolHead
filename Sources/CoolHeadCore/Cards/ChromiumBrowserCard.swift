@@ -37,38 +37,37 @@ enum ChromiumBrowserCard: ProcessCard {
         let e = s.e
         guard let part = e.browserPart, let app = e.app, let bundle = e.appBundle else { return nil }
         let inFront = s.frontApp == bundle                 // you're using the browser: the busy tab may be the one you're on
-        let what = part == .tab ? "One tab" : part == .extensionPart ? "One extension" : "Its graphics process"
-        let explanation = (s.gpuLed ? "\(what) has kept \(Fmt.share(s.gpu)) of the graphics chip busy for \(Fmt.duration(s.busyFor))."
-                           : "\(what) has used about \(Fmt.cores(e.coresNow)) for \(Fmt.duration(s.busyFor)).")
-            + (part == .graphics ? "" : " Only \(app) knows which.")
-            + Fmt.its([s.gpuLed ? nil : s.gpuClause, s.warm && s.heating ? "adding to the heat" : nil])
+        // one shape for every card about how hard something works (docs/BRAND.md, Voice): who and how hard in the
+        // headline, what it's doing or who knows which in the explanation
+        let evidence = [part == .graphics ? "It draws video or animation in a tab." : part == .tab ? "Only \(app) knows which tab." : "Only \(app) knows which extension.",
+                        s.gpuLed ? nil : s.graphics].compactMap { $0 }
+        let effect = [CardTemplate.it([s.warm && s.heating ? "adds heat" : nil])].compactMap { $0 }
         let canCool = RunCooler.offered(e) && part != .graphics     // slowing graphics would slow all of it
         let page = { (url: String, title: String, why: String, rec: Bool) in
             Fix(id: "page", title: title, consequence: why, kind: .openPage(bundle, url), recommended: rec) }
         let find = Fix.openApp("find", part == .extensionPart ? "Find the busy extension" : "Find the busy tab", bundle: bundle, steps: [TaskManager.open(app), TaskManager.sort(by: "CPU", so: "the busiest"),
-                                       part == .extensionPart ? "Its name says which extension it is." : "Close that tab, or reload it if you need it."].joined(separator: " ")).fixingTheCause()
-        let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp(bundle)).losingWork()
+                                       part == .extensionPart ? "Its name shows which extension it is." : "Close that tab, or reload it if you need it."].joined(separator: " ")).fixingTheCause()
+        let quit = Fix(id: "quit", title: "Quit \(app)", consequence: "This closes all its tabs.", kind: .quitApp(bundle)).losingWork()
         var fixes: [Fix?]
         switch part {
         case .tab:
-            fixes = [canCool ? Fix(id: "cooler", title: "Run this tab cooler", consequence: "Only this tab slows. Undo any time.", kind: .cooler, recommended: !inFront, holdBack: inFront) : nil,
-                     page("chrome://settings/performance", "Turn on Energy Saver", "Takes you to \(app)'s Performance settings. Less background work, lower frame rates.", inFront || !canCool),
+            fixes = [canCool ? Fix(id: "cooler", title: "Run this tab cooler", consequence: CardTemplate.says("This slows only that tab.", undo: true), kind: .cooler, recommended: !inFront, holdBack: inFront) : nil,
+                     page("chrome://settings/performance", "Turn on Energy Saver", "This opens \(app)'s Performance settings. Energy Saver lowers background work and frame rates.", inFront || !canCool),
                      find,
-                     e.mine ? Fix(id: "closetab", title: "Close just that tab", consequence: "It shows a crash page; Reload brings it back. Anything typed in it is lost.", kind: .stop) : nil,
+                     e.mine ? Fix(id: "closetab", title: "Close just that tab", consequence: CardTemplate.says("This leaves a crash page in the tab. Reload opens it again.", .unsaved), kind: .stop) : nil,
                      quit]
         case .extensionPart:
-            fixes = [page("chrome://extensions", "Turn off the extension", "Takes you to \(app)'s extensions page. Switch off the one you don't need.", true).fixingTheCause(),
-                     canCool ? Fix(id: "cooler", title: "Run it cooler", consequence: "Only this extension slows. Undo any time.", kind: .cooler) : nil,
+            fixes = [page("chrome://extensions", "Turn off the extension", "This opens \(app)'s extensions page. Turn off the one you do not need.", true).fixingTheCause(),
+                     canCool ? Fix(id: "cooler", title: "Run it cooler", consequence: CardTemplate.says("This slows only that extension.", undo: true), kind: .cooler) : nil,
                      find,
-                     e.mine ? Fix(id: "stopext", title: "Stop the extension", consequence: "\(app) says it crashed. Reload it from the extensions page.", kind: .stop) : nil,
+                     e.mine ? Fix(id: "stopext", title: "Stop the extension", consequence: "This makes it show as crashed until you reload it.", kind: .stop) : nil,
                      quit]
         case .graphics:
-            fixes = [page("chrome://settings/performance", "Turn on Energy Saver", "Takes you to \(app)'s Performance settings. Lower frame rates, less heat.", true),
+            fixes = [page("chrome://settings/performance", "Turn on Energy Saver", "This opens \(app)'s Performance settings. Energy Saver lowers frame rates, so the Mac makes less heat.", true),
                      find, quit]
         }
-        let head = part == .tab ? "A \(app) tab is working hard." : part == .extensionPart ? "A \(app) extension is working hard."
-            : "\(app) is drawing a lot: video or animation in a tab."
+        let subject = part == .tab ? "a \(app) tab" : part == .extensionPart ? "a \(app) extension" : app
         return Card(state: !s.active ? .quiet : s.busyFor > 20 * 60 ? .unknown : .starting,
-                    headline: head, explanation: explanation, fixes: fixes.compactMap { $0 })
+                    CardTemplate(subject, s.reading, .moreThanUsual, evidence: evidence, effect: effect), fixes: fixes.compactMap { $0 })
     }
 }

@@ -23,13 +23,14 @@ enum SecuritySoftwareCard: ProcessCard {
     static func made(_ s: Situation) -> Card? {
         let e = s.e
         guard let product = SecuritySoftware.product(path: e.path, name: e.name) else { return nil }
-        if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(product.name) is quiet now.", explanation: "", fixes: []) }
+        if e.coresNow < 0.25 { return Card(state: .quiet, CardTemplate(product.name, .quiet, nil), fixes: []) }
         let vpn = product.kind == .vpn
         return Card(state: .working,
-                    headline: vpn ? "\(product.name) is your VPN, handling your network traffic." : "\(product.name) is security software, checking files as they're used.",
-                    explanation: "Cool Head won't stop or slow it: that could leave your Mac unprotected or break your organization's rules."
-                        + (vpn ? "" : " If it's busy for hours, tell whoever manages this Mac: it may be stuck scanning a big folder."),
-                    fixes: [vpn ? e.appBundle.map { Fix.openApp("disconnect", "Disconnect when you don't need it", bundle: $0, steps: "Disconnect there, or from its menu bar icon.") } : nil,
+                    CardTemplate(product.name, .words(vpn ? "is your VPN" : "is security software"), .normal,
+                                 evidence: [vpn ? "It handles your network traffic." : "It checks files as they are used."],
+                                 effect: ["Cool Head does not stop or slow it, because that can leave your Mac unprotected or break your organization's rules."]
+                                    + (vpn ? [] : ["If it stays busy for hours, tell whoever manages this Mac, because it may be stuck on a big folder."])),
+                    fixes: [vpn ? e.appBundle.map { Fix.openApp("disconnect", "Disconnect when you do not need it", bundle: $0, steps: "Disconnect there, or from its menu bar icon.") } : nil,
                             Card.lookUp(product.name, recommended: false)].compactMap { $0 })
     }
 }

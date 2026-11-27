@@ -31,12 +31,12 @@ extension Fixture {
         let job = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos",
                                   start: now.addingTimeInterval(-7200), cores: 0)
         let inShell = Hang.card(.paused, with(job, parent: "zsh"), stuckFor: 3600, terminal: "Terminal", now: now)
-        out.append(("hang-paused-in-terminal", inShell.state == .waiting && inShell.recommended?.title == "Bring it back"
+        out.append(("hang-paused-in-terminal", inShell.state == .waiting && inShell.recommended?.title == "Continue it"
                         && !inShell.fixes.contains { $0.kind == .resume } && inShell.explanation.contains("Control-Z"),
                     inShell.headline))
         let other = Hang.card(.paused, with(job, parent: "launchd"), stuckFor: 600, waiting: ["ffmpeg", "ffmpeg"], now: now)
-        out.append(("hang-paused-by-something-else", other.state == .unknown && other.recommended?.title == "Resume it"
-                        && ids(other).contains("stop") && ids(other).contains("share") && other.explanation.contains("started 2 programs that may be waiting on it: ffmpeg."),
+        out.append(("hang-paused-by-something-else", other.state == .unknown && other.recommended?.title == "Continue it"
+                        && ids(other).contains("stop") && ids(other).contains("share") && other.explanation.contains("started 2 copies of ffmpeg, which may wait for it."),
                     other.headline + " " + other.explanation))
         let drive = Hang.card(.diskWait, with(job, parent: "launchd"), stuckFor: 300, volumes: ["Backup"], now: now)
         out.append(("hang-waiting-on-a-drive", drive.headline.contains("Backup") && drive.recommended?.title == "Reconnect Backup"
@@ -48,7 +48,7 @@ extension Fixture {
         let settled = Hang.card(.notResponding, app, stuckFor: 600, now: now)
         let working = Hang.card(.notResponding, busyApp, stuckFor: 600, now: now)
         let ok = fresh.recommended == nil && ids(fresh).contains("forcequit") && settled.recommended?.title == "Force quit Foo"
-            && working.recommended == nil && !ids(fresh).contains("stop") && fresh.explanation.contains("clock in this card's corner")
+            && working.recommended == nil && !ids(fresh).contains("stop") && fresh.explanation.contains("clock on this card")
         out.append(("hang-not-responding", ok,
                     "2 minutes: \(fresh.recommended?.title ?? "nothing recommended yet"); 10 minutes idle: \(settled.recommended?.title ?? "none"); 10 minutes busy: \(working.recommended?.title ?? "none")"))
         out.append(("not-responding-check-available", Hang.canCheckResponding, Hang.canCheckResponding ? "macOS answers which apps are Not Responding" : "macOS's check wasn't found"))

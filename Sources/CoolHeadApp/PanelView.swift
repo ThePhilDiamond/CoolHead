@@ -101,11 +101,13 @@ struct PanelView: View {
                     } else if watcher.firstLook {
                         // what's already known shows at once (tight memory, say), with the first look under it
                         ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
+                        TermsFooter(cards: shownCards.map(\.card))
                         FirstLookView(judging: watcher.firstLookJudging)
                     } else if shownCards.isEmpty && !watcher.syncPauses.contains(where: { $0.until <= Date() }) {
                         Text("Nothing needs a look.").foregroundStyle(Ink.muted)
                     } else {
                         ForEach(shownCards) { CardView(live: $0, watcher: watcher) }
+                        TermsFooter(cards: shownCards.map(\.card))
                     }
                 }
                 .padding(16)
@@ -621,7 +623,7 @@ struct CardView: View {
         case .resume:
             show(watcher.resumeStopped(live))
         case .lookUp(let name):
-            watcher.log("Look it up pressed for \(live.reportSubject)")
+            watcher.log("Search the web pressed for \(live.reportSubject)")
             // only the process name is searched for: no paths, nothing about this Mac
             var u = URLComponents(string: "https://duckduckgo.com/")!
             // a stuck process is searched for as stuck, not as busy
@@ -684,7 +686,7 @@ struct CardView: View {
                 if n.failed { Alerts.remind(n.text) }
             }
         case .share:
-            if !sharing { watcher.log("Share this case opened for \(live.reportSubject)") }
+            if !sharing { watcher.log("Send this case opened for \(live.reportSubject)") }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
         case .openPage(_, let address) where address.hasPrefix("x-apple.systempreferences:"):
             // System Settings opens its own pages from another app; it has no address bar to paste into (Command-L does
@@ -980,7 +982,7 @@ enum WhatsNew {
             "The gauges at the top are grouped under Usage and Temperature, and the temperature ring shows the battery or drive when one is nearer its own limit.",
             "Test my network keeps its results for 30 minutes, with the time of the test beside Test again.",
             "Managed by Cool Head is open whenever nothing else is: when the panel opens, and when you close a tool or Settings.",
-            "Options that open System Settings, such as Open Battery settings, go straight to the page.",
+            "Options that open System Settings, such as Change Low Power Mode, go straight to the page.",
             "Nerdy stuff opens as a small terminal, and a click anywhere on it copies the details.",
         ],
         "0.12.0": [
@@ -1145,6 +1147,28 @@ struct UpdateBanner: View {
 
 /// A process running cooler because the person chose it: pinned at the top until it ends or is set back, so it
 /// is clear what Cool Head has changed. Reporting a problem with it sits beside it.
+/// The terms footer: what a word the cards use means, for a reader who doesn't know it (CardTemplate.terms). One
+/// visible line under the cards, said once however many cards use the word, so no card carries the definition. Text,
+/// not a button that hides it: the readers who need it most are the least likely to open one. Secondary text, after
+/// the cards in VoiceOver's order, read as one element.
+struct TermsFooter: View {
+    let cards: [Card]
+    var body: some View {
+        let terms = CardTemplate.terms(for: cards)
+        if !terms.isEmpty {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "info.circle").accessibilityHidden(true)
+                Text(terms.map(\.definition).joined(separator: " ")).fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.caption)
+            .foregroundStyle(Ink.muted)
+            .padding(.horizontal, 2)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("About these words: " + terms.map(\.definition).joined(separator: " "))
+        }
+    }
+}
+
 /// What opens a card or a line, in words with an arrow pointing the way it opens (down to open, up to close), not an
 /// arrow alone, since a chevron in the corner was hard to see and didn't say what it did. A real button, so the
 /// keyboard reaches it and VoiceOver reads it as one, with whether it's open; a click anywhere on the card does the

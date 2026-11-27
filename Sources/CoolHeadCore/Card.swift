@@ -85,7 +85,7 @@ public struct Fix: Identifiable {
     /// An option that opens an app and says what to do there.
     public static func openApp(_ id: String, _ title: String, bundle: String, steps: String, recommended: Bool = false) -> Fix {
         let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
-        return Fix(id: id, title: title, consequence: "Opens \(app). \(steps)", kind: .openApp(bundle, steps), recommended: recommended)
+        return Fix(id: id, title: title, consequence: "This opens \(app). \(steps)", kind: .openApp(bundle, steps), recommended: recommended)
     }
 
     /// An option that shows how to do something Cool Head can't do itself: `steps` appear under it when pressed.
@@ -236,7 +236,7 @@ extension Fix {
         switch kind {
         case .stop: return "It ends at once, without a chance to save or finish what it was doing."
         case .forceQuit: return "The app ends at once, without a chance to save."
-        case .restartBrowser: return "Private windows, text typed into pages, and downloads in progress don't come back."
+        case .restartBrowser: return "Private windows, text typed into pages, and downloads in progress do not open again."
         case .stopAgent: return "What it does for its app, such as updates or syncing, stops too, so the app may not work as it should."
         case .stopAndTrash: return "It ends at once, and anything that relies on it stops working until you put it back from the Trash."
         case .restartApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
@@ -281,6 +281,9 @@ public struct Card {
     /// record (see Decision.swift).
     public var diagnosis: Diagnosis? = nil
     public var optionFacts: [String: OptionFacts] = [:]
+    /// The slots the card was written from, for a card made from the template (see CardTemplate); the selftest checks
+    /// its headline against them.
+    public var template: CardTemplate? = nil
 
     public init(state: JobState, headline: String, explanation: String, fixes: [Fix]) {
         self.state = state; self.headline = headline; self.explanation = explanation
@@ -394,17 +397,18 @@ public struct Card {
 
     static func wait(until: Date?, now: Date, recommended: Bool) -> Fix {
         if let u = until, u > now.addingTimeInterval(120) {
-            return Fix(id: "wait", title: "Wait until \(Fmt.time(u))", consequence: "It should be done by then.",
+            return Fix(id: "wait", title: "Wait until \(Fmt.time(u))", consequence: "This hides the card until then.",
                        kind: .wait(u), recommended: recommended)
         }
-        return Fix(id: "wait", title: "Wait 30 minutes", consequence: "We'll check again then.",
+        return Fix(id: "wait", title: "Wait 30 minutes", consequence: "This hides the card until then.",
                    kind: .wait(now.addingTimeInterval(1800)), recommended: recommended)
     }
 
-    static let share = Fix(id: "share", title: "Share this case", consequence: "Help us figure it out. You see everything first.", kind: .share)
+    // sent to Cool Head's makers only after you see it and choose to (see CaseReport)
+    static let share = Fix(id: "share", title: "Send this case", consequence: "This shows you what Cool Head saw. You choose whether to send it to Cool Head's makers.", kind: .share)
 
     static func lookUp(_ name: String, recommended: Bool) -> Fix {
-        Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(name)\u{201D}.", kind: .lookUp(name), recommended: recommended)
+        Fix(id: "lookup", title: "Search the web", consequence: "This searches for \u{201C}\(name)\u{201D} in your browser.", kind: .lookUp(name), recommended: recommended)
     }
 
     /// The card for one busy process: every card in Sources/CoolHeadCore/Cards that matches is made, and the ranker
@@ -431,7 +435,7 @@ public struct Card {
         // competing with
         let text = c.headline + " " + c.explanation
         c.names = [subject(s.e)].filter { text.contains($0) }
-            + (s.gameRunning.map { g in text.contains("competing with \(g)") ? [g] : [] } ?? [])
+            + (s.gameRunning.map { g in text.contains("slows \(g)") ? [g] : [] } ?? [])
         return c
     }
 }

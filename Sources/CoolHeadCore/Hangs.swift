@@ -72,8 +72,10 @@ public enum Hang {
         let unique = names.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         guard !unique.isEmpty else { return nil }
         let shown = Fmt.list(Array(unique.prefix(3)) + (unique.count > 3 ? ["others"] : []))
-        return names.count == 1 ? "It started \(shown), which may be waiting on it."
-                                : "It started \(names.count) programs that may be waiting on it: \(shown)."
+        if names.count == 1 { return "It started \(shown), which may wait for it." }
+        // two copies of one program are said as copies, so the count and the names agree
+        if unique.count == 1 { return "It started \(names.count) copies of \(shown), which may wait for it." }
+        return "It started \(names.count) programs that may wait for it: \(shown)."
     }
 
     /// The other disks and network drives it has files open on ("Backup", "Shared"), by name: the likely thing it is
@@ -122,61 +124,65 @@ public enum Hang {
 
     static func body(_ kind: Kind, _ e: Evidence, stuckFor: TimeInterval, who: String, waiting: [String], volumes: [String],
                      terminal: String?, now: Date) -> Card {
-        let long = Fmt.duration(stuckFor)
         let protected = SecuritySoftware.product(path: e.path, name: e.name) != nil
         let macOS = e.script == nil && (e.path.map(CaseReport.isMacOS) ?? true)
         let appMain = e.appBundle != nil && e.script == nil && e.browserPart == nil
             && (e.path?.contains(".app/Contents/MacOS/") ?? false)
-        let waits = waitingWords(waiting).map { " " + $0 } ?? ""
-        let started = appMain ? "" : " Started by \(e.startedBy)."
-        let memory = e.memoryBytes >= 10_000_000 ? " (\(Fmt.bytes(e.memoryBytes)))" : ""
+        let waits = [waitingWords(waiting)].compactMap { $0 }
+        // who started it is in Nerdy stuff (Evidence's lines), so the card keeps to what it holds and what waits on it
+        let holds = e.memoryBytes >= 10_000_000 ? "It still holds \(Fmt.bytes(e.memoryBytes)) of memory and any files it has open."
+                                                : "It still holds its memory and any files it has open."
         let stop: Fix? = e.mine && !macOS && !appMain && !protected
-            ? Fix(id: "stop", title: "Stop it", consequence: "It ends without finishing. Anything it hasn't saved is lost.", kind: .stop)
+            ? Fix(id: "stop", title: "Stop it", consequence: CardTemplate.says("This ends it before it finishes.", .unsaved), kind: .stop)
             : nil
         let forceQuit: Fix? = appMain && e.mine && !protected
-            ? Fix(id: "forcequit", title: "Force quit \(who)", consequence: "Like Force Quit in the Apple menu. Anything unsaved in it is lost.", kind: .forceQuit)
+            ? Fix(id: "forcequit", title: "Force quit \(who)", consequence: CardTemplate.says("This works like Force Quit in the Apple menu.", .unsaved), kind: .forceQuit)
             : nil
 
         switch kind {
         case .paused:
             if let bundle = terminal {
                 let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
-                return Card(state: .waiting, headline: "\(who) has been paused in \(app) for \(long).",
-                            explanation: "It was suspended there, usually with Control-Z, and does nothing until it's brought back. "
-                                + "It still holds its memory\(memory) and any files it has open." + waits,
-                            fixes: [Fix.openApp("fg", "Bring it back", bundle: bundle, steps: "In the window it's in, type fg and press Return.", recommended: true).fixingTheCause(),
+                return Card(state: .waiting,
+                            CardTemplate(who, .words("is still paused in \(app) after \(Fmt.duration(stuckFor))"), .waitsForYou,
+                                         evidence: ["It was paused there, usually with Control-Z. It does nothing while it is paused."], effect: [holds] + waits),
+                            fixes: [Fix.openApp("fg", "Continue it", bundle: bundle, steps: "In the window it is in, type fg and press Return.", recommended: true).fixingTheCause(),
                                     stop].compactMap { $0 })
             }
-            return Card(state: .unknown, headline: "\(who) has been paused for \(long), not by Cool Head.",
-                        explanation: "Something stopped it, and it does nothing until it's resumed. It still holds its memory\(memory) and any files it has open."
-                            + started + waits,
-                        fixes: [e.mine ? Fix(id: "resume", title: "Resume it", consequence: "It carries on from where it stopped. If something paused it on purpose, it may pause it again.",
+            return Card(state: .unknown,
+                        CardTemplate(who, .words("is still paused after \(Fmt.duration(stuckFor))"), nil,
+                                     evidence: ["Something other than Cool Head paused it, and it does nothing until it continues."],
+                                     effect: [holds] + waits),
+                        fixes: [e.mine ? Fix(id: "resume", title: "Continue it", consequence: "This lets it continue from where it stopped. If something paused it on purpose, it may pause it again.",
                                              kind: .resume, recommended: true) : nil,
                                 stop, forceQuit, Card.lookUp(e.name, recommended: !e.mine), Card.share].compactMap { $0 })
 
         case .diskWait:
             let drive = volumes.first
             let target = drive ?? "a disk or network drive"
-            return Card(state: .unknown, headline: "\(who) has been stuck waiting on \(target) for \(long).",
-                        explanation: "It asked \(drive == nil ? "it" : "that drive") for something and is still waiting for the answer. "
-                            + "It's usually a network drive that dropped, an external disk, or a disk that's very busy. It can't be stopped or quit until the answer comes."
-                            + started + waits,
-                        fixes: [Fix.guide("drive", drive.map { "Reconnect \($0)" } ?? "Reconnect your drives", "Reconnect the network drive or plug the disk back in. Once it answers, the stuck process carries on by itself.",
+            return Card(state: .unknown,
+                        CardTemplate(who, .words("is still waiting for \(target) after \(Fmt.duration(stuckFor))"), .stuck,
+                                     evidence: ["It asked \(drive == nil ? "a drive" : "that drive") for something and still waits for the answer.",
+                                                "The cause is usually a network drive that dropped, an external disk, or a disk that is very busy."],
+                                     effect: ["It cannot be stopped or quit until the answer comes."] + waits),
+                        fixes: [Fix.guide("drive", drive.map { "Reconnect \($0)" } ?? "Reconnect your drives", "This shows how to connect the drive again. When it answers, the stuck program continues by itself.",
                                           steps: ["For a network drive: in Finder, choose \(Fmt.path("Go", "Connect to Server")), and connect to it again.",
-                                                  "For a disk: check its cable, or plug it back in."],
+                                                  "For a disk: check its cable, or connect it again."],
                                           recommended: true).fixingTheCause(),
-                                Fix.guide("restart", "Restart if it won't clear", "If it's still stuck once the drive is back, restarting your Mac frees it. Nothing else can end a process stuck on a drive.",
+                                Fix.guide("restart", "Restart if it stays stuck", "This shows how to restart your Mac, which frees it if it stays stuck when the drive is back. Nothing else can end a program that is stuck on a drive.",
                                           steps: ["Save your work in other apps.", "Choose \(Fmt.path("Apple menu", "Restart"))."]).fixingTheCause(),
                                 Card.lookUp(e.name, recommended: false), Card.share])
 
         case .notResponding:
             let busy = e.coresNow >= 0.5
             let settled = stuckFor >= 5 * 60 && !busy
-            let why = busy ? " It's busy, using about \(Fmt.cores(e.coresNow)), so it may be working through something big and recover."
-                           : " It's using almost no power, so it's probably waiting on something: a network drive, a stuck helper, or another app."
-            return Card(state: .unknown, headline: "\(who) isn't responding.",
-                        explanation: "macOS marked it Not Responding \(long) ago: it has stopped answering clicks and keys." + why + waits
-                            + (settled ? "" : " Apps often recover once a long task finishes. To wait, use the clock in this card's corner."),
+            let why = busy ? "It uses about \(Fmt.cores(e.coresNow)), so it probably works on something big and may recover."
+                           : "It does almost no work, so it probably waits for a drive or another program."
+            return Card(state: .unknown,
+                        CardTemplate(who, nil, .notResponding,
+                                     evidence: ["It is still not answering clicks or keys after \(Fmt.duration(stuckFor)).", why],
+                                     effect: waits
+                                        + (settled ? [] : ["Apps often recover when a long task ends, so you can wait with the clock on this card."])),
                         fixes: [forceQuit.map { var f = $0; f.recommended = settled; return f },
                                 Card.lookUp(e.name, recommended: false), Card.share].compactMap { $0 })
         }

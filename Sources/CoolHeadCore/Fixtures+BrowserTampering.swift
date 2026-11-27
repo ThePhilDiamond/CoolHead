@@ -21,7 +21,7 @@ extension Fixture {
         let policy = BrowserTampering.cards(policies: [("Google Chrome", chrome, words)], managed: false, scripted: [])
         let managed = BrowserTampering.cards(policies: [("Google Chrome", chrome, words)], managed: true, scripted: [])
         let clean = BrowserTampering.cards(policies: [("Google Chrome", chrome, mine)], managed: false, scripted: [])
-        let c1 = policy.first?.card.headline == "Google Chrome is managed by settings Cool Head didn't make."
+        let c1 = policy.first?.card.headline == "Google Chrome uses settings that Cool Head did not make."
             && policy.first?.card.explanation.hasPrefix("They force an extension and set the search engine.") == true
             && policy.first?.card.fixes.first?.kind == .openPage(chrome, "chrome://policy")
             && managed.isEmpty && clean.isEmpty
@@ -37,7 +37,7 @@ extension Fixture {
         let card = s.map { BrowserTampering.cards(policies: [], managed: false, scripted: [$0]) } ?? []
         let s1 = s?.folder == NSHomeDirectory() + "/Downloads/helper-ext" && s?.shown == "~/Downloads/helper-ext" && s?.parent == "node" && dock == nil && plain == nil && helper == nil
             && card.first?.card.headline == "Google Chrome was started by a script, with an extension loaded."
-            && card.first?.card.fixes.first?.kind == .reveal(NSHomeDirectory() + "/Downloads/helper-ext", "If you don't recognize it, quit Google Chrome, then move the folder to the Trash.")
+            && card.first?.card.fixes.first?.kind == .reveal(NSHomeDirectory() + "/Downloads/helper-ext", "If you do not recognize it, quit Google Chrome, then move the folder to the Trash.")
             && card.first?.card.fixes.last?.caution == true
             && card.first?.details.contains("Extension folder: ~/Downloads/helper-ext") == true
         review.append(("browser-scripted-card", s1, card.first.map { $0.card.headline + " " + $0.card.explanation } ?? "none"))

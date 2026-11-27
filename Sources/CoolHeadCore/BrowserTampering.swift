@@ -64,12 +64,13 @@ public enum BrowserTampering {
             let what = Fmt.list(f)
             var lc = LiveCard(id: "browser-policy-\(p.browser)", pid: nil, card: Card(
                 state: .unknown,
-                headline: "\(p.browser) is managed by settings Cool Head didn't make.",
-                explanation: "They \(what). Your Mac isn't managed by an organization, so they didn't come from an employer or school. Adware sets these to keep its changes; it may also be software you installed on purpose.",
-                fixes: [Fix(id: "policy-page", title: "See what's set in \(p.browser)",
-                            consequence: "Its policy page lists each setting and where it came from.",
+                CardTemplate(p.browser, .words("uses settings that Cool Head did not make"), nil,
+                             evidence: ["They \(what). No organization manages your Mac, so they did not come from an employer or school."],
+                             effect: ["Adware sets these to keep its changes, but it can also be software you installed on purpose."]),
+                fixes: [Fix(id: "policy-page", title: "See what is set in \(p.browser)",
+                            consequence: "This opens its policy page, which lists each setting and where it came from.",
                             kind: .openPage(p.bundle, "chrome://policy"), recommended: true),
-                        Fix(id: "profiles", title: "Check for a profile", consequence: "Settings can also come from a profile someone installed. Remove one you don't recognize there.",
+                        Fix(id: "profiles", title: "Check for a profile", consequence: "This opens Profiles in System Settings. Settings can also come from a profile that someone installed. Remove one you do not recognize.",
                             kind: .openPage("/System/Applications/System Settings.app", "x-apple.systempreferences:com.apple.Profiles-Settings.extension"))]),
                 details: ["Browser: \(p.browser)", "Settings that " + what, "Managed by an organization: no"],
                 reportSubject: "browser policies from an unknown source")
@@ -81,11 +82,12 @@ public enum BrowserTampering {
         if let s = scripted.first {
             var lc = LiveCard(id: "browser-scripted-\(s.pid)", pid: s.pid, card: Card(
                 state: .unknown,
-                headline: "\(s.browser) was started by a script, with an extension loaded.",
-                explanation: "Started by \(s.parent) rather than from the Dock or Finder, it loaded an extension from a folder instead of an extension store. Developers do this to test extensions; adware has done it to slip one in.",
-                fixes: [Fix(id: "reveal-extension", title: "Show the extension's folder", consequence: "Opens it in Finder, so you can see what it is.",
-                            kind: .reveal(s.folder, "If you don't recognize it, quit \(s.browser), then move the folder to the Trash."), recommended: true),
-                        Fix(id: "quit", title: "Quit \(s.browser)", consequence: "Closes its windows. Opening it from the Dock starts it without the extension.", kind: .quitApp(s.bundle)).losingWork()]),
+                CardTemplate(s.browser, .words("was started by a script, with an extension loaded"), nil,
+                             evidence: ["\(s.parent) started it, not the Dock or Finder, and it loaded an extension from a folder, not from an extension store."],
+                             effect: ["Developers do this to test extensions, and adware did it to add one."]),
+                fixes: [Fix(id: "reveal-extension", title: "Show the extension's folder", consequence: "This shows it in Finder, so you can see what it is.",
+                            kind: .reveal(s.folder, "If you do not recognize it, quit \(s.browser), then move the folder to the Trash."), recommended: true),
+                        Fix(id: "quit", title: "Quit \(s.browser)", consequence: "This closes its windows. When you open it from the Dock, it starts without the extension.", kind: .quitApp(s.bundle)).losingWork()]),
                 details: ["Browser: \(s.browser), process \(s.pid)", "Started by: \(s.parent)", "Extension folder: \(s.shown)"],
                 reportSubject: "a browser started by a script with an extension loaded")
             lc.causeKey = "browser-scripted"

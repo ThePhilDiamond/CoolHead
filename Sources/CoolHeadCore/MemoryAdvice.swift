@@ -43,28 +43,28 @@ public enum MemoryAdvice {
         static func loses(_ w: String) -> QuitCost { QuitCost(words: w, losesWork: true) }
     }
     static let quitRisks: [String: QuitCost] = [
-        "Docker": .loses("Stops all containers."),
-        "OrbStack": .loses("Stops all containers and machines."),
-        "Parallels Desktop": .loses("Shuts down the virtual machine. Save inside it first."),
-        "UTM": .loses("Shuts down the virtual machine. Save inside it first."),
-        "VMware Fusion": .loses("Shuts down the virtual machine. Save inside it first."),
-        "Xcode": .loses("Stops builds and simulators."),
-        "Final Cut Pro": .loses("Stops renders and exports."),
-        "Adobe Premiere Pro": .loses("Stops renders and exports."),
-        "DaVinci Resolve": .loses("Stops renders and exports."),
-        "Logic Pro": .loses("Stops bounces. It'll ask to save."),
-        "Slack": .keeps("No messages until you reopen it."),
-        "Microsoft Teams": .loses("Leaves calls. No messages until you reopen it."),
-        "zoom.us": .loses("Leaves your meeting."),
-        "Claude": .loses("Stops what Claude is doing."),
-        "ChatGPT": .loses("Ends the conversation in progress."),
-        "Terminal": .loses("Stops what's running in it."),
-        "iTerm": .loses("Stops what's running in it."),
-        "Warp": .loses("Stops what's running in it."),
-        "Visual Studio Code": .loses("Stops what's running in it."),
-        "Cursor": .loses("Stops what's running in it."),
-        "Spotify": .keeps("Stops the music."),
-        "Music": .keeps("Stops the music."),
+        "Docker": .loses("This stops all containers."),
+        "OrbStack": .loses("This stops all containers and machines."),
+        "Parallels Desktop": .loses("This shuts down the virtual machine. Save your work inside it first."),
+        "UTM": .loses("This shuts down the virtual machine. Save your work inside it first."),
+        "VMware Fusion": .loses("This shuts down the virtual machine. Save your work inside it first."),
+        "Xcode": .loses("This stops builds and simulators."),
+        "Final Cut Pro": .loses("This stops renders and exports."),
+        "Adobe Premiere Pro": .loses("This stops renders and exports."),
+        "DaVinci Resolve": .loses("This stops renders and exports."),
+        "Logic Pro": .loses("This stops bounces. It asks you to save your work first."),
+        "Slack": .keeps("This stops new messages until you open it again."),
+        "Microsoft Teams": .loses("This ends your calls and stops new messages until you open it again."),
+        "zoom.us": .loses("This ends your meeting."),
+        "Claude": .loses("This stops what Claude does now."),
+        "ChatGPT": .loses("This ends the conversation in progress."),
+        "Terminal": .loses("This stops what runs in it."),
+        "iTerm": .loses("This stops what runs in it."),
+        "Warp": .loses("This stops what runs in it."),
+        "Visual Studio Code": .loses("This stops what runs in it."),
+        "Cursor": .loses("This stops what runs in it."),
+        "Spotify": .keeps("This stops the music."),
+        "Music": .keeps("This stops the music."),
     ]
 
     /// The same costs, as clauses for the decision record ("We recommend … but every container stops"), one per app;
@@ -98,7 +98,7 @@ public enum MemoryAdvice {
     public static func quitCost(_ app: String) -> String? { quitCosts[app] }
 
     /// What quitting a sync app costs: nothing is lost; it stops syncing and catches up when it's opened again.
-    static let syncQuit = "Syncing stops until you open it again, then catches up. Nothing is lost."
+    static let syncQuit = "This stops syncing until you open it again. Then it syncs what it missed. Nothing is lost."
 
     /// Puts each process in its group: the app it belongs to, a job of the person's, macOS, or itself.
     public static func group(pid: pid_t, path: String?, args: [String], footprint: UInt64) -> MemGroup? {
@@ -141,10 +141,11 @@ public enum MemoryAdvice {
     /// startup disk is nearly full.
     public static func card(_ groups: [MemGroup], mac s: MacState, now: Date = Date(), context: MemoryContext = MemoryContext(),
                             leak: Leaks.Leak? = nil, models: [Leftovers.Model]? = nil, buildData: UInt64? = nil, tabMemoryOn: Bool? = nil) -> Card {
-        let tight = s.memoryPressure == "critical" ? "Memory is very tight." : "Memory is tight."
+        let verdict: CardTemplate.Verdict = s.memoryPressure == "critical" ? .veryLowOnMemory : .lowOnMemory
         guard let top = groups.first else {
-            return Card(state: .unknown, headline: tight, explanation: pressure(s),
-                        fixes: [Fix.openApp("quitunused", "Quit apps you aren't using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks to save before it quits.", recommended: true).fixingTheCause()]
+            return Card(state: .unknown, CardTemplate("Apps and programs", .words(s.memoryPressure == "critical" ? "are using all of your Mac's memory" : "are using almost all of your Mac's memory"), nil,
+                                                      evidence: [pressure(s)]),
+                        fixes: [Fix.openApp("quitunused", "Quit apps you are not using", bundle: Fix.activityMonitor, steps: "Click Memory to see which use the most. Each app asks you to save before it quits.", recommended: true).fixingTheCause()]
                             + (lowDisk(s) ? [Leftovers.buildDataFix(bytes: buildData).map { var f = $0; f.recommended = false; return f }, freeDisk].compactMap { $0 } : []))
         }
         let size = Fmt.bytes(top.bytes)
@@ -156,12 +157,12 @@ public enum MemoryAdvice {
         // how often memory has slowed this Mac this week (see PressureHistory): a pattern is a reason to act now rather than wait
         var weekNote: String? = nil
         if top.name == "Google Chrome", let w = context.week, w.count >= 2 {
-            weekNote = "It's slowed your Mac \(w.count) times this week, about \(Fmt.duration(Double(w.minutes) * 60)) in all, so it's likely to happen again while Chrome holds this much."
+            weekNote = "Full memory slowed your Mac \(w.count) times this week, for " + (w.minutes >= 1 ? "about \(Fmt.duration(Double(w.minutes) * 60))" : "less than a minute") + " in total, so it will probably happen again."
         }
         // the three biggest, named so they can be told apart (see Naming)
         let shown = Array(groups.prefix(3))
         let names = Naming.distinct(shown.map(\.named))
-        let head = "\(tight) \(Fmt.sentenceStart(names[0])) is using the most (\(size))."
+        let head = CardTemplate(names[0], .words("uses the most, \(size)"), verdict, verdictFirst: true)
         // the next biggest, by name, so the card shows where the rest of the memory is (the biggest is in the headline)
         let next = zip(shown.dropFirst(), names.dropFirst()).map { "\($1) (\(Fmt.bytes($0.bytes)))" }
         // the next biggest go in Nerdy stuff, not the text: the options already name the second, and a shorter card is
@@ -170,22 +171,22 @@ public enum MemoryAdvice {
         let also = next.isEmpty ? [] : ["Also using a lot: \(Fmt.list(next))"]
         var fixes: [Fix] = []
         // the biggest app has been leaking: quitting and reopening it gives the memory back, so that's the advice
-        var leaking: (headline: String, sentence: String, fix: Fix)? = nil
+        var leaking: (reading: CardTemplate.Reading, sentence: String, fix: Fix)? = nil
         if let l = leak, top.kind == .app, let b = top.bundle {
             leaking = Leaks.addition(l, app: top.name, bundle: b, now: now, losesWork: quitRisks[top.name]?.losesWork == true)
             fixes.append(leaking!.fix)
         }
         // a local AI model kept loaded after its last use: unloading it frees its memory and loses nothing, so when Ollama
         // is the biggest it's the recommendation (see Leftovers)
-        if let m = models, shown.contains(where: { isOllama($0) }), let unload = Leftovers.unloadFix(m, recommended: isOllama(top)) {
+        if let m = models, shown.contains(where: { isOllama($0) }), let unload = Leftovers.unloadFix(m, recommended: isOllama(top), freed: !isOllama(top)) {
             fixes.append(unload)
         }
 
         switch top.kind {
         case .browser:
-            let steps = [TaskManager.open(top.name), TaskManager.sort(by: "Memory", so: "the tab using the most"), "Close the tabs near the top that you don't need."]
+            let steps = [TaskManager.open(top.name), TaskManager.sort(by: "Memory", so: "the tab using the most"), "Close the tabs near the top that you do not need."]
             fixes.append((top.bundle.map { Fix.openApp("tabs", "Close \(top.name)'s heaviest tabs", bundle: $0, steps: steps.joined(separator: " "), recommended: true) }
-                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "In \(top.name), find the tabs using the most memory and close the ones you don't need.",
+                         ?? Fix.guide("tabs", "Close \(top.name)'s heaviest tabs", "This shows how to find and close the tabs that use the most memory in \(top.name).",
                                       steps: ["Open \(top.name)."] + steps, recommended: true)).fixingTheCause())
             if top.name == "Google Chrome" {
                 if let b = top.bundle {
@@ -195,59 +196,63 @@ public enum MemoryAdvice {
                     if context.memorySaver?.atMaximum == true {
                     } else if context.offerSaverMaximum {
                         fixes.append(Fix(id: "saver-max", title: "Set Memory Saver to Maximum",
-                                         consequence: "Restarts Chrome, keeping your tabs, and makes it your own setting: tabs unused for 2 hours unload, and reload when clicked. It won't help right now. Incognito windows, unsent form text, and downloads don't come back.",
+                                         consequence: "This restarts Chrome, keeps your tabs, and makes Maximum your own setting. After that, tabs you do not use for 2 hours unload, and reload when you click them. It does not help right now. Incognito windows, unsent typing, and downloads do not open again.",
                                          kind: .restartBrowser(b)))
                     } else {
-                        fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "Takes you to Chrome's Performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
+                        fixes.append(Fix(id: "saver", title: "Turn on Memory Saver", consequence: "This opens Chrome's Performance settings. With Memory Saver on, tabs you do not use sleep, and reload when you click them.", kind: .openPage(b, "chrome://settings/performance")))
                     }
                     // Chrome names each tab and its memory, which Cool Head can't, so the person can see which tabs are
                     // the big ones; not offered once it's on (see ChromeHoverMemory)
                     if (tabMemoryOn ?? ChromeHoverMemory.read()) != true {
-                        fixes.append(Fix(id: "tabmemory", title: "Show each tab's memory", consequence: "Takes you to Chrome's Appearance settings. Turn on \(Fmt.ui("Show memory usage on tab hover preview card")), then point at any tab to see how much it's using.", kind: .openPage(b, "chrome://settings/appearance")))
+                        fixes.append(Fix(id: "tabmemory", title: "Show each tab's memory", consequence: "This opens Chrome's Appearance settings. Turn on \(Fmt.ui("Show memory usage on tab hover preview card")), then point at a tab to see how much memory it uses.", kind: .openPage(b, "chrome://settings/appearance")))
                     }
                     // tab groups hold whole projects of hidden tabs: hiding a group gives their memory back and keeps the group
                     // to open again (Chrome 158's menu: "Hide group"; "Close group" and "Delete group" are beside it)
                     // extensions hold memory that unloading tabs never reaches (see ChromeParts): Chrome's Task Manager names each
                     if let parts = context.chrome, parts.extensionBytes >= ChromeParts.extensionsWorthSaying {
-                        fixes.append(Fix.openApp("extensions", "Turn off extensions you don't use", bundle: b,
+                        fixes.append(Fix.openApp("extensions", "Turn off extensions you do not use", bundle: b,
                                                  steps: [parts.extensionSentence ?? "", TaskManager.open("Google Chrome"), TaskManager.sort(by: "Memory", so: "what uses the most"),
-                                                         "Extensions are the rows that start with \(Fmt.ui("Extension:")). Turn off the ones you don't use in Chrome's Extensions settings (type \(Fmt.ui("chrome://extensions")) in the address bar)."].joined(separator: " ")))
+                                                         "Extensions are the rows that start with \(Fmt.ui("Extension:")). Turn off the ones you do not use in Chrome's Extensions settings (type \(Fmt.ui("chrome://extensions")) in the address bar)."].joined(separator: " ")))
                     }
                     if let parts = context.chrome, parts.markWorks, parts.hiddenBytes >= ChromeParts.worthGroups {
-                        fixes.append(Fix.guide("groups", "Hide tab groups you aren't using",
-                                               "Their tabs close and give their memory back. Chrome keeps each group under Tab groups in its menu, so you can open it again; its tabs reload when you do.",
-                                               steps: ["In Chrome, right-click the name of a tab group you aren't using.", "Choose Hide group."]))
+                        fixes.append(Fix.guide("groups", "Hide tab groups you are not using",
+                                               "This closes their tabs and frees their memory. Chrome keeps each group under Tab groups in its menu, so you can open it again.",
+                                               steps: ["In Chrome, right-click the name of a tab group you are not using.", "Choose Hide group."]))
                     }
                 }
             } else if top.name == "Microsoft Edge" {
                 if let b = top.bundle {
-                    fixes.append(Fix(id: "saver", title: "Turn on sleeping tabs", consequence: "Takes you to Edge's System and performance settings. Tabs you aren't using sleep, and reload when you click them.", kind: .openPage(b, "edge://settings/system")))
+                    fixes.append(Fix(id: "saver", title: "Turn on sleeping tabs", consequence: "This opens Edge's System and performance settings. With sleeping tabs on, tabs you do not use sleep, and reload when you click them.", kind: .openPage(b, "edge://settings/system")))
                 }
             }
             if let b = top.bundle {
-                fixes.append(Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). Closes all tabs.", kind: .quitApp(b)).losingWork())
+                fixes.append(Fix(id: "quit", title: "Quit \(top.name)", consequence: "This closes all its tabs.", kind: .quitApp(b)).losingWork())
             }
         case .app:
             if let b = top.bundle, let sync = SyncApps.app(bundle: b) {
                 // a sync app: quitting frees its memory and loses nothing, unlike an app with unsaved work; pausing
                 // keeps it open, so it stops it working harder but doesn't give its memory back
-                fixes.append(Fix(id: "quit", title: "Quit \(sync)", consequence: "Frees \(size). " + syncQuit, kind: .quitApp(b), recommended: true))
-                fixes.append(Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. It stays open, so its memory isn't freed.",
+                fixes.append(Fix(id: "quit", title: "Quit \(sync)", consequence: syncQuit, kind: .quitApp(b), recommended: true))
+                fixes.append(Fix(id: "pause", title: "Pause syncing", consequence: "This opens \(sync) so you can pause it, and Cool Head reminds you to start it again. It stays open, so its memory is not freed.",
                                  kind: .pauseSync(b, sync)))
             } else if let b = top.bundle, SecuritySoftware.product(path: b + "/", name: top.name) == nil {   // never security software
                 // recommended when quitting loses nothing reopening can't bring back (Slack, or an app that asks to save)
                 let cost = quitRisks[top.name]
-                var quit = Fix(id: "quit", title: "Quit \(top.name)", consequence: "Frees \(size). " + (cost?.words ?? "It asks about anything unsaved."),
+                var quit = Fix(id: "quit", title: "Quit \(top.name)", consequence: cost?.words ?? CardTemplate.Loss.asksToSave.sentence,
                                kind: .quitApp(b), recommended: cost?.losesWork != true)
                 if cost?.losesWork == true { quit = quit.losingWork() }
                 fixes.append(quit)
             }
         case .job:
-            if let e = top.evidence, let stop = Card.make(e, now: now).fixes.first(where: { $0.kind == .stop }) {
-                fixes.append(Fix(id: "stop", title: "Stop it", consequence: "Frees \(size). " + stop.consequence, kind: .stop, recommended: false))
+            if let e = top.evidence, Card.make(e, now: now).fixes.contains(where: { $0.kind == .stop }) {
+                // the cost in full, from the job's own Situation: the job card may say "in that time" after its own
+                // headline's busy time, which this card's headline doesn't give
+                let s = Situation(e, now: now)
+                let cost = (s.state == .unknown ? JobCard.onlyIfKnown : "") + (s.stop?.consequence ?? "")
+                fixes.append(Fix(id: "stop", title: "Stop it", consequence: cost, kind: .stop, recommended: false))
             }
         case .macOS, .other:
-            fixes.append(Fix(id: "lookup", title: "Look it up", consequence: "Search the web for \u{201C}\(top.name)\u{201D}.", kind: .lookUp(top.name)))
+            fixes.append(Fix(id: "lookup", title: "Search the web", consequence: "This searches for \u{201C}\(top.name)\u{201D} in your browser.", kind: .lookUp(top.name)))
         }
         // Chrome among the biggest but not the biggest, with Cool Head for Chrome linked: sleeping the tabs you aren't
         // looking at gives back some of Chrome's memory and closes nothing, so it comes before Restart and Quit, and is the
@@ -265,24 +270,24 @@ public enum MemoryAdvice {
         if let r = groups.prefix(3).first(where: { $0.kind == .browser && BrowserRestart.browsers.contains($0.name) && $0.bundle != nil }), let b = r.bundle {
             let parts = r.name == "Google Chrome" ? context.chrome : nil
             let days = parts?.openFor(now: now).flatMap { $0 >= ChromeParts.openLong ? Int($0 / 86400) : nil }
-            let builtUp = days.map { "freeing memory it built up over \($0) days" } ?? "freeing memory it built up"
-            var restart = Fix(id: "restart", title: "Restart \(r.name), keeping your tabs",
-                              consequence: "Closes and reopens \(r.name), \(builtUp). Your tabs come back; \(BrowserRestart.privateWindows(r.name)), unsent form text, and downloads in progress don't.",
+            let builtUp = days.map { "to free memory it built up over \($0) days" } ?? "to free memory it built up"
+            var restart = Fix(id: "restart", title: "Restart \(r.name) and keep your tabs",
+                              consequence: "This closes and opens it again, \(builtUp). Your tabs open again. \(BrowserRestart.privateWindows(r.name).prefix(1).uppercased() + BrowserRestart.privateWindows(r.name).dropFirst()), unsent typing, and downloads in progress do not.",
                               kind: .restartBrowser(b))
             if let g = parts?.grownPart {
                 restart.recommended = true
                 // closing tabs still fixes the cause, so it stays, shown as that rather than recommended
                 if let i = fixes.firstIndex(where: { $0.id == "tabs" }) { fixes[i].recommended = false }
-                partsNote = "\(g.name) has grown to \(Fmt.bytes(g.bytes)), and only a restart gives that back; closing tabs can't."
+                partsNote = "\(g.name) grew to \(Fmt.bytes(g.bytes)). Only a restart frees that, not closing tabs."
             }
             fixes.append(restart)
         }
         // the next largest app that can be quit, as a second way to free memory
         if let alt = groups.dropFirst().first(where: { ($0.kind == .app || $0.kind == .browser) && $0.bundle != nil
                                                         && SecuritySoftware.product(path: $0.bundle! + "/", name: $0.name) == nil }), let b = alt.bundle {
-            let cost = alt.kind == .browser ? QuitCost.loses("Closes all tabs.") : SyncApps.app(bundle: b) != nil ? QuitCost.keeps(syncQuit)
-                : (quitRisks[alt.name] ?? QuitCost.keeps("It asks about anything unsaved."))
-            let quit2 = Fix(id: "quit2", title: "Quit \(alt.name) instead", consequence: "Frees \(Fmt.bytes(alt.bytes)). " + cost.words, kind: .quitApp(b))
+            let cost = alt.kind == .browser ? QuitCost.loses("This closes all its tabs.") : SyncApps.app(bundle: b) != nil ? QuitCost.keeps(syncQuit)
+                : (quitRisks[alt.name] ?? QuitCost.keeps(CardTemplate.Loss.asksToSave.sentence))
+            let quit2 = Fix(id: "quit2", title: "Quit \(alt.name) instead to free \(Fmt.bytes(alt.bytes))", consequence: cost.words, kind: .quitApp(b))
             fixes.append(cost.losesWork ? quit2.losingWork() : quit2)
         }
         if lowDisk(s) {
@@ -292,7 +297,7 @@ public enum MemoryAdvice {
         }
         fixes.append(Fix(id: "wait", title: "Wait 30 minutes", consequence: "Your Mac stays slow for now.",
                          kind: .wait(now.addingTimeInterval(1800)), recommended: !fixes.contains { $0.recommended }))
-        // a leak: the verdict leads, with its evidence and advice alone, and a plain quit of the same app isn't offered too,
+        // a leak: the growth and the verdict lead, with the evidence and advice alone, and a plain quit of the same app isn't offered too,
         // so the choice is easy
         if leaking != nil { fixes.removeAll { $0.id == "quit" } }
         // Cool Head for Chrome connected: the recommendation to close Chrome's heaviest tabs becomes one click, and the
@@ -303,26 +308,30 @@ public enum MemoryAdvice {
             if context.companion == .connected {
                 let swaps: [String: Fix] = [
                     "tabs": sleepChromeTabs(context, chrome: false, recommended: true),
-                    "extensions": Fix(id: "extensions", title: "Turn off extensions you don't use",
-                                      consequence: "Opens Cool Head for Chrome's list of your extensions, each with a switch.", kind: .chromeCompanion("openExtensionsList")),
-                    "groups": Fix(id: "groups", title: "Hide tab groups you aren't using",
-                                  consequence: "Chrome keeps each group under Tab groups in its menu, so you can open it again.", kind: .chromeCompanion("hideUnusedGroups"))]
+                    "extensions": Fix(id: "extensions", title: "Turn off extensions you do not use",
+                                      consequence: "This opens a list of your extensions in Cool Head for Chrome, each with a switch.", kind: .chromeCompanion("openExtensionsList")),
+                    "groups": Fix(id: "groups", title: "Hide tab groups you are not using",
+                                  consequence: "This keeps each group under Tab groups in the Chrome menu, so you can open it again.", kind: .chromeCompanion("hideUnusedGroups"))]
                 // a count of 0: nothing to sleep, so it isn't the recommendation (sleepChromeTabs)
                 fixes = fixes.map { f in swaps[f.id].map { var n = $0; n.recommended = f.recommended && !(n.id == "sleep" && context.tabsToSleep == 0); return n } ?? f }
-                fixes.append(Fix(id: "duplicates", title: "Close duplicate tabs", consequence: "Keeps the one you used last of each.", kind: .chromeCompanion("closeDuplicates")))
+                fixes.append(Fix(id: "duplicates", title: "Close duplicate tabs", consequence: "This keeps the one you used last of each.", kind: .chromeCompanion("closeDuplicates")))
             }
         }
         // Not linked, and memory has slowed the Mac twice this week: the extension is offered whenever Chrome is among the biggest.
         if top.name == "Google Chrome" ? top.bundle != nil : chromeBelowTop, context.companion == .notInstalled, (context.week?.count ?? 0) >= 2 {
             fixes.append(Fix(id: "companion", title: "Get \(ChromeCompanion.name)",
-                             consequence: ChromeCompanion.pitch + " Free. Sets up the link and opens how to add it to Chrome.",
+                             consequence: "This links Cool Head to Chrome and shows how to add the extension. " + ChromeCompanion.pitch + " It is free.",
                              kind: .chromeCompanion("setup")))
         }
-        var card = Card(state: .unknown, headline: leaking.map { (tight.dropLast() + ": ") + $0.headline } ?? head,
-                        explanation: leaking?.sentence ?? ([expl, top.name == "Google Chrome" && context.companion != .connected ? context.chrome?.hiddenSentence : nil, partsNote, weekNote].compactMap { $0 }.joined(separator: " ")),
-                        fixes: fixes)
+        // a leak: the growth is the reading and the leak the verdict, with the evidence alone; otherwise who uses the most,
+        // and the verdict on memory (docs/BRAND.md, Card template)
+        let template = leaking.map { CardTemplate(top.name, $0.reading, .probablyLeaks, evidence: [$0.sentence], effect: [s.memoryPressure == "critical" ? "Your Mac's memory is now full." : "Your Mac's memory is now almost full."]) }
+            ?? CardTemplate(head.subject, head.reading, head.verdict,
+                            evidence: [expl, top.name == "Google Chrome" && context.companion != .connected ? context.chrome?.hiddenSentence : nil, partsNote].compactMap { $0 },
+                            effect: [weekNote].compactMap { $0 }, verdictFirst: true)
+        var card = Card(state: .unknown, template, fixes: fixes)
         card.names = leaking != nil ? [top.name] : names
-        card.facts = also + (context.chrome?.facts ?? [])
+        card.facts = also + (context.chrome?.facts ?? []) + card.facts
         return card
     }
 
@@ -336,9 +345,10 @@ public enum MemoryAdvice {
         let n = context.tabsToSleep ?? 0
         let tabs = (chrome ? "Chrome " : "") + (n == 1 ? "tab" : "tabs")
         let what = context.tabsToSleep == 0
-            ? "None can sleep now: the tabs out of sight are already asleep or kept awake, like calls, sound, and unsent typing."
-            : (n == 1 ? "It stays in the tab bar and reloads" : "They stay in the tab bar and reload") + " when clicked; tabs and sites you keep, calls, sound, and unsent typing stay awake."
-        return Fix(id: "sleep", title: "Sleep " + (n > 0 ? "\(n) " : "") + tabs + " you aren't looking at",
+            ? "This finds no tab to sleep now. The tabs out of sight are already asleep or kept awake, like calls, sound, and unsent typing."
+            : (n == 1 ? "This keeps it in the tab bar, and it reloads when you click it." : "This keeps them in the tab bar, and each reloads when you click it.")
+                + " Tabs and sites you keep, calls, sound, and unsent typing stay awake."
+        return Fix(id: "sleep", title: "Sleep " + (n > 0 ? "\(n) " : "") + tabs + " you are not looking at",
                    consequence: what, kind: .chromeCompanion("sleepHidden"), recommended: recommended && context.tabsToSleep != 0)
     }
 
@@ -347,13 +357,14 @@ public enum MemoryAdvice {
     static func pressure(_ s: MacState) -> String {
         var t: String
         if let mb = s.swappedOutMB, mb >= movingSwapMB {
-            t = "In the last 2 minutes, your Mac moved \(Fmt.bytes(UInt64(mb * 1_048_576))) of memory to its disk, which is slow."
+            t = "Your Mac moved \(Fmt.bytes(UInt64(mb * 1_048_576))) from memory to storage in the last 2 minutes, which is slow."
         } else {
-            t = s.swapUsedMB > 50 ? "Your Mac is using its disk as extra memory, which is slow." : "When memory runs low, your Mac slows down."
+            t = s.swapUsedMB > 50 ? "Your Mac uses storage as extra memory, which is slow." : "When memory is full, your Mac gets slower."
         }
         if lowDisk(s), let d = s.diskFreeBytes {
-            t += " Your disk is nearly full too (\(diskGB(d)) free), which leaves less room for that."
+            t += " Your storage is also nearly full, with \(diskGB(d)) free, which leaves less room for that."
         }
+        // what memory and storage are is said in the terms footer under the cards (CardTemplate.terms), not here
         return t
     }
 
@@ -377,6 +388,6 @@ public enum MemoryAdvice {
         return g >= 10 ? String(format: "%.0f GB", g) : String(format: "%.1f GB", g)
     }
     /// Takes you to Storage settings, where macOS shows what takes the most space and offers ways to free it.
-    static let freeDisk = Fix.openApp("disk", "Free up disk space", bundle: "/System/Applications/System Settings.app",
-                                      steps: "Click General, then Storage, to see what takes the most space and what macOS can remove for you.")
+    static let freeDisk = Fix.openApp("disk", "Make room in storage", bundle: "/System/Applications/System Settings.app",
+                                      steps: "Click General, then Storage, to see what uses the most space and what macOS can remove for you.")
 }

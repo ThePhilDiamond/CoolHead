@@ -108,7 +108,7 @@ extension Fixture {
         let tmPlain = Card.make(backupd, now: now, busySince: now.addingTimeInterval(-5 * 3600))
         let rec = tm.recommended
         let b3 = rec?.title == "Keep DerivedData out of Time Machine" && rec?.caution == false && rec?.doer == .coolHead
-            && tm.explanation.contains("It may be backing up DerivedData in Xcode, which xcodebuild keeps rewriting")
+            && tm.explanation.contains("It probably backs up DerivedData in Xcode, which xcodebuild keeps rewriting")
             && !tmPlain.fixes.contains { $0.id == "backup" } && !tmPlain.explanation.contains("may be backing up")
         review.append(("backup-option", b3, "\(tm.headline) \(tm.explanation) Recommended: \(rec?.title ?? "none")"))
 

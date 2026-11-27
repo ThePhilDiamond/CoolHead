@@ -41,11 +41,14 @@ extension Fixture {
         var gpuE = served("com.apple.WebKit.GPU", webGPUPath, by: safariCryptex, cores: 0.2, now: now); gpuE.gpuShare = 0.4
         let gpu = card(gpuE)
         let q = drive.recommended
-        let r2 = drive.headline == "A web page in Google Drive is working hard."
-            && q?.id == "quit" && q?.kind == .quitApp("/Applications/Google Drive.app") && q?.consequence == "Stops syncing until you open it again." && q?.caution == false
+        // how hard it's working is the headline's, and only there
+        let r2 = drive.headline == "A web page in Google Drive is still working hard after 25 minutes. This is more than usual."
+            && drive.explanation == "macOS runs Google Drive's web pages in a separate program."
+            && q?.id == "quit" && q?.kind == .quitApp("/Applications/Google Drive.app") && q?.consequence == "This stops syncing until you open it again." && q?.caution == false
             && !drive.explanation.contains("Quit") && words(drive) <= 40
-            && safari.headline == "A Safari tab is working hard." && unknown.headline == "A Safari tab is working hard."
-            && gpu.explanation.hasPrefix("The process that draws Safari's pages") && !gpu.explanation.contains("usually a Safari tab")
+            && safari.headline == "A Safari tab or extension is still working hard after 25 minutes. This is more than usual." && unknown.headline == safari.headline
+            && safari.explanation == "Only Safari knows which tab or extension."
+            && gpu.explanation.hasPrefix("It draws video or animation in Safari.") && !gpu.explanation.contains("usually")
         review.append(("served-web-pages-credited", r2, "\(drive.headline) \(drive.explanation) Options: \(drive.fixes.map(\.id)); \(q?.consequence ?? "-") | Safari: \(safari.headline) | unknown: \(unknown.headline) | graphics: \(gpu.explanation)"))
 
         // another macOS service: what it's doing and for which app; quitting the app advised, except where that loses work
@@ -53,10 +56,10 @@ extension Fixture {
         let utm = card(served("VTDecoderXPCService", decoderPath, by: "/Applications/UTM.app", now: now))
         let other = card(served("SomeService", "/System/Library/PrivateFrameworks/Some.framework/XPCServices/SomeService.xpc/Contents/MacOS/SomeService", by: "/Applications/IINA.app", now: now))
         let u = utm.fixes.first { $0.id == "quit" }
-        let r3 = iina.headline == "macOS is decoding video for IINA." && iina.recommended?.kind == .quitApp("/Applications/IINA.app")
-            && iina.recommended?.consequence == "It asks about anything unsaved." && words(iina) <= 40 && !iina.explanation.contains("Quit")
+        let r3 = iina.headline == "A part of macOS is working hard. This is normal." && iina.explanation.hasPrefix("It decodes video for IINA.") && iina.recommended?.kind == .quitApp("/Applications/IINA.app")
+            && iina.recommended?.consequence == "It asks you to save your work first." && words(iina) <= 40 && !iina.explanation.contains("Quit")
             && u?.caution == true && u?.recommended == false
-            && other.headline == "A part of macOS is busy working for IINA."
+            && other.headline.hasSuffix("This is more than usual.") && other.explanation.hasPrefix("It works for IINA.")
         review.append(("served-service-credited", r3, "\(iina.headline) \(iina.explanation) | UTM quit caution \(u?.caution == true), recommended \(u?.recommended == true) | \(other.headline)"))
 
         // on this Mac: macOS's record of the responsible process can be read; a command Cool Head starts is credited to

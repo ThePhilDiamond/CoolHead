@@ -18,7 +18,7 @@ extension Fixture {
         let o = offer(c)
         let ok = c.recommended.map { if case .cpuCap = $0.kind { return true }; return false } == true
             && !c.fixes.contains { $0.kind == .cooler } && c.fixes.filter(\.recommended).count == 1
-            && c.explanation.hasSuffix("It's already running cooler and still using about 3 cores.")
+            && c.explanation.hasSuffix("It already runs cooler and still works hard.")
             && o?.current == .cooler && o?.suggested == .easy && o?.now == 3 && o?.levels == [.barely, .slow, .easy, .cooler, .full]
         review.append(("cpu-cap-offered", ok, "recommended \(c.recommended?.title ?? "none"); \(c.explanation)"))
 
@@ -50,10 +50,10 @@ extension Fixture {
         let h = Card.stillHotUnderCap(subject: "Huddle", app: true, level: .slow, now: 1.5)
         let ho = offer(h)
         let hotOK = ho?.current == .slow && ho?.suggested == .barely && ho?.now == nil
-            && h.explanation.hasPrefix("It's limited to Slow and steady and still using about 1.5 cores.")
+            && h.headline == "Huddle still works hard at Slow and steady. It still adds heat."
         // at Barely running there's no level further down: it doesn't recommend where it already is as slowing it further
         let low = Card.stillHotUnderCap(subject: "Huddle", app: true, level: .barely, now: 1)
-        let lowOK = !low.explanation.contains("further") && low.explanation.hasSuffix("quitting it stops the heat.")
+        let lowOK = !low.explanation.contains("lower level") && low.explanation.hasSuffix("quit it to stop the heat.")
         review.append(("cpu-cap-still-hot", hotOK && lowOK, "\(h.headline) \(h.explanation) suggested \(ho?.suggested.name ?? "none"); at Barely running: \(low.explanation)"))
 
         // when a card running cooler offers the limit: a core or more, three minutes or more after; once limited, where it is

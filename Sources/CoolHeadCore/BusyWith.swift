@@ -82,8 +82,8 @@ public enum BusyWith: Equatable {
     /// On a card, in place of Pause until you plug in.
     public var cardLine: String {
         switch self {
-        case .sound: return "Not paused while it's playing sound."
-        case .download: return "Not paused while it's downloading."
+        case .sound: return "Cool Head does not pause it while it plays sound."
+        case .download: return "Cool Head does not pause it while it downloads."
         }
     }
 

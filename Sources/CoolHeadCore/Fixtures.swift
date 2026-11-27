@@ -111,8 +111,8 @@ public struct Fixture {
         // one-click option for Chrome's memory that keeps the tabs, and Restart is never recommended (see BrowserRestart)
         review.append(("memory-browser", browserCard.recommended?.id == "tabs"
                        && browserCard.betterThanRecommended.isEmpty
-                       && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("Closes all tabs") }
-                       && browserCard.headline.contains("Google Chrome is using the most"), browserCard.headline))
+                       && browserCard.fixes.contains { $0.kind == .quitApp("/Applications/Google Chrome.app") && $0.consequence.contains("closes all its tabs") }
+                       && browserCard.headline.contains("Google Chrome uses the most, 5.1 GB"), browserCard.headline))
         // Chrome's memory limit, retired: Chrome only applies it when an organization manages the Mac (see
         // ChromeLimit), so it's no longer offered, for Chrome first or second, and what an earlier Cool Head wrote is
         // removed, only when Cool Head wrote it. Written and removed for real on a scratch settings domain, never on
@@ -161,9 +161,9 @@ public struct Fixture {
         }
         let edgeRestart = card("Microsoft Edge").fixes.first { $0.id == "restart" }
         let notChromium = ["Safari", "Firefox", "Arc", "Opera"].filter { card($0).fixes.contains { $0.id == "restart" } }
-        let restartCard = restartFix?.title == "Restart Google Chrome, keeping your tabs"
+        let restartCard = restartFix?.title == "Restart Google Chrome and keep your tabs"
             && restartFix?.kind == .restartBrowser("/Applications/Google Chrome.app") && restartFix?.recommended == false
-            && restartFix?.consequence == "Closes and reopens Google Chrome, freeing memory it built up. Your tabs come back; Incognito windows, unsent form text, and downloads in progress don't."
+            && restartFix?.consequence == "This closes and opens it again, to free memory it built up. Your tabs open again. Incognito windows, unsent typing, and downloads in progress do not."
             && browserOrder == "tabs restart quit saver tabmemory" && driveOrder == "quit restart quit2 pause"
             && edgeRestart?.consequence.contains("InPrivate windows") == true && notChromium.isEmpty
             && BrowserRestart.note(.stillOpen, name: "Google Chrome").text.contains("so it wasn't reopened") && BrowserRestart.note(.stillOpen, name: "Google Chrome").failed
@@ -171,14 +171,116 @@ public struct Fixture {
         review.append(("restart-browser-option", restartCard, "Chrome first: \(browserOrder); Chrome second: \(driveOrder); Edge \(edgeRestart != nil); offered for others \(notChromium)"))
         let dockerCard = MemoryAdvice.card([MemGroup(key: "d", name: "Docker", kind: .app, bundle: "/Applications/Docker.app", bytes: 4_000_000_000, count: 3)], mac: tight, now: now)
         let dockerQuit = dockerCard.fixes.first { $0.id == "quit" }
-        review.append(("memory-app-risk", dockerQuit?.consequence.contains("Stops all containers") == true && dockerQuit?.recommended == false,
+        review.append(("memory-app-risk", dockerQuit?.consequence.contains("stops all containers") == true && dockerQuit?.recommended == false,
                        "Quit Docker says it stops every container, and isn't recommended"))
         var jobGroup = MemGroup(key: "job-1", name: "job", kind: .job, bundle: nil, bytes: 3_000_000_000, count: 1)
         jobGroup.evidence = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "index.py"], cwd: "/Users/x/Archive",
                                             start: now.addingTimeInterval(-3 * 3600), cores: 4)
         let jobCard = MemoryAdvice.card([jobGroup], mac: tight, now: now)
-        review.append(("memory-job-stop", jobCard.fixes.contains { $0.kind == .stop && $0.consequence.contains("Frees") && $0.consequence.contains("lose up to") },
-                       "a memory-heavy job can be stopped, with what that frees and costs"))
+        // the job's size is in the headline, so Stop it says only what it costs
+        review.append(("memory-job-stop", jobCard.headline.contains("uses the most, 2.8 GB") && jobCard.fixes.contains { $0.kind == .stop && !$0.consequence.contains("GB") && $0.consequence.contains("lose up to") },
+                       "a memory-heavy job can be stopped, with what it costs; its size is the headline's"))
+        // each figure once on the memory cards: the headline's size isn't said again by an option or the explanation, and
+        // another app's Quit carries its own figure in its title. A text check over the sample cards: two different
+        // figures that round alike would show as one, and a repeat that rounds apart wouldn't (stage 5 is the gate)
+        var repeated: [String] = []
+        for (id, c) in Wording.samples() where id.hasPrefix("memory-") {
+            let figures = Fixture.memoryFigures(c.headline)
+            for f in c.fixes { for g in Fixture.memoryFigures(f.title + " " + f.consequence) where figures.contains(g) { repeated.append("\(id) \(f.id) \(g)") } }
+            for g in Fixture.memoryFigures(c.explanation) where figures.contains(g) { repeated.append("\(id) explanation \(g)") }
+        }
+        let slackCard = MemoryAdvice.card([MemGroup(key: "n", name: "node", kind: .other, bundle: nil, bytes: 3_000_000_000, count: 1),
+                                           MemGroup(key: "/Applications/Slack.app", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 1_200_000_000, count: 1)],
+                                          mac: tight, now: now)
+        let quit2 = slackCard.fixes.first { $0.id == "quit2" }
+        review.append(("memory-figure-once", repeated.isEmpty && quit2?.title == "Quit Slack instead to free 1.1 GB" && quit2?.consequence.contains("GB") == false,
+                       repeated.isEmpty ? "\(quit2?.title ?? "no quit2"): \(quit2?.consequence ?? "")" : repeated.joined(separator: "; ")))
+        // each figure once on the busy cards: how hard, how long, and since when are the headline's, and aren't said again
+        // lower down (a text check over the sample cards, like memory-figure-once; stage 5 is the gate)
+        let busyIDs = ["job-stalled", "job-no-signs", "job-unknown-warm-on-battery-during-a-game", "job-with-progress", "intel-app-27",
+                       "browser-tab", "chrome-tab", "chrome-tab-in-front-warm", "chrome-extension", "chrome-graphics", "safari-tab",
+                       "web-page-drawing", "web-page-in-app", "macos-service-for-app", "macos-unknown-normal-priority", "cap-half",
+                       "job-just-started", "hang-not-responding-new", "hang-not-responding-settled"]
+        let samples = Dictionary(Wording.samples().map { ($0.0, $0.1) }, uniquingKeysWith: { a, _ in a })
+        var busyRepeats: [String] = busyIDs.filter { samples[$0] == nil }.map { "\($0) missing" }
+        for id in busyIDs { if let c = samples[id] {
+            let head = Fixture.busyFigures(c.headline)
+            for g in Fixture.busyFigures(c.explanation + " " + c.fixes.map { $0.title + " " + $0.consequence }.joined(separator: " ")) where head.contains(g) {
+                busyRepeats.append("\(id) \(g)")
+            }
+        } }
+        func stopOf(_ id: String) -> String? { samples[id]?.fixes.first { $0.kind == .stop }?.consequence }
+        // a job whose work began before its busy streak: what's at stake isn't the headline's time, so it's said in full
+        let olderWork = Card.make(Evidence.sample(name: "node", path: "/opt/homebrew/bin/node", args: ["node", "server.js"], cwd: "/Users/x/Site",
+                                                  start: now.addingTimeInterval(-3 * 3600), cores: 1.2), now: now, busySince: now.addingTimeInterval(-3600))
+        let busyWords = samples["job-stalled"]?.explanation == "" && stopOf("job-stalled")?.hasPrefix("You lose no work from after ") == true
+            && stopOf("job-no-signs") == "Use this only if you know what it is. You may lose the work it did."
+            && olderWork.fixes.first { $0.kind == .stop }?.consequence == "Use this only if you know what it is. You may lose up to 3 hours of its work."
+            && samples["job-with-progress"]?.explanation.hasPrefix("Its own log reports this.") == true
+            && samples["job-just-started"].map { $0.headline.hasPrefix("train.py started at ") && $0.headline.hasSuffix(". Wait a few minutes.") } == true
+            && samples["hang-not-responding-new"]?.headline == "Foo is not responding."      // a verdict that stands on its own
+        review.append(("busy-figure-once", busyRepeats.isEmpty && busyWords,
+                       busyRepeats.isEmpty ? "stalled: \(stopOf("job-stalled") ?? "-"); no signs: \(stopOf("job-no-signs") ?? "-"); older work: \(olderWork.fixes.first { $0.kind == .stop }?.consequence ?? "-")"
+                                           : busyRepeats.joined(separator: "; ")))
+        // the card template (docs/BRAND.md, Card template; docs/CARD-TEMPLATE.md): every sample card is written
+        // from its slots, its headline is the template's, and its words keep the rules (no contractions, no present
+        // perfect, no idioms, one word for each idea, options that start with This or a fixed phrase)
+        var templateProblems: [String] = []
+        for (id, c) in samples.sorted(by: { $0.key < $1.key }) {
+            guard let t = c.template else { templateProblems.append("\(id): not from the template"); continue }
+            if c.headline != t.headline { templateProblems.append("\(id): headline isn't the template's") }
+            templateProblems += CardTemplate.problems(c).map { "\(id) \($0)" }
+        }
+        // the terms footer: a card that says memory or storage brings up their definition, once however many cards do;
+        // one that says neither doesn't; a card never carries it itself (CardTemplate.problems)
+        let memoryCard = samples["memory-chrome"], warmBattery = samples["hardware-battery-warm"]
+        let storageOnly = Card(state: .working, headline: "Your storage is nearly full.", explanation: "", fixes: [])
+        let memoryOnly = Card(state: .working, headline: "Pages uses a lot of memory.", explanation: "", fixes: [])
+        let defined = { (cs: [Card]) in CardTemplate.terms(for: cs).map(\.id) }
+        let termsOK = memoryCard.map { defined([$0]) == ["memory-storage"] } == true && warmBattery.map { defined([$0]).isEmpty } == true
+            && defined([storageOnly]) == ["memory-storage"] && defined([memoryOnly]) == ["memory-storage"]
+            && defined([memoryOnly, storageOnly] + (memoryCard.map { [$0] } ?? [])) == ["memory-storage"]
+            && samples.values.allSatisfy { c in (CardTemplate.text(c).range(of: #"\b(?:[Mm]emory|[Ss]torage)\b"#, options: .regularExpression) != nil) == !defined([c]).isEmpty }
+        review.append(("terms-footer", termsOK, "\(samples.values.filter { !defined([$0]).isEmpty }.count) sample cards bring up: \(CardTemplate.terms.map(\.definition).joined(separator: " "))"))
+        // and on inputs the samples don't cover (an independent review's counterexamples): every catalogue entry, calm and
+        // long; hangs with programs waiting on them; the memory card with every note at once and storage nearly full; an
+        // extra, a rule line, and the CPU limit added to a card. The same rules, and each card from the template.
+        var varied: [(String, Card)] = []
+        // every entry in the catalogue, not only the samples' six: a process that matches it, calm and running long
+        var unmatched: [String] = []
+        for k in Pattern.catalogue {
+            let name = k.names.first ?? "worker"
+            let path = k.pathContains.first.map { "/System/Library/PrivateFrameworks/\($0)/\(name)" } ?? "/usr/libexec/\(name)"
+            let e = catalogueProcess(name, path, mine: false, start: now.addingTimeInterval(-48 * 3600), cores: 1)
+            guard Pattern.match(name: e.name, path: e.path, pid: e.pid)?.id == k.id else { unmatched.append(k.id); continue }
+            varied.append(("catalogue \(k.id) calm", Card.make(e, now: now, busySince: now.addingTimeInterval(-300))))
+            varied.append(("catalogue \(k.id) long", Card.make(e, now: now, busySince: now.addingTimeInterval(-min(k.usualHours * 2, 20) * 3600))))
+        }
+        for x in catalogueExamples(now) where unmatched.contains(x.id) {
+            unmatched.removeAll { $0 == x.id }
+            varied.append(("catalogue \(x.id) calm", Card.make(x.evidence, now: now, busySince: now.addingTimeInterval(-300))))
+            varied.append(("catalogue \(x.id) long", Card.make(x.evidence, now: now, busySince: now.addingTimeInterval(-x.long))))
+        }
+        let pausedJob = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "export.py"], cwd: "/Users/x/Photos", start: now.addingTimeInterval(-7200), cores: 0)
+        let appE = Evidence.sample(name: "Foo", path: "/Applications/Foo.app/Contents/MacOS/Foo", start: now.addingTimeInterval(-7200), cores: 1.5)
+        varied += [("hang drive", Hang.card(.diskWait, pausedJob, stuckFor: 300, waiting: ["ffmpeg"], volumes: ["Backup"], now: now)),
+                   ("hang paused in Terminal", Hang.card(.paused, pausedJob, stuckFor: 3600, waiting: ["ffmpeg", "ffmpeg"], terminal: "/System/Applications/Utilities/Terminal.app", now: now)),
+                   ("hang not responding", Hang.card(.notResponding, appE, stuckFor: 60, waiting: ["helper"], now: now))]
+        var full = MacState(); full.memoryPressure = "critical"; full.swapUsedMB = 3000; full.swapTotalMB = 4000; full.swappedOutMB = 900; full.diskFreeBytes = 9_000_000_000
+        varied.append(("memory, every note", MemoryAdvice.card([MemGroup(key: "c", name: "Google Chrome", kind: .browser, bundle: "/Applications/Google Chrome.app", bytes: 5_500_000_000, count: 41)],
+                                                         mac: full, now: now, context: MemoryContext(week: PressureHistory.Week(count: 3, minutes: 0, chromeCount: 3), chrome: chromeParts(now, browserGB: 3.2), companion: .notInstalled),
+                                                         buildData: 14_000_000_000, tabMemoryOn: false)))
+        if let rule = samples["app-on-the-graphics-chip"] { varied.append(("rule line", rule.underRule(app: true))) }
+        if let cap = samples["job-no-signs"] { varied.append(("cpu limit offered", cap.offeringCap(app: false, cores: 3))) }
+        if let intel = samples["intel-app-26"] { varied.append(("intel extra", intel)) }
+        for (name, c) in varied {
+            guard let t = c.template else { templateProblems.append("\(name): not from the template"); continue }
+            if c.headline != t.headline { templateProblems.append("\(name): headline isn't the template's") }
+            if c.explanation.hasPrefix(" ") { templateProblems.append("\(name): explanation starts with a space") }
+            templateProblems += CardTemplate.problems(c).map { "\(name) \($0)" }
+        }
+        review.append(("card-template", templateProblems.isEmpty && unmatched.isEmpty,
+                       templateProblems.isEmpty && unmatched.isEmpty ? "all \(samples.count) sample cards and \(varied.count) varied ones from the template, words kept" : (templateProblems + unmatched.map { "unmatched catalogue entry \($0)" }).joined(separator: "; ")))
         // No warning offers only "wait". Every card that needs a look must have an option that does something (stop,
         // slow, quit, look up, or share).
         func actionable(_ c: Card) -> Bool {
@@ -210,7 +312,7 @@ public struct Fixture {
         var warmLive = LiveCard(id: "2-working", pid: 2, card: working, details: [])
         warmLive.heatCause = true
         let coolLive = LiveCard(id: "2-working", pid: 2, card: working, details: [])
-        review.append(("heat-flags-causes", warmCard.explanation.contains("adding to the heat") && !coolCard.explanation.contains("heat")
+        review.append(("heat-flags-causes", warmCard.explanation.contains("adds heat") && !coolCard.explanation.contains("heat")
                        && warmCard.fixes.contains { $0.kind == .cooler } && warmLive.severity == 1 && coolLive.severity == 0,
                        warmCard.explanation))
         // The option order: risky options are labelled, not moved, so the options stay grouped by who does them and
@@ -242,8 +344,8 @@ public struct Fixture {
         review.append(("games-are-protected", gameCalm.state == .working && gameCalm.headline.contains("is a game") && gameCalm.recommended == nil
                        && !gameWarm.fixes.contains { $0.kind == .cooler } && gameWarm.recommended?.id == "settings"
                        && gameWarm.fixes.contains { $0.kind == .quitApp("/Users/x/Library/Application Support/Steam/steamapps/common/BloonsTD6/BloonsTD6.app") && $0.consequence.contains("Save your game") }
-                       && rival.fixes.first { $0.kind == .cooler }?.consequence.contains("more power for BloonsTD6") == true
-                       && rival.explanation.contains("competing with BloonsTD6"),
+                       && rival.fixes.first { $0.kind == .cooler }?.consequence.contains("lets BloonsTD6 run faster") == true
+                       && rival.explanation.contains("slows BloonsTD6"),
                        rival.explanation))
         // Chrome without quitting: a tab, an extension, and the graphics process are told apart by their launch
         // arguments; a tab in the background is slowed, a tab in the browser you're using gets Energy Saver instead;
@@ -260,7 +362,9 @@ public struct Fixture {
         let gpuCard = Card.make(gpuE, now: now, busySince: busy10)
         func ids(_ c: Card) -> String { c.fixes.map(\.id).joined(separator: " ") }
         let stopTitle = tabBack.fixes.first { (f: Fix) in f.kind == Fix.Kind.stop }?.title
-        let c1 = tabBack.headline == "A Google Chrome tab is working hard." && tabBack.recommended?.title == "Run this tab cooler"
+        // how hard it's working is the headline's, and only there
+        let c1 = tabBack.headline.hasPrefix("A Google Chrome tab is still working hard after ") && tabBack.explanation == "Only Google Chrome knows which tab."
+            && tabBack.recommended?.title == "Run this tab cooler"
         let c2 = tabFront.recommended?.title == "Turn on Energy Saver"
         let c3 = tabBack.fixes.contains { $0.kind == Fix.Kind.openPage(chromeApp, "chrome://settings/performance") }
         let c4 = ids(tabBack).contains("closetab quit") && ids(extCard).hasSuffix("stopext quit") && stopTitle == "Close just that tab"
@@ -293,7 +397,7 @@ public struct Fixture {
         // a sync app on battery: Run it cooler (one click) is recommended, and Pause syncing is still offered
         let syncKind = gdBat.recommended?.kind == Fix.Kind.cooler && gdBat.fixes.contains { if case .pauseSync = $0.kind { return true }; return false }
         let batteryLimits = pauses(hungryAt80) && !pauses(steadyAt80) && pauses(longAt80) && pauses(steadyAt40)
-        let batteryOK = batteryLimits && hungryAt80.explanation.contains("draining your battery")
+        let batteryOK = batteryLimits && hungryAt80.explanation.contains("uses a lot of battery power")
             && !plugged.fixes.contains { $0.kind == Fix.Kind.pauseJob } && !appOnBat.fixes.contains { $0.kind == Fix.Kind.pauseJob } && syncKind
         review.append(("battery-pauses-jobs", batteryOK, "hungry at 80%: \(pauses(hungryAt80)), steady at 80%: \(pauses(steadyAt80)), long at 80%: \(pauses(longAt80)), steady at 40%: \(pauses(steadyAt40))"))
         // and pausing for real: a child process is frozen, then carries on, and nothing is left on the list
@@ -369,27 +473,27 @@ public struct Fixture {
                         start: ago(2 * hour), cores: 6,
                         progress: Progress(file: "/tmp/build.log", line: "25600/26512 passages, 178.4 min, about 6 min left",
                                            done: 25600, total: 26512, unit: "passages", minutesLeft: 6, lineTime: ago(60))),
-                    busyFor: 2 * hour, expectState: .working, expectHeadline: "96% through 26,512 passages", expectAction: nil),
+                    busyFor: 2 * hour, expectState: .working, expectHeadline: "96% done", expectAction: nil),
             Fixture(id: "job-stalled", evidence: .sample(
                         name: "python3", path: "/usr/bin/python3", args: ["python3", "train.py"], cwd: "/Users/x/Model",
                         start: ago(5 * hour), cores: 1,
                         progress: Progress(file: "/tmp/train.log", line: "120/500 epochs", done: 120, total: 500, unit: "epochs",
                                            minutesLeft: nil, lineTime: ago(2 * hour))),
-                    busyFor: 5 * hour, expectState: .stalled, expectHeadline: "looks stuck", expectAction: "Stop it"),
+                    busyFor: 5 * hour, expectState: .stalled, expectHeadline: "probably stuck", expectAction: "Stop it"),
             Fixture(id: "job-waiting", evidence: .sample(
                         name: "python3", path: "/usr/bin/python3", args: ["python3", "sync.py"], cwd: "/Users/x/Sync",
                         start: ago(hour), cores: 0, lastLine: "waiting for the compute lock (pid 999)"),
-                    busyFor: 0, expectState: .waiting, expectHeadline: "waiting for another job", expectAction: nil),
+                    busyFor: 0, expectState: .waiting, expectHeadline: "waits for another job", expectAction: nil),
             Fixture(id: "job-no-signs", evidence: .sample(
                         name: "node", path: "/opt/homebrew/bin/node", args: ["node", "server.js"], cwd: "/Users/x/Site",
                         start: ago(3 * hour), cores: 1.2),
-                    busyFor: 3 * hour, expectState: .unknown, expectHeadline: "can't tell why", expectAction: "Run it cooler"),
+                    busyFor: 3 * hour, expectState: .unknown, expectHeadline: "more than usual", expectAction: "Run it cooler"),
             Fixture(id: "spotlight-normal", evidence: .sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores",
                                                              start: ago(48 * hour), cores: 1.5),
-                    busyFor: 0.5 * hour, expectState: .working, expectHeadline: "Spotlight is indexing", expectAction: nil),
+                    busyFor: 0.5 * hour, expectState: .working, expectHeadline: "Spotlight is preparing your files", expectAction: nil),
             Fixture(id: "spotlight-long", evidence: .sample(name: "mds_stores", path: "/System/Library/Frameworks/CoreServices.framework/mds_stores",
                                                            start: ago(48 * hour), cores: 1.5),
-                    busyFor: 5 * hour, expectState: .unknown, expectHeadline: "longer than usual", expectAction: "Look it up"),
+                    busyFor: 5 * hour, expectState: .unknown, expectHeadline: "longer than usual", expectAction: "Search the web"),
             Fixture(id: "kernel-task-long", evidence: .sample(name: "kernel_task", path: nil, start: ago(72 * hour), cores: 2, pid: 0),
                     busyFor: 2 * hour, expectState: .unknown, expectHeadline: "keeping the chip cool",
                     expectAction: "Find what is heating the Mac"),
@@ -401,7 +505,7 @@ public struct Fixture {
             Fixture(id: "docker-vm", evidence: .sample(name: "com.docker.virtualization",
                                                       path: "/Applications/Docker.app/Contents/MacOS/com.docker.virtualization",
                                                       start: ago(10 * hour), cores: 1),
-                    busyFor: 10 * hour, expectState: .working, expectHeadline: "Docker's virtual machine is running. That's normal.", expectAction: nil),
+                    busyFor: 10 * hour, expectState: .working, expectHeadline: "Docker's virtual machine is running. This is normal.", expectAction: nil),
         ]
     }
 }
@@ -414,5 +518,18 @@ extension Evidence {
                  coresAverage: cores, performanceShare: nil, memoryBytes: 500_000_000, ancestors: [], writing: [], locks: [],
                  progress: progress, bytesWrittenDuringSample: 0, lastOutput: progress?.lineTime, lastLine: lastLine ?? progress?.line,
                  savesAsItGoes: false, workStart: start)
+    }
+}
+
+extension Fixture {
+    /// Sizes in a memory card's words ("5.1 GB", "600 MB"), for checking each is said once.
+    /// Figures a busy card gives: shares, cores, durations, times of day, and macOS versions, as the card writes them.
+    static func busyFigures(_ s: String) -> [String] {
+        let re = try! NSRegularExpression(pattern: #"[0-9][0-9,.]*(%| cores?| hours?| minutes?| days?|am|pm)|macOS [0-9]+"#)
+        return re.matches(in: s, range: NSRange(s.startIndex..., in: s)).compactMap { Range($0.range, in: s).map { String(s[$0]) } }
+    }
+    static func memoryFigures(_ s: String) -> [String] {
+        let re = try! NSRegularExpression(pattern: "[0-9][0-9,.]* (GB|MB)")
+        return re.matches(in: s, range: NSRange(s.startIndex..., in: s)).compactMap { Range($0.range, in: s).map { String(s[$0]) } }
     }
 }

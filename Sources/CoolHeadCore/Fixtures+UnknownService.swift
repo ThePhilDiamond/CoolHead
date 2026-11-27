@@ -35,7 +35,7 @@ extension Fixture {
         let catalogued = card(Fixture.catalogueProcess("mds_stores", "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
                                                        start: now.addingTimeInterval(-3600), cores: 1.2), nil, busy: 1800)
         let zip = card(unknownService(fromShell: true, path: "/usr/bin/zip", now: now), nil, busy: 1800)
-        let r1b = r1 && !catalogued.explanation.contains("We don't know") && !zip.headline.contains("part of macOS")
+        let r1b = r1 && !catalogued.explanation.contains("Cool Head does not know") && !zip.explanation.contains("part of macOS that Cool Head")
         review.append(("unknown-service-which", r1b, "service true; zip from a shell false; your own tool false | catalogued: \(catalogued.headline) | zip: \(zip.headline)"))
 
         // the card: part of macOS, not known by name; at low priority it says it uses little power; nothing to press but
@@ -49,12 +49,13 @@ extension Fixture {
         let rootLong = card(unknownService(mine: false, now: now), .init(cool: false), busy: 2 * 3600)
         let quiet = card(unknownService(cores: 0.05, now: now), nil, busy: 20 * 60)
         let noAction = [low, normal, short, unread, root].allSatisfy { c in !c.fixes.contains { $0.kind == .stop || $0.kind == .cooler } }
-        let r2 = low.headline == "spotlightknowledged is part of macOS, working in the background."
-            && low.explanation.hasPrefix("We don't know this one by name. It runs at low priority") && low.state == .working
-            && normal.explanation.hasSuffix("at normal priority. If it runs for a day, we'll say what to try.") && normal.state == .unknown && short.state == .working
+        let r2 = low.headline == "spotlightknowledged runs in the background. This is normal."
+            && low.explanation.hasPrefix("It is a part of macOS that Cool Head does not know. It runs at low priority") && low.state == .working
+            && normal.explanation == "It is a part of macOS that Cool Head does not know. If it runs for a day, Cool Head shows what to try."
+            && normal.headline.hasSuffix("This is more than usual.") && normal.state == .unknown && short.state == .working
             && !short.explanation.contains("a day")
-            && unread.explanation == "We don't know this one by name. It has used about 1 core for 20 minutes."
-            && root.explanation.hasSuffix("stopping it would only start it again.")
+            && unread.explanation == "It is a part of macOS that Cool Head does not know. It runs in the background."
+            && !root.explanation.contains("If you stop it")
             && low.recommended == nil && low.fixes.map(\.id) == ["lookup"] && normal.recommended == nil && noAction && quiet.state == .quiet
             && [low, normal, root, rootLong].allSatisfy { words($0) <= 40 }
         review.append(("unknown-service-card", r2, "\(low.headline) \(low.explanation) | normal: \(normal.explanation) (\(normal.state)) | not read: \(unread.explanation) | quiet: \(quiet.headline)"))
@@ -62,7 +63,7 @@ extension Fixture {
         // a day or more busy is still the stuck card's (rule 16)
         let stuck = Card.make(e, now: now, busySince: now.addingTimeInterval(-26 * 3600),
                               background: .init(cool: false, stuck: .init(since: now.addingTimeInterval(-26 * 3600), afterRestart: false)))
-        review.append(("unknown-service-stuck-wins", stuck.headline.contains("seems stuck"), stuck.headline))
+        review.append(("unknown-service-stuck-wins", stuck.headline.contains("probably stuck"), stuck.headline))
         return review
     }
 }
