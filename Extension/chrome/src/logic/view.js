@@ -274,7 +274,7 @@ export function dupsResult(rec, now) {
   return { failed: false, groups, n: groups.reduce((a, x) => a + x.n, 0), until };
 }
 
-// Which home card's main button is the recommendation, shown blue with a line under it saying so; the others are plain.
+// Which home card's main button is the recommendation, shown deep blue with a line under it saying so; the others are pale blue (tonal).
 // The candidates are the cards whose main button acts on memory: Close duplicates and Allow and choose. Not the
 // keep-this-tab questions (each answer only says which tab is the kept one), not the offline card (its button undoes a
 // hold the person set), and not Start a session, which is not a card: it is blue only when no card is recommended.

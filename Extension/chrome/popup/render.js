@@ -85,7 +85,7 @@ function questions(view, on) {
 function startBlock(view, on) {
   const rec = view.recommended?.id === 'start';
   return h('div', {},
-    h('button', { class: rec ? 'btn primary wide' : 'btn tall wide', 'data-key': 'start', onclick: on.openStart }, view.start.label),
+    h('button', { class: rec ? 'btn primary wide' : 'btn tonal wide', 'data-key': 'start', onclick: on.openStart }, view.start.label),
     h('p', { class: 'note', text: view.start.note }));
 }
 
@@ -263,7 +263,7 @@ function extRecCard(view, on) {
     h('p', { text: W.EXT_REC_LINE }),
     h('p', { class: 'note', text: W.EXT_REC_NOTE }),
     h('div', { class: 'row' },
-      h('button', { class: rec ? 'btn primary' : 'btn tall', 'data-key': 'extrec-allow', 'aria-describedby': describedBy, onclick: on.extRecAllow }, W.EXT_REC_ALLOW),
+      h('button', { class: rec ? 'btn primary' : 'btn tonal', 'data-key': 'extrec-allow', 'aria-describedby': describedBy, onclick: on.extRecAllow }, W.EXT_REC_ALLOW),
       h('button', { class: 'btn tall', 'data-key': 'extrec-later', onclick: on.extRecLater }, W.EXT_REC_LATER)),
     recLine(view, 'extrec'));
 }
@@ -294,7 +294,7 @@ function duplicatesCard(view, on) {
       h('button', { class: 'tabtitle show', title: `${W.SHOW}: ${x.title}`, 'aria-label': `${W.SHOW}: ${x.title}`,
         'data-key': `dup-show-${x.showId}`, onclick: () => on.show(x.showId) }, h('span', { class: 'name', text: x.title }), icon('external')),
       h('span', { class: 'why', text: W.dupExtra(x.extra) })))),
-    h('div', { class: 'row' }, h('button', { class: rec ? 'btn primary' : 'btn tall', 'data-key': 'dups', 'aria-describedby': describedBy, onclick: on.closeDuplicates }, d.button)),
+    h('div', { class: 'row' }, h('button', { class: rec ? 'btn primary' : 'btn tonal', 'data-key': 'dups', 'aria-describedby': describedBy, onclick: on.closeDuplicates }, d.button)),
     recLine(view, 'dups'));
 }
 

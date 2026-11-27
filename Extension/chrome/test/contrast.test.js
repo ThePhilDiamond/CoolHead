@@ -22,12 +22,13 @@ const WASHES = ['wash-warn', 'wash-good', 'wash-bad', 'wash-none'];
 const TEXT = [
   ['text', 'bg'], ['muted', 'bg'], ['text', 'card'], ['muted', 'card'], ['text', 'group'], ['muted', 'group'],
   ['text', 'chip'], ['text', 'fill'], ['muted', 'fill'], ['danger', 'fill'], ['danger', 'bg'], ['danger', 'card'],
-  ['accent', 'bg'], ['accent', 'card'], ['on-accent', 'accent'], ['text', 'accent-soft'], ['muted', 'accent-soft'],
+  ['accent', 'bg'], ['accent', 'card'], ['on-accent', 'accent'], ['text', 'accent-soft'], ['muted', 'accent-soft'], ['text', 'tint'], ['text', 'tint-hover'],
   ...WASHES.flatMap((w) => [['text', w], ['muted', w]]),
 ];
 const EDGES = [
   ['control', 'bg'], ['control', 'card'], ['control', 'accent-soft'], ...WASHES.map((w) => ['control', w]),
   ['accent', 'bg'], ['accent', 'fill'], ['accent', 'accent-soft'], ['accent', 'card'], ...WASHES.map((w) => ['accent', w]),
+  ['tint-edge', 'bg'], ['tint-edge', 'card'],
   ['danger', 'bg'], ['danger', 'card'], ...WASHES.map((w) => ['linked', w]), ...WASHES.map((w) => ['muted', w]),
 ];
 

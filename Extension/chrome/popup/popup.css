@@ -16,6 +16,9 @@
   --chip: light-dark(#ECECEC, #3D3D3D);
   --accent: light-dark(#1769D1, #4A9EFF);        /* Cool Head blue: text, icons, focus, and fills */
   --accent-soft: light-dark(#E8F0FB, #1C2B3F);   /* blue at about 10%: the chosen level, the session card */
+  --tint: light-dark(#D1E1F6, #1A3759);          /* tonal: a main button when another is recommended, a clear blue */
+  --tint-hover: light-dark(#C2D7F3, #20416A);
+  --tint-edge: light-dark(#5585CC, #4F7FC0);     /* its edge: 3:1 or more on bg and card, as a control's */
   --on-accent: light-dark(#FFFFFF, #1A1A1A);     /* white on blue in light, near-black on blue in dark */
   --danger: light-dark(#B3261E, #FF8A80);        /* Close, and the warning */
   --linked: light-dark(#1E7A35, #5FD283);        /* the working-together icon */
@@ -76,6 +79,9 @@ button { font: inherit; color: inherit; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; min-height: 36px; border-radius: 9px; font-size: 14px; }
 .btn.primary:hover { filter: brightness(1.06); }
 .btn.primary[disabled] { background: var(--fill); border-color: var(--control); color: var(--muted); cursor: default; filter: none; }
+/* tonal: a card's main button when another is recommended; the same size as primary, tinted, so none looks switched off */
+.btn.tonal { background: var(--tint); border-color: var(--tint-edge); color: var(--text); font-weight: 600; min-height: 36px; border-radius: 9px; font-size: 14px; }
+.btn.tonal:hover { background: var(--tint-hover); }
 .btn.wide { width: 100%; }
 .btn.tall { min-height: 32px; }
 .btn.danger { color: var(--danger); }
@@ -210,7 +216,7 @@ button.tabtitle.show:hover svg { color: var(--accent); }
 .field { display: block; margin-top: 10px; font-size: 12px; font-weight: 600; }
 .field input { display: block; width: 100%; margin-top: 4px; min-height: 32px; padding: 0 8px; border: 1px solid var(--control); border-radius: 6px; background: var(--fill); color: var(--text); font: 13px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-.row .btn.primary { font-size: 13px; min-height: 32px; border-radius: 7px; }
+.row .btn.primary, .row .btn.tonal { font-size: 13px; min-height: 32px; border-radius: 7px; }
 .divider { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--edge); }
 
 /* settings */
