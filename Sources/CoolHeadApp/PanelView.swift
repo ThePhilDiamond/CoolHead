@@ -2371,6 +2371,79 @@ struct FixRow: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.accent.opacity(0.35), lineWidth: 1))
     }
 
+    /// What a screen reader says after the option's name: its tag, Caution, what it does, and why it's recommended.
+    var hint: String {
+        var parts: [String] = [fix.impact + "."]
+        if fix.caution { parts.append("Caution.") }
+        parts.append(Fmt.plain(line))
+        if recommended, let w = why { parts.append(w) }
+        return parts.joined(separator: " ")
+    }
+    /// The option's arrow: out for what opens elsewhere, down while its choices or steps show, else along.
+    var arrow: String {
+        if opensElsewhere { return "arrow.up.right" }
+        return (hasChoices && choosing) || (guideSteps != nil && showingSteps) ? "chevron.down" : "chevron.right"
+    }
+    /// A Caution option's first click: why it's risky, and that a second click goes ahead.
+    var armedLabel: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
+                .foregroundStyle(filledTile ? Ink.onFill : Color.red)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
+            }
+            Spacer(minLength: 6)
+        }
+    }
+    /// The labels top right where they fit beside the name on one line; where the name would wrap, they go on their
+    /// own line under it, so a name is never squeezed. No Recommended label: the recommended option is the blue one,
+    /// and its line under the rule starts "Cool Head recommends this".
+    var nameAndTags: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) { nameLine(wraps: false); Spacer(minLength: 8); tagRow }
+            VStack(alignment: .leading, spacing: 4) { nameLine(wraps: true); tagRow }
+        }
+    }
+    /// The name and tags, then what it does; the arrow at the right. The icon is in line with the name, not in a
+    /// column of its own, so the text under it runs the tile's full width and takes fewer lines.
+    var mainRow: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                nameAndTags
+                if !line.isEmpty {
+                    Text(ui: line)
+                        .accessibilityLabel(Fmt.plain(line))
+                        .font(.callout).opacity(filledTile ? 1 : 0.8).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 6)
+            Image(systemName: arrow)
+                .font(.callout.weight(.bold)).opacity(0.75)
+                .padding(.top, 2)
+                .help(opensElsewhere ? "Opens another app or your browser" : "")
+        }
+    }
+    /// Why it was chosen, apart from what it does by a thin line across the whole tile; only on the recommended option.
+    @ViewBuilder var whyRow: some View {
+        if recommended, let w = why {
+            Rectangle().fill(filledTile ? Ink.onFill.opacity(0.35) : Color.primary.opacity(0.18)).frame(height: 1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            Text(w)
+                .accessibilityLabel(w)
+                .font(.callout).opacity(filledTile ? 1 : 0.8).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+    @ViewBuilder var tileLabel: some View {
+        if guarded && armed {
+            armedLabel
+        } else {
+            VStack(alignment: .leading, spacing: 0) { mainRow; whyRow }
+                .multilineTextAlignment(.leading)
+        }
+    }
+
     var tileBody: some View {
         VStack(alignment: .leading, spacing: 6) {
                 Button {
@@ -2381,59 +2454,9 @@ struct FixRow: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { withAnimation(.easeOut(duration: 0.15)) { armed = false } }
                     }
                     else { armed = false; run(fix) }
-                } label: {
-                    if guarded && armed {
-                        HStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
-                                .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onFill : Color.red)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                                Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
-                            }
-                            Spacer(minLength: 6)
-                        }
-                    } else {
-                    let shownWhy = recommended ? why : nil
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(alignment: .top, spacing: 10) {
-                            // the icon in line with the name, not in a column of its own, so the text under it runs
-                            // the tile's full width and takes fewer lines
-                            VStack(alignment: .leading, spacing: 4) {
-                                // the labels top right where they fit beside the name on one line; where the name
-                                // would wrap, they go on their own line under it, so a name is never squeezed. No
-                                // Recommended label: the recommended option is the blue one, and its line under the
-                                // rule starts "Cool Head recommends this"
-                                ViewThatFits(in: .horizontal) {
-                                    HStack(alignment: .firstTextBaseline, spacing: 8) { nameLine(wraps: false); Spacer(minLength: 8); tagRow }
-                                    VStack(alignment: .leading, spacing: 4) { nameLine(wraps: true); tagRow }
-                                }
-                                if !line.isEmpty {
-                                    Text(ui: line)
-                                        .accessibilityLabel(Fmt.plain(line))
-                                        .font(.callout).opacity(filledTile ? 1 : 0.8).fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            Spacer(minLength: 6)
-                            Image(systemName: opensElsewhere ? "arrow.up.right" : (hasChoices && choosing) || (guideSteps != nil && showingSteps) ? "chevron.down" : "chevron.right")
-                                .font(.callout.weight(.bold)).opacity(0.75)
-                                .padding(.top, 2)
-                                .help(opensElsewhere ? "Opens another app or your browser" : "")
-                        }
-                        // why it was chosen, apart from what it does by a thin line across the whole tile
-                        if let w = shownWhy {
-                            Rectangle().fill(filledTile ? Ink.onFill.opacity(0.35) : Color.primary.opacity(0.18)).frame(height: 1)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                            Text(w)
-                                .accessibilityLabel(w)
-                                .font(.callout).opacity(filledTile ? 1 : 0.8).fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .multilineTextAlignment(.leading)
-                    }
-                }
+                } label: { tileLabel }
                 .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you))
-                .accessibilityHint(([fix.impact + "."] + (fix.caution ? ["Caution."] : []) + [Fmt.plain(line)] + (recommended ? [why].compactMap { $0 } : [])).joined(separator: " "))
+                .accessibilityHint(hint)
                 if choosing && isSyncPause {
                     HStack(spacing: 6) {
                         Text("For").font(.callout).foregroundStyle(Ink.muted)

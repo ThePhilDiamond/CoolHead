@@ -325,9 +325,11 @@ public struct Card {
         // one that isn't Caution: one that closes nothing first, then the one that does most about the problem. A task
         // that does more says so ("Fixes the cause"). A one-click recommendation stays, Caution or not (stopping a
         // stuck job was chosen for its card's reason). A card that recommends nothing (a job working normally) gets no
-        // recommendation from this rule.
+        // recommendation from this rule. Where the card can't tell what it's doing (`unknown`), an option that closes it
+        // isn't put forward: quitting may end work Cool Head can't see (a render, say), so what it costs isn't known.
         if let rec = kept.first(where: \.recommended), rec.doer == .you || rec.result < .eases,
-           let i = kept.indices.filter({ kept[$0].doer == .coolHead && !kept[$0].caution && !kept[$0].holdBack && kept[$0].result >= .eases })
+           let i = kept.indices.filter({ kept[$0].doer == .coolHead && !kept[$0].caution && !kept[$0].holdBack && kept[$0].result >= .eases
+                                        && !(state == .unknown && kept[$0].interrupts) })
                 .max(by: { (kept[$0].interrupts ? 0 : 1, kept[$0].result, -Card.rank(kept[$0]), -$0) < (kept[$1].interrupts ? 0 : 1, kept[$1].result, -Card.rank(kept[$1]), -$1) }) {
             displaced = rec.id
             for k in kept.indices { kept[k].recommended = k == i }
@@ -346,15 +348,15 @@ public struct Card {
     /// again. While the recommended option is left, it stays the recommendation (another option done doesn't move
     /// it); once it is done, the next option is recommended. That is the card's own pick where the one-click rule put an option in
     /// one click in its place (`displaced`), one click or a task, since the easy way has been tried; otherwise the first
-    /// option left, in the card's order, that acts, isn't Caution, and isn't held back (a risky option is never put
-    /// forward by this, only offered). Nothing is recommended where none is left, nor on a card that recommended nothing (a job working
+    /// option left, in the card's order, that acts, isn't Caution, isn't held back, and, where the card can't tell what
+    /// it's doing, doesn't close it (as in `init`; a risky option is never put forward by this, only offered). Nothing is recommended where none is left, nor on a card that recommended nothing (a job working
     /// normally), since nothing there needs doing. The card unchanged when nothing is done.
     public func after(_ done: Set<String>) -> Card {
         guard !done.isEmpty else { return self }
         let left = fixes.filter { !done.contains($0.doneKey) }
         let own = displaced.flatMap { d in left.first { $0.id == d && !$0.caution } }
         let still = recommended.flatMap { r in left.first { $0.id == r.id } }
-        let next = recommended == nil ? nil : still ?? own ?? left.first { $0.kind.isAction && !$0.caution && !$0.holdBack }
+        let next = recommended == nil ? nil : still ?? own ?? left.first { $0.kind.isAction && !$0.caution && !$0.holdBack && !(state == .unknown && $0.interrupts) }
         var c = self
         c.fixes = Card.ordered(left.map { var f = $0; f.recommended = f.id == next?.id; return f })
         return c

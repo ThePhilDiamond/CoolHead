@@ -43,7 +43,8 @@ extension Fixture {
             ("job-no-signs", says + "helps without closing anything."),   // Stop it, one click too, closes it
             ("kernel-task-long", says + "is the only option that helps."),
             ("web-page-in-app", says + "is the only option that fixes the cause."),
-            ("app-on-the-graphics-chip", says + "is the only option that fixes the cause."),   // Quit Blender, one click, over Search the web
+            ("app-on-the-graphics-chip", "Cool Head recommends this."),   // Search the web: Quit Blender isn't put forward, since Cool Head can't tell what it's doing
+            ("catalogue-displaylink-long", "Cool Head recommends this."),   // the restart, one click: Quit is one click and fixes the cause too
             ("stuck-after-restart", "Cool Head recommends this."),   // two tasks that help: nothing in the facts says why one won
             ("job-stalled", "Cool Head recommends this."),           // Stop it is the only option that acts
             ("spotlight-long", "Cool Head recommends this."),        // it only tells you more
@@ -66,7 +67,7 @@ extension Fixture {
             if a.fixes.contains(where: { $0.id == r.id }) { journey.append("\(id): \(r.title) still offered once done") }
             if a.fixes.filter(\.recommended).count > 1 { journey.append("\(id): more than one next") }
             let left = c.fixes.filter { $0.id != r.id }
-            let want = c.displaced.flatMap { d in left.first { $0.id == d && !$0.caution } } ?? left.first { $0.kind.isAction && !$0.caution && !$0.holdBack }
+            let want = c.displaced.flatMap { d in left.first { $0.id == d && !$0.caution } } ?? left.first { $0.kind.isAction && !$0.caution && !$0.holdBack && !(c.state == .unknown && $0.interrupts) }
             if a.recommended?.id != want?.id { journey.append("\(id): next is \(a.recommended?.title ?? "none"), not \(want?.title ?? "none")") }
             if a.recommended?.caution == true { journey.append("\(id): a Caution option put forward") }
             if a.recommended?.holdBack == true { journey.append("\(id): a held-back option put forward") }
@@ -85,8 +86,8 @@ extension Fixture {
             }
         }
         let expectedNext: [(String, String?)] = [
-            ("catalogue-displaylink-long", "Restart DisplayLink Manager"),   // the card's own pick, displaced by Quit
-            ("app-on-the-graphics-chip", "Search the web"),                  // the card's own pick, displaced by Quit Blender
+            ("catalogue-displaylink-long", "Search the web"),   // Quit DisplayLink Manager isn't put forward: Cool Head can't tell what it's doing
+            ("app-on-the-graphics-chip", nil),                  // the same for Quit Blender, and nothing else acts
             ("job-stalled", nil),                                            // nothing left that acts
         ]
         for (id, t) in expectedNext {
@@ -120,6 +121,11 @@ extension Fixture {
         let setup = Fix(id: "setup", title: "Set up", consequence: "This sets it up.", kind: .chromeCompanion("setup"), recommended: true)
         let informs = Card(state: .unknown, headline: "x", explanation: "", fixes: [setup, fast])
         if informs.recommended?.id != "fast" { journey.append("made-up card: \(informs.recommended?.id ?? "none") recommended over one click that helps") }
+        // a restart the catalogue advises is one click where Cool Head can quit the app (DisplayLink Manager)
+        let restartsItself: Bool = { if case .restartApp = byID["catalogue-displaylink-long"]?.recommended?.kind { return true }; return false }()
+        if !restartsItself {
+            journey.append("catalogue-displaylink-long: the restart isn't one click")
+        }
         let ok2 = journey.isEmpty
         return [("option-cues", ok,
                  ok ? "\(samples.count) example cards; tags: \(counts); a line on all \(recs.count) recommended options, \(reasons.count) with a reason, each true of its facts"

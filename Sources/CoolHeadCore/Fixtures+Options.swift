@@ -13,9 +13,9 @@ extension Fixture {
             }
             if c.fixes.filter(\.recommended).count > 1 { bad.append("\(id): more than one recommendation") }
             // one click first: a task, or an option that only tells you more, is recommended only when no option in one
-            // click helps without Caution
+            // click helps without Caution (and, where the card can't tell what it's doing, without closing it)
             if let r = c.recommended, r.doer == .you || r.result < .eases,
-               let alt = c.fixes.first(where: { $0.doer == .coolHead && !$0.caution && !$0.holdBack && $0.result >= .eases }) {
+               let alt = c.fixes.first(where: { $0.doer == .coolHead && !$0.caution && !$0.holdBack && $0.result >= .eases && !(c.state == .unknown && $0.interrupts) }) {
                 bad.append("\(id): recommends \(r.title) over \(alt.title), one click")
             }
         }
