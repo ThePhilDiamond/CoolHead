@@ -22,7 +22,7 @@ public enum RunCooler {
 
     /// What the option says it costs.
     public static func consequence(_ e: Evidence) -> String {
-        isVirtualMachine(e) ? "Everything running inside it slows down sharply. Undo any time." : "Slower, but less heat. Undo any time."
+        CardTemplate.says(isVirtualMachine(e) ? "This slows everything inside it a lot." : "This slows it, so it makes less heat.", undo: true)
     }
 
     /// Whether to offer it at all: your own process, busy, not one of macOS's own programs, and not already at background

@@ -83,7 +83,7 @@ public enum HardwarePage {
             crashLines.append("Last one \(Fmt.time(last)).")
         }
         if crashes == 1 {
-            crashLines.append(CrashRestarts.plainCause(r.crashes.lastText.map(CrashRestarts.cause) ?? .unclear))
+            crashLines.append(CrashRestarts.plainCause(r.crashes.lastText.map(CrashRestarts.cause) ?? .unclear).joined(separator: " "))
             crashLines.append("A one-off crash like this isn't a concern. If it happens again in the next week, Cool Head will show you what to try.")
         } else if crashes >= 2 {
             crashLines.append("Its card, in the list, says what that means and what to try.")
@@ -173,12 +173,12 @@ public enum HardwarePage {
         // tool open the pill goes back to them
         let (icon, meaning): (Int, String) = {
             if thermal == "critical" { return (2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun.") }
-            if signs.memoryCritical { return (2, "Memory is very tight, so everything is slower.") }
+            if signs.memoryCritical { return (2, "Apps and programs are using all of your Mac's memory, so everything is slower.") }
             if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program isn't making progress." : "\(signs.stuck) programs aren't making progress.") }
             if let p = signs.partHeat, p.level >= 2 { return (2, "The \(p.part) is hot.") }
             // moderate: melting
             if thermal == "serious" { return (1, "macOS is slowing your Mac a little to cool it.") }
-            if signs.memoryTight { return (1, "Memory is tight, so your Mac is slower than it could be.") }
+            if signs.memoryTight { return (1, "Apps and programs are using almost all of your Mac's memory, so it is slower than it could be.") }
             if let p = signs.partHeat, p.level == 1 { return (1, "The \(p.part) is warm.") }
             if signs.addingHeat { return (1, "Your Mac is warm, and something running is adding to the heat.") }
             // cards to watch melt the snowflake, but the row doesn't point at them: the title already counts them, and with

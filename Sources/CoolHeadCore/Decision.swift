@@ -65,8 +65,8 @@ public enum Decision {
     }
 
     /// Titles whose "-ing" form isn't the verb swapped.
-    static let phrases = ["Look it up": "searching the web for {who}", "Pause until you plug in": "pausing {who} until you plug in",
-                          "Disconnect when you don't need it": "disconnecting it", "Stop and delete it": "stopping and deleting {who}",
+    static let phrases = ["Search the web": "searching the web for {who}", "Pause until you connect the charger": "pausing {who} until you connect the charger",
+                          "Disconnect when you do not need it": "disconnecting it", "Stop and delete it": "stopping and deleting {who}",
                           "Turn off and delete it": "turning off and deleting {who}", "Lower its graphics settings": "lowering {who}'s graphics settings"]
 
     /// Each option title's verb and its "-ing" form.
@@ -78,6 +78,7 @@ public enum Decision {
         "Set": "setting", "Limit": "limiting", "Share": "sharing", "Tell": "telling", "Reinstall": "reinstalling",
         "Free": "freeing", "Bring": "bringing", "Show": "showing", "Use": "using", "See": "seeing", "Clear": "clearing",
         "Wait": "waiting", "Get": "getting", "Make": "making", "Switch": "switching", "Choose": "choosing", "Look": "looking",
+        "Send": "sending", "Continue": "continuing", "Search": "searching", "keep": "keeping", "Change": "changing",
     ]
 
     /// An option's facts: the card's own, else those written for its kind; nil when neither has them.
@@ -85,15 +86,16 @@ public enum Decision {
 
     /// Facts written once for each kind of option that needs no card's own words.
     static func kindFacts(_ f: Fix) -> OptionFacts? {
-        let app = f.title.hasPrefix("Quit ") ? String(f.title.dropFirst(5)) : nil
+        // the app's name only: "Quit Slack instead to free 1.1 GB" is Slack
+        let app = f.title.hasPrefix("Quit ") ? String(f.title.dropFirst(5)).components(separatedBy: " instead").first!.components(separatedBy: " to free ").first! : nil
         switch f.kind {
         case .stop: return OptionFacts(helps: "ends the load completely", cost: "nothing gets a chance to save")
         case .cooler: return OptionFacts(helps: "moves {who} to background priority, so it uses less power and makes less heat", undo: .anyTime)
         case .cpuCap: return OptionFacts(helps: "holds {who} to the level you choose while you aren't using it, so it makes far less heat", undo: .anyTime)
-        case .pauseJob: return OptionFacts(helps: "freezes {who} until you plug in, when it carries on by itself with nothing lost")
+        case .pauseJob: return OptionFacts(helps: "freezes {who} until you connect the charger, when it continues by itself with nothing lost")
         case .quitApp:
             guard let app else { return nil }
-            let asks = f.consequence.contains("asks about anything unsaved")
+            let asks = f.consequence.contains("asks about anything unsaved") || f.consequence.contains(CardTemplate.Loss.asksToSave.sentence)
             return OptionFacts(helps: "closes \(app) and ends the work it was doing", cost: !asks && f.caution ? "unsaved work in it may be lost" : nil,
                                stakes: asks ? .protected("\(app) asks about anything unsaved first") : nil)
         case .forceQuit: return OptionFacts(helps: "ends the app at once", cost: "anything unsaved in it is lost")

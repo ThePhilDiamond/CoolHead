@@ -156,8 +156,8 @@ public enum CPUCap {
     /// The option on a card.
     public static func fix(_ o: Offer) -> Fix {
         Fix(id: "cpucap", title: "Limit it",
-            consequence: o.app ? "Choose how much it may use while you aren't using it. Full speed when you switch to it. Undo any time."
-                               : "Choose how much it may use. Undo any time.",
+            consequence: o.app ? CardTemplate.says("This sets how much it may use while you use other apps. It runs at full speed when you switch to it.", undo: true)
+                               : CardTemplate.says("This sets how much it may use.", undo: true),
             kind: .cpuCap(o), recommended: true)
     }
 
@@ -185,7 +185,7 @@ public enum CPUCap {
     /// "about 3 cores", "about 1.5 cores", to the nearest half.
     static func cores(_ c: Double) -> String {
         let r = (c * 2).rounded() / 2
-        return r >= 1.5 ? "about \(r == r.rounded() ? String(Int(r)) : String(format: "%.1f", r)) cores" : r >= 1 ? "about a core" : "under a core"
+        return r >= 1.5 ? "about \(r == r.rounded() ? String(Int(r)) : String(format: "%.1f", r)) cores" : r >= 1 ? "about 1 core" : "less than 1 core"
     }
 }
 
@@ -196,9 +196,9 @@ extension Card {
         let o = CPUCap.Offer(current: .cooler, suggested: CPUCap.suggested(cores: cores), now: cores, app: app)
         var rest = fixes.filter { $0.kind != .cooler }.map { f -> Fix in var f = f; f.recommended = false; return f }
         rest.insert(CPUCap.fix(o), at: 0)
-        var c = Card(state: state, headline: headline,
-                     explanation: explanation + " It's already running cooler and still using \(CPUCap.cores(cores)).", fixes: rest)
-        c.names = names; c.facts = facts; c.cardID = cardID; c.diagnosis = diagnosis
+        // how hard, in cores, is in Nerdy stuff; the card says it in words (docs/CARD-TEMPLATE.md)
+        var c = adding(effect: "It already runs cooler and still works hard.", fixes: rest)
+        c.choice = nil                   // the ranker chose Run it cooler, which this card no longer offers
         c.optionFacts = optionFacts.filter { $0.key != "cooler" }
         return c
     }
@@ -220,10 +220,9 @@ extension Card {
         let i = levels.firstIndex(of: level) ?? levels.count - 1
         let o = CPUCap.Offer(current: level, suggested: levels[max(i - 1, 0)], now: nil, app: app)
         // at the slowest level there's no further to go, so it says what's left rather than recommending where it is
-        let next = i > 0 ? "Slowing it further cuts the heat more" + (app ? "; full speed when you switch to it." : ".")
-                         : "It's at the slowest level, so if you don't need it now, quitting it stops the heat."
-        return Card(state: .unknown, headline: "\(subject) is still adding to the heat.",
-                    explanation: "It's limited to \(level.name) and still using \(CPUCap.cores(now)). " + next,
+        let next = i > 0 ? "A lower level makes less heat."
+                         : "It is at the lowest level. If you do not need it now, quit it to stop the heat."
+        return Card(state: .unknown, CardTemplate(subject, .coresUnderLimit(now, level), .stillAddsHeat, effect: [next]),
                     fixes: [CPUCap.fix(o)])
     }
 }

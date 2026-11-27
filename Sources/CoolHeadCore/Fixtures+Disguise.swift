@@ -65,8 +65,8 @@ extension Fixture {
         let theirsCard = Card.make(theirs, now: now, disguise: judge(theirs))
         let text = { (c: Card) in c.headline + " " + c.explanation }
         let remove = minerCard.recommended
-        let r3 = minerCard.state == .unknown && minerCard.headline == "mdworker_local is pretending to be part of macOS."
-            && minerCard.explanation == "It uses a macOS name but runs from a temporary folder, without Apple's signature: a common malware trick. We can't be certain it's harmful."
+        let r3 = minerCard.state == .unknown && minerCard.headline == "mdworker_local pretends to be a part of macOS. It is probably harmful."
+            && minerCard.explanation == "It uses a name from macOS, but it runs from a temporary folder without Apple's signature. Malware often does this."
             && remove?.id == "remove" && remove?.kind == .stopAndTrash(["/private/tmp/mdworker_local"], nil) && remove?.caution == true
             && minerCard.fixes.map(\.id) == ["remove", "share"]
             && theirsCard.recommended?.id == "delete" && !theirsCard.fixes.contains { $0.interrupts }
@@ -78,7 +78,7 @@ extension Fixture {
         let kernel = disguiseEvidence("kernel_task", nil, args: [], pid: 0, mine: false, now: now)
         let unreadCard = Card.make(unread, now: now, disguise: judge(unread))
         let r4 = judge(unread) == .unchecked(name: "mds_stores") && judge(kernel) == nil
-            && unreadCard.headline == "mds_stores is probably part of macOS, but we couldn't confirm it." && unreadCard.fixes.map(\.id) == ["share"]
+            && unreadCard.headline == "mds_stores is probably a part of macOS." && unreadCard.fixes.map(\.id) == ["share"]
         review.append(("disguise-unchecked-path", r4, unreadCard.headline))
 
         // "isn't Apple's" inside macOS's folders needs a folder that could have been changed and a definite answer,
@@ -118,13 +118,13 @@ extension Fixture {
             && judge(child, items: [qtopItem]) != nil && judge(qtop, items: [signedItem]) == nil && judge(qtop, items: [unknownItem]) == nil
             && yours.fixes.map(\.id) == ["remove", "share"] && yours.recommended?.kind == .stopAndTrash([qtopProgram, qtopItem.plist], qtopItem.plist)
             && system.recommended?.id == "loginitems" && !system.fixes.contains { $0.interrupts }
-            && text(yours).contains("com.apple.qtop starts qtop from your LaunchAgents folder")
+            && text(yours).contains("com.apple.qtop starts qtop from your LaunchAgents folder without")
         review.append(("disguise-apple-label", r6, text(yours) + " Options: \(yours.fixes.map(\.id)); system's: \(system.fixes.map(\.id))"))
 
         // every finding's card: a verdict, the one disclaimer, advice as the recommended option; at most 40 words; never
         // "is malware"; every Caution option says what could go wrong in its own description
         let all = [minerCard, theirsCard, yours, system, offCard]
-        let short = all.allSatisfy { text($0).split(separator: " ").count <= 40 && text($0).contains(Disguise.disclaimer) && !text($0).contains("is malware") && $0.recommended != nil }
+        let short = all.allSatisfy { text($0).split(separator: " ").count <= 40 && text($0).contains(CardTemplate.Verdict.probablyHarmful.sentence) && !text($0).contains("is malware") && $0.recommended != nil }
             && all.flatMap(\.fixes).filter(\.caution).allSatisfy { $0.consequence.contains("it stops working") }
         review.append(("disguise-wording", short, all.map { "\(text($0).split(separator: " ").count) words" }.joined(separator: ", ")))
 

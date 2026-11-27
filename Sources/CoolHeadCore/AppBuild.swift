@@ -128,17 +128,18 @@ public enum AppBuild {
         switch f.rosetta {
         case .intelOnly:
             if f.macOS.major >= 27 {
-                return (" It's an Intel app, so it won't open in macOS 28; Settings lists the Intel apps affected.",
+                // "macOS 28" once, in the sentence; the option says Settings lists them, so the sentence doesn't
+                return (" It is an Intel app, so it will not open in macOS 28.",
                         Fix.openApp("intel", "See which Intel apps are affected", bundle: systemSettings,
-                                    steps: "Choose General. macOS lists the Intel apps that won't open in macOS 28."))
+                                    steps: "Choose General. macOS lists the Intel apps affected."))
             }
-            return (" It's an Intel app, running through Rosetta, and it won't open in macOS 28.",
-                    Fix(id: "intel", title: "Look for an Apple silicon version", consequence: "Search the web for “\(app) Apple silicon”.",
+            return (" It is an Intel app. It runs through Rosetta, and it will not open in macOS 28.",
+                    Fix(id: "intel", title: "Find an Apple silicon version", consequence: "This searches for “\(app) Apple silicon” in your browser.",
                         kind: .lookUp("\(app) Apple silicon")))
         case .setToRosetta:
             guard f.macOS.major < 27 else { return nil }            // 27 ignores the setting and runs it natively
-            return (" It's set to open using Rosetta, so it runs translated though it has an Apple silicon version.",
-                    Fix.guide("native", "Run it natively", "Turns off Open using Rosetta.",
+            return (" It is set to open using Rosetta. It has an Apple silicon version, so Rosetta adds work it does not need.",
+                    Fix.guide("native", "Run it natively", "This turns off Open using Rosetta.",
                               steps: ["Quit \(app).", "In Finder, select \(app) and choose \(Fmt.path("File", "Get Info")).", "Turn off \(Fmt.ui("Open using Rosetta")), then open it again."]))
         case nil:
             return nil
@@ -150,9 +151,8 @@ public enum AppBuild {
         guard electronWindow(f.macOS), !f.oldElectron.isEmpty else { return nil }
         let n = f.oldElectron
         let names = Fmt.list(n)
-        let them = f.oldElectron.count == 1 ? "it" : "them"
-        return (" \(names) \(f.oldElectron.count == 1 ? "is" : "are") built on an older Electron that makes macOS \(f.macOS.major).\(f.macOS.minor) draw slowly: update \(them).",
-                Fix.guide("electron", "Update \(names)", "Newer versions fix the slowdown.",
+        return (" \(names) \(f.oldElectron.count == 1 ? "is" : "are") built on an older Electron, which makes macOS \(f.macOS.major).\(f.macOS.minor) draw slowly.",
+                Fix.guide("electron", "Update \(names)", "This shows how. Newer versions fix the slowdown.",
                           steps: ["Open \(names).", "Check for updates in \(f.oldElectron.count == 1 ? "its" : "each one's") menu, or download the latest version from its developer."],
                           recommended: true).fixingTheCause())
     }

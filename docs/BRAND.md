@@ -44,11 +44,28 @@ The system font everywhere, so each feels native: SF Pro on the Mac (SwiftUI's d
 
 ## Voice
 
-- Plain words a person who isn't technical understands; US English; the Oxford comma; no em dashes; no exclamation marks.
+- Every card aims to make it easy to see what's happening and decide what to do, in simple, literal English that a person who learned English as a second language reads correctly the first time: the fewest words that keep it clear, and the same words and shapes for the same things on every card (26 November 2026).
+- Plain, non-technical words where possible; US English; the Oxford comma; no em dashes; no exclamation marks.
+- On cards: the present tense, with "still … after" for something still going on ("Site is still busy after 3 hours."), and the past only for an event that is over; never the present perfect ("has used"); no contractions ("is not"); no idioms or two-word verbs ("Wait a few minutes", not "Give it a minute"; "Search the web", not "Look it up"), except macOS's own Turn on and Turn off; no "we"; full sentences of at most 25 words, and at most 3 in an explanation.
 - A card gives the verdict, a brief disclaimer, and the advice, and says what Cool Head thinks rather than leaving it to the reader.
 - Every "why" ends in what it means for the person.
 - Each option says what it does and what it costs before it's pressed.
-- Each figure appears once, in the highest place it fits: the card's headline, then an option's title ("Sleep 12 tabs you aren't looking at"), then the explanation. With the figures up top, the explanation is one or two plain sentences and each option's consequence is one, never fragments divided by dots or pipes, which look quick to scan but read less clearly (25 November 2026).
+- Each fact once. A card says each fact in one place: the headline, an option's title, or the explanation. A sentence that would say it again is cut, not reworded.
+- One word for each idea, from the word list in docs/CARD-TEMPLATE.md ("app", "program", "part of macOS", "working hard", "heat", "stuck", "not responding", "memory", "storage", "Quit", "Stop", "Run it cooler"); four words say how sure Cool Head is: none for a fact, "probably", "may", and "usually".
+- Figures as numerals, rounded, with "about" for an estimate (a "~" only where space is tight and the text isn't a sentence: Nerdy stuff, the dials, the menu bar); times written as 2:30pm.
+- A wording change stays only if the card ends up shorter or clearer, read card by card (25 and 26 November 2026).
+
+## Card template
+
+Every card fills the same slots, whatever it's about (adopted 26 November 2026). The code writes the sentences from the slots (Sources/CoolHeadCore/CardTemplate.swift), so no card takes a shape of its own, and the selftest checks every card made from it against these rules (card-template). Each slot's grammar, the verdicts, and the word list, with their sources, are in docs/CARD-TEMPLATE.md.
+
+- Headline: subject, reading, verdict. "A Google Chrome tab is still working hard after 1 hour. This is more than usual." A memory card leads with its verdict: "Apps and programs are using almost all of your Mac's memory. Google Chrome uses the most, 5.1 GB."
+  - Subject: what the card is about, named the same way on every card.
+  - Reading: one measurement, whose type sets its words: how hard it works ("is working hard", "is still working hard after 1 hour"; the figure is in Nerdy stuff), the graphics chip, memory, progress ("is 96% done"), its last progress ("made its last progress at 1:39pm"), a start ("started at 3:38pm"), an activity, a temperature, or a count.
+  - Verdict: one sentence from a closed set, each with one meaning (the list is in docs/CARD-TEMPLATE.md): "This is normal." "This is more than usual." "This is longer than usual." "Wait a few minutes." "It is probably stuck." "It is not responding." "Apps and programs are using almost all of your Mac's memory." "It will finish at about 2:30pm." and the rest. A card whose reading is a single event, such as a crash restart, has none.
+- Explanation: the evidence (how Cool Head knows, with no figure from the headline), then what it means for you, in at most 3 full sentences; none where Cool Head knows nothing more.
+- Terms footer: a word a reader may not know (memory and storage, so far) is defined once, in one visible line with ⓘ under the cards that use it, never on a card.
+- Option: a title that starts with one specific verb ("Quit Slack instead to free 1.1 GB"); then a consequence that starts with "This" (what it does), then what you lose ("Nothing is lost." "Unsaved work is lost." "You may lose up to 2 hours of its work." "You may lose the work it did." "It asks you to save your work first."), then "You can undo this." where Cool Head can.
 
 ## Accessibility
 

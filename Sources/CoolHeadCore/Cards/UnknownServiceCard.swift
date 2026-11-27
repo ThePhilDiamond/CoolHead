@@ -19,7 +19,8 @@ enum UnknownServiceCard: ProcessCard {
     static func made(_ s: Situation) -> Card? {
         guard BackgroundWork.isService(s.e) else { return nil }
         return BackgroundWork.unknownCard(s.e, s.background, busyFor: s.busyFor, active: s.active,
-                                          used: "has used about \(Fmt.cores(s.e.coresNow)) for \(Fmt.duration(s.busyFor))",
-                                          extra: Fmt.its([s.gpuClause, s.warm && s.heating ? "adding to the heat" : nil]), now: s.now)
+                                          reading: .coresFor(s.e.coresNow, s.busyFor),
+                                          evidence: [s.graphics].compactMap { $0 },
+                                          effect: [CardTemplate.it([s.warm && s.heating ? "adds heat" : nil])].compactMap { $0 }, now: s.now)
     }
 }

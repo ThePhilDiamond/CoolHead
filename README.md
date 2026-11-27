@@ -58,8 +58,8 @@ It keeps a cool head: a big job isn't a problem just because it's big, and stopp
 
 Everything runs on your Mac. No account, no analytics, and nothing stored about what happened, except when memory was tight on this Mac in the last 30 days (when, how long, and the kind of program using the most, never a name), so it can tell whether memory is what slows your Mac and say how often on the This Mac page. Otherwise the only things it remembers are your own choices, kept on this Mac: apps and jobs you mark Always trust (listed under Trusted, along the bottom of the panel), apps and jobs you chose to run cooler every time (listed under Always cooler, in Trusted), reminders to resume a sync app you paused, jobs it paused for you until you plug in, the list of what the Cleaner moved to the Trash (so it can put each back; an item drops off once it leaves the Trash). The only automatic network use is a daily check with GitHub for a newer version of Cool Head (turn it off on the Settings page; see [docs/UPDATES.md](docs/UPDATES.md)). Four buttons reach outside, and only when you press them:
 
-- **Look it up** opens a web search for the process name.
-- **Share this case**, on cards Cool Head can't explain, shows you an anonymised report of that process.
+- **Search the web** opens a web search for the process name.
+- **Send this case**, on cards Cool Head can't explain, shows you an anonymised report of that process.
 - **Start test**, in Test my network, runs Apple's own network test, which downloads and uploads test data with Apple's servers for up to 30 seconds.
 - **Report a problem**, along the bottom of the panel or under what Cool Head is managing, is for when a fix caused trouble or Cool Head isn't working: your own words plus Cool Head's activity from the last 6 hours (which cards appeared, which buttons were pressed, what happened), kept in memory only and anonymised the same way. What you type is kept if the panel closes or you open a tool, until you send it or press Cancel.
 
@@ -110,7 +110,7 @@ The app includes `coolhead`, a command-line tool that prints the same cards as t
 |---|---|
 | `coolhead now` | The Mac's heat, power, battery, and memory, and a card for each busy process |
 | `coolhead why <name or PID>` | One process's card, and the facts behind it |
-| `coolhead case <name or PID>` | What **Share this case** would show for one process (nothing is sent) |
+| `coolhead case <name or PID>` | What **Send this case** would show for one process (nothing is sent) |
 | `coolhead memory` | Who is using the memory, counted by app, and what could be done |
 | `coolhead hangs` | What's paused, stuck waiting on a drive, or not responding |
 | `coolhead hardware` | The drive, battery, crash restarts, and ports |

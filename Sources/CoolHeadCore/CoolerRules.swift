@@ -67,9 +67,7 @@ public enum CoolerRules {
 extension Card {
     /// This card for something that already has a rule: it says so, and doesn't offer Run it cooler again.
     public func underRule(app: Bool) -> Card {
-        var c = Card(state: state, headline: headline, explanation: explanation + " " + CoolerRules.cardLine(app: app),
-                     fixes: fixes.filter { $0.kind != .cooler })
-        c.names = names; c.facts = facts; c.cardID = cardID; c.choice = choice; c.diagnosis = diagnosis
+        var c = adding(effect: CoolerRules.cardLine(app: app), fixes: fixes.filter { $0.kind != .cooler })
         c.optionFacts = optionFacts.filter { $0.key != "cooler" }
         return c
     }

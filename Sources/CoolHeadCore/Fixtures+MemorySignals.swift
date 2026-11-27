@@ -21,17 +21,17 @@ extension Fixture {
         let slack = [MemGroup(key: "s", name: "Slack", kind: .app, bundle: "/Applications/Slack.app", bytes: 3_000_000_000, count: 5)]
         let moving = MemoryAdvice.card(slack, mac: mac("warning", swappedMB: 600), now: now)
         let quiet = MemoryAdvice.card(slack, mac: mac("warning", swappedMB: 40), now: now)
-        review.append(("memory-says-what-moved", moving.explanation.hasPrefix("In the last 2 minutes, your Mac moved 600 MB of memory to its disk")
-                       && !quiet.explanation.contains("In the last 2 minutes"), moving.explanation))
+        review.append(("memory-says-what-moved", moving.explanation.contains("Your Mac moved 600 MB from memory to storage in the last 2 minutes")
+                       && !quiet.explanation.contains("in the last 2 minutes"), moving.explanation))
         // a nearly full startup disk is said, with Storage settings offered; a roomy one isn't, and nor is an unknown one
         let full = MemoryAdvice.card(slack, mac: mac("warning", freeGB: 12.4), now: now)
         let roomy = MemoryAdvice.card(slack, mac: mac("warning", freeGB: 45), now: now)
         let unknown = MemoryAdvice.card(slack, mac: mac("warning"), now: now)
         let noOne = MemoryAdvice.card([], mac: mac("critical", freeGB: 3), now: now)
         let offersDisk = { (c: Card) in c.fixes.contains { $0.id == "disk" && $0.doer == .you && !$0.recommended } }
-        review.append(("memory-low-disk", full.explanation.contains("nearly full too (12 GB free)") && offersDisk(full)
+        review.append(("memory-low-disk", full.explanation.contains("nearly full, with 12 GB free") && offersDisk(full)
                        && !roomy.explanation.contains("startup disk") && !offersDisk(roomy) && !offersDisk(unknown)
-                       && noOne.explanation.contains("nearly full too (3.0 GB free)") && offersDisk(noOne),
+                       && noOne.explanation.contains("nearly full, with 3.0 GB free") && offersDisk(noOne),
                        full.explanation))
         // both are readable here without an administrator password
         let live = MacState.read()

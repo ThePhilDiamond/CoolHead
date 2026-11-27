@@ -103,8 +103,8 @@ extension Fixture {
                        "sound \(String(describing: clickSound)); downloading now \(String(describing: clickDownload)); neither \(String(describing: clickNothing))"))
 
         // the words
-        let words = BusyWith.sound.cardLine == "Not paused while it's playing sound."
-            && BusyWith.download.cardLine == "Not paused while it's downloading."
+        let words = BusyWith.sound.cardLine == "Cool Head does not pause it while it plays sound."
+            && BusyWith.download.cardLine == "Cool Head does not pause it while it downloads."
             && BusyWith.sound.pinnedLine == "Full speed while it's playing sound."
             && BusyWith.download.pinnedLine == "Full speed while it's downloading."
         review.append(("busy-with-words", words, "\(BusyWith.sound.cardLine) / \(BusyWith.download.pinnedLine)"))

@@ -51,9 +51,9 @@ public enum Served {
     /// What a macOS service is doing for the app, for the ones known by name.
     static func doing(_ e: Evidence) -> String? {
         let s = e.name + " " + (e.path ?? "")
-        if s.contains("VTDecoderXPCService") { return "decoding video" }
-        if s.contains("VTEncoderXPCService") { return "encoding video" }
-        if s.contains("MTLCompilerService") { return "preparing its graphics" }
+        if s.contains("VTDecoderXPCService") { return "decodes video" }
+        if s.contains("VTEncoderXPCService") { return "encodes video" }
+        if s.contains("MTLCompilerService") { return "prepares graphics" }
         return nil
     }
 
@@ -63,7 +63,7 @@ public enum Served {
         let app = name(bundle)
         let cost = MemoryAdvice.quitRisks[app]
         let sync = SyncApps.app(bundle: bundle) != nil
-        let words = cost?.words ?? (sync ? "Stops syncing until you open it again." : "It asks about anything unsaved.")
+        let words = cost?.words ?? (sync ? "This stops syncing until you open it again." : CardTemplate.Loss.asksToSave.sentence)
         let f = Fix(id: "quit", title: "Quit \(app)", consequence: words, kind: .quitApp(bundle), recommended: cost?.losesWork != true)
         return cost?.losesWork == true ? f.losingWork() : f
     }

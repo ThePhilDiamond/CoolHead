@@ -161,9 +161,10 @@ public struct Evidence {
         defer { try? h.close() }
         let size = (try? h.seekToEnd()) ?? 0
         try? h.seek(toOffset: size > 2048 ? size - 2048 : 0)
-        guard let d = try? h.readToEnd() else { return nil }
+        // a binary file's bytes are never a line (Progress.isText): its last line shows in Nerdy stuff
+        guard let d = try? h.readToEnd(), Progress.isText(d) else { return nil }
         let t = String(decoding: d, as: UTF8.self)       // lossy: the tail may start in the middle of a character
-        return t.split(whereSeparator: \.isNewline).last.map { $0.trimmingCharacters(in: .whitespaces) }
+        return t.split(whereSeparator: \.isNewline).last.map { $0.trimmingCharacters(in: .whitespaces) }.flatMap { Progress.readable($0) ? $0 : nil }
     }
 
     /// The first local ISO time in a text, such as 2026-11-14T13:44:55.
@@ -296,14 +297,14 @@ extension Evidence {
             let n = a.name.lowercased()
             if ["sh", "bash", "zsh", "fish"].contains(n), let i = a.args.firstIndex(of: "-c"), i + 1 < a.args.count {
                 let detached = ancestors.last?.pid == 1 && ancestors.count <= ancestors.firstIndex(where: { $0.pid == a.pid })! + 2
-                return detached ? "a background command, from a window or script that has since closed" : "a shell command"
+                return detached ? "a background command, from a window or script that is now closed" : "a shell command"
             }
             if a.path == "/usr/bin/login" { return "Terminal (a login shell)" }
-            if a.pid == 1 { return mine && script != nil ? "a command from a window or script that has since closed" : "macOS (launchd)" }
+            if a.pid == 1 { return mine && script != nil ? "a command from a window or script that is now closed" : "macOS (launchd)" }
             // the chain stopped at a parent we can't read (the last one, and not launchd)
-            if a.pid > 1 && a.pid == ancestors.last?.pid { return "a process Cool Head can't see (\(a.name))" }
+            if a.pid > 1 && a.pid == ancestors.last?.pid { return "a program Cool Head cannot see (\(a.name))" }
         }
-        return ancestors.isEmpty ? "something Cool Head can't see" : "macOS (launchd)"
+        return ancestors.isEmpty ? "something Cool Head cannot see" : "macOS (launchd)"
     }
 
     /// The shell command line that launched it, when one did.

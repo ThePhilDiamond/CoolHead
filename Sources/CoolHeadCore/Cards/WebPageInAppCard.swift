@@ -28,9 +28,10 @@ enum WebPageInAppCard: ProcessCard {
         guard s.webkit, let b = e.servedBy, !Served.isSafari(b), s.active else { return nil }
         let app = Served.name(b)
         return Card(state: s.busyFor > 20 * 60 ? .unknown : .working,
-                    headline: s.webkitGPU ? "A web page in \(app) is drawing a lot: video or animation." : "A web page in \(app) is working hard.",
-                    explanation: "macOS \(s.webkitGPU ? "draws" : "runs") \(app)'s web pages in a separate process, which \(s.used)"
-                        + Fmt.its([s.gpuLed ? nil : s.gpuClause, s.warm && s.heating ? "adding to the heat" : nil]),
+                    CardTemplate("a web page in \(app)", s.reading, .moreThanUsual,
+                                 evidence: ["macOS \(s.webkitGPU ? "draws" : "runs") \(app)'s web pages in a separate program.",
+                                            s.webkitGPU ? "It draws video or animation." : nil, s.gpuLed ? nil : s.graphics].compactMap { $0 },
+                                 effect: [CardTemplate.it([s.warm && s.heating ? "adds heat" : nil])].compactMap { $0 }),
                     fixes: [Served.quit(b), Card.lookUp(e.name, recommended: false), Card.wait(until: nil, now: s.now, recommended: false)])
     }
 }

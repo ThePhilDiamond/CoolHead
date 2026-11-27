@@ -52,15 +52,15 @@ public struct SyncFeed: Equatable {
     /// A sentence for the sync app's card.
     public func sentence(_ sync: String) -> String {
         if let area {
-            return "It may be uploading the files \(who) is writing in \(folder), inside \(area): if \(sync) backs up \(area), it uploads every file written there."
+            return "It probably uploads the files \(who) writes in \(folder), inside \(area), if \(sync) backs up that folder."
         }
-        return "It's probably uploading the files \(who) is writing in \(folder), a folder \(sync) syncs: it uploads every file written there."
+        return "It probably uploads the files \(who) writes in \(folder), a folder \(sync) syncs."
     }
 
     /// The fix: keep the project out of synced folders.
     public func fix(_ sync: String, recommended: Bool) -> Fix {
-        let steps = "Move it to a folder \(sync) doesn't sync, such as one in your home folder, or exclude it in \(sync)'s settings."
-        return Fix(id: "movebuild", title: "Keep \(folder) out of synced folders", consequence: "Shows it in Finder. " + steps,
+        let steps = "Move it to a folder \(sync) does not sync, such as one in your home folder. Or exclude it in \(sync) settings."
+        return Fix(id: "movebuild", title: "Keep \(folder) out of synced folders", consequence: "This shows it in Finder. " + steps,
                    kind: .reveal(path, steps), recommended: recommended).fixingTheCause()
     }
 }

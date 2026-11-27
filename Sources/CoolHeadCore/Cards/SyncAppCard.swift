@@ -30,16 +30,17 @@ enum SyncAppCard: ProcessCard {
     static func made(_ s: Situation) -> Card? {
         let e = s.e
         guard let sync = SyncApps.app(bundle: e.appBundle), let bundle = e.appBundle else { return nil }
-        if e.coresNow < 0.25 { return Card(state: .quiet, headline: "\(sync) is quiet now.", explanation: "", fixes: []) }
+        if e.coresNow < 0.25 { return Card(state: .quiet, CardTemplate(sync, .quiet, nil), fixes: []) }
         // a build or job writing lots of files into a folder it syncs is the cause to fix, ahead of pausing
-        return Card(state: .working, headline: "\(sync) is syncing your files.",
-                    explanation: "It uploads and checks every change, and stops when it's caught up."
-                        + (s.syncFeed.map { " " + $0.sentence(sync) } ?? "") + Fmt.its([s.warm && e.coresNow >= 0.5 ? "adding to the heat" : nil]),
+        return Card(state: .working,
+                    CardTemplate(sync, .words("is syncing your files"), .normal,
+                                 evidence: ["It uploads and checks every change, and stops when it is done."] + (s.syncFeed.map { [$0.sentence(sync)] } ?? []),
+                                 effect: [CardTemplate.it([s.warm && e.coresNow >= 0.5 ? "adds heat" : nil])].compactMap { $0 }),
                     fixes: [s.syncFeed?.fix(sync, recommended: true),
-                            Fix(id: "pause", title: "Pause syncing", consequence: "Opens \(sync) so you can pause it; we'll remind you to resume. Changes wait until then.",
+                            Fix(id: "pause", title: "Pause syncing", consequence: "This opens \(sync) so you can pause it, and Cool Head reminds you to start it again. Changes wait until then.",
                                 kind: .pauseSync(bundle, sync), recommended: s.warm || s.gameRunning != nil
                                     || (s.onBattery && (e.coresNow >= 2 || ((s.battery ?? 100) < 50 && e.coresNow >= 1)))),
-                            RunCooler.offered(e) ? Fix(id: "cooler", title: "Run it cooler", consequence: "Syncs slower. Undo any time.", kind: .cooler) : nil,
-                            Fix(id: "quit", title: "Quit \(sync)", consequence: "Stops syncing until you open it again.", kind: .quitApp(bundle))].compactMap { $0 })
+                            RunCooler.offered(e) ? Fix(id: "cooler", title: "Run it cooler", consequence: CardTemplate.says("This slows its syncing.", undo: true), kind: .cooler) : nil,
+                            Fix(id: "quit", title: "Quit \(sync)", consequence: "This stops syncing until you open it again.", kind: .quitApp(bundle))].compactMap { $0 })
     }
 }

@@ -89,13 +89,13 @@ extension Fixture {
         let guarded = cards(busy: false, lowPower: nil, holds: [PowerState.Hold(pid: 900, name: "falcond", seconds: 9000, display: false)])
         let short = cards(busy: false, lowPower: nil, holds: [PowerState.Hold(pid: 642, name: "zoom.us", seconds: 3600, display: false)])
         let onBattery = cards(onPower: false, busy: false, lowPower: nil, holds: holds)
-        let h1 = held.first?.card.headline == "Zoom has kept your Mac from sleeping for 38 hours." && held.first?.card.state == .quiet
+        let h1 = held.first?.card.headline == "Zoom is still keeping your Mac awake after 38 hours. It probably forgot to stop." && held.first?.card.state == .quiet
             && held.first?.card.fixes.first?.title == "Quit Zoom" && held.first?.card.fixes.first?.caution == true
-            && sound.first?.card.headline == "Safari has kept your Mac from sleeping for 5 hours."
+            && sound.first?.card.headline == "Safari is still keeping your Mac awake after 5 hours. It probably forgot to stop."
             && sound.first?.card.explanation.hasPrefix("It has sound open") == true
             && guarded.first?.card.fixes.isEmpty == true && short.isEmpty
             && onBattery.first?.card.state == .working && (held + sound + onBattery).allSatisfy { $0.card.fixes.allSatisfy { !$0.recommended } }
-            && held.first?.card.explanation.contains("done almost nothing for 2 hours 45 minutes, so it has likely forgotten") == true
+            && held.first?.card.explanation.contains("It is still doing almost nothing after 2 hours 45 minutes.") == true
             // working, idle only a while, or not yet known: no card
             && cards(busy: false, lowPower: nil, holds: holds, idle: 600).isEmpty && cards(busy: false, lowPower: nil, holds: holds, idle: nil).isEmpty
         review.append(("power-held-awake", h1, (held + sound).map(\.card.headline).joined(separator: " | ")))
@@ -104,7 +104,7 @@ extension Fixture {
         let nightCards = cards(busy: false, lowPower: nil, night: night)
         var plugged = night!; plugged.onBattery = false
         var small = night!; small.chargeTo = 80
-        let n1 = nightCards.first?.card.headline == "Your Mac lost 19% of its battery while asleep, waking 30 times."
+        let n1 = nightCards.first?.card.headline == "Your Mac lost 19% of its battery while asleep, and woke 30 times. This is more than usual."
             && nightCards.first?.card.explanation.contains("Most wakes were for the network") == true
             && cards(busy: false, lowPower: nil, night: plugged).isEmpty && cards(busy: false, lowPower: nil, night: small).isEmpty
             && PowerState.cards(lowPower: nil, lowPowerNow: false, onPower: true, busy: false, holds: [], who: who, night: night,

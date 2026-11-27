@@ -32,13 +32,16 @@ enum WebPageCard: ProcessCard {
         let forSafari = e.servedBy.map(Served.isSafari) == true
         let bundle = e.outerBundle ?? (s.webkit ? "/Applications/Safari.app" : nil)
         return Card(state: !s.active ? .quiet : s.busyFor > 20 * 60 ? .unknown : .starting,
-                    headline: s.webkitGPU ? "A web page is drawing a lot: video or animation." : "A \(app) tab is working hard.",
-                    explanation: (s.webkitGPU ? (forSafari ? "The process that draws Safari's pages \(s.used)"
-                                               : "The process that draws web pages \(s.used) It's usually a Safari tab, though other apps that show web pages have one too.")
-                        : "One tab or extension \(s.used) Only \(app) knows which.") + Fmt.its([s.gpuLed ? nil : s.gpuClause]),
+                    // one shape for every card about how hard something works (docs/BRAND.md, Voice): who and how hard in
+                    // the headline, what it's doing or who knows which in the explanation
+                    CardTemplate(s.webkitGPU ? "a web page" : "a \(app) tab or extension", s.reading, .moreThanUsual,
+                                 evidence: [s.webkitGPU ? (forSafari ? "It draws video or animation in Safari."
+                                                                     : "It draws video or animation, usually in Safari. Other apps that show web pages draw them the same way.")
+                                                        : "Only \(app) knows which tab or extension.",
+                                            s.gpuLed ? nil : s.graphics].compactMap { $0 }),
                     fixes: [(bundle.map { Fix.openApp("find", "Find the busy tab", bundle: $0, steps: steps.joined(separator: " "), recommended: true) }
-                                ?? Fix.guide("find", "Find the busy tab", "In \(app), find the busiest tab.", steps: ["Open \(app)."] + steps, recommended: true)).fixingTheCause(),
-                            bundle.map { Fix(id: "quit", title: "Quit \(app)", consequence: "Closes all tabs.", kind: .quitApp($0)).losingWork() },
+                                ?? Fix.guide("find", "Find the busy tab", "This shows how to find the busiest tab in \(app).", steps: ["Open \(app)."] + steps, recommended: true)).fixingTheCause(),
+                            bundle.map { Fix(id: "quit", title: "Quit \(app)", consequence: "This closes all its tabs.", kind: .quitApp($0)).losingWork() },
                             Card.lookUp(e.name, recommended: false),
                             Card.wait(until: nil, now: s.now, recommended: false)].compactMap { $0 })
     }

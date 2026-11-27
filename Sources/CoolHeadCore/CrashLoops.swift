@@ -64,8 +64,9 @@ public enum CrashLoops {
         loops.map { l in
             var c = LiveCard(id: "crash-loop-\(l.bundle ?? l.app)", pid: nil, card: Card(
                 state: .unknown,
-                headline: "\(l.app) crashed \(l.count) times since \(Fmt.time(l.first)).",
-                explanation: "An app that crashes this often can't stay running, and macOS writes a report each time, about a minute of work. Updating it is the first thing to try; if it keeps crashing, reinstall it or tell its developer.",
+                CardTemplate(l.app, .words("crashed \(l.count) times, starting at \(Fmt.time(l.first))"), .moreThanUsual,
+                             evidence: ["An app that crashes this often cannot stay open, and macOS writes a report each time, which takes about a minute of work."],
+                             effect: ["Update it first. If it keeps crashing, reinstall it or tell its developer."]),
                 fixes: [Card.lookUp("\(l.app) keeps crashing on Mac", recommended: true),
                         Fix.openApp("console", "See the crash reports", bundle: console, steps: "Choose Crash Reports, then \(l.app).")]),
                 details: ["App: \(l.app)" + (l.bundle.map { " (\($0))" } ?? ""),

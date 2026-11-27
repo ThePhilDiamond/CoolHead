@@ -29,7 +29,7 @@ extension Fixture {
 
         // a virtual machine: offered, saying everything inside it slows sharply
         let vm = card(Evidence.sample(name: "qemu-system-aarch64", path: qemuPath, start: start, cores: 2.5)).fixes.first { $0.kind == .cooler }
-        let r2 = vm?.consequence == "Everything running inside it slows down sharply. Undo any time." && vm?.recommended == false
+        let r2 = vm?.consequence == "This slows everything inside it a lot. You can undo this." && vm?.recommended == false
             && RunCooler.isVirtualMachine(Evidence.sample(name: "prl_vm_app", path: "/Applications/Parallels Desktop.app/Contents/MacOS/Parallels VM.app/Contents/MacOS/prl_vm_app", start: start, cores: 2))
             && !RunCooler.isVirtualMachine(tool)
         review.append(("cooler-warns-for-virtual-machines", r2, vm?.consequence ?? "not offered"))

@@ -160,7 +160,7 @@ public enum BackgroundAgents {
     public static func fix(_ a: Agent) -> Fix {
         let what = a.owner == a.label ? "Whatever it does stops too." : "Whatever it does for \(a.owner), such as updates or syncing, stops too."
         return Fix(id: "agent", title: "Stop it starting by itself",
-                   consequence: "Stops it now and at every login. \(what) Undo any time.",
+                   consequence: CardTemplate.says("This stops it now and at every login. \(what)", undo: true),
                    kind: .stopAgent(a.label, a.plist))
     }
 }

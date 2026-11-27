@@ -54,7 +54,9 @@ public struct Progress {
     // "25600/26512 passages", "120 of 500 frames": a count needs a word after it, and must not be part of a date
     // (11/15/2026) or a path; a bare fraction is too often something else.
     static let ratio = try! NSRegularExpression(
-        pattern: #"(?<![\d/.:-])(\d[\d,]*)\s*(?:/|of)\s*(\d[\d,]*)(?![\d/.:-])\s*([A-Za-z]{2,})"#)
+        // the unit is a separate lowercase word: "7/7tHYUw" in a run of base64 isn't "7 of 7 tHYUw" (a binary file read
+        // as a log, 26 November 2026)
+        pattern: #"(?<![\d/.:-])(\d[\d,]*)\s*(?:/|of)\s*(\d[\d,]*)(?![\d/.:-])\s+([a-z]{2,})\b"#)
     // "45%" counts only on a line that talks about progress, so "Battery 38%" doesn't
     static let percent = try! NSRegularExpression(pattern: #"(\d{1,3}(?:\.\d+)?)\s?%"#)
     static let progressWords = try! NSRegularExpression(
@@ -82,9 +84,9 @@ public struct Progress {
         defer { try? h.close() }
         let tail: UInt64 = 16 * 1024
         try? h.seek(toOffset: size > tail ? size - tail : 0)
-        guard let data = try? h.readToEnd() else { return nil }
+        guard let data = try? h.readToEnd(), isText(data) else { return nil }
         let text = String(decoding: data, as: UTF8.self)     // lossy: the tail may start in the middle of a character
-        let lines = text.split(whereSeparator: \.isNewline).map(String.init).suffix(200)
+        let lines = text.split(whereSeparator: \.isNewline).map(String.init).filter(readable).suffix(200)
         let lastLine = lines.last { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         for line in lines.reversed() {
             if var p = parse(line, file: path, time: mtime) {
@@ -96,6 +98,21 @@ public struct Progress {
             }
         }
         return nil
+    }
+
+    /// Text a person or a program wrote, not a binary file's bytes: no NUL byte, and at most 1% of characters that
+    /// aren't valid UTF-8 or are control characters (the tail may start mid-character, so one is allowed for).
+    /// WhatsApp's binary files, read as a log, once gave "WhatsApp is 100% through 7 tHYUw." with the bytes shown.
+    public static func isText(_ data: Data) -> Bool {
+        if data.contains(0) { return false }
+        let scalars = String(decoding: data, as: UTF8.self).unicodeScalars
+        let bad = scalars.filter { $0 == "\u{FFFD}" || ($0.value < 32 && !["\n", "\r", "\t"].contains($0)) }.count
+        return bad * 100 <= max(scalars.count, 1)
+    }
+
+    /// A line fit to read: no replaced or control characters.
+    public static func readable(_ line: String) -> Bool {
+        !line.unicodeScalars.contains { $0 == "\u{FFFD}" || ($0.value < 32 && $0 != "\t") }
     }
 
     static let elapsed = try! NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)\s*min(?:utes?|s)?\b(?!\s*(?:left|remaining|to go))"#,

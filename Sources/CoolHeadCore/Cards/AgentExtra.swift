@@ -8,6 +8,6 @@ enum AgentExtra: CardExtra {
 
     static func add(to c: Card, _ s: Situation) -> Card? {
         guard let a = s.agent, s.e.mine, c.state != .quiet, !c.fixes.contains(where: { $0.id == "agent" }) else { return nil }
-        return Card(state: c.state, headline: c.headline, explanation: c.explanation, fixes: c.fixes + [BackgroundAgents.fix(a)])
+        return c.adding(fixes: c.fixes + [BackgroundAgents.fix(a)])
     }
 }

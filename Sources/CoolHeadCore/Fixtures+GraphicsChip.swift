@@ -13,7 +13,7 @@ extension Fixture {
         // little CPU, and its card says how much; games stay calm and are never slowed; Chrome's graphics process and
         // WebKit's read right; slowing isn't offered for the graphics chip, since it slows CPU work, not drawing
         func withGPU(_ e: Evidence, _ g: Double?) -> Evidence { var e = e; e.gpuShare = g; return e }
-        let chipLine = "It's keeping about 70% of the graphics chip busy"
+        let chipLine = "It keeps about 70% of the graphics chip busy."
         let drawer = withGPU(Evidence.sample(name: "Foo", path: "/Applications/Foo.app/Contents/MacOS/Foo", start: now.addingTimeInterval(-7200), cores: 0.1), 0.7)
         let drawerCard = Card.make(drawer, now: now, busySince: now.addingTimeInterval(-1800), warm: true)
         let drawerNoChip = Card.make(withGPU(drawer, nil), now: now, busySince: now.addingTimeInterval(-1800))
@@ -28,16 +28,17 @@ extension Fixture {
                                                        start: now.addingTimeInterval(-86400), cores: 0.2), 0.6), now: now, busySince: busy10)
         let mlJob = Card.make(withGPU(Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "train.py"], cwd: "/Users/x/Model",
                                                       start: now.addingTimeInterval(-3600), cores: 0.1), 0.9), now: now, busySince: now.addingTimeInterval(-3600))
-        let g1 = drawerCard.state == .unknown && drawerCard.explanation.contains(chipLine) && drawerCard.explanation.contains("adding to the heat")
+        let g1 = drawerCard.state == .unknown && drawerCard.explanation.contains(chipLine) && drawerCard.explanation.contains("adds heat")
             && drawerCard.fixes.contains { $0.kind == .quitApp("/Applications/Foo.app") } && !drawerCard.fixes.contains { $0.kind == .cooler }
             && drawerNoChip.state == .quiet
-        let g2 = gpuGameCard.state == .working && gpuGameCard.headline.contains("is a game") && gpuGameCard.explanation.contains("keeping about 90% of the graphics chip busy")
+        let g2 = gpuGameCard.state == .working && gpuGameCard.headline.contains("is a game") && !gpuGameCard.explanation.contains("graphics chip")
             && !gpuGameCard.fixes.contains { $0.kind == .cooler }
-        let g3 = chromeChip.state != .quiet && chromeChip.explanation.hasPrefix("Its graphics process has kept about 80% of the graphics chip busy for 10 minutes.")
+        let g3 = chromeChip.state != .quiet && chromeChip.headline.hasPrefix("Google Chrome is still keeping the graphics chip busy after 10 minutes.")
+            && chromeChip.explanation.hasPrefix("It draws video or animation in a tab.")
             && chromeChip.recommended?.title == "Turn on Energy Saver" && !chromeChip.fixes.contains { $0.kind == .cooler }
-        let g4 = safariChip.headline == "A web page is drawing a lot: video or animation." && safariChip.state != .quiet
-        let g5 = screen.state == .working && screen.headline.contains("drawing the screen") && screen.explanation.contains("keeping about 60% of the graphics chip busy")
-        let g6 = mlJob.state == .unknown && mlJob.fixes.contains { $0.kind == .stop } && mlJob.explanation.contains("keeping about 90% of the graphics chip busy")
+        let g4 = safariChip.headline == "A web page is still keeping the graphics chip busy after 10 minutes. This is more than usual." && safariChip.state != .quiet
+        let g5 = screen.state == .working && screen.headline.contains("drawing the screen") && !screen.explanation.contains("graphics chip")
+        let g6 = mlJob.state == .unknown && mlJob.fixes.contains { $0.kind == .stop } && mlJob.explanation.contains("It keeps about 90% of the graphics chip busy.")
         let g7 = drawer.lines().contains("Graphics chip: about 70% of it now") && !withGPU(drawer, nil).lines().contains { $0.hasPrefix("Graphics chip") }
             && Fmt.share(0.02) == "under 5%" && Fmt.share(0.68) == "about 70%"
         review.append(("graphics-chip-cards", g1 && g2 && g3 && g4 && g5 && g6 && g7,

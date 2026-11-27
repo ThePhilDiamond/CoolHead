@@ -85,24 +85,19 @@ public enum Leaks {
         }
     }
 
-    /// "two hours", "11 hours": a number of hours in words for small numbers, so a sentence reads easily.
-    static func hours(_ h: Int) -> String {
-        let words = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
-        return h == 1 ? "an hour" : (h < words.count ? words[h] : "\(h)") + " hours"
-    }
-
     /// What the memory card says about a leaking app, anchored on what the same app used earlier with the same windows
-    /// open, so it's measured against typical use and the decision is easy: a verdict for the headline, one sentence
-    /// with the evidence and the advice, and the option, saving first. Caution only where quitting loses work (see
+    /// open, so it's measured against typical use and the decision is easy: the growth and the verdict for the headline
+    /// (a closed card shows only that), one sentence with the evidence, and the option, saving first. Caution only where quitting loses work (see
     /// MemoryAdvice.quitRisks).
-    public static func addition(_ l: Leak, app: String, bundle: String, now: Date, losesWork: Bool) -> (headline: String, sentence: String, fix: Fix) {
+    public static func addition(_ l: Leak, app: String, bundle: String, now: Date, losesWork: Bool) -> (reading: CardTemplate.Reading, sentence: String, fix: Fix) {
         let h = max(2, Int(now.timeIntervalSince(l.since) / 3600))
-        let headline = "\(app) is using more than it usually does."
-        let sentence = "It's at \(Fmt.bytes(l.to)), up from \(Fmt.bytes(l.from)) \(hours(h)) ago with the same windows open, so it's probably a leak."
-        var fix = Fix(id: "reopen", title: "Quit and reopen \(app)",
-                      consequence: "It asks about anything unsaved. Gives back about \(Fmt.bytes(l.to - min(l.to, l.from))); some windows may not reopen.",
+        // the measured growth is the reading, so it leads; what restarting gives back is the option's own figure
+        let reading = CardTemplate.Reading.words("grew from \(Fmt.bytes(l.from)) to \(Fmt.bytes(l.to)) in the last \(h) hours")
+        let sentence = "It has the same windows open as before, so the growth is not from new work."
+        var fix = Fix(id: "reopen", title: "Restart \(app) to free about \(Fmt.bytes(l.to - min(l.to, l.from)))",
+                      consequence: CardTemplate.says(nil, .asksToSave) + " Some windows may not open again.",
                       kind: .restartApp(bundle), recommended: true)
         if losesWork { fix = fix.losingWork() }
-        return (headline, sentence, fix)
+        return (reading, sentence, fix)
     }
 }

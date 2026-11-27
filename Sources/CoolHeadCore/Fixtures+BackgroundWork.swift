@@ -67,10 +67,10 @@ extension Fixture {
         let without = Card.make(mds, now: now, busySince: now.addingTimeInterval(-9 * 3600))
         let lowCard = Card.make(mds, now: now, busySince: now.addingTimeInterval(-40 * 60), background: .init(cool: true))
         let hotCard = Card.make(mds, now: now, busySince: now.addingTimeInterval(-40 * 60), background: .init(cool: false))
-        let r3 = after.state == .working && after.headline == "Spotlight is indexing your files. That's normal after an update."
-            && after.explanation.hasPrefix("You updated to macOS 27.2 2 days ago; this usually goes on for hours or days after an update.")
+        let r3 = after.state == .working && after.headline == "Spotlight is preparing your files for search. This is normal after an update."
+            && after.explanation.hasPrefix("You updated to macOS 27.2 2 days ago. Work like this usually continues for hours or days after an update.")
             && without.state == .unknown && without.headline.contains("longer than usual")
-            && lowCard.explanation.contains("on the chip's efficiency cores, so it uses little power") && !hotCard.explanation.contains("efficiency cores")
+            && lowCard.explanation.contains("It runs at low priority, so it makes little heat.") && !hotCard.explanation.contains("low priority")
         review.append(("background-card-after-update", r3, after.headline + " " + after.explanation + " | " + lowCard.explanation))
 
         // rule 16: busy a day is stuck; a record from just before this boot carries over, and says a restart didn't help
@@ -101,12 +101,12 @@ extension Fixture {
         let spotlightUpdating = Card.make(mds, now: now, busySince: now.addingTimeInterval(-30 * 3600), background: .init(update: update, stuck: stuck))
         let notMacOS = BackgroundWork.stuckCard(catalogueProcess("dasd", "/Users/x/dasd", start: now, cores: 1), .init(stuck: stuck), now: now)
         let words = { (c: Card) in (c.headline + " " + c.explanation).split(separator: " ").count }
-        let r5 = first.headline == "dasd, part of macOS, seems stuck: it's been busy for over a day." && first.recommended?.id == "restart"
-            && second.headline == "dasd, part of macOS, is stuck: a restart didn't clear it." && second.recommended?.id == "update"
-            && second.explanation.contains("busy for 3 days") && second.fixes.contains { $0.id == "feedback" }
+        let r5 = first.headline == "dasd is still busy after more than a day. It is probably stuck." && first.recommended?.id == "restart"
+            && second.headline == "dasd is still busy after 3 days and a restart. It is stuck." && second.recommended?.id == "update"
+            && second.explanation.contains("only Apple can fix") && second.fixes.contains { $0.id == "feedback" }
             && ![first, second].contains { c in c.fixes.contains { $0.interrupts } }
-            && [first, second].allSatisfy { words($0) <= 45 && $0.explanation.lowercased().contains("we can't be certain") }
-            && spotlightUpdating.headline.contains("That's normal after an update") && notMacOS == nil
+            && [first, second].allSatisfy { words($0) <= 45 } && second.explanation.contains("Cool Head does not know the cause")
+            && spotlightUpdating.headline.contains("This is normal after an update") && notMacOS == nil
         review.append(("background-stuck-card", r5, first.headline + " / " + second.headline + " " + second.explanation))
 
         // on this Mac, for real: a busy loop of Cool Head's own, run at background priority with taskpolicy, reads as

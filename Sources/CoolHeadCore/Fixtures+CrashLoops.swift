@@ -41,7 +41,7 @@ extension Fixture {
         // the card: count and time in the headline, needs a look, Look it up recommended, Console second
         let cards = CrashLoops.cards(CrashLoops.loops(five, now: now))
         let c = cards.first
-        let c1 = cards.count == 1 && c?.card.headline.hasPrefix("Backblaze crashed 5 times since ") == true && c?.needsLook == true
+        let c1 = cards.count == 1 && c?.card.headline.hasPrefix("Backblaze crashed 5 times, starting at ") == true && c?.needsLook == true
             && c?.card.recommended?.id == "lookup" && c?.card.fixes.map(\.id) == ["lookup", "console"]
             && c?.card.fixes.allSatisfy { !$0.caution } == true && c?.displaySubject == "Backblaze"
         review.append(("crash-loop-card", c1, c.map { $0.card.headline + " " + $0.card.explanation } ?? "none"))

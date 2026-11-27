@@ -114,7 +114,7 @@ public struct ChromeParts: Equatable {
     /// For Chrome's memory card.
     public var hiddenSentence: String? {
         guard markWorks, hiddenBytes >= ChromeParts.worthSaying else { return nil }
-        return "About \(Fmt.bytes(hiddenBytes)) of Chrome's memory is in tabs you aren't looking at, so closing those gives it back without touching the tab you're on."
+        return "About \(Fmt.bytes(hiddenBytes)) of Chrome's memory is in tabs you are not looking at, and closing them frees it."
     }
 
     /// Extensions hold memory unloading tabs never reaches, so advice about tabs alone would miss part of the problem: on
@@ -123,7 +123,7 @@ public struct ChromeParts: Equatable {
     public static let extensionsWorthSaying: UInt64 = 500_000_000
     public var extensionSentence: String? {
         guard extensionBytes >= ChromeParts.extensionsWorthSaying else { return nil }
-        return "Chrome's extensions are using \(Fmt.bytes(extensionBytes)), which closing tabs doesn't give back."
+        return "Chrome's extensions use \(Fmt.bytes(extensionBytes)), and closing tabs does not free that."
     }
 
     /// For Nerdy stuff: the evidence, and its known errors.
@@ -136,7 +136,7 @@ public struct ChromeParts: Equatable {
     /// Chrome's own program or graphics process has grown: the one kind of memory only a restart gives back.
     public var grownPart: (name: String, bytes: UInt64)? {
         if browserBytes >= ChromeParts.grown, browserBytes >= gpuBytes { return ("Chrome's own program", browserBytes) }
-        if gpuBytes >= ChromeParts.grown { return ("Chrome's graphics process", gpuBytes) }
+        if gpuBytes >= ChromeParts.grown { return ("Chrome's graphics program", gpuBytes) }
         return nil
     }
 

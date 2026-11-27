@@ -44,9 +44,11 @@ extension Fixture {
         let set26 = card(.init(rosetta: .setToRosetta, macOS: (26, 6))), set27 = card(.init(rosetta: .setToRosetta, macOS: (27, 2)))
         let mds = catalogueProcess("mds_stores", spotlightPathForApps, mine: false, start: now, cores: 1)
         let macOSCard = Card.make(mds, now: now, busySince: now.addingTimeInterval(-600), apps: .init(rosetta: .intelOnly, macOS: (26, 6)))
-        let r2 = on26.explanation.hasSuffix("It's an Intel app, running through Rosetta, and it won't open in macOS 28.")
+        let r2 = on26.explanation.hasSuffix("It is an Intel app. It runs through Rosetta, and it will not open in macOS 28.")
             && on26.fixes.contains { $0.kind == .lookUp("Old Tool Apple silicon") }
-            && on27.explanation.contains("Settings lists the Intel apps affected") && on27.fixes.contains { $0.id == "intel" && $0.doer == .you }
+            // "macOS 28" once, in the sentence; the option says Settings lists them
+            && on27.explanation.hasSuffix("It is an Intel app, so it will not open in macOS 28.")
+            && on27.fixes.contains { $0.id == "intel" && $0.doer == .you && $0.consequence.contains("lists the Intel apps affected") && !$0.consequence.contains("macOS 28") }
             && set26.fixes.contains { $0.id == "native" } && !set27.fixes.contains { $0.id == "native" }
             && !macOSCard.explanation.contains("Intel app")
         review.append(("app-build-rosetta-card", r2, on26.explanation + " | 27: " + on27.explanation))
@@ -60,7 +62,7 @@ extension Fixture {
         let r3 = lags("36.6.0") && lags("19.1.8") && lags("37.5.9") && lags("38.1.2") && !lags("36.9.2") && !lags("37.6.0")
             && !lags("38.2.0") && !lags("39.0.0") && !lags("45.2.1") && !lags("36.10.0")
             && AppBuild.electronWindow((26, 0)) && AppBuild.electronWindow((26, 1)) && !AppBuild.electronWindow((26, 2)) && !AppBuild.electronWindow((27, 0))
-            && wsCard.explanation.contains("Figma and Loom are built on an older Electron that makes macOS 26.1 draw slowly: update them.")
+            && wsCard.explanation.hasSuffix("Figma and Loom are built on an older Electron, which makes macOS 26.1 draw slowly.") && wsCard.headline.hasSuffix("This is more than usual.")
             && wsCard.recommended?.id == "electron" && !wsLater.explanation.contains("Electron")
         review.append(("app-build-old-electron", r3, wsCard.explanation + " Options: \(wsCard.fixes.map(\.id))"))
 

@@ -84,12 +84,12 @@ extension Fixture {
         return [("chrome-link-end-to-end", link.ran && link.linked && link.state && link.request && link.answered && link.unlinked, "\(link)"),
                 ("chrome-link-setup-file", wrote && rewritten, "written and recognized \(wrote), an older file rewritten \(rewritten)"),
                 ("chrome-link-memory-words", memoryWords == [.fine, .tight, .slowed, .veryTight], "\(memoryWords)"),
-                ("companion-one-click", on.recommended?.id == "sleep" && on.recommended?.title == "Sleep 12 tabs you aren't looking at"
+                ("companion-one-click", on.recommended?.id == "sleep" && on.recommended?.title == "Sleep 12 tabs you are not looking at"
                  && !ids.contains("tabs") && ids.contains("duplicates") && on.fixes.first { $0.id == "extensions" }.map { if case .chromeCompanion = $0.kind { return true } else { return false } } == true
                  && offered && notYet && noChrome, ids.joined(separator: " ") + "; offered \(offered), not after once \(notYet), not without Chrome \(noChrome)"),
                 // Chrome second, behind a build: the extension's one click still comes, before Restart and Quit
-                ("companion-chrome-not-biggest", sleepFirst && below.recommended?.id == "sleep" && below.recommended?.title == "Sleep Chrome tabs you aren't looking at"
-                 && below.recommended?.consequence.hasPrefix("They stay in the tab bar and reload when clicked") == true && belowOffered && !belowIDs.contains("companion"),
+                ("companion-chrome-not-biggest", sleepFirst && below.recommended?.id == "sleep" && below.recommended?.title == "Sleep Chrome tabs you are not looking at"
+                 && below.recommended?.consequence.hasPrefix("This keeps them in the tab bar, and each reloads when you click it.") == true && belowOffered && !belowIDs.contains("companion"),
                  belowIDs.joined(separator: " ") + "; offered when not linked \(belowOffered)"),
                 // no amount promised: how many tabs (the extension's own count) before, what Chrome gave back after,
                 // measured; nothing about an amount when the count isn't known
@@ -105,13 +105,13 @@ extension Fixture {
         func ctx(_ n: Int?) -> MemoryContext { var c = MemoryContext(companion: .connected); c.tabsToSleep = n; return c }
         let gb = { (x: Double) in UInt64(x * 1_073_741_824) }
         return [
-            MemoryAdvice.sleepChromeTabs(ctx(12), chrome: false, recommended: true).title == "Sleep 12 tabs you aren't looking at",
-            MemoryAdvice.sleepChromeTabs(ctx(12), chrome: true, recommended: true).title == "Sleep 12 Chrome tabs you aren't looking at",
-            MemoryAdvice.sleepChromeTabs(ctx(1), chrome: false, recommended: true).title == "Sleep 1 tab you aren't looking at",
-            MemoryAdvice.sleepChromeTabs(ctx(0), chrome: false, recommended: true).title == "Sleep tabs you aren't looking at",
-            MemoryAdvice.sleepChromeTabs(ctx(nil), chrome: true, recommended: true).title == "Sleep Chrome tabs you aren't looking at",
-            MemoryAdvice.sleepChromeTabs(ctx(12), chrome: false, recommended: true).consequence == "They stay in the tab bar and reload when clicked; tabs and sites you keep, calls, sound, and unsent typing stay awake.",
-            MemoryAdvice.sleepChromeTabs(ctx(1), chrome: false, recommended: true).consequence.hasPrefix("It stays in the tab bar and reloads when clicked;"),
+            MemoryAdvice.sleepChromeTabs(ctx(12), chrome: false, recommended: true).title == "Sleep 12 tabs you are not looking at",
+            MemoryAdvice.sleepChromeTabs(ctx(12), chrome: true, recommended: true).title == "Sleep 12 Chrome tabs you are not looking at",
+            MemoryAdvice.sleepChromeTabs(ctx(1), chrome: false, recommended: true).title == "Sleep 1 tab you are not looking at",
+            MemoryAdvice.sleepChromeTabs(ctx(0), chrome: false, recommended: true).title == "Sleep tabs you are not looking at",
+            MemoryAdvice.sleepChromeTabs(ctx(nil), chrome: true, recommended: true).title == "Sleep Chrome tabs you are not looking at",
+            MemoryAdvice.sleepChromeTabs(ctx(12), chrome: false, recommended: true).consequence == "This keeps them in the tab bar, and each reloads when you click it. Tabs and sites you keep, calls, sound, and unsent typing stay awake.",
+            MemoryAdvice.sleepChromeTabs(ctx(1), chrome: false, recommended: true).consequence.hasPrefix("This keeps it in the tab bar, and it reloads when you click it."),
             // the count is said once, in the title: never again in the card's explanation or the option's consequence
             { let c = companionCard(Date(timeIntervalSince1970: 1_790_000_000), .connected)
               return c.fixes.first { $0.id == "sleep" }?.title.contains("12") == true && !c.explanation.contains("12")
@@ -135,7 +135,7 @@ extension Fixture {
             ChromeParts.gaveBack(count: 0, done: "No tabs needed to sleep.", before: gb(5), after: gb(3), measuring: false) == "No tabs needed to sleep.",
             // a count of 0: said, and not recommended, whether Chrome is the biggest or below it
             { let z = MemoryAdvice.sleepChromeTabs(ctx(0), chrome: true, recommended: true)
-              return !z.recommended && z.consequence.hasPrefix("None can sleep now") }(),
+              return !z.recommended && z.consequence.hasPrefix("This finds no tab to sleep now") }(),
             { let c = MemoryAdvice.card(chromeHeavy, mac: mac("warning", swappedMB: 600), now: Date(timeIntervalSince1970: 1_790_000_000),
                                         context: ctx(0), tabMemoryOn: false)
               return c.fixes.contains { $0.id == "sleep" } && c.fixes.first { $0.id == "sleep" }?.recommended == false }(),
@@ -145,7 +145,7 @@ extension Fixture {
     /// Linked, the card says no amount in tabs out of sight (sleeping may not give it back; the option carries the
     /// count); not linked, Cool Head's own figure stays.
     static func sleepNoAmount(_ now: Date) -> (linked: Bool, unlinked: Bool) {
-        let amount = "of Chrome's memory is in tabs you aren't looking at"
+        let amount = "of Chrome's memory is in tabs you are not looking at"
         let on = companionCard(now, .connected), off = companionCard(now, .notInstalled)
         return (!on.explanation.contains(amount) && !on.fixes.contains { $0.consequence.contains(amount) }, off.explanation.contains(amount))
     }

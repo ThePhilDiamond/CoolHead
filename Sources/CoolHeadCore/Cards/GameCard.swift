@@ -25,11 +25,14 @@ enum GameCard: ProcessCard {
     static func made(_ s: Situation) -> Card? {
         guard let game = s.e.gameBundle else { return nil }
         let name = ((game as NSString).lastPathComponent as NSString).deletingPathExtension
-        if !s.active { return Card(state: .quiet, headline: "\(name) is quiet now.", explanation: "", fixes: []) }
-        return Card(state: .working, headline: "\(name) is a game. Games keep your Mac busy while they run.",
+        if !s.active { return Card(state: .quiet, CardTemplate(name, .quiet, nil), fixes: []) }
+        return Card(state: .working,
                     // rule 7: in full screen, Game Mode gives the game priority over background work (Apple, macOS 14)
-                    explanation: "That's normal while you play. In full screen, macOS's Game Mode gives it priority over background work." + Fmt.its([s.gpuClause, s.warm ? "adding to the heat" : nil]),
-                    fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower quality or frame rate. Less heat, still smooth.", recommended: s.warm),
-                            Fix(id: "quit", title: "Quit \(name)", consequence: "Save your game first. Unsaved progress may be lost.", kind: .quitApp(game)).losingWork()])
+                    CardTemplate(name, .words("is a game"), .normal,
+                                 // the graphics chip's share is in Nerdy stuff, as on the catalogue cards
+                                 evidence: ["Games keep your Mac busy while they run. In full screen, Game Mode in macOS gives it priority over background work."],
+                                 effect: [CardTemplate.it([s.warm ? "adds heat" : nil])].compactMap { $0 }),
+                    fixes: [Fix.openApp("settings", "Lower its graphics settings", bundle: game, steps: "In its settings, lower the quality or frame rate. It makes less heat and still plays smoothly.", recommended: s.warm),
+                            Fix(id: "quit", title: "Quit \(name)", consequence: "This closes the game. Save your game first, or you may lose progress.", kind: .quitApp(game)).losingWork()])
     }
 }

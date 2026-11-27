@@ -169,7 +169,7 @@ public enum BackgroundWork {
     }
 
     /// "over a day", "3 days".
-    static func span(_ s: TimeInterval) -> String { s < 48 * 3600 ? "over a day" : "\(Int(s / (24 * 3600))) days" }
+    static func span(_ s: TimeInterval) -> String { s < 48 * 3600 ? "more than a day" : "\(Int(s / (24 * 3600))) days" }
 
     static let feedbackAssistant = "/System/Library/CoreServices/Applications/Feedback Assistant.app"
     static let systemSettings = "/System/Applications/System Settings.app"
@@ -187,17 +187,22 @@ public enum BackgroundWork {
     /// A macOS service nobody catalogued (research rule 6): names change every release, so an unknown one is "part of
     /// macOS, working in the background", normal when it runs at background priority; never silence, never alarm.
     /// Nothing to press but Look it up (waiting is the card's clock); a day or more busy is the stuck card's (rule 16).
-    static func unknownCard(_ e: Evidence, _ r: Reading?, busyFor: TimeInterval, active: Bool, used: String, extra: String, now: Date) -> Card {
-        if !active { return Card(state: .quiet, headline: "\(e.name), part of macOS, is quiet now.", explanation: "", fixes: []) }
+    static func unknownCard(_ e: Evidence, _ r: Reading?, busyFor: TimeInterval, active: Bool, reading: CardTemplate.Reading,
+                            evidence: [String], effect: [String], now: Date) -> Card {
+        let subject = e.name
+        if !active { return Card(state: .quiet, CardTemplate(subject, .quiet, nil), fixes: []) }
         let low = r?.cool == true
-        let how = low ? "It runs at low priority, on the chip's efficiency cores, so it uses little power even though it looks busy."
-            : "It " + used + (r?.cool == false ? " at normal priority." : ".")
         // an hour or more above background priority: worth watching, and the stuck card takes over after a day
         let watch = !low && busyFor >= 3600
+        // at low priority there's no load to report: it runs on the efficiency cores and makes little heat; once worth
+        // watching, the verdict says so and the next step replaces how it runs
+        let how = low ? "It runs at low priority, so it makes little heat." : watch ? nil : "It runs in the background."
+        // no "if you stop it, macOS starts it again": this card offers no Stop, like the catalogue's
+        let next = watch ? "If it runs for a day, Cool Head shows what to try." : nil
         return Card(state: watch ? .unknown : .working,
-                    headline: "\(e.name) is part of macOS, working in the background.",
-                    explanation: "We don't know this one by name. " + how + extra
-                        + (watch ? " If it runs for a day, we'll say what to try." : e.mine ? "" : " macOS needs it, so stopping it would only start it again."),
+                    CardTemplate(subject, low ? .words("runs in the background") : reading, watch ? .moreThanUsual : .normal,
+                                 evidence: ["It is a part of macOS that Cool Head does not know.", how].compactMap { $0 } + evidence,
+                                 effect: effect + [next].compactMap { $0 }),
                     fixes: [Card.lookUp(e.name, recommended: false)])
     }
 
@@ -206,15 +211,16 @@ public enum BackgroundWork {
         if r?.update != nil, Pattern.match(name: e.name, path: e.path, pid: e.pid)?.afterUpdate == true { return nil }
         let long = span(now.timeIntervalSince(s.since))
         if !s.afterRestart {
-            return Card(state: .unknown, headline: "\(e.name), part of macOS, seems stuck: it's been busy for \(long).",
-                        explanation: "macOS's background work doesn't usually run this long. We can't be certain it's stuck.",
-                        fixes: [Fix.guide("restart", "Restart your Mac", "Save your work first.", steps: ["Save your work.", "Choose \(Fmt.path("Apple menu", "Restart"))."], recommended: true),
+            return Card(state: .unknown, CardTemplate(e.name, .words("is still busy after \(long)"), .probablyStuck,
+                                                      evidence: ["It is a part of macOS, and its background work does not usually run this long."]),
+                        fixes: [Fix.guide("restart", "Restart your Mac", "This shows how. Save your work first.", steps: ["Save your work.", "Choose \(Fmt.path("Apple menu", "Restart"))."], recommended: true),
                                 Card.share])
         }
-        return Card(state: .unknown, headline: "\(e.name), part of macOS, is stuck: a restart didn't clear it.",
-                    explanation: "It's been busy for \(long): a macOS fault only Apple can fix. We can't be certain of the cause.",
+        return Card(state: .unknown, CardTemplate(e.name, .words("is still busy after \(long) and a restart"), .stuck,
+                                                  evidence: ["It is a part of macOS, so this is a fault in macOS that only Apple can fix."],
+                                                  effect: ["Cool Head does not know the cause."]),
                     fixes: [Fix.openApp("update", "Check for a macOS update", bundle: systemSettings, steps: "Choose \(Fmt.path("General", "Software Update")).", recommended: true),
-                            Fix.openApp("feedback", "Tell Apple", bundle: feedbackAssistant, steps: "Choose New Feedback, then macOS, and say \(e.name) has been busy for \(long)."),
+                            Fix.openApp("feedback", "Tell Apple", bundle: feedbackAssistant, steps: "Choose New Feedback, then macOS, and say that \(e.name) was busy for \(long)."),
                             Card.share])
     }
 

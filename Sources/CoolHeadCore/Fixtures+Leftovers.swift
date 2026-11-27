@@ -41,9 +41,10 @@ extension Fixture {
                                        mac: leftoversMac(), now: now, models: [llama])
         let notThere = MemoryAdvice.card([memGroup("Slack", 4.1, bundle: "/Applications/Slack.app", kind: .app)], mac: leftoversMac(), now: now, models: [llama])
         let u = top.recommended
+        // Ollama's size is the headline's when it uses the most, so the title doesn't say it again; second, it does
         let r2 = u?.id == "unload" && u?.title == "Unload llama3.2:3b" && u?.kind == .unloadModels(["llama3.2:3b"]) && u?.caution == false && u?.doer == .coolHead
-            && u?.consequence.hasPrefix("Frees 3.2 GB.") == true
-            && second.fixes.contains { $0.id == "unload" && !$0.recommended } && !notThere.fixes.contains { $0.id == "unload" }
+            && u?.consequence.hasPrefix("Nothing is lost. Ollama loads it again") == true && u?.consequence.contains("GB") == false
+            && second.fixes.contains { $0.id == "unload" && !$0.recommended && $0.title == "Unload llama3.2:3b to free 3.2 GB" } && !notThere.fixes.contains { $0.id == "unload" }
         review.append(("leftovers-unload-option", r2, top.headline + " Options: \(top.fixes.map { "\($0.id)\($0.recommended ? " (recommended)" : "")" }); \(u?.consequence ?? "")"))
 
         // Xcode's build data: offered on a nearly full disk when it's 1 GB or more, never Caution, and asks first
@@ -51,7 +52,8 @@ extension Fixture {
         let small = MemoryAdvice.card([memGroup("Xcode", 6.2, bundle: "/Applications/Xcode.app", kind: .app)], mac: leftoversMac(freeGB: 11), now: now, buildData: 400_000_000)
         let roomy = MemoryAdvice.card([memGroup("Xcode", 6.2, bundle: "/Applications/Xcode.app", kind: .app)], mac: leftoversMac(freeGB: 80), now: now, buildData: 14_300_000_000)
         let bd = low.fixes.first { $0.id == "builddata" }
-        let r3 = bd?.consequence == "Frees 14 GB. Xcode rebuilds what it needs, so the next build of each project takes longer." && bd?.caution == false && low.recommended?.id == "builddata"
+        let r3 = bd?.title == "Delete Xcode's build data to free 14 GB of storage"
+            && bd?.consequence == "This makes the next build of each project take longer, because Xcode builds what it needs again." && bd?.caution == false && low.recommended?.id == "builddata"
             && !small.fixes.contains { $0.id == "builddata" } && !roomy.fixes.contains { $0.id == "builddata" }
         review.append(("leftovers-build-data-option", r3, bd.map { "\($0.title): \($0.consequence)" } ?? "not offered"))
 

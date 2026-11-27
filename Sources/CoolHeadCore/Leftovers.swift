@@ -78,12 +78,13 @@ public enum Leftovers {
     }
 
     /// The one-click option for loaded models: frees their memory; the next question loads a model again.
-    public static func unloadFix(_ models: [Model], recommended: Bool) -> Fix? {
+    /// `freed` false when the card's headline already gives Ollama's size (Ollama uses the most), so the figure isn't said twice.
+    public static func unloadFix(_ models: [Model], recommended: Bool, freed: Bool = true) -> Fix? {
         guard !models.isEmpty else { return nil }
         let names = models.map(\.name)
         let size = Fmt.bytes(models.reduce(0) { $0 + $1.bytes })
         let what = models.count == 1 ? names[0] : "\(models.count) models"
-        return Fix(id: "unload", title: "Unload \(what)", consequence: "Frees \(size). Ollama loads it again the next time it's asked something, which takes a few seconds.",
+        return Fix(id: "unload", title: "Unload \(what)" + (freed ? " to free \(size)" : ""), consequence: CardTemplate.says(nil, .nothing) + " Ollama loads it again the next time you ask it something, which takes a few seconds.",
                    kind: .unloadModels(names), recommended: recommended)
     }
 
@@ -110,8 +111,8 @@ public enum Leftovers {
     /// The one-click option to delete Xcode's build data, when it's big enough to matter.
     public static func buildDataFix(bytes: UInt64?, folder: String = derivedData) -> Fix? {
         guard let b = bytes, b >= worthDeleting else { return nil }
-        return Fix(id: "builddata", title: "Delete Xcode's build data",
-                   consequence: "Frees \(MemoryAdvice.diskGB(b)). Xcode rebuilds what it needs, so the next build of each project takes longer.",
+        return Fix(id: "builddata", title: "Delete Xcode's build data to free \(MemoryAdvice.diskGB(b)) of storage",
+                   consequence: "This makes the next build of each project take longer, because Xcode builds what it needs again.",
                    kind: .deleteBuildData(folder), recommended: true)
     }
 

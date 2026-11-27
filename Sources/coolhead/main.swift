@@ -16,7 +16,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
 
   coolhead now                 the Mac's state and a card for each busy process
   coolhead why <name or PID>   the card and the evidence for one process
-  coolhead case <name or PID>  what "Share this case" would show for a process (nothing is sent)
+  coolhead case <name or PID>  what "Send this case" would show for a process (nothing is sent)
   coolhead memory              who is using the memory, counted by app, and what could be done
   coolhead hangs               what's paused, stuck waiting on a drive, or not responding right now
   coolhead hardware            the drive, battery, crash restarts and ports, checked without a password

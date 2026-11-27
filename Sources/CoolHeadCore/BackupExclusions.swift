@@ -21,12 +21,12 @@ public struct BackupFeed: Equatable {
     public var project: String { ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent }
 
     public func sentence() -> String {
-        "It may be backing up \(name) in \(project), which \(who) keeps rewriting: Time Machine copies every changed file."
+        "It probably backs up \(name) in \(project), which \(who) keeps rewriting. Time Machine copies every changed file."
     }
 
     public func fix(recommended: Bool) -> Fix {
         Fix(id: "backup", title: "Keep \(name) out of Time Machine",
-            consequence: "Later backups skip it. It's build output, which a build makes again, so it isn't backed up from now on. Undo any time.",
+            consequence: CardTemplate.says("This makes later backups skip it. A build makes this folder again, so you do not need a backup of it.", undo: true),
             kind: .keepOutOfBackup(path), recommended: recommended)
     }
 }
