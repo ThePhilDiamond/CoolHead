@@ -340,7 +340,8 @@ public enum MemoryAdvice {
     /// (docs/BRAND.md, Voice). `chrome`: say "Chrome tabs", when the card is about another app. Never an amount of memory,
     /// which can't be known beforehand (memory already compressed or on the disk, protected tabs among those out of
     /// sight): afterwards the card says what Chrome gave back (ChromeParts.gaveBack).
-    /// With a count of 0 (every tab out of sight already asleep or kept awake) it says so and isn't recommended.
+    /// With a count of 0 (every tab out of sight already asleep or kept awake) it says so, isn't recommended, is tagged
+    /// Tells you more, and is held back from the one-click rule and the next recommendation.
     static func sleepChromeTabs(_ context: MemoryContext, chrome: Bool, recommended: Bool) -> Fix {
         let n = context.tabsToSleep ?? 0
         let tabs = (chrome ? "Chrome " : "") + (n == 1 ? "tab" : "tabs")
@@ -348,8 +349,11 @@ public enum MemoryAdvice {
             ? "This finds no tab to sleep now. The tabs out of sight are already asleep or kept awake, like calls, sound, and unsent typing."
             : (n == 1 ? "This keeps it in the tab bar, and it reloads when you click it." : "This keeps them in the tab bar, and each reloads when you click it.")
                 + " Tabs and sites you keep, calls, sound, and unsent typing stay awake."
-        return Fix(id: "sleep", title: "Sleep " + (n > 0 ? "\(n) " : "") + tabs + " you are not looking at",
-                   consequence: what, kind: .chromeCompanion("sleepHidden"), recommended: recommended && context.tabsToSleep != 0)
+        var f = Fix(id: "sleep", title: "Sleep " + (n > 0 ? "\(n) " : "") + tabs + " you are not looking at",
+                    consequence: what, kind: .chromeCompanion("sleepHidden"), recommended: recommended && context.tabsToSleep != 0)
+        // nothing to sleep: it frees nothing, so it only tells you that, and nothing puts it forward
+        if context.tabsToSleep == 0 { f.resultOverride = .informs; f.holdBack = true }
+        return f
     }
 
     /// Why tight memory matters: how much the Mac is moving to its disk (or that it's using its disk at all), and, when

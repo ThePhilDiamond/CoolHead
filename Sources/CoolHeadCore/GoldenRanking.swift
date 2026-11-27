@@ -35,11 +35,11 @@ enum GoldenRanking {
     catalogue-aerial-downloads · catalogue · working · → none · no options
     catalogue-aerial-downloads-long · catalogue · unknown · → advice · advice, lookup, share
     catalogue-displaylink · catalogue · working · → none · quit
-    catalogue-displaylink-long · catalogue · unknown · → advice · advice, quit, lookup, share
+    catalogue-displaylink-long · catalogue · unknown · → quit · quit, advice, lookup, share
     catalogue-local-ai-model · catalogue · working · → none · no options
     catalogue-local-ai-model-long · catalogue · unknown · → advice · advice, lookup, share
     memory-chrome-companion · - · unknown · → sleep · sleep, extensions, groups, duplicates, restart, quit, saver, tabmemory
-    memory-chrome-companion-none-to-sleep · - · unknown · → none · sleep, extensions, groups, duplicates, restart, quit, saver, tabmemory
+    memory-chrome-companion-none-to-sleep · - · unknown · → none · extensions, groups, duplicates, restart, quit, saver, tabmemory, sleep
     memory-chrome-get-companion · - · unknown · → tabs · tabs, restart, quit, saver, tabmemory, extensions, groups, companion
     memory-chrome-second-companion · - · unknown · → sleep · sleep, restart, quit2
     memory-chrome-saver-max · - · unknown · → tabs · tabs, saver-max, restart, quit, tabmemory
@@ -96,7 +96,7 @@ enum GoldenRanking {
     security-software · security-software · working · → none · lookup
     vpn · security-software · working · → none · disconnect, lookup
     game · game · working · → settings · settings, quit
-    app-on-the-graphics-chip · job · unknown · → lookup · lookup, quit, share
+    app-on-the-graphics-chip · job · unknown · → quit · quit, lookup, share
     job-unknown-warm-on-battery-during-a-game · job · unknown · → pausejob · pausejob, stop, cooler, lookup, share
     job-just-started · job · starting · → none · stop, cooler
     hardware-drive-fault · - · unknown · → backup · backup, diagnostics
