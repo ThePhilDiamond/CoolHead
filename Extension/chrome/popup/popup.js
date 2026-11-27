@@ -50,7 +50,21 @@ function announce(text) {
 }
 
 function draw() {
-  if (view) render(root, view, ui, on);
+  if (!view) return;
+  render(root, view, ui, on);
+  followResult();
+}
+
+// A duplicates result shows until its time is up (view.closedDups.until, src/logic/view.js); then the view is asked
+// for again, so the card goes and the next option turns blue without waiting for a change in tabs or storage.
+let resultTimer = null;
+let resultUntil = null;
+function followResult() {
+  const until = view?.closedDups?.until ?? null;
+  if (until === resultUntil) return;
+  clearTimeout(resultTimer);
+  resultUntil = until;
+  if (until != null) resultTimer = setTimeout(() => { resultUntil = null; soon(); }, Math.max(0, until - Date.now()) + 50);
 }
 
 async function refresh() {

@@ -81,10 +81,33 @@ function questions(view, on) {
       h('button', { class: 'btn tall', 'data-key': `q${q.key}-none`, onclick: () => on.keepAnswer(q.key, null) }, W.KEEP_NEITHER))));
 }
 
+// Blue only when no card on home is recommended (src/logic/view.js, recommend), so one button at a time is blue.
 function startBlock(view, on) {
+  const rec = view.recommended?.id === 'start';
   return h('div', {},
-    h('button', { class: 'btn primary wide', 'data-key': 'start', onclick: on.openStart }, view.start.label),
+    h('button', { class: rec ? 'btn primary wide' : 'btn tall wide', 'data-key': 'start', onclick: on.openStart }, view.start.label),
     h('p', { class: 'note', text: view.start.note }));
+}
+
+// ---------- option cues ----------
+
+// What a card's main option does about the problem, as Cool Head's options show it: a small label in capitals with
+// an icon, in the text color, since the status colors never mean "click here". Only on the cards' main buttons: the
+// tab rows' Keep, Sleep, and Close stay as they are.
+const IMPACT_ICON = { [W.IMPACT_HELPS]: 'helps', [W.IMPACT_LATER]: 'later' };
+function impactTag(words) {
+  return h('span', { class: 'impact' }, icon(IMPACT_ICON[words] || 'helps'), h('span', { text: words }));
+}
+
+// The recommended option's line, under a thin rule: "Cool Head for Chrome recommends this", with the reason where
+// the facts give one. Tied to the button by aria-describedby, so it is heard with it.
+function recLine(view, id) {
+  const r = view.recommended;
+  return r?.id === id && r.why ? h('p', { class: 'recline', id: `rec-${id}`, text: r.why }) : null;
+}
+function recProps(view, id) {
+  const rec = view.recommended?.id === id;
+  return { rec, describedBy: rec && view.recommended.why ? `rec-${id}` : null };
 }
 
 function sessionCard(view, ui, on) {
@@ -234,38 +257,45 @@ function iconCard(st, on) {
 // aside; Settings keeps the switch either way.
 function extRecCard(view, on) {
   if (!view.extRec) return null;
+  const { rec, describedBy } = recProps(view, 'extrec');
   return h('section', { class: 'card', 'aria-labelledby': 'extrec-h' },
-    h('div', { class: 'head' }, h('h2', { id: 'extrec-h', text: W.EXT_REC_TITLE })),
+    h('div', { class: 'head' }, h('h2', { id: 'extrec-h', text: W.EXT_REC_TITLE }), impactTag(W.IMPACT_LATER)),
     h('p', { text: W.EXT_REC_LINE }),
     h('p', { class: 'note', text: W.EXT_REC_NOTE }),
     h('div', { class: 'row' },
-      h('button', { class: 'btn primary', 'data-key': 'extrec-allow', onclick: on.extRecAllow }, W.EXT_REC_ALLOW),
-      h('button', { class: 'btn', 'data-key': 'extrec-later', onclick: on.extRecLater }, W.EXT_REC_LATER)));
+      h('button', { class: rec ? 'btn primary' : 'btn tall', 'data-key': 'extrec-allow', 'aria-describedby': describedBy, onclick: on.extRecAllow }, W.EXT_REC_ALLOW),
+      h('button', { class: 'btn tall', 'data-key': 'extrec-later', onclick: on.extRecLater }, W.EXT_REC_LATER)),
+    recLine(view, 'extrec'));
 }
 
-// Each page open more than once, its title showing a copy that would close, so they can be checked first; after
-// closing, what closed, until Done.
+// Each page open more than once, its title showing a copy that would close, so they can be checked first. After
+// closing, what closed shows for a few seconds, then the card goes and the next option turns blue (view.js,
+// dupsResult). If Chrome closed none, the card stays, its button there to try again, with a line saying so; once the
+// copies are gone (closed by hand, say), so is the card. Neither result is a live region: the popup says what happened
+// through its one lasting live region (popup.js), and a region rebuilt on each redraw would be read again and again.
 function duplicatesCard(view, on) {
   const c = view.closedDups;
-  if (c?.length) {
-    const n = c.reduce((a, x) => a + x.n, 0);
-    return h('section', { class: 'card', 'aria-labelledby': 'dup-h', role: 'status' },
-      h('div', { class: 'head' }, h('h2', { id: 'dup-h' }, icon('check'), W.closedDupsTitle(n))),
-      h('ul', { class: 'duplist' }, c.map((x) => h('li', {}, h('span', { class: 'name', text: x.title }),
+  if (c && !c.failed) {
+    return h('section', { class: 'card', 'aria-labelledby': 'dup-h' },
+      h('div', { class: 'head' }, h('h2', { id: 'dup-h' }, icon('check'), W.closedDupsTitle(c.n))),
+      h('ul', { class: 'duplist' }, c.groups.map((x) => h('li', {}, h('span', { class: 'name', text: x.title }),
         x.n > 1 ? h('span', { class: 'why', text: ` × ${x.n}` }) : null))),
-      h('p', { class: 'note', text: W.CLOSED_DUPS_NOTE }),
-      h('div', { class: 'row' }, h('button', { class: 'btn', 'data-key': 'dups-done', onclick: on.closedDupsSeen }, W.CLOSED_DUPS_DONE)));
+      h('p', { class: 'note', text: W.CLOSED_DUPS_NOTE }));
   }
   const d = view.duplicates;
   if (!d) return null;
+  const { rec, describedBy } = recProps(view, 'dups');
   return h('section', { class: 'card', 'aria-labelledby': 'dup-h' },
-    h('div', { class: 'head' }, h('h2', { id: 'dup-h', text: d.title })),
+    // its tag only where closing frees memory now: a copy that's asleep frees nothing
+    h('div', { class: 'head' }, h('h2', { id: 'dup-h', text: d.title }), view.dupsFrees ? impactTag(W.IMPACT_HELPS) : null),
+    c?.failed ? h('p', { class: 'failed' }, icon('warn'), h('span', { text: W.DUPS_FAILED_LINE })) : null,
     h('p', { text: d.line }),
     h('ul', { class: 'duplist' }, (d.items || []).map((x) => h('li', {},
       h('button', { class: 'tabtitle show', title: `${W.SHOW}: ${x.title}`, 'aria-label': `${W.SHOW}: ${x.title}`,
         'data-key': `dup-show-${x.showId}`, onclick: () => on.show(x.showId) }, h('span', { class: 'name', text: x.title }), icon('external')),
       h('span', { class: 'why', text: W.dupExtra(x.extra) })))),
-    h('div', { class: 'row' }, h('button', { class: 'btn tall', 'data-key': 'dups', onclick: on.closeDuplicates }, d.button)));
+    h('div', { class: 'row' }, h('button', { class: rec ? 'btn primary' : 'btn tall', 'data-key': 'dups', 'aria-describedby': describedBy, onclick: on.closeDuplicates }, d.button)),
+    recLine(view, 'dups'));
 }
 
 // Effort, a tool that fills the middle as Cool Head's do: one row a level, its name and what it does. A click sets
@@ -425,6 +455,8 @@ function savedRow(f, ui, on) {
 }
 
 function home(view, ui, on) {
+  // a session's Save form is the one blue button while it shows, so no card is recommended then
+  if (ui.ending && view.recommended) view = { ...view, recommended: null };
   const main = h('main', { class: 'middle', 'aria-label': W.NAME },
     ui.laterNote ? h('p', { class: 'note laternote', role: 'status', text: W.MIGRATE_LATER_NOTE }) : null,
     view.offline ? h('section', { class: 'card', 'aria-labelledby': 'off-h' },

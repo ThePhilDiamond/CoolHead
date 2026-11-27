@@ -184,6 +184,16 @@ export function buildView(i) {
   // ---- duplicates ----
   const dupGroups = findDuplicates(tabs, ctx);
   const duplicates = dupGroups.length ? W.duplicatesCard(dupGroups) : null;
+  const closedDups = dupsResult(s.closedDups, now);
+  const extRec = !(i.managementGranted && s.restEnabled) && !s.extRecDismissed;
+
+  // ---- the recommendation: one blue button on the home screen ----
+  const recommended = recommend({
+    // a copy that's asleep (discarded, or not loaded) frees nothing when closed
+    duplicates: duplicates && { frees: dupGroups.flatMap((g) => g.closeIds).filter((id) => { const t = byId.get(id); return t && !t.discarded && t.status !== 'unloaded'; }).length },
+    extRec,
+    closedDups,
+  });
 
   // ---- the level ----
   const levels = {
@@ -222,9 +232,12 @@ export function buildView(i) {
     })(),
     offline,
     duplicates,
-    closedDups: s.closedDups || null,
+    closedDups,
+    // whether Close duplicates frees memory now (a copy awake), for its tag: Helps where it does, none where it doesn't
+    dupsFrees: Boolean(duplicates) && dupGroups.flatMap((g) => g.closeIds).some((id) => { const t = byId.get(id); return t && !t.discarded && t.status !== 'unloaded'; }),
     // recommend turning off unneeded extensions until allowed or set aside (see popup render.js extRecCard)
-    extRec: !(i.managementGranted && s.restEnabled) && !s.extRecDismissed,
+    extRec,
+    recommended,
     start: { label: W.START, note: W.START_NOTE },
     levels,
     settings: {
@@ -240,6 +253,43 @@ export function buildView(i) {
       offlineHold: s.offlineHold !== false,
     },
   };
+}
+
+// How long a duplicates result shows before its card goes and the next option becomes the recommendation, as in
+// Cool Head: long enough to read the line, short enough that the next step is not kept waiting.
+export const RESULT_MS = 4000;
+
+// What Close duplicates did, while it shows: a result that closed some shows for RESULT_MS after it was saved, then
+// goes by itself (popup.js redraws at `until`). A failure isn't a card of its own: the duplicates card stays, its button
+// still there to try again, with a line saying Chrome didn't close them, until the next close replaces the record (as
+// on the Mac, where a failure stays where it is). The record carries when it was saved, so the view knows its age
+// rather than guessing it; one from before this (a bare list, with no time), or from a time ahead of the clock, is not
+// shown.
+export function dupsResult(rec, now) {
+  if (!rec || typeof rec.at !== 'number' || rec.at > now) return null;
+  if (rec.failed) return { failed: true, groups: [], n: 0, until: null };
+  const until = rec.at + RESULT_MS;
+  if (now >= until) return null;
+  const groups = rec.groups || [];
+  return { failed: false, groups, n: groups.reduce((a, x) => a + x.n, 0), until };
+}
+
+// Which home card's main button is the recommendation, shown blue with a line under it saying so; the others are plain.
+// The candidates are the cards whose main button acts on memory: Close duplicates and Allow and choose. Not the
+// keep-this-tab questions (each answer only says which tab is the kept one), not the offline card (its button undoes a
+// hold the person set), and not Start a session, which is not a card: it is blue only when no card is recommended.
+// Close duplicates is the recommendation when it frees memory now (a copy is awake; a sleeping one frees nothing);
+// Allow and choose otherwise, since it helps later (extensions turn off only while memory is very tight or a session
+// runs). The reason follows Cool Head's (docs/CARD-TEMPLATE.md, Options): Close duplicates is "the only option that
+// helps" when Allow and choose, which only helps later, is beside it; alone, the line says only that it is recommended.
+// While a successful result shows, the recommendation stays on that card, so the next one turns blue only when the
+// result goes. A popup drawing a session's Save form shows no card blue (render.js): Save is the one blue button there.
+// c: { duplicates: { frees } | null, extRec: boolean, closedDups: dupsResult(...) | null }
+export function recommend(c) {
+  if (c.closedDups && !c.closedDups.failed) return { id: 'dups', why: null };
+  if (c.duplicates && c.duplicates.frees > 0) return { id: 'dups', why: W.recommendsLine(c.extRec ? W.REC_REASON.onlyHelps : null) };
+  if (c.extRec) return { id: 'extrec', why: W.recommendsLine(null) };
+  return { id: 'start', why: null };
 }
 
 // The Start a session screen: suggestions ticked, the rest unticked, and what unticking each would do, so the

@@ -136,6 +136,13 @@ button.tabtitle.show:hover svg { color: var(--accent); }
 .duplist li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .duplist li .why { flex: none; color: var(--muted); font-size: 12px; }
 .card .head h2 svg { width: 16px; height: 16px; color: var(--accent); vertical-align: -2px; margin-right: 6px; }
+.card p.failed { display: flex; gap: 6px; align-items: flex-start; font-weight: 600; }
+.card p.failed svg { color: var(--danger); flex: none; margin-top: 2px; }
+/* option cues, as Cool Head's: what a card's main option does, top right in small capitals with an icon, in the text
+   color (status colors never mean "click here"); and the recommended option's line under a thin rule */
+.impact { flex: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text); white-space: nowrap; }
+.impact .ico { width: 12px; height: 12px; stroke-width: 1.8; }
+.card .recline { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--edge); font-size: 12px; color: var(--muted); }
 .tabline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
 .reason { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 5px; border-radius: 10px; background: var(--chip); font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .reason .ico { width: 13px; height: 13px; }

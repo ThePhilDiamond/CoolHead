@@ -1,7 +1,7 @@
 // What the popup says, alone, together, and after the link drops.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildView, buildStart } from '../src/logic/view.js';
+import { buildView, buildStart, RESULT_MS } from '../src/logic/view.js';
 import { LOCAL_DEFAULTS, SESSION_DEFAULTS } from '../src/store.js';
 import { tab, NOW, MIN } from './helpers.js';
 
@@ -125,6 +125,80 @@ test('duplicates card words', () => {
   assert.equal(v.duplicates.title, '2 pages are open twice');
   assert.equal(v.duplicates.line, 'Inbox and Spring budget each have a second copy. Closing keeps the copy you used last, so you keep your place.');
   assert.equal(v.duplicates.button, 'Close 2 duplicates');
+});
+
+// ---- option cues: one recommendation on home, and Close duplicates done, then next ----
+const REC = 'Cool Head for Chrome recommends this';
+function dupTabs({ asleep = false } = {}) {
+  const a = tab({ url: 'https://x.example/a', title: 'Inbox' });
+  const b = tab({ url: 'https://x.example/a', title: 'Inbox', discarded: asleep });
+  return [a, b];
+}
+
+test('one recommendation: Close duplicates over Allow and choose, the only option that helps now', () => {
+  const v = view(dupTabs(), state());
+  assert.equal(v.extRec, true);
+  assert.equal(v.dupsFrees, true);
+  assert.deepEqual(v.recommended, { id: 'dups', why: `${REC} because it is the only option that helps.` });
+});
+
+test('one recommendation: a sleeping copy frees nothing, so Allow and choose is recommended and Close duplicates has no Helps tag', () => {
+  for (const asleep of [{ discarded: true }, { status: 'unloaded' }]) {
+    const [a] = dupTabs();
+    const b = tab({ url: 'https://x.example/a', title: 'Inbox', ...asleep });
+    const v = view([a, b], state());
+    assert.equal(v.dupsFrees, false);
+    assert.deepEqual(v.recommended, { id: 'extrec', why: `${REC}.` });
+    // with the extensions card set aside, nothing on home frees memory: Start a session is the blue one
+    assert.deepEqual(view([a, b], state({ extRecDismissed: true })).recommended, { id: 'start', why: null });
+  }
+});
+
+test('one recommendation: a card alone is recommended without a reason, and Start a session only with no card', () => {
+  assert.deepEqual(view([tab({ active: true })], state()).recommended, { id: 'extrec', why: `${REC}.` });
+  assert.deepEqual(view(dupTabs(), state({ extRecDismissed: true })).recommended, { id: 'dups', why: `${REC}.` });
+  assert.deepEqual(view([tab({ active: true })], state({ extRecDismissed: true })).recommended, { id: 'start', why: null });
+});
+
+test('done, then next: the result holds the recommendation for its few seconds, then the next card is recommended', () => {
+  // Close duplicates pressed: the copy is gone, and what closed was saved with when
+  const [kept] = dupTabs();
+  const s = state({ closedDups: { at: NOW - 1000, groups: [{ title: 'Inbox', n: 1 }] } });
+  const during = view([kept], s);
+  assert.deepEqual(during.closedDups, { failed: false, groups: [{ title: 'Inbox', n: 1 }], n: 1, until: NOW - 1000 + RESULT_MS });
+  assert.deepEqual(during.recommended, { id: 'dups', why: null });
+  // a moment before the time is up it still shows; at the time it goes, and Allow and choose is the recommendation
+  assert.notEqual(view([kept], s, { now: NOW - 1000 + RESULT_MS - 1 }).closedDups, null);
+  const after = view([kept], s, { now: NOW - 1000 + RESULT_MS });
+  assert.equal(after.closedDups, null);
+  assert.deepEqual(after.recommended, { id: 'extrec', why: `${REC}.` });
+});
+
+test('done, then next: a failure stays on the duplicates card, however long, and Close duplicates stays recommended to try again', () => {
+  const s = state({ closedDups: { at: NOW - 60 * MIN, failed: true } });
+  const v = view(dupTabs(), s);
+  assert.equal(v.closedDups.failed, true);
+  assert.equal(v.closedDups.until, null);
+  assert.ok(v.duplicates, 'the duplicates card, with its button, is still there');
+  assert.deepEqual(v.recommended, { id: 'dups', why: `${REC} because it is the only option that helps.` });
+  // the copies closed by hand: no card, so no line saying they're still open, and the next card is recommended
+  const [kept] = dupTabs();
+  const byHand = view([kept], s);
+  assert.equal(byHand.duplicates, null);
+  assert.equal(byHand.recommended.id, 'extrec');
+});
+
+test('done, then next: a result saved at a time ahead of the clock is not shown', () => {
+  const [kept] = dupTabs();
+  assert.equal(view([kept], state({ closedDups: { at: NOW + 60 * MIN, groups: [{ title: 'Inbox', n: 1 }] } })).closedDups, null);
+  // nor brought back if the clock moves back after it went
+  assert.equal(view([kept], state({ closedDups: { at: NOW + 1000, groups: [{ title: 'Inbox', n: 1 }] } })).closedDups, null);
+});
+
+test('done, then next: a result saved by an earlier version (a list with no time) is not shown', () => {
+  const v = view(dupTabs(), state({ closedDups: [{ title: 'Inbox', n: 1 }] }));
+  assert.equal(v.closedDups, null);
+  assert.equal(v.recommended.id, 'dups');
 });
 
 test('a kept tab matched twice after a restart becomes a question with each place named', () => {
