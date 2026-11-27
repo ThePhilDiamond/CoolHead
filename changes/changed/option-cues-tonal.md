@@ -1,0 +1,3 @@
+- The other options Cool Head can do in one click are a pale blue instead of gray, so none looks switched off; the recommended one stays deep blue.
+- The Caution tag is white on red, the same red in light and dark, where red words on a pale tag were hard to read.
+- Where a card offers to restart an app and to quit it, Quit now says when it's the one to use: "Use this only if you are no longer using it."

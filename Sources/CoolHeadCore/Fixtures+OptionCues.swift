@@ -127,9 +127,45 @@ extension Fixture {
             journey.append("catalogue-displaylink-long: the restart isn't one click")
         }
         let ok2 = journey.isEmpty
+        // Quit beside a restart of the same app says when it's the one to use; a quit with no restart beside it doesn't
+        var quits: [String] = []
+        var said = 0
+        for (id, c) in samples {
+            let restarted = Set(c.fixes.compactMap(\.restarts))
+            for f in c.fixes {
+                guard case .quitApp(let b) = f.kind else { continue }
+                let says = f.consequence.hasPrefix(Card.whenDoneWords)
+                if restarted.contains(b) { if says { said += 1 } else { quits.append("\(id): \(f.title) beside its restart doesn't say when") } }
+                else if says { quits.append("\(id): \(f.title) says when with no restart beside it") }
+            }
+        }
+        if said == 0 { quits.append("no example card has a quit beside a restart") }
+        let mk = { (bundle: String) in Card(state: .unknown, headline: "x", explanation: "", fixes: [
+            Fix(id: "restart", title: "Restart A", consequence: "This quits it and opens it again.", kind: .restartApp("/A.app"), recommended: true),
+            Fix(id: "quit", title: "Quit", consequence: "This quits it.", kind: .quitApp(bundle))]) }
+        if mk("/A.app").fixes.first(where: { $0.id == "quit" })?.consequence != "Use this only if you are no longer using it. This quits it." { quits.append("made-up card: the quit beside its restart") }
+        if mk("/B.app").fixes.first(where: { $0.id == "quit" })?.consequence != "This quits it." { quits.append("made-up card: a quit of another app changed") }
+        let twice = mk("/A.app").adding(effect: "It is busy.")
+        if twice.fixes.first(where: { $0.id == "quit" })?.consequence.components(separatedBy: Card.whenDoneWords).count != 2 { quits.append("made-up card: said twice after adding") }
+        // the words go when the restart does: after it's done, and when the card is then rebuilt with a sentence added
+        for (id, c) in samples {
+            // each restart done in turn, then both: the words stay only while a restart of the same app is left
+            let restartKeys = c.fixes.filter { $0.restarts != nil }.map(\.doneKey)
+            for done in restartKeys.map({ Set([$0]) }) + (restartKeys.count > 1 ? [Set(restartKeys)] : []) {
+                for left in [c.after(done), c.after(done).adding(effect: "It is busy.")] {
+                    let restarted = Set(left.fixes.compactMap(\.restarts))
+                    for f in left.fixes {
+                        guard case .quitApp(let b) = f.kind else { continue }
+                        if f.whenDone != restarted.contains(b) { quits.append("\(id): after \(done.count) done, \(f.title) says when: \(f.whenDone)") }
+                    }
+                }
+            }
+        }
+        let ok3 = quits.isEmpty
         return [("option-cues", ok,
                  ok ? "\(samples.count) example cards; tags: \(counts); a line on all \(recs.count) recommended options, \(reasons.count) with a reason, each true of its facts"
                     : "off the list: \(offList); untrue: \(untrue); no line: \(unmarked); unexpected: \(wrong); setup: \(later ?? "not offered")"),
-                ("option-done-then-next", ok2, ok2 ? "\(nexts.count) cards put the next option forward once the recommended one is done, none Caution" : journey.joined(separator: "; "))]
+                ("option-done-then-next", ok2, ok2 ? "\(nexts.count) cards put the next option forward once the recommended one is done, none Caution" : journey.joined(separator: "; ")),
+                ("quit-beside-restart", ok3, ok3 ? "\(said) quits beside a restart of the same app say \"\(Card.whenDoneWords)\"; none elsewhere, nor once the restart is done" : quits.joined(separator: "; "))]
     }
 }

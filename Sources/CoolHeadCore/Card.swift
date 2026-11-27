@@ -71,7 +71,14 @@ public struct Fix: Identifiable {
     }
     public let id: String
     public let title: String
-    public let consequence: String
+    /// What the option does, in its own words, as it was made.
+    public let own: String
+    /// Set by the card while a restart of the same app sits beside this quit (see `Card.marked`).
+    public internal(set) var whenDone = false
+    /// What the option does: its own words, after "Use this only if you are no longer using it." while a restart of the
+    /// same app is beside it on the card, so the two don't read as the same choice. Worked out from the options the card
+    /// holds now, so the words go when the restart does.
+    public var consequence: String { whenDone ? [Card.whenDoneWords, own].filter { !$0.isEmpty }.joined(separator: " ") : own }
     public let kind: Kind
     public var recommended = false
     /// Set where the option is made when it differs from its kind's usual result (see `result`).
@@ -81,6 +88,20 @@ public struct Fix: Identifiable {
     public var holdBack = false
     /// Set where the option is made when what it loses differs from its kind's usual (see `caution`).
     public var cautionOverride: Bool? = nil
+
+    public init(id: String, title: String, consequence: String, kind: Kind, recommended: Bool = false,
+                resultOverride: Result? = nil, holdBack: Bool = false, cautionOverride: Bool? = nil) {
+        self.id = id; self.title = title; self.own = consequence; self.kind = kind; self.recommended = recommended
+        self.resultOverride = resultOverride; self.holdBack = holdBack; self.cautionOverride = cautionOverride
+    }
+
+    /// The app (bundle path) this option quits and opens again, if it is a restart.
+    public var restarts: String? {
+        switch kind {
+        case .restartBrowser(let b), .restartApp(let b): return b
+        default: return nil
+        }
+    }
 
     /// An option that opens an app and says what to do there.
     public static func openApp(_ id: String, _ title: String, bundle: String, steps: String, recommended: Bool = false) -> Fix {
@@ -320,6 +341,9 @@ public struct Card {
             if f.recommended { if seen { f.recommended = false }; seen = true }    // one recommendation at most
             return f
         }
+        // Quit beside a restart of the same app: both close it, so the quit says when it's the one to use ("Use this
+        // only if you are no longer using it. This closes all its tabs."), or the two read as the same choice.
+        kept = Card.marked(kept)
         // One click first, since it's the least effort: where a card recommends something, and that is a task for you
         // or only tells you more, an option Cool Head does in one click that helps is recommended instead, if there is
         // one that isn't Caution: one that closes nothing first, then the one that does most about the problem. A task
@@ -335,6 +359,19 @@ public struct Card {
             for k in kept.indices { kept[k].recommended = k == i }
         }
         self.fixes = Card.ordered(kept)
+    }
+
+    /// What a quit says beside a restart of the same app, before its own consequence, in the cards' fixed "Use this
+    /// only if" form (as JobCard.onlyIfKnown).
+    public static let whenDoneWords = "Use this only if you are no longer using it."
+    /// The options with each quit marked while a restart of the same app is among them, and unmarked otherwise.
+    static func marked(_ fs: [Fix]) -> [Fix] {
+        let restarted = Set(fs.compactMap(\.restarts))
+        return fs.map { f in
+            var f = f
+            if case .quitApp(let b) = f.kind { f.whenDone = restarted.contains(b) } else { f.whenDone = false }
+            return f
+        }
     }
 
     /// The recommendation first; then what does most about the problem; then, at the same, what interrupts nothing;
@@ -358,7 +395,7 @@ public struct Card {
         let still = recommended.flatMap { r in left.first { $0.id == r.id } }
         let next = recommended == nil ? nil : still ?? own ?? left.first { $0.kind.isAction && !$0.caution && !$0.holdBack && !(state == .unknown && $0.interrupts) }
         var c = self
-        c.fixes = Card.ordered(left.map { var f = $0; f.recommended = f.id == next?.id; return f })
+        c.fixes = Card.ordered(Card.marked(left).map { var f = $0; f.recommended = f.id == next?.id; return f })
         return c
     }
 
