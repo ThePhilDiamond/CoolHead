@@ -9,7 +9,7 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 | Use | Light | Dark |
 |---|---|---|
 | Blue for marks: links, switches, icons | `#1769D1` | `#4A9EFF` |
-| Blue behind text: the recommended option, the Recommended pill, the open tool | `#0F52AD` | `#0F52AD`, with a `#4A9EFF` edge (5.1:1 against the dark card) |
+| Blue behind text: the recommended option, the open tool | `#0F52AD` | `#0F52AD`, with a `#4A9EFF` edge (5.1:1 against the dark card) |
 | Text on the blue behind text | white, 7.4:1 (AAA) | white, 7.4:1 (AAA) |
 | Blue text on the panel | 4.9:1 on the light panel | 6.1:1 on `#1E1E1E` |
 

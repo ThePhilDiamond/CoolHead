@@ -161,11 +161,33 @@ public struct Fix: Identifiable {
         case .deleteBuildData: return .fixesCause  // the space is free at once
         }
     }
+    /// What it does about the problem, as the tag every option shows: one of `impacts`, so each word means one thing on
+    /// every card (docs/CARD-TEMPLATE.md, Option cues).
+    public var impact: String {
+        // setting up the extension does nothing now, but makes later cards able to do more
+        if case .chromeCompanion("setup") = kind, resultOverride == nil { return "Helps later" }
+        switch result {
+        case .fixesCause: return "Fixes the cause"
+        case .eases: return "Helps"
+        case .informs: return "Tells you more"
+        }
+    }
+    public static let impacts = ["Fixes the cause", "Helps", "Helps later", "Tells you more"]
     /// The same option, marked as one that ends the cause.
     public func fixingTheCause() -> Fix { var f = self; f.resultOverride = .fixesCause; return f }
     /// The same option, marked as losing something reopening can't bring back (see `caution`).
     public func losingWork() -> Fix { var f = self; f.cautionOverride = true; return f }
 
+    /// Closes something you can see: ends it (`interrupts`), or closes tabs (duplicates, hidden groups). What the
+    /// recommendation's line calls "without closing anything" is read from this.
+    public var closesSomething: Bool {
+        if interrupts { return true }
+        if case .chromeCompanion(let a) = kind { return a == "closeDuplicates" || a == "hideUnusedGroups" }
+        return false
+    }
+    /// What marks an option as done on a card (see `Card.after`): its id and what it acts on, so an id the card reuses
+    /// for another target (Quit Slack, then Quit Xcode, both "quit") isn't taken as done.
+    public var doneKey: String { id + "|" + String(describing: kind) }
     /// Ends or closes something (a process, an app, a browser), whether or not anything is lost: the one-click rule never
     /// puts one of these in place of a task (see `Card.init`). Whether it's risky is `caution`.
     public var interrupts: Bool {
@@ -267,7 +289,10 @@ public struct Card {
     public let state: JobState
     public let headline: String
     public let explanation: String
-    public let fixes: [Fix]
+    public private(set) var fixes: [Fix]
+    /// The card's own recommendation where the one-click rule put an option in one click in its place (see `init`): it
+    /// is the next one shown once that option is done (see `after`). Nil where the card's own pick stood.
+    public internal(set) var displaced: String? = nil
     /// The processes this card names, as shown (see `Naming`): checked to be told apart on every example card.
     public var names: [String] = []
     /// Facts behind the card that its text leaves out, to keep it short: shown first in its Nerdy stuff.
@@ -295,19 +320,46 @@ public struct Card {
             if f.recommended { if seen { f.recommended = false }; seen = true }    // one recommendation at most
             return f
         }
-        // One click first, since it's the least effort: where a card recommends something, and that is a task for you,
-        // an option Cool Head can do in one click without interrupting anything is recommended instead, the one that
-        // does most about the problem. A task that does more says so ("Fixes the cause"). A recommendation that
-        // interrupts (stopping a stuck job) was chosen for its card's reason, and stays.
-        if let rec = kept.first(where: \.recommended), rec.doer == .you, !rec.caution,
-           let i = kept.indices.filter({ kept[$0].doer == .coolHead && !kept[$0].interrupts && !kept[$0].holdBack && kept[$0].result >= .eases })
-                .max(by: { (kept[$0].result, -Card.rank(kept[$0]), -$0) < (kept[$1].result, -Card.rank(kept[$1]), -$1) }) {
+        // One click first, since it's the least effort: where a card recommends something, and that is a task for you
+        // or only tells you more, an option Cool Head does in one click that helps is recommended instead, if there is
+        // one that isn't Caution: one that closes nothing first, then the one that does most about the problem. A task
+        // that does more says so ("Fixes the cause"). A one-click recommendation stays, Caution or not (stopping a
+        // stuck job was chosen for its card's reason). A card that recommends nothing (a job working normally) gets no
+        // recommendation from this rule. Where the card can't tell what it's doing (`unknown`), an option that closes it
+        // isn't put forward: quitting may end work Cool Head can't see (a render, say), so what it costs isn't known.
+        if let rec = kept.first(where: \.recommended), rec.doer == .you || rec.result < .eases,
+           let i = kept.indices.filter({ kept[$0].doer == .coolHead && !kept[$0].caution && !kept[$0].holdBack && kept[$0].result >= .eases
+                                        && !(state == .unknown && kept[$0].interrupts) })
+                .max(by: { (kept[$0].interrupts ? 0 : 1, kept[$0].result, -Card.rank(kept[$0]), -$0) < (kept[$1].interrupts ? 0 : 1, kept[$1].result, -Card.rank(kept[$1]), -$1) }) {
+            displaced = rec.id
             for k in kept.indices { kept[k].recommended = k == i }
         }
-        // the recommendation first; then what does most about the problem; then, at the same, what interrupts nothing;
-        // then the fixed order of kinds (see `rank`)
+        self.fixes = Card.ordered(kept)
+    }
+
+    /// The recommendation first; then what does most about the problem; then, at the same, what interrupts nothing;
+    /// then the fixed order of kinds (see `rank`); the order given last.
+    static func ordered(_ fs: [Fix]) -> [Fix] {
         func key(_ f: Fix, _ at: Int) -> (Int, Int, Int, Int, Int) { (f.recommended ? 0 : 1, -f.result.rawValue, f.caution ? 1 : 0, Card.rank(f), at) }
-        self.fixes = kept.enumerated().sorted { key($0.element, $0.offset) < key($1.element, $1.offset) }.map(\.element)
+        return fs.enumerated().sorted { key($0.element, $0.offset) < key($1.element, $1.offset) }.map(\.element)
+    }
+
+    /// The card once the options in `done` (their `doneKey`s) are done (pressed, and it worked): those go, since they can't be done
+    /// again. While the recommended option is left, it stays the recommendation (another option done doesn't move
+    /// it); once it is done, the next option is recommended. That is the card's own pick where the one-click rule put an option in
+    /// one click in its place (`displaced`), one click or a task, since the easy way has been tried; otherwise the first
+    /// option left, in the card's order, that acts, isn't Caution, isn't held back, and, where the card can't tell what
+    /// it's doing, doesn't close it (as in `init`; a risky option is never put forward by this, only offered). Nothing is recommended where none is left, nor on a card that recommended nothing (a job working
+    /// normally), since nothing there needs doing. The card unchanged when nothing is done.
+    public func after(_ done: Set<String>) -> Card {
+        guard !done.isEmpty else { return self }
+        let left = fixes.filter { !done.contains($0.doneKey) }
+        let own = displaced.flatMap { d in left.first { $0.id == d && !$0.caution } }
+        let still = recommended.flatMap { r in left.first { $0.id == r.id } }
+        let next = recommended == nil ? nil : still ?? own ?? left.first { $0.kind.isAction && !$0.caution && !$0.holdBack && !(state == .unknown && $0.interrupts) }
+        var c = self
+        c.fixes = Card.ordered(left.map { var f = $0; f.recommended = f.id == next?.id; return f })
+        return c
     }
 
     /// Tasks for you that do more about the problem than the recommended option: shown with "Fixes the cause", so a
@@ -316,6 +368,33 @@ public struct Card {
     public var betterThanRecommended: [Fix] {
         guard let rec = recommended, rec.result < .fixesCause else { return [] }
         return fixes.filter { !$0.recommended && $0.doer == .you && $0.result == .fixesCause }
+    }
+
+    /// Why the recommended option is the recommendation, in one sentence under it: what sets it apart from the other
+    /// options that act, from the facts the choice is made on (see `init`). Where no other does as much about the
+    /// problem, it's the only one that does; otherwise it's what it does, and each way it's easier than every option
+    /// that does as much or more: in one click where all of those are tasks for you (and it isn't Caution, which asks
+    /// twice), and, for what Cool Head does, closing nothing where all of those close something. Its risk is the Caution tag's, and what you lose its consequence's, so neither is said again. Every
+    /// recommended option has the line, since it is what marks the recommendation in words (the tile's blue marks it
+    /// by sight): where it's the only option that acts, where it only tells you more, or where the facts don't say why
+    /// it won (a reason of its card's own, such as slowing a tab you're using), the line is "Cool Head recommends
+    /// this." with no reason, since a reason that isn't the real one would mislead. Nil only when nothing is recommended.
+    public var why: String? {
+        guard let r = recommended else { return nil }
+        let bare = "Cool Head recommends this."
+        let others = fixes.filter { $0.kind.isAction && $0.id != r.id }
+        // an option that only tells you more is recommended for its card's own reason (it may be rendering, say)
+        guard !others.isEmpty, r.result > .informs else { return bare }
+        let rivals = others.filter { $0.result >= r.result }
+        let does = r.result == .fixesCause ? "fixes the cause" : "helps"
+        if rivals.isEmpty { return "Cool Head recommends this because it is the only option that \(does)." }
+        // each reason holds against every rival; a Caution option asks for a second click, so it's never "in one click";
+        // and only what Cool Head does is known to close nothing (a task may well be closing tabs, done your way)
+        var easier: [String] = []
+        if r.doer == .coolHead, !r.caution, rivals.allSatisfy({ $0.doer == .you }) { easier.append("in one click") }
+        if r.doer == .coolHead, !r.closesSomething, rivals.allSatisfy(\.closesSomething) { easier.append("without closing anything") }
+        guard !easier.isEmpty else { return bare }
+        return "Cool Head recommends this because it \(does) " + easier.joined(separator: ", ") + "."
     }
 
     /// The order every card's options are shown in, so they read the same way everywhere: the recommended option;

@@ -309,6 +309,10 @@ public struct CardTemplate: Equatable {
     public static func problems(_ c: Card) -> [String] {
         var out: [String] = []
         var parts = [("headline", c.headline), ("explanation", c.explanation)]
+        // the line under the recommended option, and every option's tag from the closed list (docs/CARD-TEMPLATE.md,
+        // Option cues)
+        if let w = c.why { parts.append(("why", w)) }
+        for f in c.fixes where !Fix.impacts.contains(f.impact) { out.append("\(f.id): impact \"\(f.impact)\" is not in the list") }
         for f in c.fixes {
             parts.append(("\(f.id) title", f.title))
             parts.append(("\(f.id) consequence", f.consequence))
@@ -373,6 +377,8 @@ extension Card {
             c.facts = facts
         }
         c.names = names; c.cardID = cardID; c.choice = choice; c.diagnosis = diagnosis; c.optionFacts = optionFacts
+        // the card's own pick, where one click took its place, is still the next once that's done (see Card.after)
+        if c.displaced == nil, let d = displaced, c.fixes.contains(where: { $0.id == d }) { c.displaced = d }
         return c
     }
 }

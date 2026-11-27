@@ -76,7 +76,7 @@ extension Fixture {
             let calm = Card.make(x.evidence, now: now, busySince: now.addingTimeInterval(-5 * 60))
             let long = Card.make(x.evidence, now: now, busySince: now.addingTimeInterval(-x.long))
             if calm.state != .working || calm.headline != "\(k.doing). This is normal." || !calm.explanation.hasPrefix(k.usually) { cards.append("\(x.id) usual: \(calm.headline) \(calm.explanation)") }
-            if long.state != .unknown || !long.headline.contains("longer than usual") || long.recommended?.title != k.whenLong { cards.append("\(x.id) long: \(long.headline) → \(long.recommended?.title ?? "none")") }
+            if long.state != .unknown || !long.headline.contains("longer than usual") || !Fixture.followsAdvice(long, k.whenLong) { cards.append("\(x.id) long: \(long.headline) → \(long.recommended?.title ?? "none")") }
             if case .openApp(let b, _) = long.recommended?.kind, b.contains(".framework/") { cards.append("\(x.id) opens \(b)") }
         }
         let imagent = catalogueExamples(now).first { $0.id == "messages-sync" }!.evidence
@@ -90,5 +90,14 @@ extension Fixture {
         }.map(\.id)
         review.append(("catalogue-sources-and-style", style.isEmpty, style.isEmpty ? "\(Pattern.catalogue.count) entries name a source" : "check \(style)"))
         return review
+    }
+
+    /// The card recommends the entry's advice, or, where that advice is a task or only tells you more, an option in one
+    /// click that helps without Caution (the one-click rule in `Card.init`).
+    static func followsAdvice(_ c: Card, _ advice: String) -> Bool {
+        guard let r = c.recommended else { return false }
+        if r.title == advice { return true }
+        guard let a = c.fixes.first(where: { $0.title == advice }), a.doer == .you || a.result < .eases else { return false }
+        return r.doer == .coolHead && !r.caution && r.result >= .eases
     }
 }

@@ -468,18 +468,17 @@ struct NetworkView: View {
         let fixes = tester.setup.map { NetworkCheck.fixes(r, $0) } ?? []
         if !fixes.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                // the most useful shown, the rest folded to one line with how many, as on a card, so a bad result isn't
-                // a wall of options
-                FixRow(fix: fixes[0], cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
-                if fixes.count > 1 {
-                    GroupBar(doer: .you, count: fixes.count - 1, more: true, open: allFixes, toggle: {
-                        withAnimation(.easeOut(duration: 0.15)) { allFixes.toggle() }
-                    }) {
-                        ForEach(fixes.dropFirst()) { f in
-                            FixRow(fix: f, cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
-                        }
+                // the most useful shown first in the group's box, the rest folded under it with how many, as on a card,
+                // so a bad result isn't a wall of options
+                GroupBar(doer: .you, count: fixes.count - 1, more: true, open: allFixes, toggle: {
+                    withAnimation(.easeOut(duration: 0.15)) { allFixes.toggle() }
+                }, lead: {
+                    FixRow(fix: fixes[0], cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
+                }, content: {
+                    ForEach(fixes.dropFirst()) { f in
+                        FixRow(fix: f, cooled: false, run: { act($0) }, runUntil: { act($0, until: $1) })
                     }
-                }
+                })
                 if let note { Text(ui: note).font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true) }
             }
         }

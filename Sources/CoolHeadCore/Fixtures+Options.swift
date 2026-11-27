@@ -8,15 +8,15 @@ extension Fixture {
         var bad: [String] = []
         for (id, c) in samples {
             for f in c.fixes {
-                // one corner label at most: Caution is for what Cool Head does, Fixes the cause for your tasks
+                // Caution is for what Cool Head does: a task for you is done your own way, with its own care
                 if f.caution && f.doer == .you { bad.append("\(id): \(f.title) is a task for you labelled Caution") }
-                if f.caution && c.betterThanRecommended.contains(where: { $0.id == f.id }) { bad.append("\(id): \(f.title) would get both labels") }
             }
             if c.fixes.filter(\.recommended).count > 1 { bad.append("\(id): more than one recommendation") }
-            // one click first: a task is recommended only when no one-click option eases it without interrupting
-            if let r = c.recommended, r.doer == .you,
-               let alt = c.fixes.first(where: { $0.doer == .coolHead && !$0.interrupts && !$0.holdBack && $0.result >= .eases }) {
-                bad.append("\(id): recommends the task \(r.title) over \(alt.title)")
+            // one click first: a task, or an option that only tells you more, is recommended only when no option in one
+            // click helps without Caution (and, where the card can't tell what it's doing, without closing it)
+            if let r = c.recommended, r.doer == .you || r.result < .eases,
+               let alt = c.fixes.first(where: { $0.doer == .coolHead && !$0.caution && !$0.holdBack && $0.result >= .eases && !(c.state == .unknown && $0.interrupts) }) {
+                bad.append("\(id): recommends \(r.title) over \(alt.title), one click")
             }
         }
         let caution = samples.filter { $0.1.fixes.contains(where: \.caution) }.count
@@ -51,7 +51,7 @@ extension Fixture {
         let displayQuit = catalogueQuit("/Applications/DisplayLink Manager.app/Contents/MacOS/DisplayLink Manager")
         let catalogueOK = dockerQuit?.caution == true && displayQuit?.caution == false
         return [("option-labels", bad.isEmpty,
-                 bad.isEmpty ? "\(samples.count) example cards: at most one corner label per option, one click first; \(labelled)" : bad.joined(separator: "; ")),
+                 bad.isEmpty ? "\(samples.count) example cards: Caution only on what Cool Head does, one click first; \(labelled)" : bad.joined(separator: "; ")),
                 ("caution-only-when-risky", wrongCalm.isEmpty && wrongRisky.isEmpty && alwaysRisky.isEmpty && gameQuitRisky && catalogueOK,
                  "no Caution, recommended: \(calm.map(\.0).joined(separator: ", ")); Caution, not recommended: \(risky.map(\.0).joined(separator: ", ")); "
                  + "wrong: \(wrongCalm + wrongRisky), kinds without Caution \(alwaysRisky.count), game quit Caution \(gameQuitRisky); "

@@ -67,7 +67,12 @@ enum CatalogueCard: ProcessCard {
                 // what the catalogue advises, as a button: open the app it's about, or Activity Monitor to find the heat
                 // (an option to quit says its cost on the Quit option, so opening the app doesn't say it too)
                 let quits = k.whenLong.hasPrefix("Quit") || k.whenLong.hasPrefix("Restart")
-                if k.whenLong.hasPrefix("Find what is heating") {
+                if k.whenLong.hasPrefix("Restart"), let bundle = e.quittableBundle {
+                    // a restart Cool Head can do itself, in one click: a normal quit, then it opens again by itself (what
+                    // was off while it was closed, such as DisplayLink's screens, comes back with it)
+                    fixes.append(Fix(id: "advice", title: k.whenLong, consequence: "This quits it and opens it again." + (k.risk.map { " " + $0 } ?? ""),
+                                     kind: .restartApp(bundle), recommended: true))
+                } else if k.whenLong.hasPrefix("Find what is heating") {
                     fixes.append(Fix.openApp("advice", k.whenLong, bundle: Fix.activityMonitor, steps: "Click % CPU to put the busiest first.", recommended: true))
                 } else if let b = e.appBundle {
                     fixes.append(Fix.openApp("advice", k.whenLong, bundle: b, steps: k.whenLong.hasPrefix("Restart") ? "Quit it, then open it again." + (k.risk.map { " " + $0 } ?? "") : quits ? "" : (k.risk ?? ""), recommended: true))

@@ -298,15 +298,18 @@ final class ReportDraft: ObservableObject {
 /// that line, edge to edge and down to the options, opens or folds the group. Folded, the box is that one line with how
 /// many options it holds; open, the options sit inside it under the heading, which then says only what the group is,
 /// since nothing is hidden any more. One box open or folded, so the two read as the same thing; the options inside, not
-/// a second box beside them. Only the one recommended action stays out of the groups, always shown.
-struct GroupBar<Content: View>: View {
+/// a second box beside them. The recommended option sits first in its own group's box and is always shown, folded or
+/// not, so it reads as one of that group (one click, or yours to do) and the rest fold under it.
+struct GroupBar<Lead: View, Content: View>: View {
     let doer: Fix.Doer
+    /// How many options fold: the group's options less the recommended one.
     let count: Int
-    /// A recommendation is shown above the groups, so every group holds more, and both groups say "more" the same way,
-    /// which is clearer.
+    /// The group holds the recommended option, shown at its top whether or not the group is open, so the folded count
+    /// is how many more.
     let more: Bool
     let open: Bool
     let toggle: () -> Void
+    @ViewBuilder let lead: () -> Lead
     @ViewBuilder let content: () -> Content
     var name: String { doer == .coolHead ? "ONE CLICK" : "DO IT YOURSELF" }
     var howMany: String { "\(count)\(more ? " more" : "") option\(count == 1 ? "" : "s")" }
@@ -317,11 +320,13 @@ struct GroupBar<Content: View>: View {
                 HStack(spacing: 5) {
                     Image(systemName: doer == .coolHead ? "bolt.fill" : "hand.point.up.left.fill")
                     Text(name).fontWeight(.bold).tracking(0.5)
-                    if !open { Text(howMany).foregroundStyle(Ink.muted) }
+                    if !open && count > 0 { Text(howMany).foregroundStyle(Ink.muted) }
                     Spacer(minLength: 0)
-                    // lighter than an option's arrow: this one opens the group, an option's acts
-                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(Color.primary.opacity(0.55))
-                        .rotationEffect(.degrees(open ? 90 : 0))
+                    // lighter than an option's arrow: this one opens the group, an option's acts; none where nothing folds
+                    if count > 0 {
+                        Image(systemName: "chevron.right").font(.caption2).foregroundStyle(Color.primary.opacity(0.55))
+                            .rotationEffect(.degrees(open ? 90 : 0))
+                    }
                 }
                 .font(.caption)
                 .foregroundStyle(Ink.text)
@@ -332,10 +337,17 @@ struct GroupBar<Content: View>: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(open ? (doer == .coolHead ? "One click" : "Do it yourself")
+            .disabled(count == 0)
+            .accessibilityLabel(open || count == 0 ? (doer == .coolHead ? "One click" : "Do it yourself")
                                      : "\(doer == .coolHead ? "One click" : "Do it yourself"): \(howMany)")
-            .accessibilityValue(open ? "shown" : "hidden")
-            if open { VStack(alignment: .leading, spacing: 6) { content() }.padding([.horizontal, .bottom], 6) }
+            .accessibilityValue(count == 0 ? "" : open ? "shown" : "hidden")
+            if more || open {
+                VStack(alignment: .leading, spacing: 6) {
+                    lead()
+                    if open { content() }
+                }
+                .padding([.horizontal, .bottom], 6)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.04), in: shape)
@@ -356,17 +368,48 @@ struct CardView: View {
     @State private var noteFor: String?       // the option it's about, so it shows right under that button
     @State private var copiedFacts = false
     @State private var noteFailed = false      // the note reports a failure (orange, with a way to report it)
-    // Once an option has done something, the options give way to what was done, so nothing sits there to press again.
-    // They're worked out afresh the next time the panel opens.
+    // Once an option has done something, its note says what was done, and after `doneWait` the option goes, since it
+    // can't be done again, and the next option is recommended (see `Card.after`). `acted` is set by the press that
+    // worked and cleared when its option goes, and while it's set the options can't be pressed, so one press is
+    // finished before the next; `done` holds the options gone. Both live as long as this card's view, so they're
+    // worked out afresh the next time the panel opens; an id in `done` that the card no longer offers is ignored.
     @State private var acted = false
+    @State private var done: Set<String> = []
+    /// The option last pressed, by what it acts on (`Fix.doneKey`), so the one that goes is the one pressed.
+    @State private var pressedKey: String?
+    /// A press whose answer comes later (Cool Head for Chrome, a restart): its option doesn't go until the answer has
+    /// come and says it worked. Set when such a press starts, cleared when its answer comes.
+    @State private var pending = false
+    /// How long a note shows under its option before the option goes: long enough to read one line. Screenshots can
+    /// set it (COOLHEAD_SNAPSHOT_DONE_WAIT, in seconds), to show the note before the option goes.
+    static let doneWait = Double(ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_DONE_WAIT"] ?? "") ?? 4
+    /// For screenshots, which draw the card afresh and so never see the wait end (COOLHEAD_SNAPSHOT_GONE): the pressed
+    /// option already gone, the next one recommended.
+    static let snapshotGone = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_GONE"] != nil
+    func presetGone() {
+        if CardView.snapshotGone, acted, let f = live.card.fixes.first(where: { $0.id == noteFor }) { done.insert(f.doneKey); acted = false }
+    }
+    /// The option pressed goes once its answer says it worked: after `doneWait`, or, while the answer hasn't come, a
+    /// second after it does. A failure, or another press since, leaves it where it is.
+    func settle(_ key: String, after wait: Double) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+            if pending { settle(key, after: 1); return }
+            guard acted, !noteFailed, pressedKey == key else { return }
+            withAnimation(.easeOut(duration: 0.25)) { done.insert(key); acted = false }
+        }
+    }
+    /// The card as shown: without the options done, the next one recommended.
+    var shown: Card { live.card.after(done) }
     @State private var sharing = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SHARE"] != nil  // screenshots
 
     /// The options in two groups: what Cool Head does in one click, then what you do, with Cool Head taking you there
-    /// or showing the steps; one click comes first, since it's the least effort. Each group keeps the card's order: the
-    /// recommendation, then what does most about the problem.
+    /// or showing the steps; one click comes first, since it's the least effort, unless the recommendation is a task
+    /// (no option in one click helps), whose group then comes first so the recommendation is the first option. Each
+    /// group keeps the card's order: the recommendation, then what does most about the problem.
     var groups: [(Fix.Doer, [Fix])] {
-        [Fix.Doer.coolHead, .you].compactMap { d in
-            let fs = live.card.fixes.filter { $0.doer == d }
+        let first = shown.recommended?.doer ?? .coolHead
+        return [first, first == .coolHead ? .you : .coolHead].compactMap { d in
+            let fs = shown.fixes.filter { $0.doer == d }
             return fs.isEmpty ? nil : (d, fs)
         }
     }
@@ -382,14 +425,14 @@ struct CardView: View {
         guard let shot = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_SLEEP"], shot == "measuring" || afters[shot] != nil,
               live.card.fixes.contains(where: { $0.id == "sleep" }) else { return }
         note = ChromeParts.gaveBack(count: 12, done: "", before: before, after: afters[shot] ?? nil, measuring: shot == "measuring")
-        noteFor = "sleep"; noteFailed = false; acted = true
+        noteFor = "sleep"; noteFailed = false; acted = true; presetGone()
     }
 
     /// For screenshots (COOLHEAD_SNAPSHOT_EVERY_OFFER): a card with Run it cooler as it looks just after it worked.
     func presetEveryTime() {
         guard EveryTimeOffer.snapshot, live.card.fixes.contains(where: { $0.kind == .cooler }) else { return }
         note = "Slowing \(EveryTimeOffer.name(live)) to keep your Mac cool. It's still working, just more slowly. Speed it up any time from the top of this panel."
-        noteFor = "cooler"; noteFailed = false; acted = true
+        noteFor = "cooler"; noteFailed = false; acted = true; presetGone()
     }
 
     var content: some View {
@@ -444,22 +487,23 @@ struct CardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    if acted {
-                        noteView
-                    } else {
-                        let rec = live.card.fixes.first { $0.recommended }
-                        if let rec { row(rec) }
-                        ForEach(groups, id: \.0) { doer, fixes in
-                            let rest = fixes.filter { $0.id != rec?.id }
-                            if !rest.isEmpty {
-                                GroupBar(doer: doer, count: rest.count, more: rec != nil, open: shownGroup == doer, toggle: {
-                                    withAnimation(.easeOut(duration: 0.15)) { shownGroup = shownGroup == doer ? nil : doer }
-                                }) { ForEach(rest) { row($0) } }
-                            }
-                        }
-                        // an option that's no longer listed (the card changed): the note goes at the end
-                        if note != nil, !live.card.fixes.contains(where: { $0.id == noteFor }) { noteView }
+                    let card = shown
+                    // the note of an option that has gone (done, or the card changed) stays above the rest, so what
+                    // was done, and any steps it gave, can still be read
+                    if note != nil, !card.fixes.contains(where: { $0.id == noteFor }) { noteView }
+                    let rec = card.recommended
+                    ForEach(groups, id: \.0) { doer, fixes in
+                        let lead = fixes.first { $0.id == rec?.id }
+                        let rest = fixes.filter { $0.id != rec?.id }
+                        GroupBar(doer: doer, count: rest.count, more: lead != nil, open: shownGroup == doer, toggle: {
+                            withAnimation(.easeOut(duration: 0.15)) { shownGroup = shownGroup == doer ? nil : doer }
+                        }, lead: { if let lead { row(lead) } }, content: { ForEach(rest) { row($0) } })
                     }
+                }
+                .onChange(of: acted, initial: true) { _, now in
+                    // screenshots set a note without a press, so the option pressed is found by its id
+                    guard now, let key = pressedKey ?? live.card.fixes.first(where: { $0.id == noteFor })?.doneKey else { return }
+                    settle(key, after: CardView.doneWait)
                 }
                 if sharing, let r = live.report { ShareView(title: r.title, report: r.body) { sharing = false } }
                 // the whole line opens it, not just the arrow
@@ -526,8 +570,10 @@ struct CardView: View {
 
     /// One option, with what happened under it once pressed.
     @ViewBuilder func row(_ f: Fix) -> some View {
-        FixRow(fix: f, cooled: watcher.isCooled(live), betterThanRecommended: live.card.betterThanRecommended.contains { $0.id == f.id },
-               run: { act($0) }, runUntil: { act($0, until: $1) }, runLimit: { act($0, level: $1) })
+        let card = shown
+        FixRow(fix: f, cooled: watcher.isCooled(live), betterThanRecommended: card.betterThanRecommended.contains { $0.id == f.id },
+               why: f.recommended ? card.why : nil, run: { act($0) }, runUntil: { act($0, until: $1) }, runLimit: { act($0, level: $1) })
+            .disabled(acted)    // one press finished, its option gone, before the next
         if noteFor == f.id { noteView }
     }
 
@@ -569,7 +615,10 @@ struct CardView: View {
     }
 
     func act(_ fix: Fix, until: Date? = nil, level: CPUCap.Level? = nil) {
-        noteFor = fix.id
+        // a new press: the last one's note goes, so it never shows under an option that says nothing of its own
+        note = nil; noteFailed = false
+        noteFor = fix.id; pressedKey = fix.doneKey
+        let id = fix.id
         switch fix.kind {
         case .pauseJob:
             show(watcher.pauseJob(live))
@@ -599,17 +648,21 @@ struct CardView: View {
                 watcher.log("Set up Cool Head for Chrome pressed: " + (ok ? "done" : "failed"))
             } else if let a = ChromeLink.Action(rawValue: action) {
                 // asked of the extension, which says what it did (see ChromeLinkServer)
-                note = "Asked \(ChromeCompanion.name)."; noteFailed = false; acted = true
+                note = "Asked \(ChromeCompanion.name)."; noteFailed = false; acted = true; pending = true
                 // sleeping tabs: Chrome's memory read before, and again once Chrome has closed the slept tabs' processes,
                 // so the card says what it gave back, measured, never a promise beforehand
                 let before = a == .sleepHidden ? ChromeParts.footprintNow() : nil
                 Task {
                     let r = await withCheckedContinuation { c in ChromeLinkServer.shared.request(a) { c.resume(returning: $0) } }
+                    pending = false
+                    // a later press has its own note: this answer is only written while its option is the one pressed
+                    guard noteFor == id else { return }
                     note = r.map { $0.done } ?? "\(ChromeCompanion.name) didn't answer. Is Chrome open?"
                     noteFailed = r?.ok != true; acted = r?.ok == true
                     guard a == .sleepHidden, let r, r.ok, let n = r.count, n > 0 else { return }
                     note = ChromeParts.gaveBack(count: n, done: r.done, before: before, after: nil, measuring: true)
                     try? await Task.sleep(for: .seconds(ChromeParts.measureAfter))
+                    guard noteFor == id else { return }
                     note = ChromeParts.gaveBack(count: n, done: r.done, before: before, after: ChromeParts.footprintNow(), measuring: false)
                 }
             }
@@ -649,7 +702,7 @@ struct CardView: View {
             // a normal quit (so it can ask about downloads), up to 20 seconds for it to close, then reopened with its
             // last session; the waiting happens off the main thread, and the note says how it went
             let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
-            note = "Asked \(name) to quit. It reopens with your tabs once it has closed."; noteFailed = false; acted = true
+            note = "Asked \(name) to quit. It reopens with your tabs once it has closed."; noteFailed = false; acted = true; pending = true
             // Set Memory Saver to Maximum: written while Chrome is closed (see ChromeMemorySaver)
             let saver = fix.id == "saver-max"
             let wrote = SaverResult()
@@ -665,14 +718,15 @@ struct CardView: View {
                     let result = wrote.value.map { "\($0)" } ?? "not run"
                     w.log("Memory Saver at Maximum: " + result)
                 }
-                note = n.text; noteFailed = n.failed; acted = !n.failed
+                pending = false
+                if noteFor == id { note = n.text; noteFailed = n.failed; acted = !n.failed }
                 // the panel may have closed while the browser came to the front: a failure is also a notification
                 if n.failed { Alerts.remind(n.text) }
             }
         case .restartApp(let bundle):
             // the same quit, wait and reopen as a browser, without the browser's switch: the app reopens what it keeps
             let name = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
-            note = "Asked \(name) to quit. It opens again once it has closed."; noteFailed = false; acted = true
+            note = "Asked \(name) to quit. It opens again once it has closed."; noteFailed = false; acted = true; pending = true
             Task {
                 let w = watcher
                 let o = await BrowserRestart.restart(bundle: bundle, arguments: [], log: { step in w.log("Quit and reopen \(name) pressed: \(step)") })
@@ -682,7 +736,8 @@ struct CardView: View {
                     if case .reopenFailed(let why) = o { return ("\(name) closed but didn't reopen: \(why). Open it again from Applications.", true) }
                     return BrowserRestart.note(o, name: name)
                 }()
-                note = n.text; noteFailed = n.failed; acted = !n.failed
+                pending = false
+                if noteFor == id { note = n.text; noteFailed = n.failed; acted = !n.failed }
                 if n.failed { Alerts.remind(n.text) }
             }
         case .share:
@@ -2165,16 +2220,26 @@ struct FrostStyle {
 struct FixRow: View {
     let fix: Fix
     let cooled: Bool
-    /// A task that does more about the problem than the recommended option: says "Fixes the cause".
+    /// A task that does more about the problem than the recommended option: its Fixes the cause tag says so when the
+    /// pointer rests on it.
     var betterThanRecommended = false
-    /// The label in the option's bottom right corner, small: Caution for what has consequences that can't be undone or
-    /// known, or Fixes the cause for a task that does more than the recommendation. Never both: the options that need
-    /// Caution are all ones Cool Head does.
-    var tag: OptionTag? {
-        if fix.caution { return OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red) }
-        if betterThanRecommended { return OptionTag(words: "FIXES THE CAUSE", symbol: "checkmark.seal.fill", color: .green,
-                                                    help: "This does more about the problem than the recommended option, but you do it yourself.") }
-        return nil
+    /// Why the recommended option is the recommendation (see `Card.why`), in a line under it; nil on the others.
+    var why: String? = nil
+    /// The small labels, top right or under the name: what it does about the problem on every option (see
+    /// `Fix.impact`), in the text color, since the status colors never mean "click here"; then Caution, in red, for
+    /// what has consequences that can't be undone or known.
+    var tags: [OptionTag] {
+        let symbol: String
+        switch fix.impact {
+        case "Fixes the cause": symbol = "checkmark.seal.fill"
+        case "Helps": symbol = "arrow.down.circle.fill"
+        case "Helps later": symbol = "clock.fill"
+        default: symbol = "info.circle.fill"
+        }
+        var t = [OptionTag(words: fix.impact.uppercased(), symbol: symbol, color: Ink.text,
+                           help: betterThanRecommended ? "This does more about the problem than the recommended option, but you do it yourself." : nil)]
+        if fix.caution { t.append(OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red)) }
+        return t
     }
     let run: (Fix) -> Void
 
@@ -2264,6 +2329,29 @@ struct FixRow: View {
 
     /// The CPU limit: a heading and what it does, then the slider, which acts at once; not a button tile, since the
     /// slider is the one place to act and the text under it the one recommendation.
+    /// The option's picture and name.
+    func nameLine(wraps: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            iconView
+            Text(title).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: wraps)
+        }
+        .fixedSize(horizontal: !wraps, vertical: false)
+    }
+    /// The labels in a row, top right or under the name; none while a Caution option asks for its second click.
+    @ViewBuilder var tagRow: some View {
+        if !armed {
+            HStack(spacing: OptionTag.gap) {
+                ForEach(tags, id: \.words) { t in OptionTag(words: t.words, symbol: t.symbol, color: t.color, help: t.help, onAccent: filledTile) }
+            }
+            .fixedSize()
+        }
+    }
+    /// The option's picture, in line with its name: white on the filled tile, red where it's risky, else blue.
+    var iconView: some View {
+        Image(systemName: icon).font(.callout.weight(.semibold))
+            .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onFill : ends ? Color.red : Ink.accent)
+    }
+
     func capBody(_ o: CPUCap.Offer) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
@@ -2272,11 +2360,88 @@ struct FixRow: View {
             }
             Text(fix.consequence).font(.callout).foregroundStyle(Ink.text.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
             LimitGauge(offer: o) { level in runLimit(fix, level) }.padding(.top, 2)
+            if recommended, let w = why {
+                Rectangle().fill(Color.primary.opacity(0.2)).frame(height: 1).padding(.vertical, 3)
+                Text(w).font(.callout).foregroundStyle(Ink.text.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(11)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Ink.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Ink.accent.opacity(0.35), lineWidth: 1))
+    }
+
+    /// What a screen reader says after the option's name: its tag, Caution, what it does, and why it's recommended.
+    var hint: String {
+        var parts: [String] = [fix.impact + "."]
+        if fix.caution { parts.append("Caution.") }
+        parts.append(Fmt.plain(line))
+        if recommended, let w = why { parts.append(w) }
+        return parts.joined(separator: " ")
+    }
+    /// The option's arrow: out for what opens elsewhere, down while its choices or steps show, else along.
+    var arrow: String {
+        if opensElsewhere { return "arrow.up.right" }
+        return (hasChoices && choosing) || (guideSteps != nil && showingSteps) ? "chevron.down" : "chevron.right"
+    }
+    /// A Caution option's first click: why it's risky, and that a second click goes ahead.
+    var armedLabel: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
+                .foregroundStyle(filledTile ? Ink.onFill : Color.red)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
+            }
+            Spacer(minLength: 6)
+        }
+    }
+    /// The labels top right where they fit beside the name on one line; where the name would wrap, they go on their
+    /// own line under it, so a name is never squeezed. No Recommended label: the recommended option is the blue one,
+    /// and its line under the rule starts "Cool Head recommends this".
+    var nameAndTags: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) { nameLine(wraps: false); Spacer(minLength: 8); tagRow }
+            VStack(alignment: .leading, spacing: 4) { nameLine(wraps: true); tagRow }
+        }
+    }
+    /// The name and tags, then what it does; the arrow at the right. The icon is in line with the name, not in a
+    /// column of its own, so the text under it runs the tile's full width and takes fewer lines.
+    var mainRow: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                nameAndTags
+                if !line.isEmpty {
+                    Text(ui: line)
+                        .accessibilityLabel(Fmt.plain(line))
+                        .font(.callout).opacity(filledTile ? 1 : 0.8).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 6)
+            Image(systemName: arrow)
+                .font(.callout.weight(.bold)).opacity(0.75)
+                .padding(.top, 2)
+                .help(opensElsewhere ? "Opens another app or your browser" : "")
+        }
+    }
+    /// Why it was chosen, apart from what it does by a thin line across the whole tile; only on the recommended option.
+    @ViewBuilder var whyRow: some View {
+        if recommended, let w = why {
+            Rectangle().fill(filledTile ? Ink.onFill.opacity(0.35) : Color.primary.opacity(0.18)).frame(height: 1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            Text(w)
+                .accessibilityLabel(w)
+                .font(.callout).opacity(filledTile ? 1 : 0.8).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+    @ViewBuilder var tileLabel: some View {
+        if guarded && armed {
+            armedLabel
+        } else {
+            VStack(alignment: .leading, spacing: 0) { mainRow; whyRow }
+                .multilineTextAlignment(.leading)
+        }
     }
 
     var tileBody: some View {
@@ -2289,52 +2454,9 @@ struct FixRow: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { withAnimation(.easeOut(duration: 0.15)) { armed = false } }
                     }
                     else { armed = false; run(fix) }
-                } label: {
-                    if guarded && armed {
-                        HStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle.fill").font(.body).frame(width: 22)
-                                .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onFill : Color.red)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(warning).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                                Text("Click again to \(title.prefix(1).lowercased() + title.dropFirst()).").font(.callout).opacity(0.8)
-                            }
-                            Spacer(minLength: 6)
-                        }
-                    } else {
-                    HStack(alignment: tag == nil ? .center : .top, spacing: 10) {
-                        Image(systemName: icon).font(.body).frame(width: 22)
-                            .foregroundStyle(recommended && fix.doer == .coolHead ? Ink.onFill : ends ? Color.red : Ink.accent)
-                        VStack(alignment: .leading, spacing: 2) {
-                            // the tag beside the name when both fit on one line, otherwise above it, so a long name
-                            // isn't squeezed into three lines beside it
-                            ViewThatFits(in: .horizontal) {
-                                HStack(spacing: 6) {
-                                    Text(title).font(.callout.weight(.semibold)).fixedSize()
-                                    if recommended { RecommendedTag(onAccent: fix.doer == .coolHead) }
-                                }
-                                VStack(alignment: .leading, spacing: 3) {
-                                    if recommended { RecommendedTag(onAccent: fix.doer == .coolHead) }
-                                    Text(title).font(.callout.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            if !line.isEmpty {
-                                // the last line keeps room for the corner label, so the label never covers words
-                                (Text(ui: line) + (tag.map { OptionTag.room($0.words) } ?? Text("")))
-                                    .accessibilityLabel(Fmt.plain(line))
-                                    .font(.callout).opacity(filledTile ? 1 : 0.8).fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        Spacer(minLength: 6)
-                        Image(systemName: opensElsewhere ? "arrow.up.right" : (hasChoices && choosing) || (guideSteps != nil && showingSteps) ? "chevron.down" : "chevron.right")
-                            .font(.callout.weight(.bold)).opacity(0.75)
-                            .padding(.top, tag == nil ? 0 : 2)          // at the top, clear of the corner label
-                            .help(opensElsewhere ? "Opens another app or your browser" : "")
-                    }
-                    .multilineTextAlignment(.leading)
-                    }
-                }
-                .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you, tag: armed ? nil : tag))
-                .accessibilityHint(line)
+                } label: { tileLabel }
+                .buttonStyle(OptionStyle(recommended: recommended, yours: fix.doer == .you))
+                .accessibilityHint(hint)
                 if choosing && isSyncPause {
                     HStack(spacing: 6) {
                         Text("For").font(.callout).foregroundStyle(Ink.muted)
@@ -2370,14 +2492,12 @@ struct OptionStyle: ButtonStyle {
     /// A task for you (Cool Head opens the place or shows the steps): an outline with a dashed border and no fill.
     /// What Cool Head does itself stays a filled, solid tile.
     let yours: Bool
-    var tag: OptionTag? = nil
-    func makeBody(configuration: Configuration) -> some View { OptionTile(configuration: configuration, recommended: recommended, yours: yours, tag: tag) }
+    func makeBody(configuration: Configuration) -> some View { OptionTile(configuration: configuration, recommended: recommended, yours: yours) }
 
     struct OptionTile: View {
         let configuration: ButtonStyleConfiguration
         let recommended: Bool
         let yours: Bool
-        let tag: OptionTag?
         @State private var hovering = false
         var body: some View {
             let shape = RoundedRectangle(cornerRadius: 9)
@@ -2396,11 +2516,6 @@ struct OptionStyle: ButtonStyle {
                         shape.strokeBorder(recommended ? Ink.accent : line, style: StrokeStyle(lineWidth: recommended ? 1.6 : 1.3, dash: [4, 3]))
                     } else {
                         shape.strokeBorder(filled ? Ink.fillEdge : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1)
-                    }
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if let tag {
-                        OptionTag(words: tag.words, symbol: tag.symbol, color: tag.color, onAccent: filled).padding(.trailing, 7).padding(.bottom, 6)
                     }
                 }
                 .contentShape(shape)
@@ -2426,7 +2541,7 @@ struct RecommendedButton: ButtonStyle {
     }
 }
 
-/// A small label in an option's bottom right corner, with a symbol, in its color.
+/// A small label on an option, top right or under its name, with a symbol, in its color.
 struct OptionTag: View {
     let words: String
     let symbol: String
@@ -2447,30 +2562,8 @@ struct OptionTag: View {
         .fixedSize()
         .help(help ?? "")
     }
-    /// Room for the label at the end of the option's last line. The arrow's column already leaves about 49 points clear
-    /// at the right of the text; only a label wider than that needs more. The room is invisible letters, not spaces:
-    /// spaces at the end of a line hang past its edge instead of moving words down, so they'd let the label cover them.
-    static func room(_ words: String) -> Text {
-        let width = (words as NSString).size(withAttributes: [.font: font, .kern: 0.5]).width + 10 + 12 + 3   // ends, symbol, gap
-        let needed = width + 7 + 4 - 49                                                                     // its inset, and a gap
-        guard needed > 0 else { return Text("") }
-        let m = ("M" as NSString).size(withAttributes: [.font: NSFont.preferredFont(forTextStyle: .callout)]).width
-        return Text(" ") + Text(String(repeating: "M", count: Int((needed / m).rounded(.up)))).foregroundStyle(.clear)
-    }
-}
-
-/// "Recommended", as a small rounded tag beside the option's name.
-struct RecommendedTag: View {
-    let onAccent: Bool
-    var body: some View {
-        Text("Recommended")
-            .font(.caption2.weight(.semibold))
-            .fixedSize()
-            .padding(.horizontal, 6).padding(.vertical, 1.5)
-            // on the blue option it's the option's text color with the blue as its text; elsewhere, the blue with that text
-            .foregroundStyle(onAccent ? Ink.fill : Ink.onFill)
-            .background(Capsule().fill(onAccent ? Ink.onFill : Ink.fill))
-    }
+    /// The space between two labels.
+    static let gap: CGFloat = 4
 }
 
 /// A line-icon button with its tooltip centred above it on hover (the system tooltip appears at the pointer instead).
@@ -2527,7 +2620,7 @@ enum Ink {
     /// text on it 7.6:1 and as text 6.1:1. A blue also keeps "do this" apart from the yellow, orange, and red that say
     /// "watch out". See docs/BRAND.md.
     static let accent = dynamic(0x1769D1, 0x4A9EFF)
-    /// Blue behind text (the recommended option, the Recommended pill): one deep blue with white text in light and dark,
+    /// Blue behind text (the recommended option): one deep blue with white text in light and dark,
     /// 7.4:1, the stricter AAA level, where the accent with dimmed text measured 4.0:1 and was harder to read.
     static let fill = Color(nsColor: rgb(0x0F52AD))
     static let onFill = Color.white
