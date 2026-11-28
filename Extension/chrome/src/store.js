@@ -9,7 +9,7 @@ export const LOCAL_DEFAULTS = {
   level: 'balanced',
   levelChosen: false,        // whether the person picked a level; if not, Auto becomes the level once linked
   leaveDelayMs: 30000,
-  glanceSleep: true,         // a tab woken and left within GLANCE_MS sleeps again at once and doesn't count as used
+  glanceSleep: true,         // a tab woken and left within GLANCE_MS sleeps again at once and does not count as used
   kept: [],                  // keep records (logic/keep.js)
   keepQuestions: [],         // kept tabs that matched two restored tabs: { record, candidates }
   session: null,             // { active, tabIds, startedAt }
@@ -20,7 +20,7 @@ export const LOCAL_DEFAULTS = {
   rest: { ids: [], session: false, memory: false },
   setupDone: false,
   keepSites: [],            // sites whose every tab stays awake, as host names without www (logic/reasons.js)
-  offlineHold: true,         // no tab sleeps on its own while Chrome is offline, since a sleeping tab can't reload then
+  offlineHold: true,         // no tab sleeps on its own while Chrome is offline, since a sleeping tab cannot reload then
   iconStyle: 'badge',        // the toolbar icon: 'badge' (shapes and colors) or 'melting' (no color needed)
   toolbarDark: false,        // whether Chrome's toolbar is dark, as the popup last saw, for the toolbar icon's color
   migrateLater: false,       // the person chose "Do it later" for moving a suspender's tabs (Settings still has it)

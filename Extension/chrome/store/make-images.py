@@ -31,8 +31,8 @@ p{font-size:24px;line-height:1.45;color:#3A3A3A}
 # (file name, popup render, its preview screen and theme, headline, line under it). Renders are 720 by 1200 pixels,
 # shown 404 wide, and each is cut where the drawn popup ends, measured from the preview itself.
 SHOTS = [
-    ("1-tabs", "home-light.png", "home", "light", "Tabs you aren't using go to sleep, so Chrome holds less memory.", "A sleeping tab stays in your tab bar and reloads when you click it. Nothing closes."),
-    ("2-extensions", "protected-extensions-light.png", "protected-ext", "light", "Extensions you don't need pause for a while, then come back on by themselves.", "Nothing is removed. During a session, or when memory is tight, they give back their memory. Password managers, blockers, VPNs, and security tools stay on."),
+    ("1-tabs", "home-light.png", "home", "light", "Tabs you are not using go to sleep, so Chrome holds less memory.", "A sleeping tab stays in your tab bar and reloads when you click it. Nothing closes."),
+    ("2-extensions", "protected-extensions-light.png", "protected-ext", "light", "Extensions you do not need pause for a while, then come back on by themselves.", "Nothing is removed. During a session, or when memory is tight, they give back their memory. Password managers, blockers, VPNs, and security tools stay on."),
     ("3-protected", "protected-light.png", "held", "light", "Calls, sound, unsent typing, and sites you choose stay awake.", "Protected shows each tab it keeps loaded and why, so you choose: keep it, sleep it, or close it."),
     ("4-windows", "save-window-light.png", "windows-dialog", "light", "Done with a window for now? Save it and close it.", "Its tabs go into a bookmark folder. Reopen it later with every tab asleep, or with Chrome's own Open all."),
     ("5-alone", "alone-dark.png", "alone", "dark", "Works on its own, or with Cool Head on a Mac.", "On its own, you set the Effort: how many tabs stay loaded. With Cool Head, a free Mac app, tabs sleep only when memory is actually short."),
@@ -44,7 +44,7 @@ body{width:440px;height:280px;overflow:hidden;background:#0F52AD;color:#fff;font
 img{width:112px;height:112px;border-radius:24px}
 h1{font-size:30px;line-height:1.1;font-weight:700;margin-bottom:12px}
 p{font-size:17px;line-height:1.35}
-</style></head><body><img src=logo.png alt=""><div><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and temporarily turns off extensions you don't need.</p></div></body></html>"""
+</style></head><body><img src=logo.png alt=""><div><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and temporarily turns off extensions you do not need.</p></div></body></html>"""
 
 MARQUEE = """<!doctype html><html><head><meta charset=utf-8><style>
 *{margin:0;box-sizing:border-box}
@@ -55,7 +55,7 @@ h1{font-size:60px;line-height:1.08;font-weight:700;letter-spacing:-0.5px;margin-
 p{font-size:28px;line-height:1.4}
 .shot{flex:none;width:404px;height:487px;border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
 .shot img{display:block;width:404px}
-</style></head><body><img class=logo src=logo.png alt=""><div class=text><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and temporarily turns off extensions you don't need, so Chrome holds less memory.</p></div><div class=shot><img src=home-light.png alt=""></div></body></html>"""
+</style></head><body><img class=logo src=logo.png alt=""><div class=text><h1>Cool Head for Chrome</h1><p>Sleeps unused tabs and temporarily turns off extensions you do not need, so Chrome holds less memory.</p></div><div class=shot><img src=home-light.png alt=""></div></body></html>"""
 
 
 def main():

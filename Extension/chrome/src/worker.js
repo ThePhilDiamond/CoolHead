@@ -137,7 +137,7 @@ async function sleepMany(ids, opts = {}) {
       slept.push(r.id);
       log('slept', `Slept ${site}: ${opts.why ? opts.why(r.t) : 'asked'}`, { tab: r.id });
     } else {
-      log('spared', `Didn't sleep ${site}: ${r.why}`, { tab: id });
+      log('spared', `Did not sleep ${site}: ${r.why}`, { tab: id });
     }
   }
   if (slept.length) {
@@ -307,7 +307,7 @@ async function endSession(save, name) {
         const groupId = await chrome.tabs.group({ tabIds: ids });
         await chrome.tabGroups.update(groupId, { title });
         grouped += ids.length;
-      } catch { /* a window closed meanwhile: its tabs simply aren't grouped */ }
+      } catch { /* a window closed meanwhile: its tabs simply are not grouped */ }
     }
     message = W.DONE.saved(grouped, title, plan.alreadyGrouped.length);
   }
@@ -446,7 +446,7 @@ async function answerLinkRequest({ action }) {
   const { tabs, s, now, ctx } = await gather();
   switch (action) {
     case 'sleepHidden': {
-      const slept = await sleepMany(planSleepHidden(tabs, planCtx(s, ctx, now)), { why: () => "Cool Head's card asked to sleep tabs you aren't looking at" });
+      const slept = await sleepMany(planSleepHidden(tabs, planCtx(s, ctx, now)), { why: () => "Cool Head's card asked to sleep tabs you are not looking at" });
       await refreshBadge();
       return { ok: true, count: slept.length, done: W.DONE.sleptMany(slept.length) };
     }
@@ -903,7 +903,7 @@ function actLine(m, tab) {
     case 'close': return `Closed ${site} from the popup`;
     case 'leaveDelay': return `Set the delay after leaving a tab to ${m.ms / 1000} seconds`;
     case 'keepSite': return `${m.on ? 'Kept' : 'Stopped keeping'} the site ${m.host}`;
-    case 'offlineHold': return `Don't sleep while offline: ${m.on ? 'on' : 'off'}`;
+    case 'offlineHold': return `Do not sleep while offline: ${m.on ? 'on' : 'off'}`;
     case 'sites': return `Access to all sites: ${m.on ? 'on' : 'off'}`;
     case 'restEnabled': return `Rest extensions: ${m.on ? 'on' : 'off'}`;
     default: return `Pressed ${m.action}`;
@@ -1045,7 +1045,7 @@ async function runMigration() {
     if (moved.length) await store.change((s) => ({ asleep: [...new Set([...s.asleep, ...moved])] }));
     const doneFrom = [...new Set([...(s0.migrated?.extIds || []), ...extIds])];
     await store.save({ migrating: null, migrated: { moved: done, failed, stuck: stuckAt.length, extIds: doneFrom } });
-    log('migrate', `Moved ${done} tabs${failed ? `; ${failed} couldn't be moved` : ''}${stuckAt.length ? `; ${stuckAt.length} open a download, now on a page of this extension's` : ''}`);
+    log('migrate', `Moved ${done} tabs${failed ? `; ${failed} could not be moved` : ''}${stuckAt.length ? `; ${stuckAt.length} open a download, now on a page of this extension's` : ''}`);
     await refreshBadge();
   } finally {
     migrating = false;
@@ -1200,7 +1200,7 @@ async function sleepFrontTab(tab) {
   if (!tab || tab.discarded) return;
   const tabs = await tabsNow({ windowId: tab.windowId });
   const show = tabToShowInstead(tabs, tab.id);
-  if (show == null) { log('spared', `Didn't sleep ${host(tab.url)}: it's the only tab in its window`, { tab: tab.id }); return; }
+  if (show == null) { log('spared', `Did not sleep ${host(tab.url)}: it's the only tab in its window`, { tab: tab.id }); return; }
   await chrome.tabs.update(show, { active: true });
   await sleepMany([tab.id], { force: true, why: () => 'the keyboard shortcut' });
   await refreshBadge();

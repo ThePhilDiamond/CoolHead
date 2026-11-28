@@ -36,7 +36,7 @@ async function answer(yes) {
   await chrome.runtime.sendMessage({ type: 'act', action: 'sites', on: granted }).catch(() => {});
   if (!yes) done(W.SETUP_DONE_NO_TITLE, W.SETUP_DONE_NO, true);
   else if (granted) done(W.SETUP_DONE_YES_TITLE, W.SETUP_DONE_YES, true);
-  else done(W.SETUP_REFUSED_TITLE, W.SETUP_REFUSED.replace("Chrome didn't allow it, so this", 'So this'), false);
+  else done(W.SETUP_REFUSED_TITLE, W.SETUP_REFUSED.replace("Chrome did not allow it, so this", 'So this'), false);
 }
 
 // Optional, after the one choice: let it turn off extensions you don't need, with what stays on said up front.

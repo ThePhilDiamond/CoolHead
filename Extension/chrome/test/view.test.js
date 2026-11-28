@@ -49,7 +49,7 @@ test('alone on a Mac: says so, offers Cool Head, and Auto is unavailable with th
 
 test('alone because Cool Head is closed: says to open it, offers no download', () => {
   const v = view([], state({ link: { status: 'notRunning' } }));
-  assert.equal(v.band.link.text, "Cool Head isn't open");
+  assert.equal(v.band.link.text, "Cool Head is not open");
   assert.equal(v.notice.link, null);
 });
 
@@ -223,4 +223,10 @@ test('Start a session says what unticking each tab would do', () => {
   assert.equal(by[music.id].ifUnticked, 'sound');
   assert.equal(by[front.id].ifUnticked, 'active');
   assert.equal(st.windowTabs, 4);
+});
+
+test('Settings shows the version on its own line, and About without it', () => {
+  const v = view([], {}, { version: '1.4.0' });
+  assert.equal(v.settings.version, 'Cool Head for Chrome version 1.4.0');
+  assert.ok(!v.settings.about.includes('1.4.0'));
 });
