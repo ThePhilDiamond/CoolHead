@@ -45,7 +45,7 @@ extension Fixture {
         let days = card(chromeParts(now, hiddenGB: 0.3, openDays: 6.2))
         let daysRestart = days.fixes.first { $0.id == "restart" }
         review.append(("chrome-restart-days", !days.explanation.contains("open for") && daysRestart?.recommended == false
-                       && daysRestart?.consequence.contains("built up over 6 days") == true, days.explanation))
+                       && daysRestart?.consequence.contains("built up in the last 6 days") == true, days.explanation))
         // Chrome's own program grown: only a restart gives it back, so it's recommended; closing tabs still fixes the cause
         let grown = card(chromeParts(now, hiddenGB: 0.3, browserGB: 3.2))
         review.append(("chrome-restart-grown", grown.recommended?.id == "restart" && grown.explanation.contains("Chrome's own program grew to 3.2 GB")

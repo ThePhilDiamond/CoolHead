@@ -39,7 +39,7 @@ public enum Trust {
     public static func overLimit(state: JobState, thermal: String, busyFor: TimeInterval) -> String? {
         if state == .stalled { return "it looks stuck" }
         if thermal == "serious" || thermal == "critical" { return "your Mac is hot" }
-        if busyFor >= limitHours * 3600 { return "it has been busy for over \(Int(limitHours)) hours" }
+        if busyFor >= limitHours * 3600 { return "it is still busy after more than \(Int(limitHours)) hours" }
         return nil
     }
 

@@ -13,7 +13,7 @@ import Foundation
 ///   them (`ps -M`), so that is what is read.
 /// - **After an update (rule 17).** Spotlight re-indexes and Photos re-analyses for hours or days after a macOS update
 ///   (Apple 102321; Howard Oakley). The last update is read from /Library/Receipts/InstallHistory.plist.
-/// - **Stuck (rule 16).** macOS's background work busy for over a day is a fault, not work; still busy after a restart
+/// - **Stuck (rule 16).** macOS's background work busy for more than a day is a fault, not work; still busy after a restart
 ///   is a fault only Apple can fix (dasd on macOS 27 for days; spotlightknowledged on 26.1; OS X Daily, 26 October
 ///   2026; MacRumors). To know it survived a restart, Cool Head keeps the names of macOS's own services that are busy,
 ///   with when they started and when they were last busy, and nothing else.

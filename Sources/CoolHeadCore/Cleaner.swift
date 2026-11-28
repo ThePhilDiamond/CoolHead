@@ -231,7 +231,7 @@ public enum Cleaner {
             paths.append(u.path); total += UInt64(v.totalFileAllocatedSize ?? 0)
         }
         guard total >= 1_000_000 else { return [] }
-        return [Find(id: "logs", group: .quick, title: "Logs and crash reports over 30 days old",
+        return [Find(id: "logs", group: .quick, title: "Logs and crash reports more than 30 days old",
                      detail: "Apps only ever read their newest ones.", bytes: total, paths: paths)]
     }
 
@@ -585,7 +585,7 @@ public enum Cleaner {
         [
             Find(id: "agent:com.dropbox.DropboxMacUpdate.agent", group: .quick, title: "Dropbox's background helper",
                  detail: "It starts a program that's been deleted, so it does nothing.", bytes: nil),
-            Find(id: "logs", group: .quick, title: "Logs and crash reports over 30 days old",
+            Find(id: "logs", group: .quick, title: "Logs and crash reports more than 30 days old",
                  detail: "Apps only ever read their newest ones.", bytes: 270_000_000),
             Find(id: "saved-state", group: .quick, title: "Saved windows of deleted apps",
                  detail: "Kept so an app reopens its windows, but these apps are gone.", bytes: 12_000_000),

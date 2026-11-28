@@ -176,12 +176,13 @@ struct PanelView: View {
                 // so two samples of one kind never share an ID or a cause
                 if s.0.hasPrefix("hardware-"), let made = Fixture.hardwareReports(Date()).first(where: { "hardware-\($0.0)" == s.0 })?
                     .1.cards().first(where: { $0.card.headline == s.1.headline }) {
-                    var c = LiveCard.sample(s.0, s.1); c.serious = made.serious; c.safety = made.safety; c.causeKey = s.0
+                    var c = LiveCard.sample(s.0, s.1, details: made.details); c.serious = made.serious; c.safety = made.safety; c.causeKey = s.0
                     return c
                 }
-                guard s.0 == "power-night-upkeep" else { return LiveCard.sample(s.0, s.1) }
-                return LiveCard.sample(s.0, s.1, details: ["Slept: 11:40pm on 15 November to 7:15am on 16 November",
-                    "Charge: 85% to 66%", "Woke for macOS's own upkeep: 23", "Woke for the network: 7"])
+                // Nerdy stuff as the app writes it, from the samples' made-up readings
+                if let n = Wording.nerdySamples()[s.0] { return LiveCard.sample(s.0, s.1, details: n.lines()) }
+                if let live = Fixture.nerdyLiveSamples(Date()).first(where: { $0.0 == s.0 })?.1 { return LiveCard.sample(s.0, s.1, details: live.details) }
+                return LiveCard.sample(s.0, s.1)
             } }
         }
         guard let only = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_ONLY"] else { return watcher.cards + CardSources.all.flatMap { $0.cards(for: watcher) } }
@@ -526,7 +527,8 @@ struct CardView: View {
                 if facts {
                     TerminalPane(lines: live.details, copied: copiedFacts) {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(live.details.joined(separator: "\n"), forType: .string)
+                        // the Mac itself first, for a forum post or an issue: what a helper asks first
+                        NSPasteboard.general.setString((NerdyStuff.yourMac(watcher.mac) + [""] + live.details).joined(separator: "\n"), forType: .string)
                         copiedFacts = true
                     }
                 }
@@ -676,7 +678,7 @@ struct CardView: View {
         case .resume:
             show(watcher.resumeStopped(live))
         case .lookUp(let name):
-            watcher.log("Search the web pressed for \(live.reportSubject)")
+            watcher.log("Search the web pressed for \(live.reportSubject)", about: live.cause)
             // only the process name is searched for: no paths, nothing about this Mac
             var u = URLComponents(string: "https://duckduckgo.com/")!
             // a stuck process is searched for as stuck, not as busy
@@ -696,7 +698,7 @@ struct CardView: View {
                 let name = app.localizedName ?? "The app"
                 if ok { note = "Asked \(name) to quit. If anything is unsaved, it asks you first."; noteFailed = false; acted = true }
                 else { note = "\(name) didn't quit. It may be asking you something."; noteFailed = true }
-                watcher.log("Quit pressed for \(live.reportSubject): " + (ok ? "asked to quit" : "didn't quit"))
+                watcher.log("Quit pressed for \(live.reportSubject): " + (ok ? "asked to quit" : "did not quit"), about: live.cause)
             } else { note = "It's already closed."; noteFailed = false; acted = true }
         case .restartBrowser(let bundle):
             // a normal quit (so it can ask about downloads), up to 20 seconds for it to close, then reopened with its
@@ -741,7 +743,7 @@ struct CardView: View {
                 if n.failed { Alerts.remind(n.text) }
             }
         case .share:
-            if !sharing { watcher.log("Send this case opened for \(live.reportSubject)") }
+            if !sharing { watcher.log("Send this case opened for \(live.reportSubject)", about: live.cause) }
             withAnimation(.easeOut(duration: 0.15)) { sharing.toggle() }
         case .openPage(_, let address) where address.hasPrefix("x-apple.systempreferences:"):
             // System Settings opens its own pages from another app; it has no address bar to paste into (Command-L does
@@ -749,7 +751,7 @@ struct CardView: View {
             let ok = URL(string: address).map { NSWorkspace.shared.open($0) } ?? false
             note = ok ? "Opened System Settings." : "That didn't work: System Settings didn't open."
             noteFailed = !ok; acted = ok
-            watcher.log("Opened a System Settings page for \(live.reportSubject): " + (ok ? "opened" : "failed"))
+            watcher.log("Opened a System Settings page for \(live.reportSubject): " + (ok ? "opened" : "failed"), about: live.cause)
         case .openPage(let bundle, let address):
             // Chrome refuses chrome:// addresses opened from another app (Chromium's url_util.cc allows only one), so the
             // address is copied and the browser brought forward, with the keys to press. Nothing changes until the
@@ -759,17 +761,17 @@ struct CardView: View {
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
             let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
             note = "Copied the address and opened \(app). There, press ⌘L, then ⌘V, then Return."; noteFailed = false; acted = true
-            watcher.log("Copied a settings address for \(live.reportSubject)")
+            watcher.log("Copied a settings address for \(live.reportSubject)", about: live.cause)
         case .openApp(let bundle, let steps):
             // what Cool Head can't do itself: it opens the app where it's done, and says how
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: bundle), configuration: NSWorkspace.OpenConfiguration())
             let app = ((bundle as NSString).lastPathComponent as NSString).deletingPathExtension
             note = "Opened \(app). \(steps)"; noteFailed = false; acted = true
-            watcher.log("Opened an app to help with \(live.reportSubject)")
+            watcher.log("Opened an app to help with \(live.reportSubject)", about: live.cause)
         case .reveal(let path, let steps):
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             note = "Showed \((path as NSString).lastPathComponent) in Finder. \(steps)"; noteFailed = false; acted = true
-            watcher.log("Showed a folder in Finder for \(live.reportSubject)")
+            watcher.log("Showed a folder in Finder for \(live.reportSubject)", about: live.cause)
         case .guide:
             break              // the steps open under the option itself (FixRow)
         }
@@ -1634,7 +1636,10 @@ struct TerminalPane: View {
             .padding(.horizontal, 8).padding(.vertical, 5)
             .background(Color.white.opacity(0.06))
             VStack(alignment: .leading, spacing: 3) {
-                ForEach(lines, id: \.self) { Text($0) }
+                // the slots' headings in bold; by position, since two lines may read the same
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, l in
+                    Text(l).fontWeight(NerdyStuff.headings.contains(l) ? .bold : .regular)
+                }
             }
             .font(.system(.caption, design: .monospaced))
             .foregroundStyle(TerminalPane.phosphor)

@@ -270,7 +270,7 @@ public enum MemoryAdvice {
         if let r = groups.prefix(3).first(where: { $0.kind == .browser && BrowserRestart.browsers.contains($0.name) && $0.bundle != nil }), let b = r.bundle {
             let parts = r.name == "Google Chrome" ? context.chrome : nil
             let days = parts?.openFor(now: now).flatMap { $0 >= ChromeParts.openLong ? Int($0 / 86400) : nil }
-            let builtUp = days.map { "to free memory it built up over \($0) days" } ?? "to free memory it built up"
+            let builtUp = days.map { "to free memory it built up in the last \($0) days" } ?? "to free memory it built up"
             var restart = Fix(id: "restart", title: "Restart \(r.name) and keep your tabs",
                               consequence: "This closes and opens it again, \(builtUp). Your tabs open again. \(BrowserRestart.privateWindows(r.name).prefix(1).uppercased() + BrowserRestart.privateWindows(r.name).dropFirst()), unsent typing, and downloads in progress do not.",
                               kind: .restartBrowser(b))

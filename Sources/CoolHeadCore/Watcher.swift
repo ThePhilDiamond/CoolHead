@@ -11,7 +11,7 @@ public struct LiveCard: Identifiable {
     /// The process's start time, to check it is still the same process before acting on it.
     public var start: Date? = nil
     public let card: Card
-    public let details: [String]
+    public var details: [String]
     /// What the panel calls this card's process ("Your Photo Export job export.py", "WhatsApp").
     public var displaySubject = ""
     /// What a report may call this card's process: anonymised as in the case report.
@@ -84,7 +84,8 @@ public final class Watcher {
     /// were pressed and what happened. Anonymised as it is written, kept in memory only, never on disk, and
     /// limited to the last 6 hours.
     public private(set) var activity: [LogEntry] = []
-    public struct LogEntry { public let t: Date; public let text: String }
+    /// `about`: the card it is about (its `cause`), so a card's Nerdy stuff shows only its own lines; nil for the rest.
+    public struct LogEntry { public let t: Date; public let text: String; public var about: String? = nil }
     /// Set to open the "Report a problem" form (from the tools along the bottom, or after a fix).
     public var showReport = false
     /// Changes each time the panel closes, so it reopens clean: nothing left expanded, no form left open.
@@ -321,27 +322,27 @@ public final class Watcher {
 
     /// Freezes a job until the Mac is plugged in. Checked by reading back the process's state.
     public func pauseJob(_ c: LiveCard) -> Outcome {
-        guard let p = c.pid, sameProcess(c) else { log("Pause pressed for \(c.reportSubject): it had already gone"); return .gone }
+        guard let p = c.pid, sameProcess(c) else { log("Pause pressed for \(c.reportSubject): it had already gone", about: c.cause); return .gone }
         // sound can start between readings, so it's read again now; a download is judged from the latest reading
         let playing = BusyWith.playingNow()
         if let r = BusyWith.atClick(group: c.pauseGroup.isEmpty ? [p] : c.pauseGroup, playing: playing,
                                     soundOpen: playing == nil ? BusyWith.soundOpenNow() : [], downloadingNow: c.downloadingNow) {
-            log("Pause pressed for \(c.reportSubject): not paused, it's \(r == .sound ? "playing sound" : "downloading")")
+            log("Pause pressed for \(c.reportSubject): not paused, it is \(r == .sound ? "playing sound" : "downloading")", about: c.cause)
             return .done(r.cardLine)
         }
         guard kill(p, SIGSTOP) == 0 else {
-            let why = String(cString: strerror(errno)); log("Pause pressed for \(c.reportSubject): failed (\(why))"); return .failed(why)
+            let why = String(cString: strerror(errno)); log("Pause pressed for \(c.reportSubject): failed (\(why))", about: c.cause); return .failed(why)
         }
         usleep(150_000)
         guard Proc.bsd(p)?.stopped == true else {
-            kill(p, SIGCONT); log("Pause pressed for \(c.reportSubject): it didn't stay paused"); return .failed("it didn't stay paused")
+            kill(p, SIGCONT); log("Pause pressed for \(c.reportSubject): it did not stay paused", about: c.cause); return .failed("it did not stay paused")
         }
         let name = c.displaySubject.isEmpty ? "It" : c.displaySubject
         pausedJobs.append(PausedJob(key: Watcher.key(c), pid: p, start: c.start?.timeIntervalSince1970, name: name,
                                     reportSubject: c.reportSubject, since: Date()))
         PauseStore.save(pausedJobs, "pausedJobs")
         cards.removeAll { $0.cause == c.cause }
-        log("Paused \(c.reportSubject) until plugged in")
+        log("Paused \(c.reportSubject) until plugged in", about: c.cause)
         return .done("Paused \(name). It carries on by itself when you plug in, and it's listed at the top to resume sooner.")
     }
 
@@ -421,7 +422,7 @@ public final class Watcher {
     public func setTrusted(_ c: LiveCard, _ on: Bool) {
         guard let k = c.trustKey else { return }
         if on { Trust.add(k, name: c.trustName) } else { Trust.remove(k) }
-        log((on ? "Trusted " : "Stopped trusting ") + c.reportSubject)
+        log((on ? "Trusted " : "Stopped trusting ") + c.reportSubject, about: c.cause)
         refreshTrust()
     }
 
@@ -464,16 +465,16 @@ public final class Watcher {
     /// Hides a card until a time; it comes back then if its cause is still there.
     public func snooze(_ card: LiveCard, until: Date) {
         guard Watcher.canWait(card) else { return }                   // a red safety card stays (see canWait)
-        log("Chose to wait on \(card.reportSubject) until \(Fmt.clock(until))")
+        log("Chose to wait on \(card.reportSubject) until \(Fmt.clock(until))", about: card.cause)
         snoozed[card.cause] = (until, card.severity)
         cards.removeAll { $0.cause == card.cause }
     }
 
     /// Adds to the activity log. `text` must already be anonymised (use `reportSubject`, never paths or names).
-    public func log(_ text: String) {
+    public func log(_ text: String, about: String? = nil) {
         let now = Date()
         let add = { [self] in
-            activity.append(LogEntry(t: now, text: text))
+            activity.append(LogEntry(t: now, text: text, about: about))
             activity.removeAll { now.timeIntervalSince($0.t) > 6 * 3600 }
             if activity.count > 300 { activity.removeFirst(activity.count - 300) }
         }
@@ -492,12 +493,12 @@ public final class Watcher {
     }
 
     public func stop(_ c: LiveCard) -> Outcome {
-        guard let p = c.pid, sameProcess(c) else { log("Stop pressed for \(c.reportSubject): it had already gone"); return .gone }
+        guard let p = c.pid, sameProcess(c) else { log("Stop pressed for \(c.reportSubject): it had already gone", about: c.cause); return .gone }
         let ok = kill(p, SIGTERM) == 0
         // a paused process can't act on the signal until it carries on
         if ok, Proc.bsd(p)?.stopped == true { kill(p, SIGCONT) }
         let why = ok ? "" : String(cString: strerror(errno))
-        log("Stop pressed for \(c.reportSubject): " + (ok ? "stopped" : "failed (\(why))"))
+        log("Stop pressed for \(c.reportSubject): " + (ok ? "stopped" : "failed (\(why))"), about: c.cause)
         return ok ? .done("Stopped \(c.displaySubject.isEmpty ? "it" : c.displaySubject).") : .failed(why)
     }
 
@@ -506,12 +507,12 @@ public final class Watcher {
     /// folders or signed by Apple. Only after the person confirms.
     public func stopAndTrash(_ c: LiveCard, paths: [String], launchItem: String?) -> Outcome {
         guard !Disguise.refusesTrash(paths) else {
-            log("Stop and delete pressed for \(c.reportSubject): refused, part of macOS"); return .failed("it's part of macOS after all")
+            log("Stop and delete pressed for \(c.reportSubject): refused, part of macOS", about: c.cause); return .failed("it is part of macOS after all")
         }
         if let plist = launchItem, let a = BackgroundAgents.disguised(plist: plist) { BackgroundAgents.turnOff(a); refreshHeldBack(force: true) }
         if let p = c.pid, sameProcess(c) { kill(p, SIGTERM) }
         let failed = Disguise.moveToTrash(paths)
-        log("Stop and delete pressed for \(c.reportSubject): " + (failed.isEmpty ? "stopped and moved to the Trash" : "stopped; \(failed.count) file(s) not moved"))
+        log("Stop and delete pressed for \(c.reportSubject): " + (failed.isEmpty ? "stopped and moved to the Trash" : "stopped; \(failed.count) file(s) not moved"), about: c.cause)
         if failed.isEmpty { cards.removeAll { $0.cause == c.cause } }
         return failed.isEmpty ? .done("Stopped it and moved it to the Trash. You can put it back from there.")
             : .failed("macOS didn't let Cool Head move \(failed.joined(separator: " and ")) to the Trash; drag it there in Finder, which asks for your password")
@@ -520,7 +521,7 @@ public final class Watcher {
     /// Asks Ollama to unload these models now (see Leftovers). Checked by asking Ollama what is still loaded.
     public func unloadModels(_ names: [String]) -> Outcome {
         let ok = Leftovers.unload(names)
-        log("Unload pressed for a local AI model: " + (ok ? "unloaded" : "still loaded or Ollama didn't answer"))
+        log("Unload pressed for a local AI model: " + (ok ? "unloaded" : "still loaded or Ollama did not answer"))
         return ok ? .done("Unloaded. Its memory is free; Ollama loads it again the next time it's asked something.")
             : .failed("Ollama didn't unload it, or didn't answer")
     }
@@ -535,26 +536,26 @@ public final class Watcher {
 
     /// Lets a process carry on that something other than Cool Head paused. Checked by reading back its state.
     public func resumeStopped(_ c: LiveCard) -> Outcome {
-        guard let p = c.pid, sameProcess(c) else { log("Resume pressed for \(c.reportSubject): it had already gone"); return .gone }
+        guard let p = c.pid, sameProcess(c) else { log("Resume pressed for \(c.reportSubject): it had already gone", about: c.cause); return .gone }
         guard kill(p, SIGCONT) == 0 else {
-            let why = String(cString: strerror(errno)); log("Resume pressed for \(c.reportSubject): failed (\(why))"); return .failed(why)
+            let why = String(cString: strerror(errno)); log("Resume pressed for \(c.reportSubject): failed (\(why))", about: c.cause); return .failed(why)
         }
         usleep(200_000)
         if Proc.bsd(p)?.stopped == true {
-            log("Resume pressed for \(c.reportSubject): it was paused again at once")
+            log("Resume pressed for \(c.reportSubject): it was paused again at once", about: c.cause)
             return .failed("it was paused again straight away, so something is pausing it on purpose")
         }
-        log("Resumed \(c.reportSubject), which something else had paused")
+        log("Resumed \(c.reportSubject), which something else had paused", about: c.cause)
         cards.removeAll { $0.cause == c.cause }
         return .done("Resumed \(c.displaySubject.isEmpty ? "it" : c.displaySubject). It carries on from where it stopped.")
     }
 
     /// Ends an app that isn't responding, as Force Quit in the Apple menu does. Only after the person confirms.
     public func forceQuit(_ c: LiveCard) -> Outcome {
-        guard let p = c.pid, sameProcess(c) else { log("Force quit pressed for \(c.reportSubject): it had already gone"); return .gone }
+        guard let p = c.pid, sameProcess(c) else { log("Force quit pressed for \(c.reportSubject): it had already gone", about: c.cause); return .gone }
         let ok = kill(p, SIGKILL) == 0
         let why = ok ? "" : String(cString: strerror(errno))
-        log("Force quit pressed for \(c.reportSubject): " + (ok ? "ended" : "failed (\(why))"))
+        log("Force quit pressed for \(c.reportSubject): " + (ok ? "ended" : "failed (\(why))"), about: c.cause)
         if ok { cards.removeAll { $0.cause == c.cause } }
         return ok ? .done("Force quit \(c.displaySubject.isEmpty ? "it" : c.displaySubject). Open it again when you need it.") : .failed(why)
     }
@@ -572,10 +573,10 @@ public final class Watcher {
     /// Background priority on or off; checks macOS accepted it by reading it back.
     public func setCooler(_ c: LiveCard, on: Bool) -> Outcome {
         let what = on ? "Run it cooler" : "Back to full speed"
-        guard let p = c.pid, sameProcess(c) else { log("\(what) pressed for \(c.reportSubject): it had already gone"); return .gone }
+        guard let p = c.pid, sameProcess(c) else { log("\(what) pressed for \(c.reportSubject): it had already gone", about: c.cause); return .gone }
         guard setpriority(4 /* PRIO_DARWIN_PROCESS */, id_t(p), on ? 0x1000 /* PRIO_DARWIN_BG */ : 0) == 0 else {
             let why = String(cString: strerror(errno))
-            log("\(what) pressed for \(c.reportSubject): failed (\(why))")
+            log("\(what) pressed for \(c.reportSubject): failed (\(why))", about: c.cause)
             return .failed(why)
         }
         // confirm by its scheduling priority: the background band is 4 (getpriority can't report this setting for
@@ -587,12 +588,12 @@ public final class Watcher {
             defer { pri = pri0 }
             if (pri0 <= 4) != on { usleep(300_000); pri0 = Proc.schedulingPriority(p) ?? pri0 }
             guard (pri0 <= 4) == on else {
-                log("\(what) pressed for \(c.reportSubject): set, but its priority stayed at \(pri0)")
+                log("\(what) pressed for \(c.reportSubject): set, but its priority stayed at \(pri0)", about: c.cause)
                 return .failed("macOS accepted it, but the process's priority didn't change (\(pri0))")
             }
         }
         let name = c.displaySubject.isEmpty ? "It" : c.displaySubject
-        log("\(what) pressed for \(c.reportSubject): applied")
+        log("\(what) pressed for \(c.reportSubject): applied", about: c.cause)
         if on {
             cooled[Watcher.key(c)] = CooledItem(key: Watcher.key(c), pid: p, start: c.start, name: name, reportSubject: c.reportSubject,
                                                 since: Date(), before: before, after: pri, trustKey: c.trustKey)
@@ -624,7 +625,7 @@ public final class Watcher {
     /// Limit it, from a card's slider (on the main thread): it runs cooler first if it isn't already, then its group is
     /// held to the level. Full speed lifts the limit and leaves it running cooler.
     public func limit(_ c: LiveCard, level: CPUCap.Level) -> Outcome {
-        guard let p = c.pid, sameProcess(c) else { log("Limit pressed for \(c.reportSubject): it had already gone"); return .gone }
+        guard let p = c.pid, sameProcess(c) else { log("Limit pressed for \(c.reportSubject): it had already gone", about: c.cause); return .gone }
         let key = Watcher.key(c)
         if cooled[key] == nil, case .failed(let why) = setCooler(c, on: true) { return .failed(why) }
         let name = c.displaySubject.isEmpty ? "It" : c.displaySubject
@@ -632,12 +633,12 @@ public final class Watcher {
         if level == .cooler {
             limiter.remove(key)
             cooled[key]?.capLevel = nil
-            log("Limit lifted for \(c.reportSubject)")
+            log("Limit lifted for \(c.reportSubject)", about: c.cause)
             return .done("\(name) has no limit now. It still runs cooler.")
         }
         limiter.set(key, pids: Watcher.groupPIDs(trust: c.trustKey, root: p), trust: c.trustKey, root: p, level: level)
         cooled[key]?.capLevel = level
-        log("Limit set for \(c.reportSubject): \(level.rawValue)")
+        log("Limit set for \(c.reportSubject): \(level.rawValue)", about: c.cause)
         return .done("\(name) \(CPUCap.phrase(level)) while you aren't using it. Full speed when you switch to it, or while it plays sound, records, or downloads.")
     }
 
@@ -802,7 +803,7 @@ public final class Watcher {
             limiter.remove(Watcher.key(c))
         }
         for (id, item) in cooled where item.trustKey == k || item.pid == c.pid { var i = item; i.rule = k; cooled[id] = i }
-        log("Every time: \(c.reportSubject) runs cooler whenever it runs")
+        log("Every time: \(c.reportSubject) runs cooler whenever it runs", about: c.cause)
         refreshTrust()
         return true
     }
@@ -1083,7 +1084,12 @@ public final class Watcher {
                 c = c.runningCooler(subject: Card.subject(e), app: e.appBundle != nil, since: item.since, level: item.capLevel,
                                     cores: e.coresNow, now: now, neverLimited: CPUCap.neverLimited(e))
             }
-            var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: e.lines() + (c.choice?.line.map { [$0] } ?? []))
+            // Nerdy stuff, from its slots: the other busiest processes by cores, named, beside this one's readings
+            // all of them, so the line for the rest counts every one (the list shows five)
+            let others = tracks.filter { $0.key != pid && $0.key != me && $0.value.cores >= 0.1 }.sorted { $0.value.cores > $1.value.cores }
+                .compactMap { k, t in Proc.bsd(k).map { ($0.name, t.cores) } }
+            let nerdy = NerdyStuff.busy(e, card: c, busySince: tr.busySince, now: now, alsoBusy: others, log: activity, key: "pid-\(pid)")
+            var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: nerdy.lines())
             lc.pauseGroup = pauseGroup
             lc.downloadingNow = downloadingNow
             lc.reportSubject = CaseReport.subject(e)
@@ -1142,9 +1148,9 @@ public final class Watcher {
             let waiting = Proc.children(of: pid, among: pids).compactMap { Proc.bsd($0)?.name }
             let card = Hang.card(h.kind, e, stuckFor: stuckFor, waiting: waiting, volumes: h.kind == .diskWait ? Hang.volumes(pid) : [],
                                   terminal: terminal, now: now)
-            var lc = LiveCard(id: "hang-\(h.kind.rawValue)-\(pid)", pid: pid, start: e.start, card: card,
-                              details: e.lines() + ["Stuck: \(Hang.words(h.kind)), since \(Fmt.time(h.since))"]
-                                + (waiting.isEmpty ? [] : ["Programs it started: \(waiting.count)"]))
+            let nerdy = NerdyStuff.hang(e, card: card, kind: h.kind, since: h.since, now: now,
+                                        threshold: Hang.threshold(h.kind, suspendedInShell: terminal != nil), waiting: waiting, log: activity)
+            var lc = LiveCard(id: "hang-\(h.kind.rawValue)-\(pid)", pid: pid, start: e.start, card: card, details: nerdy.lines())
             lc.reportSubject = CaseReport.subject(e) + ", " + Hang.words(h.kind)
             lc.displaySubject = Card.subject(e)
             if card.fixes.contains(where: { $0.kind == .share }) {
@@ -1169,7 +1175,8 @@ public final class Watcher {
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix.guide("unplug", "Unplug for a while", "This shows how. Charging stops adding heat until you connect the charger again.",
                                   steps: ["Unplug the charger.", "Connect it again when your Mac feels cooler."], recommended: true)]),
-                details: s.lines(), reportSubject: "fast charging adding heat")
+                details: [], reportSubject: "fast charging adding heat")
+            lc.details = NerdyStuff.charging(s, card: lc.card, now: now, log: activity, key: lc.cause).lines()
             lc.heatCause = true
             out.append(lc)
         }
@@ -1188,7 +1195,10 @@ public final class Watcher {
                 fixes: [Card.wait(until: nil, now: now, recommended: true),
                         Fix.guide("air", "Give it air", "This shows how. A hard surface, out of the sun, helps it cool.",
                                   steps: ["Move it onto a hard, flat surface. A bed, sofa, or lap traps heat.", "Keep it out of the sun, with nothing over its vents.", "If you have a stand that lifts it, use it."], recommended: true)]),
-                details: s.lines(), reportSubject: "warm with no single cause")
+                details: [], reportSubject: "warm with no single cause")
+            let busyList = tracks.filter { $0.key != me && $0.value.cores >= 0.1 }.sorted { $0.value.cores > $1.value.cores }
+                .compactMap { k, t in Proc.bsd(k).map { ($0.name, t.cores) } }
+            lc.details = NerdyStuff.warm(s, card: lc.card, busiest: busyList, now: now, log: activity, key: lc.cause).lines()
             lc.heatCause = true
             out.append(lc)
         }
@@ -1249,7 +1259,8 @@ public final class Watcher {
             } ?? "memory running short (\(level))"
             var mc = LiveCard(id: "memory-\(level)", pid: top?.kind == .job ? top?.pid : nil,
                               start: top?.kind == .job ? top?.evidence?.start : nil,
-                              card: card, details: card.facts + s.lines(), reportSubject: subject)
+                              card: card, details: NerdyStuff.memory(groups, mac: s, card: card, now: now, log: activity, key: "memory").lines(),
+                              reportSubject: subject)
             mc.causeKey = "memory"
             if let e = top?.evidence { mc.displaySubject = Card.subject(e) }
             // trusting the biggest user never calms the memory card: trust is about how one app behaves, and memory running
@@ -1322,10 +1333,10 @@ public final class Watcher {
             let before = Dictionary(cards.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             let after = Dictionary(live.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             for (id, c) in after where before[id] == nil && seenIDs.insert(id).inserted {
-                log(c.pid == nil ? "Card: \(c.reportSubject)" : "Card: \(c.reportSubject), \(CaseReport.stateWords(c.card.state))")
+                log(c.pid == nil ? "Card: \(c.reportSubject)" : "Card: \(c.reportSubject), \(CaseReport.stateWords(c.card.state))", about: c.cause)
             }
             for (id, c) in before where after[id] == nil && !live.contains(where: { $0.cause == c.cause }) {
-                log("Cleared: \(c.reportSubject)"); seenIDs.remove(id)
+                log("Cleared: \(c.reportSubject)", about: c.cause); seenIDs.remove(id)
             }
             cards = live.filter { !dismissed.contains($0.id) && !waitingOn($0) }
             // notify once for a card that has needed a look for 10 minutes; forget cards that went away
@@ -1398,20 +1409,6 @@ extension Evidence {
         for w in writing.prefix(3) { out.append("Writing: \(w)") }
         if let p = progress { out.append("Progress: \(p.line) (written \(Fmt.time(p.lineTime)))") }
         for l in locks.prefix(2) { out.append("Lock: \((l.path as NSString).lastPathComponent)" + (l.note.map { ", \($0)" } ?? "")) }
-        return out
-    }
-}
-
-extension MacState {
-    public func lines() -> [String] {
-        var out = ["Heat: \(thermal)", "Memory pressure: \(memoryPressure)"]
-        if swapTotalMB > 0 { out.append(String(format: "Swap: %.1f of %.1f GB", swapUsedMB / 1024, swapTotalMB / 1024)) }
-        if let mb = swappedOutMB { out.append(String(format: "Moved to disk in the last 2 minutes: %.0f MB", mb)) }
-        if let d = diskFreeBytes { out.append("Startup disk free: \(MemoryAdvice.diskGB(d))") }
-        if let b = batteryPercent { out.append("Battery: \(b)%" + (charging ? ", charging" : "")) }
-        if let w = batteryWatts, charging { out.append(String(format: "Battery taking %.0f W", w)) }
-        if let w = macWatts { out.append(String(format: "Mac using %.0f W", w)) }
-        if let a = adapterWatts { out.append("Charger: \(a) W") }
         return out
     }
 }

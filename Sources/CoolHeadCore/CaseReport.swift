@@ -96,7 +96,7 @@ public enum CaseReport {
         case .working: return "working"
         case .waiting: return "waiting"
         case .stalled: return "looks stuck"
-        case .unknown: return "can't tell"
+        case .unknown: return "cannot tell"
         case .starting: return "just started"
         case .quiet: return "quiet"
         }

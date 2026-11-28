@@ -163,8 +163,12 @@ public enum PowerState {
                 fixes: [Fix(id: "battery-settings", title: "Change Low Power Mode",
                             consequence: "This opens Battery settings. Set Low Power Mode to Only on Battery, or Never. It needs your password.",
                             kind: .openPage(settings, batterySettings), recommended: true)]),
-                details: ["Low Power Mode: on, set for battery " + (lowPower?.battery == true ? "and" : "not") + " the power adapter"],
-                reportSubject: "Low Power Mode on with the power adapter")
+                details: [], reportSubject: "Low Power Mode on with the power adapter")
+            lc.details = NerdyStuff.facts([], source: .lowPower,
+                                          verdict: ["Shown when Low Power Mode is set for the power adapter, the Mac is on the adapter, and a program is busy."],
+                                          card: lc.card, before: [.init("Low Power Mode", "on", .lowPowerNow, at: now),
+                                                                  .init("Set for", "the power adapter" + (lowPower?.battery == true ? " and the battery" : ", not the battery"),
+                                                                        .lowPower, at: now, check: "pmset -g custom")]).lines()
             lc.causeKey = "low-power-adapter"
             out.append(lc)
         }
@@ -197,10 +201,14 @@ public enum PowerState {
                                         "It is still doing almost nothing after \(Fmt.duration(idle))."],
                              effect: onPower ? [] : ["On battery, a Mac that cannot sleep keeps draining."]),
                 fixes: fixes),
-                details: ["Held awake by: \(h.name), process \(h.pid)" + (h.forPID.map { ", for process \($0)" } ?? ""),
-                          "For: \(Fmt.duration(TimeInterval(h.seconds)))", h.display ? "Keeps the screen on" : "Keeps the Mac awake",
-                          "Almost idle (it and what it started under \(Int(idleShare * 100))% of one core) for: \(Fmt.duration(idle))"],
-                reportSubject: "a program holding the Mac awake for \(hours) hours")
+                details: [], reportSubject: "a program holding the Mac awake for \(hours) hours")
+            lc.details = NerdyStuff.facts([], source: .assertions,
+                                          verdict: ["Shown when one program holds the Mac awake for 2 hours or more while it and what it started stay under \(Int(idleShare * 100))% of one core for \(Fmt.duration(idleMinimum)) or more."],
+                                          card: lc.card, before: [
+                                            .init("Held awake by", "\(h.name), PID \(h.pid)" + (h.forPID.map { ", for PID \($0)" } ?? ""), .assertions, at: now, check: "pmset -g assertions"),
+                                            .init("For", Fmt.duration(TimeInterval(h.seconds)), .assertions),
+                                            .init("Holds", h.display ? "the screen on" : "the Mac awake", .assertions),
+                                            .init("Almost idle for", "\(Fmt.duration(idle)), it and what it started under \(Int(idleShare * 100))% of one core", .coolHead)]).lines()
             lc.causeKey = "held-awake"
             lc.displaySubject = name
             out.append(lc)
@@ -220,9 +228,13 @@ public enum PowerState {
                 fixes: [Fix(id: "battery-options", title: network ? "Stop network wakes on battery" : "Turn off Power Nap",
                             consequence: network ? "This opens Battery settings. Under Options, you can set Wake for network access to Only on Power Adapter." : "This opens Battery settings. Under Options, you can turn off Power Nap and waking for the network.",
                             kind: .openPage(settings, batterySettings), recommended: true)]),
-                details: ["Slept: \(Fmt.time(n.from)) to \(Fmt.time(n.to))", "Charge: \(n.chargeFrom ?? 0)% to \(n.chargeTo ?? 0)%"]
-                    + n.wakes.sorted { $0.value > $1.value }.map { "Woke for \($0.key): \($0.value)" },
-                reportSubject: "battery drained overnight while asleep")
+                details: [], reportSubject: "battery drained overnight while asleep")
+            var nerdy = NerdyStuff.facts([], source: .sleepLog,
+                                         verdict: ["Shown for 6 hours after a sleep of 4 hours or more on battery that lost 10% or more and woke 10 times or more."],
+                                         card: lc.card, before: [.init("Slept", "\(Fmt.time(n.from)) to \(Fmt.time(n.to))", .sleepLog, check: "pmset -g log | grep DarkWake"),
+                                                                 .init("Charge", "\(n.chargeFrom ?? 0)% to \(n.chargeTo ?? 0)%", .sleepLog)])
+            nerdy.lists.append(.init("Woke for (\(NerdyStuff.Source.sleepLog.rawValue))", n.wakes.sorted { $0.value > $1.value }.map { "\($0.value)  \($0.key)" }))
+            lc.details = nerdy.lines()
             lc.causeKey = "night-wakes"
             out.append(lc)
         }

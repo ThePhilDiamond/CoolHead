@@ -101,10 +101,10 @@ public struct DriveHealth: Equatable {
     public var lines: [String] {
         var l = ["Health warnings: " + (warnings.isEmpty ? "none" : warnings.joined(separator: ", ")),
                  "Rated life used: \(percentUsed)%",
-                 "Spare space: \(spare)% (it warns below \(spareThreshold)%)",
-                 "Errors it couldn't correct: \(mediaErrors)",
+                 "Spare space: \(spare)%, it warns below \(spareThreshold)%",
+                 "Errors it could not correct: \(mediaErrors)",
                  "Written so far: about \(Hardware.size(bytesWritten))",
-                 "Powered on for \(Hardware.count(powerOnHours)) hours",
+                 "Powered on: \(Hardware.count(powerOnHours)) hours",
                  "Times it lost power without shutting down: \(Hardware.count(unsafeShutdowns))"]
         if let t = temperatureC { l.append("Temperature: \(Fmt.temperature(Double(t)))") }
         return l
@@ -214,7 +214,7 @@ public struct BatteryHealth: Equatable {
         if let t = temperatureC { l.append("Temperature: \(Fmt.temperature(t))") }
         if let p = percent { l.append("Charge: \(p)%" + (charging ? ", charging" : onPower ? ", on power, not charging" : "")) }
         if let w = adapterWatts { l.append("Charger: \(w) W") }
-        if let w = batteryWatts, onPower, w < -1 { l.append(String(format: "Battery draining at %.0f W while plugged in", -w)) }
+        if let w = batteryWatts, onPower, w < -1 { l.append(String(format: "Draining while plugged in: %.0f W", -w)) }
         if let r = notChargingReason, r != 0, notCharging != nil { l.append(String(format: "macOS's not-charging code: 0x%X", r)) }
         return l
     }
@@ -442,7 +442,25 @@ extension HardwareReport {
         var out: [LiveCard] = []
         func card(_ id: String, _ state: JobState, _ t: CardTemplate, _ fixes: [Fix], _ details: [String], subject: String,
                   serious: Bool = false, safety: Bool = false) {
-            var c = LiveCard(id: "hardware-\(id)", pid: nil, card: Card(state: state, t, fixes: fixes), details: details)
+            var c = LiveCard(id: "hardware-\(id)", pid: nil, card: Card(state: state, t, fixes: fixes), details: [])
+            // Nerdy stuff: the part's own report, each line a reading from where it came from, and the rule behind the card
+            let (source, rule): (NerdyStuff.Source, String) = id.hasPrefix("port-") ? (.ports, "Shown when a device asks a port for more power than it can give, or fails to connect.")
+                : ["drive": (.smart, "Shown when the drive's own health check warns, it counts media errors it cannot correct, or 80% or more of its rated life is used."),
+                   "drive-heat": (.smart, "Warm from \(Fmt.temperature(70)), by the drive's own sensor."),
+                   "battery": (.battery, "Shown when the battery records a permanent failure, macOS rates it Service Recommended, or it holds less than 80% of its original charge."),
+                   "battery-heat": (.battery, "Warm from \(Fmt.temperature(40)), except while it charges; hot from \(Fmt.temperature(45))."),
+                   "charging": (.battery, "Shown when charging is on hold, paused while the battery is warm, the charger gives less than the Mac uses, or it is plugged in but does not charge."),
+                   "crash": (.reports, "Shown after a restart that followed a crash, or after 2 or more crash restarts this week.")][id]
+                ?? (.battery, "")
+            // each line a reading from its own source: the battery's condition and maximum capacity come from
+            // system_profiler, read up to an hour earlier (see BatteryHealth), not from the IORegistry now
+            let readings = details.map { l -> NerdyStuff.Reading in
+                let parts = l.components(separatedBy: ": ")
+                let name = parts.count > 1 ? parts[0] : "Note", value = parts.count > 1 ? parts.dropFirst().joined(separator: ": ") : l
+                let profiled = ["Condition", "Maximum Capacity"].contains(name)
+                return NerdyStuff.Reading(name, value, profiled ? .systemProfiler : source, at: profiled ? nil : now)
+            }
+            c.details = NerdyStuff.facts([], source: source, verdict: rule.isEmpty ? [] : [rule], card: c.card, now: now, before: readings).lines()
             c.causeKey = "hardware-\(id)"
             c.serious = serious; c.safety = safety
             c.displaySubject = subject

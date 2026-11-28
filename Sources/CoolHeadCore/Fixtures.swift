@@ -48,7 +48,7 @@ public struct Fixture {
         var leakyCardLive = LiveCard(id: "x", pid: 4242, card: leakyCard, details: leaky.lines())
         leakyCardLive.reportSubject = CaseReport.subject(leaky)
         let problem = ProblemReport.make(kind: ProblemReport.kinds[0], words: "",
-                                         activity: [.init(t: now, text: "Card: \(leakyCardLive.reportSubject), can't tell"),
+                                         activity: [.init(t: now, text: "Card: \(leakyCardLive.reportSubject), cannot tell"),
                                                     .init(t: now, text: "Stop pressed for \(leakyCardLive.reportSubject): stopped")],
                                          cards: [leakyCardLive], mac: MacState(), now: now)
         let problemFound = ["alice", "Secret", "payroll", "payslips", "abc123", "go.sh", "4242", ".venv", "/Users"].filter { problem.contains($0) }

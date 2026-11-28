@@ -288,7 +288,7 @@ public enum HardwarePage {
         default: return ""
         }
     }
-    /// Chip load from the share of all its cores in use over about the last 30 seconds (see `LoadAverage`): Light under
+    /// Chip load from the share of all its cores in use in about the last 30 seconds (see `LoadAverage`): Light under
     /// half, Medium from half, Heavy from 80%. Nil busy (no reading yet) has no needle and "…" under it. A word for a
     /// load, never a verdict: Heavy on a cool Mac is just work, so it doesn't count toward the snowflake.
     public static func chip(busy: Double?) -> Gauge {
@@ -308,13 +308,13 @@ public enum HardwarePage {
     /// What a dial shows, when pointed at.
     public static func help(_ g: Gauge) -> String {
         switch g.name {
-        case "Chip": return "How busy the chip has been over about the last 30 seconds: Light under half its capacity, Medium from half, Heavy from 80%. Activity Monitor shows what's using it."
+        case "Chip": return "How busy the chip has been in about the last 30 seconds: Light under half its capacity, Medium from half, Heavy from 80%. Activity Monitor shows what's using it."
         case "Memory": return "How tight memory is, as macOS itself judges it: OK, Tight, or Full. When it's tight, your Mac uses its disk as extra memory, which is slower."
         default: return heatHelp(g.name)
         }
     }
 
-    /// Chip load over about the last 30 seconds: the last ten readings, taken 3 seconds apart while the panel is open, so
+    /// Chip load in about the last 30 seconds: the last ten readings, taken 3 seconds apart while the panel is open, so
     /// a moment's spike doesn't move the dial. Emptied when the panel closes, so an old reading never stands for now.
     public struct LoadAverage: Equatable {
         public static let span = 10

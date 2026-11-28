@@ -39,7 +39,7 @@ extension Fixture {
             && card.first?.card.headline == "Google Chrome was started by a script, with an extension loaded."
             && card.first?.card.fixes.first?.kind == .reveal(NSHomeDirectory() + "/Downloads/helper-ext", "If you do not recognize it, quit Google Chrome, then move the folder to the Trash.")
             && card.first?.card.fixes.last?.caution == true
-            && card.first?.details.contains("Extension folder: ~/Downloads/helper-ext") == true
+            && card.first?.details.contains { $0.hasPrefix("Extension folder: ~/Downloads/helper-ext (") } == true
         review.append(("browser-scripted-card", s1, card.first.map { $0.card.headline + " " + $0.card.explanation } ?? "none"))
 
         // the text gives the verdict and the evidence; the options carry the action
