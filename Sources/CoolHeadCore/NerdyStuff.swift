@@ -53,6 +53,8 @@ public struct NerdyStuff {
         public var at: Date?
         /// A Terminal command that shows the same figure, for whoever wants to check it.
         public var check: String?
+        /// The figure alone, where `value` also says how it was taken, for verbose mode's card.
+        public var brief: String? = nil
         public init(_ name: String, _ value: String, _ source: Source, at: Date? = nil, check: String? = nil) {
             self.name = name; self.value = value; self.source = source; self.at = at; self.check = check
         }
@@ -94,6 +96,26 @@ public struct NerdyStuff {
     public func lines() -> [String] {
         let slots: [[String]] = [moved + saw.flatMap(\.lines) + lists.flatMap(\.lines), verdict, option, identity, did]
         return zip(NerdyStuff.headings, slots).flatMap { h, s in s.isEmpty ? [] : [h] + s }
+    }
+
+    /// The key readings, for verbose mode's card in place of its explanation: each reading's name and figure, without
+    /// its source or check (those stay in Nerdy stuff); then the first three rows of the first list; then what it is
+    /// and the rule behind the verdict, named Rule on every card, whether or not its line starts with a name ("Busy:
+    /// 0.5 cores or more…", "Shown when…"), so a reading and its rule never share a name.
+    /// Readings with the same name (a process writing 3 files) share one row, their figures joined by "; ".
+    public func key() -> [(name: String, value: String)] {
+        var out: [(name: String, value: String)] = []
+        for r in saw {
+            let v = r.brief ?? r.value
+            if let i = out.firstIndex(where: { $0.name == r.name }) { out[i].value += "; " + v } else { out.append((r.name, v)) }
+        }
+        if let l = lists.first, !l.rows.isEmpty {
+            let title = l.title.replacingOccurrences(of: #"\s*\([^)]*\)$"#, with: "", options: .regularExpression)
+            out.append((title, l.rows.prefix(3).map { $0.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression) }.joined(separator: "; ")))
+        }
+        if let line = identity.first, let r = line.range(of: ": ") { out.append((String(line[..<r.lowerBound]), String(line[r.upperBound...]))) }
+        if let rule = verdict.first { out.append(("Rule", rule)) }
+        return out
     }
 
     /// The Mac itself, put before the card's lines when they are copied (for a forum post or an issue), not shown on
@@ -278,6 +300,7 @@ public struct NerdyStuff {
         n.saw.append(Reading("CPU", String(format: "%.2f cores (%d%% in Activity Monitor), ", e.coresNow, pct)
                                     + (e.mine ? "a running average of readings every 10 seconds" : "ps's recent average"),
                              e.mine ? .rusage : .ps, at: now, check: "top -l 2 -pid \(e.pid) -stats pid,command,cpu"))
+        n.saw[n.saw.count - 1].brief = String(format: "%.2f cores (%d%% in Activity Monitor)", e.coresNow, pct)
         if e.memoryBytes > 0 { n.saw.append(Reading("Memory (footprint)", Fmt.bytes(e.memoryBytes), .rusage, at: now)) }
         if let g = e.gpuShare { n.saw.append(Reading("Graphics chip", "\(Int((g * 100).rounded()))% of its time", .gpu, at: now)) }
         if let s = busySince {

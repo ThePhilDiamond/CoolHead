@@ -70,12 +70,12 @@ public enum CrashLoops {
                 fixes: [Card.lookUp("\(l.app) keeps crashing on Mac", recommended: true),
                         Fix.openApp("console", "See the crash reports", bundle: console, steps: "Choose Crash Reports, then \(l.app).")]),
                 details: [])
-            c.details = NerdyStuff.facts([], source: .reports,
+            c.nerdy = NerdyStuff.facts([], source: .reports,
                                          verdict: ["Shown when an app that is not macOS's own crashes \(minimum) times or more in \(Fmt.duration(window))."],
                                          card: c.card, before: [
                                             .init("Crashes in the last 24 hours", "\(l.count), the first at \(Fmt.time(l.first)), the latest at \(Fmt.time(l.last))", .reports,
                                                   check: "ls -lt ~/Library/Logs/DiagnosticReports /Library/Logs/DiagnosticReports | head -20")],
-                                         identity: ["App: \(l.app)" + (l.bundle.map { ", \($0)" } ?? "")]).lines()
+                                         identity: ["App: \(l.app)" + (l.bundle.map { ", \($0)" } ?? "")])
             c.causeKey = "crash-loop-\(l.bundle ?? l.app)"
             c.displaySubject = l.app
             c.reportSubject = "an app that keeps crashing"

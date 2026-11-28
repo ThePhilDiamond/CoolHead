@@ -29,15 +29,14 @@ extension Fixture {
         if let f = Fixture.all(now).first {
             let since = now.addingTimeInterval(-600)
             let hc = Hang.card(.paused, f.evidence, stuckFor: 600, waiting: ["python3"], volumes: [], terminal: nil, now: now)
-            out.append(("hang-paused", LiveCard(id: "hang-paused", pid: f.evidence.pid, card: hc,
-                                                details: NerdyStuff.hang(f.evidence, card: hc, kind: .paused, since: since, now: now, threshold: 300, waiting: ["python3"]).lines())))
+            out.append(("hang-paused", Watcher.hangCard(f.evidence, pid: f.evidence.pid, card: hc, kind: .paused, since: since, now: now,
+                                                        threshold: 300, waiting: ["python3"], log: [])))
         }
         var warmMac = MacState(); warmMac.thermal = "fair"; warmMac.charging = true; warmMac.batteryPercent = 54; warmMac.batteryWatts = 38
         warmMac.adapterWatts = 96; warmMac.macWatts = 14; warmMac.memoryPressure = "normal"
         let plain = Card(state: .working, headline: "", explanation: "", fixes: [Fix.guide("air", "Give it air", "This shows how.", steps: ["Move it."], recommended: true)])
-        out.append(("charging", LiveCard(id: "charging", pid: nil, card: plain, details: NerdyStuff.charging(warmMac, card: plain, now: now).lines())))
-        out.append(("heat", LiveCard(id: "heat", pid: nil, card: plain,
-                                     details: NerdyStuff.warm(warmMac, card: plain, busiest: (1...9).map { ("p\($0)", 0.9 - Double($0) / 20) }, now: now).lines())))
+        out.append(("charging", made("charging", card: plain, NerdyStuff.charging(warmMac, card: plain, now: now))))
+        out.append(("heat", made("heat", card: plain, NerdyStuff.warm(warmMac, card: plain, busiest: (1...9).map { ("p\($0)", 0.9 - Double($0) / 20) }, now: now))))
         // memory, with the samples' own groups and a few more, so the list is cut at five
         // the same card as Wording's memory-chrome sample (its MacState and Chrome group), so a screenshot's Nerdy stuff
         // matches the card drawn above it; the readings Nerdy stuff shows are added after the card is made
@@ -47,9 +46,15 @@ extension Fixture {
         tight.swappedOutMB = 600; tight.memoryGB = 16; tight.diskFreeBytes = 180_000_000_000
         let groups = [chrome0] + [("Slack", 1.2, 6), ("Docker", 0.9, 4), ("Mail", 0.6, 3), ("Xcode", 0.54, 2), ("Music", 0.3, 1), ("Notes", 0.2, 1)]
             .map { MemGroup(key: $0.0, name: $0.0, kind: .app, bundle: "/Applications/\($0.0).app", bytes: UInt64($0.1 * 1_073_741_824), count: $0.2) }
-        out.append(("memory-chrome", LiveCard(id: "memory-warning", pid: nil, card: mc,
-                                              details: NerdyStuff.memory(groups, mac: tight, card: mc, now: now).lines())))
+        out.append(("memory-chrome", made("memory-warning", card: mc, NerdyStuff.memory(groups, mac: tight, card: mc, now: now))))
         return out
+    }
+
+    /// A made-up card with its Nerdy stuff written from these slots, as the app makes them.
+    static func made(_ id: String, pid: pid_t? = nil, card: Card, _ n: NerdyStuff) -> LiveCard {
+        var c = LiveCard(id: id, pid: pid, card: card, details: [])
+        c.nerdy = n
+        return c
     }
 
     static func nerdyStuffChecks(_ now: Date) -> [(String, Bool, String)] {

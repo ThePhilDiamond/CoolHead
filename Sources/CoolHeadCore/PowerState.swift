@@ -164,11 +164,11 @@ public enum PowerState {
                             consequence: "This opens Battery settings. Set Low Power Mode to Only on Battery, or Never. It needs your password.",
                             kind: .openPage(settings, batterySettings), recommended: true)]),
                 details: [], reportSubject: "Low Power Mode on with the power adapter")
-            lc.details = NerdyStuff.facts([], source: .lowPower,
+            lc.nerdy = NerdyStuff.facts([], source: .lowPower,
                                           verdict: ["Shown when Low Power Mode is set for the power adapter, the Mac is on the adapter, and a program is busy."],
                                           card: lc.card, before: [.init("Low Power Mode", "on", .lowPowerNow, at: now),
                                                                   .init("Set for", "the power adapter" + (lowPower?.battery == true ? " and the battery" : ", not the battery"),
-                                                                        .lowPower, at: now, check: "pmset -g custom")]).lines()
+                                                                        .lowPower, at: now, check: "pmset -g custom")])
             lc.causeKey = "low-power-adapter"
             out.append(lc)
         }
@@ -202,13 +202,13 @@ public enum PowerState {
                              effect: onPower ? [] : ["On battery, a Mac that cannot sleep keeps draining."]),
                 fixes: fixes),
                 details: [], reportSubject: "a program holding the Mac awake for \(hours) hours")
-            lc.details = NerdyStuff.facts([], source: .assertions,
+            lc.nerdy = NerdyStuff.facts([], source: .assertions,
                                           verdict: ["Shown when one program holds the Mac awake for 2 hours or more while it and what it started stay under \(Int(idleShare * 100))% of one core for \(Fmt.duration(idleMinimum)) or more."],
                                           card: lc.card, before: [
                                             .init("Held awake by", "\(h.name), PID \(h.pid)" + (h.forPID.map { ", for PID \($0)" } ?? ""), .assertions, at: now, check: "pmset -g assertions"),
                                             .init("For", Fmt.duration(TimeInterval(h.seconds)), .assertions),
                                             .init("Holds", h.display ? "the screen on" : "the Mac awake", .assertions),
-                                            .init("Almost idle for", "\(Fmt.duration(idle)), it and what it started under \(Int(idleShare * 100))% of one core", .coolHead)]).lines()
+                                            .init("Almost idle for", "\(Fmt.duration(idle)), it and what it started under \(Int(idleShare * 100))% of one core", .coolHead)])
             lc.causeKey = "held-awake"
             lc.displaySubject = name
             out.append(lc)
@@ -233,8 +233,8 @@ public enum PowerState {
                                          verdict: ["Shown for 6 hours after a sleep of 4 hours or more on battery that lost 10% or more and woke 10 times or more."],
                                          card: lc.card, before: [.init("Slept", "\(Fmt.time(n.from)) to \(Fmt.time(n.to))", .sleepLog, check: "pmset -g log | grep DarkWake"),
                                                                  .init("Charge", "\(n.chargeFrom ?? 0)% to \(n.chargeTo ?? 0)%", .sleepLog)])
-            nerdy.lists.append(.init("Woke for (\(NerdyStuff.Source.sleepLog.rawValue))", n.wakes.sorted { $0.value > $1.value }.map { "\($0.value)  \($0.key)" }))
-            lc.details = nerdy.lines()
+            nerdy.lists.append(.init("Wakes (\(NerdyStuff.Source.sleepLog.rawValue))", n.wakes.sorted { $0.value > $1.value }.map { "\($0.value)  for \($0.key)" }))
+            lc.nerdy = nerdy
             lc.causeKey = "night-wakes"
             out.append(lc)
         }
