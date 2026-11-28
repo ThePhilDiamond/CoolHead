@@ -3,6 +3,21 @@ import Foundation
 /// Every card Cool Head can show, from its recorded examples, so all the wording can be read in one place
 /// (`coolhead wording`). The wording is written by hand: no model rewords anything, so this list is what people read.
 public enum Wording {
+    /// Each busy-process sample's Nerdy stuff, from its fixture's made-up readings, with made-up neighbours and log
+    /// lines, for screenshots and the selftest.
+    public static func nerdySamples(now: Date = Date()) -> [String: NerdyStuff] {
+        Dictionary(Fixture.all(now).map { f in
+            let since = now.addingTimeInterval(-f.busyFor)
+            let c = Card.make(f.evidence, now: now, busySince: since)
+            let who = CaseReport.subject(f.evidence)
+            let log = [Watcher.LogEntry(t: since.addingTimeInterval(60), text: "Card: \(who), \(CaseReport.stateWords(c.state))", about: "pid-\(f.evidence.pid)")]
+            return (f.id, NerdyStuff.busy(f.evidence, card: c, busySince: since, now: now,
+                                          alsoBusy: [("WindowServer", 0.42), ("kernel_task", 0.31), ("Google Chrome Helper (Renderer)", 0.27),
+                                                     ("mds_stores", 0.18), ("Finder", 0.12), ("Music", 0.11)],
+                                          log: log, key: "pid-\(f.evidence.pid)"))
+        }, uniquingKeysWith: { a, _ in a })
+    }
+
     public static func samples(now: Date = Date()) -> [(String, Card)] {
         var out: [(String, Card)] = Fixture.all(now).map { f in
             (f.id, Card.make(f.evidence, now: now, busySince: now.addingTimeInterval(-f.busyFor)))

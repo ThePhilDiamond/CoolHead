@@ -15,7 +15,7 @@ Every card comes from the same steps.
    - **working**: it reports progress that is still advancing, or it is still writing output;
    - **waiting**: it is queued behind another job, usually on a lock;
    - **stalled**: it has reported no progress for longer than 30 minutes and longer than three of its own usual gaps between progress lines;
-   - **can't tell**: it has been busy for a long time with no sign either way.
+   - **cannot tell**: it has been busy for a long time with no sign either way.
 5. **Match.** It is looked up in the [catalogue](../Sources/CoolHeadCore/Catalogue.swift) of known patterns: what it is, when it is normal, how long is normal, and the risk of stopping it.
 6. **Card.** One sentence: what it is and whether that is fine. Behind **Explore fixes** (or **Learn more** on a calm card): how we know, and the options, each with its consequence, the recommended one first.
 7. **Afterwards.** Whether the action helped. *(Planned: power and heat before and after.)*
@@ -31,14 +31,14 @@ Every card has one button: **Explore fixes** on a card worth watching, **Learn m
 | working | how far along, and when it should finish | nothing while the Mac is cool; run it cooler when it's warm; pause until you plug in when it drains the battery | offered, saying how much work would be lost and what may be left half-written |
 | waiting | what it is waiting for | nothing | offered, with the same warning (shown by `coolhead why`; the panel shows only processes busy enough to matter) |
 | stalled | no progress since when | stop it (nothing since its last progress is lost) | recommended |
-| can't tell | how long it has been busy | look it up, or share the case | offered, with a warning not to stop something unknown |
+| cannot tell | how long it has been busy | look it up, or share the case | offered, with a warning not to stop something unknown |
 
 Some kinds of process have their own card, ahead of the states above:
 
 - **The graphics chip.** How much of it each process uses comes from the IORegistry, where each connection a process opens to the graphics chip records the time the chip has spent on its work. Two readings 10 seconds apart give its share. A process keeping the chip busy says so on its card ("It's keeping the graphics chip busy, about 70% of it."). Run it cooler isn't offered for the graphics chip, since it slows a process's CPU work, not its drawing; an app can be quit instead. On a Mac whose graphics driver doesn't publish it, Cool Head sees CPU only.
 - **Games** are calm and never slowed; while the Mac is warm, lower graphics settings is recommended. While a game runs, other busy work recommends Run it cooler.
 - **Browsers** (Chrome, Edge, Brave, Arc): a tab, an extension, or the graphics process, told apart by their launch arguments, each with the options that fit.
-- **Sync apps** recommend Pause syncing while the Mac is warm, with a reminder to resume. When a job writing over 100 KB a second works in a folder the sync app syncs, the card names the job and folder and recommends keeping that project out of synced folders instead: "probably" for the sync app's own folder, "may" for Documents or Desktop, which it may be backing up. Paths are compared as text; nothing in a synced folder is opened.
+- **Sync apps** recommend Pause syncing while the Mac is warm, with a reminder to resume. When a job writing more than 100 KB a second works in a folder the sync app syncs, the card names the job and folder and recommends keeping that project out of synced folders instead: "probably" for the sync app's own folder, "may" for Documents or Desktop, which it may be backing up. Paths are compared as text; nothing in a synced folder is opened.
 - **Security, device management, and VPN software** is never offered Stop, Run it cooler, or Quit.
 - **Stuck while using almost nothing** (a hang): a process paused by something other than Cool Head (5 minutes; 30 for a job suspended in a Terminal window, which gets a calm card saying how to bring it back), one waiting on a disk or network drive that hasn't answered (2 minutes, from macOS's uninterruptible-wait state, naming the drive it has files on), or an app macOS marks Not Responding (1 minute). Each says what started it and which programs it started may be waiting on it. Resume is recommended for a paused process; checking the drive for a waiting one (nothing can stop it until the drive answers, so Stop isn't offered); for an app not responding, giving it a few minutes, then Force quit once it has been stuck and idle for 5 minutes. A process a debugger has paused is left alone. Files of a process waiting on a drive are never touched, so Cool Head can't get stuck on the same drive.
 - **Trusted** apps and jobs stay calm until a limit is crossed: they look stuck, the Mac gets hot, or they run nonstop for 8 hours.
@@ -52,7 +52,7 @@ The catalogue is one of several checks. Each kind of card about a busy process i
 The cards, by what they're about:
 
 1. **Who it is**: a program pretending to be part of macOS, using a macOS name from outside macOS's folders without Apple's signature, or a background item labelled like Apple's that Apple didn't sign ([`Disguise.swift`](../Sources/CoolHeadCore/Disguise.swift)).
-2. **Stuck**: macOS's own work that seems stuck, busy for over a day, judged by its priority and how long it has run, not by % CPU ([`BackgroundWork.swift`](../Sources/CoolHeadCore/BackgroundWork.swift)).
+2. **Stuck**: macOS's own work that seems stuck, busy for more than a day, judged by its priority and how long it has run, not by % CPU ([`BackgroundWork.swift`](../Sources/CoolHeadCore/BackgroundWork.swift)).
 3. **What it's doing**: the catalogue (programs Cool Head knows by name, mostly macOS's own, below); security, device management, and VPN software; sync apps; Chromium browsers and apps built like them (a tab, an extension, or the graphics process); a macOS service working for an app, such as decoding video for it, and web pages shown by another app, such as Mail, where the card names that app ([`Served.swift`](../Sources/CoolHeadCore/Served.swift)); web pages in Safari or another browser; and games.
 4. **When nothing more specific explains it**: a macOS service that isn't in the catalogue, which the card says is part of macOS, working in the background; and anything else that's busy, by the states above (working, waiting, stalled, can't tell).
 

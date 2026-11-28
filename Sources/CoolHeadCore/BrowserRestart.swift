@@ -52,7 +52,7 @@ public enum BrowserRestart {
         guard !running.isEmpty else { log("not running"); return .notRunning }
         // each process by number and start time, so a reused number isn't mistaken for the browser still open
         let watched = running.map { ($0.processIdentifier, Proc.bsd($0.processIdentifier)?.start) }
-        guard running.map({ $0.terminate() }).contains(true) else { log("the quit request couldn't be sent"); return .refused }
+        guard running.map({ $0.terminate() }).contains(true) else { log("the quit request could not be sent"); return .refused }
         log("asked it to quit")
         let started = Date()
         func open(_ pid: pid_t, _ start: Date?) -> Bool {
@@ -80,7 +80,7 @@ public enum BrowserRestart {
             done.signal()
         }
         if done.wait(timeout: .now() + 15) == .timedOut { result.error = "macOS didn't open it within 15 seconds" }
-        if let e = result.error { log("didn't reopen"); return .reopenFailed(e) }
+        if let e = result.error { log("did not reopen"); return .reopenFailed(e) }
         log(arguments.isEmpty ? "reopened" : "reopened with its last session")
         return .restarted(seconds: took)
     }

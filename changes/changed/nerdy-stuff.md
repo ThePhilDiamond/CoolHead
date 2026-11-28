@@ -1,0 +1,5 @@
+- Every card's Nerdy stuff now follows the same five parts: What Cool Head saw, Why this verdict, Why this option, What it is, and What Cool Head did. Each figure says where it came from in macOS, by its technical name, and when it was read, and many come with a Terminal command to check it yourself.
+- Lists in Nerdy stuff show the first five, then one line for the rest: other busy programs, the biggest users of memory, the energy week (copying still copies every row), and what woke the Mac.
+- Copying Nerdy stuff puts your Mac first: model, cores, macOS, memory, uptime, startup disk, and heat, for a forum post or an issue.
+- Sentences a card moves out of its explanation now show in Nerdy stuff on every card; before, only the memory card showed them.
+- Cool Head's own log lines, and a few lines on cards, Nerdy stuff, and the Cleaner, say "more than" instead of "over" before an amount, and avoid contractions.

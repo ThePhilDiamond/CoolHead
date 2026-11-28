@@ -46,7 +46,7 @@ struct EnergyWeek: View {
                 // every one, with its share, as the cards' Nerdy stuff shows details: closed until clicked
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).rotationEffect(.degrees(facts ? 90 : 0))
-                    Text("Nerdy stuff (everything, with its share)").font(.caption)
+                    Text("Nerdy stuff (detailed info)").font(.caption)
                     Spacer(minLength: 0)
                 }
                 .foregroundStyle(Ink.text)
@@ -56,10 +56,12 @@ struct EnergyWeek: View {
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(facts ? "Hide the nerdy stuff" : "Show the nerdy stuff")
                 if facts {
-                    let lines = EnergyWeek.lines(split.all)
+                    // five shown, the rest totalled; copying copies every one (see NerdyStuff.energy)
+                    let rows = EnergyWeek.lines(split.all)
+                    let lines = NerdyStuff.energy(rows, shares: split.all.map(\.share)).lines()
                     TerminalPane(lines: lines, copied: copied) {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+                        NSPasteboard.general.setString((["Energy this week, by app or program (\(NerdyStuff.Source.powerlog.rawValue))"] + rows).joined(separator: "\n"), forType: .string)
                         copied = true
                     }
                 }

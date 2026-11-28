@@ -287,11 +287,22 @@ public struct CardTemplate: Equatable {
         (#"\b(?:likely|seems?|looks|might|could|perhaps)\b"#, "a word for how sure outside probably, may, and usually"),
         (#"\b(?:since|around)\b"#, "a time word outside for the last, at, after, and about"),
         (#"\b(?:we|us|our)\b"#, "\"we\", which is unclear on a card"),
+        // "moved over 256 MB" reads as "moved across" or "moved more than": an amount takes "more than", a time "in"
+        (#"\bover\s+(?:about\s+)?(?:\d|half\b|a\s+(?:second|minute|hour|day|week|month|year)\b)"#, "\"over\" with an amount or a time, which reads two ways: more than, or in"),
         (#"\b(?:process(?:es)?|helpers?|stalled|frozen|tight|services?|disk space)\b"#, "a word the word list replaces"),
         (#"\b(?:give it a minute|look it up|share this case|undo any time|takes you to|quit and reopen|the cause is unknown|reports nothing about its work|for the last|low on memory|low memory|memory is low)\b"#, "an idiom or a replaced phrase"),
         // two-word verbs; macOS's own Turn on, Turn off, Shut down, Back up, and plugged in are allowed
         (#"\b(?:comes?|came) back\b|\bcarr(?:y|ies) on\b|\bfigures? (?:it )?out\b|\bsets? up\b|\bgo(?:es)? on\b|\blooks? up\b|\bgives? back\b|\bbrings? (?:it )?back\b|\bslows? down\b|\bturns? down\b"#, "a two-word verb"),
     ]
+    /// The rules of the word list that hold beyond the cards, in Nerdy stuff, where technical words are fine: no
+    /// contraction, no present perfect, no "we", no "over" with an amount or a time. Each problem with the words it found.
+    public static func clarity(_ text: String) -> [String] {
+        // names with a dot (zoom.us, com.apple.mds, build.log) masked first, as the card check masks names
+        let t = text.replacingOccurrences(of: "\u{2019}", with: "'").replacingOccurrences(of: #"\S*[A-Za-z_]\.[A-Za-z]\S*"#, with: "Name", options: .regularExpression)
+        return banned.filter { ["a contraction", "the present perfect"].contains($0.why) || $0.why.hasPrefix("\"we\"") || $0.why.hasPrefix("\"over\"") }
+            .compactMap { b in t.range(of: b.pattern, options: [.regularExpression, .caseInsensitive]).map { "\(b.why) (\(t[$0]))" } }
+    }
+
     /// Option titles that start with an action the word list replaces.
     static let replacedActions = #"^(?:End|Kill|Terminate|Resume|Bring)\b"#
 
@@ -347,7 +358,7 @@ public struct CardTemplate: Equatable {
             }
             // at most 25 words a sentence (ASD-STE100, GOV.UK)
             for s in split(raw) where s.split(separator: " ").count > 25 {
-                out.append("\(part): a sentence over 25 words (\(s.prefix(30))…)")
+                out.append("\(part): a sentence of more than 25 words (\(s.prefix(30))…)")
             }
         }
         return out
