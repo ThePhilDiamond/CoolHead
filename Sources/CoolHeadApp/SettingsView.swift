@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(Tools.labelsKey) private var labels = true
     @AppStorage("iconStyle") private var iconStyle = "badge"
     @AppStorage(RunningStrip.gaugesKey) private var gauges = false
+    @AppStorage(Verbose.key) private var verbose = false
     @State private var login = LoginItem.on
     @State private var automatic = Updater.shared.automatic
     let updater = Updater.shared
@@ -69,6 +70,9 @@ struct SettingsView: View {
                 // what they mean
                 SettingSwitch(title: "Show usage and temperature",
                               detail: "Gauges at the top of the panel.", on: $gauges)
+                Divider()
+                // off to start: for power users, who want the figures and sources on the card itself
+                SettingSwitch(title: "Verbose mode", detail: "Key figures in place of each card's explanation.", on: $verbose)
             }
             HStack {
                 Button("About Cool Head") { About.show() }.buttonStyle(.link).font(.callout)

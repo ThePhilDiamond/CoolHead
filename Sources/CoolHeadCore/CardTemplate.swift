@@ -102,6 +102,18 @@ public struct CardTemplate: Equatable {
             case .words(let w): return w
             }
         }
+
+        /// The same reading with its figure, for verbose mode, where the figure is on the card itself: "is still using
+        /// about 1.5 cores after 1 hour". A reading without a figure reads as it does in `words`.
+        public var verboseWords: String {
+            switch self {
+            case .coresNow(let c): return "is using about \(Fmt.cores(c))"
+            case .coresUnderLimit(let c, let l): return "still uses about \(Fmt.cores(c)) at \(l.name)"
+            case .coresFor(let c, let d): return "is still using about \(Fmt.cores(c)) after \(Fmt.duration(d))"
+            case .graphicsFor(let g, let d): return "is still using \(Fmt.share(g)) of the graphics chip after \(Fmt.duration(d))"
+            default: return words
+            }
+        }
     }
 
     /// What Cool Head thinks, from a closed set: each verdict has one meaning, and no card writes its own.
@@ -241,14 +253,19 @@ public struct CardTemplate: Equatable {
         return v.isEmpty ? nil : "It \(Fmt.list(v))."
     }
 
-    public var headline: String {
+    public var headline: String { headline(\.words) }
+
+    /// Verbose mode's headline: the same slots, with the reading's figure (`Reading.verboseWords`).
+    public var verboseHeadline: String { headline(\.verboseWords) }
+
+    func headline(_ words: (Reading) -> String) -> String {
         let who = Fmt.sentenceStart(subject)
         guard let reading else {
             if let p = verdict?.predicate { return "\(who) \(p)." }
             return verdict.map { "\(who). \($0.sentence)" } ?? "\(who)."
         }
-        if verdictFirst, let v = verdict { return "\(v.sentence) \(who) \(reading.words)." }
-        return "\(who) \(reading.words)." + (verdict.map { " " + $0.sentence } ?? "")
+        if verdictFirst, let v = verdict { return "\(v.sentence) \(who) \(words(reading))." }
+        return "\(who) \(words(reading))." + (verdict.map { " " + $0.sentence } ?? "")
     }
 
     /// Sentences in a text: ends at . ? or !, with any closing quote or bracket.
@@ -275,6 +292,9 @@ public struct CardTemplate: Equatable {
     }
 
     public var explanation: String { pieces.shown.joined(separator: " ") }
+
+    /// Verbose mode's explanation: every sentence, in order, with no limit of 3, since nothing moves to Nerdy stuff.
+    public var verboseExplanation: String { (evidence + effect).joined(separator: " ") }
 
     // MARK: - The check the selftest runs on every card made from the template
 
@@ -366,6 +386,21 @@ public struct CardTemplate: Equatable {
 }
 
 extension Card {
+    /// Verbose mode's headline, from the card's slots with the reading's figure; the headline itself where the card
+    /// isn't from the template, or its headline was not written from these slots.
+    public var verboseHeadline: String {
+        guard let t = template, t.headline == headline else { return headline }
+        return t.verboseHeadline
+    }
+
+    /// Verbose mode's explanation, on a card with no key readings (`NerdyStuff.key`): every sentence, the ones moved
+    /// to Nerdy stuff back in their place; the explanation itself where the card isn't from the template, or its
+    /// explanation was not written from these slots.
+    public var verboseExplanation: String {
+        guard let t = template, t.explanation == explanation else { return explanation }
+        return t.verboseExplanation
+    }
+
     /// A card written from the template: its headline and explanation come from the slots.
     public init(state: JobState, _ t: CardTemplate, fixes: [Fix]) {
         self.init(state: state, headline: t.headline, explanation: t.explanation, fixes: fixes)

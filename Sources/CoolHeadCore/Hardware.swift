@@ -460,7 +460,7 @@ extension HardwareReport {
                 let profiled = ["Condition", "Maximum Capacity"].contains(name)
                 return NerdyStuff.Reading(name, value, profiled ? .systemProfiler : source, at: profiled ? nil : now)
             }
-            c.details = NerdyStuff.facts([], source: source, verdict: rule.isEmpty ? [] : [rule], card: c.card, now: now, before: readings).lines()
+            c.nerdy = NerdyStuff.facts([], source: source, verdict: rule.isEmpty ? [] : [rule], card: c.card, now: now, before: readings)
             c.causeKey = "hardware-\(id)"
             c.serious = serious; c.safety = safety
             c.displaySubject = subject

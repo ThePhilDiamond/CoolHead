@@ -5,6 +5,25 @@ import CoolHeadChromeLink
 import Observation
 
 /// A card on screen, with the facts behind it.
+extension Watcher {
+    /// A busy process's card with its Nerdy stuff from its slots, as the panel shows it: made here for the watcher and
+    /// the selftest alike, so the check runs the app's own code (verbose mode's key readings come from these slots).
+    static func busyCard(_ e: Evidence, pid: pid_t, card c: Card, busySince: Date?, now: Date, alsoBusy: [(String, Double)],
+                         log: [LogEntry]) -> LiveCard {
+        var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: [])
+        lc.nerdy = NerdyStuff.busy(e, card: c, busySince: busySince, now: now, alsoBusy: alsoBusy, log: log, key: "pid-\(pid)")
+        return lc
+    }
+
+    /// A hung process's card with its Nerdy stuff from its slots, made here for the watcher and the selftest alike.
+    static func hangCard(_ e: Evidence, pid: pid_t, card: Card, kind: Hang.Kind, since: Date, now: Date, threshold: TimeInterval,
+                         waiting: [String], log: [LogEntry]) -> LiveCard {
+        var lc = LiveCard(id: "hang-\(kind.rawValue)-\(pid)", pid: pid, start: e.start, card: card, details: [])
+        lc.nerdy = NerdyStuff.hang(e, card: card, kind: kind, since: since, now: now, threshold: threshold, waiting: waiting, log: log)
+        return lc
+    }
+}
+
 public struct LiveCard: Identifiable {
     public let id: String
     public let pid: pid_t?
@@ -12,6 +31,9 @@ public struct LiveCard: Identifiable {
     public var start: Date? = nil
     public let card: Card
     public var details: [String]
+    /// Nerdy stuff as slots, where the card's details were written from them: setting it writes `details`. Verbose
+    /// mode shows its key readings on the card (`NerdyStuff.key`).
+    public var nerdy: NerdyStuff? = nil { didSet { if let nerdy { details = nerdy.lines() } } }
     /// What the panel calls this card's process ("Your Photo Export job export.py", "WhatsApp").
     public var displaySubject = ""
     /// What a report may call this card's process: anonymised as in the case report.
@@ -1088,8 +1110,7 @@ public final class Watcher {
             // all of them, so the line for the rest counts every one (the list shows five)
             let others = tracks.filter { $0.key != pid && $0.key != me && $0.value.cores >= 0.1 }.sorted { $0.value.cores > $1.value.cores }
                 .compactMap { k, t in Proc.bsd(k).map { ($0.name, t.cores) } }
-            let nerdy = NerdyStuff.busy(e, card: c, busySince: tr.busySince, now: now, alsoBusy: others, log: activity, key: "pid-\(pid)")
-            var lc = LiveCard(id: "\(pid)-\(c.state.rawValue)", pid: pid, start: e.start, card: c, details: nerdy.lines())
+            var lc = Watcher.busyCard(e, pid: pid, card: c, busySince: tr.busySince, now: now, alsoBusy: others, log: activity)
             lc.pauseGroup = pauseGroup
             lc.downloadingNow = downloadingNow
             lc.reportSubject = CaseReport.subject(e)
@@ -1148,9 +1169,8 @@ public final class Watcher {
             let waiting = Proc.children(of: pid, among: pids).compactMap { Proc.bsd($0)?.name }
             let card = Hang.card(h.kind, e, stuckFor: stuckFor, waiting: waiting, volumes: h.kind == .diskWait ? Hang.volumes(pid) : [],
                                   terminal: terminal, now: now)
-            let nerdy = NerdyStuff.hang(e, card: card, kind: h.kind, since: h.since, now: now,
-                                        threshold: Hang.threshold(h.kind, suspendedInShell: terminal != nil), waiting: waiting, log: activity)
-            var lc = LiveCard(id: "hang-\(h.kind.rawValue)-\(pid)", pid: pid, start: e.start, card: card, details: nerdy.lines())
+            var lc = Watcher.hangCard(e, pid: pid, card: card, kind: h.kind, since: h.since, now: now,
+                                      threshold: Hang.threshold(h.kind, suspendedInShell: terminal != nil), waiting: waiting, log: activity)
             lc.reportSubject = CaseReport.subject(e) + ", " + Hang.words(h.kind)
             lc.displaySubject = Card.subject(e)
             if card.fixes.contains(where: { $0.kind == .share }) {
@@ -1176,7 +1196,7 @@ public final class Watcher {
                         Fix.guide("unplug", "Unplug for a while", "This shows how. Charging stops adding heat until you connect the charger again.",
                                   steps: ["Unplug the charger.", "Connect it again when your Mac feels cooler."], recommended: true)]),
                 details: [], reportSubject: "fast charging adding heat")
-            lc.details = NerdyStuff.charging(s, card: lc.card, now: now, log: activity, key: lc.cause).lines()
+            lc.nerdy = NerdyStuff.charging(s, card: lc.card, now: now, log: activity, key: lc.cause)
             lc.heatCause = true
             out.append(lc)
         }
@@ -1198,7 +1218,7 @@ public final class Watcher {
                 details: [], reportSubject: "warm with no single cause")
             let busyList = tracks.filter { $0.key != me && $0.value.cores >= 0.1 }.sorted { $0.value.cores > $1.value.cores }
                 .compactMap { k, t in Proc.bsd(k).map { ($0.name, t.cores) } }
-            lc.details = NerdyStuff.warm(s, card: lc.card, busiest: busyList, now: now, log: activity, key: lc.cause).lines()
+            lc.nerdy = NerdyStuff.warm(s, card: lc.card, busiest: busyList, now: now, log: activity, key: lc.cause)
             lc.heatCause = true
             out.append(lc)
         }
@@ -1259,8 +1279,9 @@ public final class Watcher {
             } ?? "memory running short (\(level))"
             var mc = LiveCard(id: "memory-\(level)", pid: top?.kind == .job ? top?.pid : nil,
                               start: top?.kind == .job ? top?.evidence?.start : nil,
-                              card: card, details: NerdyStuff.memory(groups, mac: s, card: card, now: now, log: activity, key: "memory").lines(),
+                              card: card, details: [],
                               reportSubject: subject)
+            mc.nerdy = NerdyStuff.memory(groups, mac: s, card: card, now: now, log: activity, key: "memory")
             mc.causeKey = "memory"
             if let e = top?.evidence { mc.displaySubject = Card.subject(e) }
             // trusting the biggest user never calms the memory card: trust is about how one app behaves, and memory running

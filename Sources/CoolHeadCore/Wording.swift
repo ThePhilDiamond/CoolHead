@@ -100,9 +100,10 @@ public enum Wording {
     }
 
     /// One card as text: headline, explanation, then each option with what it does and any steps.
-    public static func text(_ c: Card) -> String {
-        var s = c.headline + "\n"
-        if !c.explanation.isEmpty { s += "  " + c.explanation + "\n" }
+    public static func text(_ c: Card, verbose: Bool = false) -> String {
+        let explanation = verbose ? c.verboseExplanation : c.explanation
+        var s = (verbose ? c.verboseHeadline : c.headline) + "\n"
+        if !explanation.isEmpty { s += "  " + explanation + "\n" }
         for f in c.fixes {
             s += "  \(f.recommended ? "→" : "·") [\(f.doer == .coolHead ? "one click" : "you")] [\(f.impact)\(f.caution ? ", Caution" : "")] \(f.title)" + (f.consequence.isEmpty ? "" : ": \(Fmt.plain(f.consequence))") + "\n"
             if f.recommended, let why = c.why { s += "      \(why)\n" }

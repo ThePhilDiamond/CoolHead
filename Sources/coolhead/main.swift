@@ -25,6 +25,7 @@ coolhead: explains what is keeping this Mac busy, hot or awake.
   coolhead history             what used the most energy and why the Mac woke, from macOS's power log (about a week)
   coolhead selftest            checks every recorded example gives the card it should
   coolhead wording             every card's text, from the recorded examples, to read the wording in one place
+                               (--verbose: as verbose mode shows them)
   coolhead ranking [--write]   which card and option every sample gets; --write records it for the selftest
   coolhead cards [--json|--why] every kind of card about a busy process: its rule and samples; --why reviews why lines
 
@@ -232,7 +233,19 @@ case "history":
     guard let h = PowerHistory.read() else { print("No history: this Mac's power log couldn't be read."); exit(0) }
     print(h.text)
 case "wording":
-    for (id, c) in Wording.samples() { print("[\(id)]"); print(Wording.text(c)) }
+    // --verbose: as verbose mode shows them, with each reading's figure and the whole explanation
+    let verbose = argv.dropFirst().first == "--verbose"
+    for (id, c) in Wording.samples() { print("[\(id)]"); print(Wording.text(c, verbose: verbose)) }
+    // verbose mode's key readings, in place of the explanation, for every made-up card with Nerdy stuff
+    if verbose {
+        let now = Date()
+        let made = Wording.nerdySamples(now: now).map { ($0.key, $0.value) } + Fixture.nerdyLiveSamples(now).compactMap { id, c in c.nerdy.map { (id, $0) } }
+        for (id, n) in made.sorted(by: { $0.0 < $1.0 }) {
+            print("[\(id), key readings]")
+            for r in n.key() { print("  \(r.name): \(r.value)") }
+            print("")
+        }
+    }
 case "ranking":
     // every sample card's winner and options (see Ranking.swift); --write records them in GoldenRanking.swift
     let lines = Ranking.lines()

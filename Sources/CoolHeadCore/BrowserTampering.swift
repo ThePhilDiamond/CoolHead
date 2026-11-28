@@ -73,12 +73,12 @@ public enum BrowserTampering {
                         Fix(id: "profiles", title: "Check for a profile", consequence: "This opens Profiles in System Settings. Settings can also come from a profile that someone installed. Remove one you do not recognize.",
                             kind: .openPage("/System/Applications/System Settings.app", "x-apple.systempreferences:com.apple.Profiles-Settings.extension"))]),
                 details: [], reportSubject: "browser policies from an unknown source")
-            lc.details = NerdyStuff.facts([], source: .policies,
+            lc.nerdy = NerdyStuff.facts([], source: .policies,
                                           verdict: ["Shown when a Chromium browser has one of the policies Cool Head checks for, and no organization manages the Mac."],
                                           card: lc.card, before: [.init("Policies", "they \(what)", .policies,
                                                                         check: BrowserTampering.browsers.first { $0.name == p.browser }.map { "defaults read \($0.domain)" }),
                                                                   .init("Managed by an organization", "no", .enrollment, check: "profiles status -type enrollment")],
-                                          identity: ["Browser: \(p.browser)"]).lines()
+                                          identity: ["Browser: \(p.browser)"])
             lc.causeKey = "browser-policy"
             lc.displaySubject = p.browser
             out.append(lc)
@@ -94,11 +94,11 @@ public enum BrowserTampering {
                             kind: .reveal(s.folder, "If you do not recognize it, quit \(s.browser), then move the folder to the Trash."), recommended: true),
                         Fix(id: "quit", title: "Quit \(s.browser)", consequence: "This closes its windows. When you open it from the Dock, it starts without the extension.", kind: .quitApp(s.bundle)).losingWork()]),
                 details: [], reportSubject: "a browser started by a script with an extension loaded")
-            lc.details = NerdyStuff.facts([], source: .procArgs,
+            lc.nerdy = NerdyStuff.facts([], source: .procArgs,
                                           verdict: ["Shown when a script, not the Dock or Finder, started a Chromium browser with --load-extension."],
                                           card: lc.card, before: [.init("Extension folder", s.shown, .procArgs, check: "ps -o command= -p \(s.pid)"),
                                                                   .init("Started by", s.parent, .procPath)],
-                                          identity: ["Browser: \(s.browser), PID \(s.pid)"]).lines()
+                                          identity: ["Browser: \(s.browser), PID \(s.pid)"])
             lc.causeKey = "browser-scripted"
             lc.displaySubject = s.browser
             out.append(lc)

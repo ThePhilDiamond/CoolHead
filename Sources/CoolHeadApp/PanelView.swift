@@ -176,12 +176,14 @@ struct PanelView: View {
                 // so two samples of one kind never share an ID or a cause
                 if s.0.hasPrefix("hardware-"), let made = Fixture.hardwareReports(Date()).first(where: { "hardware-\($0.0)" == s.0 })?
                     .1.cards().first(where: { $0.card.headline == s.1.headline }) {
-                    var c = LiveCard.sample(s.0, s.1, details: made.details); c.serious = made.serious; c.safety = made.safety; c.causeKey = s.0
+                    var c = LiveCard.sample(s.0, s.1, details: made.details); c.nerdy = made.nerdy; c.serious = made.serious; c.safety = made.safety; c.causeKey = s.0
                     return c
                 }
                 // Nerdy stuff as the app writes it, from the samples' made-up readings
-                if let n = Wording.nerdySamples()[s.0] { return LiveCard.sample(s.0, s.1, details: n.lines()) }
-                if let live = Fixture.nerdyLiveSamples(Date()).first(where: { $0.0 == s.0 })?.1 { return LiveCard.sample(s.0, s.1, details: live.details) }
+                if let n = Wording.nerdySamples()[s.0] { var c = LiveCard.sample(s.0, s.1); c.nerdy = n; return c }
+                if let live = Fixture.nerdyLiveSamples(Date()).first(where: { $0.0 == s.0 })?.1 {
+                    var c = LiveCard.sample(s.0, s.1, details: live.details); c.nerdy = live.nerdy; return c
+                }
                 return LiveCard.sample(s.0, s.1)
             } }
         }
@@ -364,6 +366,8 @@ struct CardView: View {
     /// The option group that's open, one at a time; the recommendation is always shown.
     @State private var shownGroup: Fix.Doer? = PanelFocus.snapshotGroup.map { $0 == "you" ? .you : .coolHead }
     @State private var facts = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_FACTS"] != nil  // screenshots show it open
+    @AppStorage(Verbose.key) private var verboseSetting = false
+    var verbose: Bool { Verbose.on(verboseSetting) }
     @State private var confirmStop: Fix?
     @State private var note: String?          // what happened after a button, when it didn't simply work
     @State private var noteFor: String?       // the option it's about, so it shows right under that button
@@ -439,7 +443,7 @@ struct CardView: View {
     var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(live.card.headline)
+                Text(verbose ? live.card.verboseHeadline : live.card.headline)
                     .font(.body.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
@@ -482,8 +486,12 @@ struct CardView: View {
                 Disclosure(title: watch ? "Explore fixes" : "Learn more", open: open) { toggle() }
             }
             if open {
-                if !live.card.explanation.isEmpty {
-                    Text(live.card.explanation)
+                let explanation = verbose ? live.card.verboseExplanation : live.card.explanation
+                // verbose mode: the key readings from Nerdy stuff in place of the explanation, where the card has them
+                if verbose, let key = live.nerdy?.key(), !key.isEmpty {
+                    KeyReadings(rows: key)
+                } else if !explanation.isEmpty {
+                    Text(explanation)
                         .font(.callout).foregroundStyle(Ink.text)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1210,9 +1218,11 @@ struct UpdateBanner: View {
 /// the cards in VoiceOver's order, read as one element.
 struct TermsFooter: View {
     let cards: [Card]
+    @AppStorage(Verbose.key) private var verbose = false
     var body: some View {
         let terms = CardTemplate.terms(for: cards)
-        if !terms.isEmpty {
+        // not in verbose mode, whose reader knows the words
+        if !terms.isEmpty, !Verbose.on(verbose) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: "info.circle").accessibilityHidden(true)
                 Text(terms.map(\.definition).joined(separator: " ")).fixedSize(horizontal: false, vertical: true)
@@ -1224,6 +1234,38 @@ struct TermsFooter: View {
             .accessibilityLabel("About these words: " + terms.map(\.definition).joined(separator: " "))
         }
     }
+}
+
+/// Verbose mode's key readings, in place of a card's explanation: each name in muted text and its figure beside it,
+/// one row each, in a table that VoiceOver reads row by row.
+struct KeyReadings: View {
+    let rows: [(name: String, value: String)]
+    var body: some View {
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 4) {
+            ForEach(rows.indices, id: \.self) { i in
+                GridRow {
+                    // a long name ("Times it lost power without shutting down") wraps in its column, never cut short
+                    Text(rows[i].name).foregroundStyle(Ink.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 150, alignment: .leading)
+                    Text(rows[i].value).foregroundStyle(Ink.text).monospacedDigit()
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .font(.callout)
+    }
+}
+
+/// Verbose mode, a setting for power users: every card shows its key readings from Nerdy stuff in place of its
+/// explanation (`KeyReadings`), a figure in the headline where its reading has one, and the terms footer is not shown
+/// (docs/CARD-TEMPLATE.md, Verbose mode). Off to start. Screenshots turn it on with
+/// COOLHEAD_SNAPSHOT_VERBOSE.
+enum Verbose {
+    static let key = "verboseMode"
+    static let snapshot = ProcessInfo.processInfo.environment["COOLHEAD_SNAPSHOT_VERBOSE"] != nil
+    static func on(_ setting: Bool) -> Bool { setting || snapshot }
 }
 
 /// What opens a card or a line, in words with an arrow pointing the way it opens (down to open, up to close), not an
