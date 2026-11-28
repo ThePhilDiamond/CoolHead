@@ -373,7 +373,7 @@ document.addEventListener('keydown', (e) => {
 for (const ev of [chrome.tabs.onUpdated, chrome.tabs.onRemoved, chrome.tabs.onCreated, chrome.tabs.onActivated]) ev.addListener(soon);
 
 refresh().catch((e) => {
-  root.textContent = `${W.NAME} couldn't load: ${e.message}`;
+  root.textContent = `${W.NAME} could not load: ${e.message}`;
 });
 
 // Chrome's toolbar follows the system's light or dark; only a page can tell which, so the popup passes it on for the

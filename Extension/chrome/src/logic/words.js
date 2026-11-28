@@ -64,10 +64,10 @@ export const LINKED_WAITING_TITLE = 'Working with Cool Head';
 export const ALONE_TITLE = 'Working on its own';
 export const LINK_TEXT = {
   linked: 'Working with Cool Head',
-  notRunning: "Cool Head isn't open",
+  notRunning: "Cool Head is not open",
   notLinked: 'Not linked to Cool Head',
 };
-export const ALONE_LINE_MAC = "It can't see your Mac's memory, so tabs sleep by the level you choose.";
+export const ALONE_LINE_MAC = "It cannot see your Mac's memory, so tabs sleep by the level you choose.";
 
 export function asleepLine(n) {
   if (n === 0) return 'No tabs asleep right now.';
@@ -111,9 +111,9 @@ export function levelLine(level, o = {}) {
     case 'auto':
       if (!linked) return 'Auto is waiting for Cool Head, so nothing sleeps on its own for now. Choose another level to sleep tabs without it.';
       if (!coolHeadAuto) return "Auto is off in Cool Head's settings, so nothing sleeps on its own. Turn it on there, or choose another level here.";
-      if (autoMode === 'slowed') return "Auto: memory is slowing your Mac, so tabs you haven't used for 30 minutes are going to sleep, oldest first.";
-      if (autoMode === 'veryTight') return "Auto: memory is very tight, so tabs you haven't used for 5 minutes are going to sleep, oldest first.";
-      return "Auto: nothing sleeps while memory is fine. When memory slows your Mac, tabs you haven't used for 30 minutes sleep, oldest first.";
+      if (autoMode === 'slowed') return "Auto: memory is slowing your Mac, so tabs you have not used for 30 minutes are going to sleep, oldest first.";
+      if (autoMode === 'veryTight') return "Auto: memory is very tight, so tabs you have not used for 5 minutes are going to sleep, oldest first.";
+      return "Auto: nothing sleeps while memory is fine. When memory slows your Mac, tabs you have not used for 30 minutes sleep, oldest first.";
     case 'light': return `Light: your 5 most used tabs stay loaded. ${leaving(delayMs)}`;
     case 'balanced': return `Balanced: your 3 most used tabs stay loaded. ${leaving(delayMs)}`;
     case 'focus': return `Focus: only the tab you're on stays loaded. ${leaving(delayMs)}`;
@@ -244,7 +244,7 @@ export function startNote(sleepCount, stayLoaded, resting) {
       parts.push(`${head}: ${list([...counts].map(([reason, k]) => `${k} ${STAY_WHY[reason][k === 1 ? 0 : 1]}`), 9)}.`);
     }
   }
-  if (resting) parts.push("Extensions that aren't protected pause until it ends.");
+  if (resting) parts.push("Extensions that are not protected pause until it ends.");
   return parts.join(' ');
 }
 // What keeps an unticked tab loaded, said of one tab and of several.
@@ -295,14 +295,14 @@ export const DONE = {
   dupsFailed: 'Chrome did not close the duplicates, so nothing changed.',
   foldedGroups: (g, t) => (g === 0
     ? "No tab groups to fold: you've used each one today."
-    : `Folded ${plural(g, 'tab group')} you haven't used today and put ${plural(t, 'tab')} in them to sleep.`),
+    : `Folded ${plural(g, 'tab group')} you have not used today and put ${plural(t, 'tab')} in them to sleep.`),
   rested: (n) => (n === 0 ? 'No extensions to pause: the rest are protected.' : `Paused ${plural(n, 'extension')} until memory clears.`),
   restNeedsYes: 'Cool Head for Chrome needs your yes before it can pause extensions. Open it from the toolbar to allow that.',
   started: (n, s) => `Session started with ${plural(n, 'tab')}. ${s === 0 ? 'No other tabs needed to sleep.' : `${plural(s, 'other tab')} ${s === 1 ? 'is' : 'are'} asleep.`}`,
   ended: 'Session ended. Nothing reloaded.',
   saved: (n, name, already) => `Session ended. Saved ${plural(n, 'tab')} as ${quoted(name)}.${already > 0 ? ` ${plural(already, 'tab was', 'tabs were')} already in a group, so ${already === 1 ? 'it stays' : 'they stay'} there.` : ''}`,
   levelSet: (l) => `${LEVEL_NAME[l]} chosen.`,
-  failed: "That didn't work: Chrome refused it. Nothing changed.",
+  failed: "That did not work: Chrome refused it. Nothing changed.",
 };
 
 // ---- settings ----
@@ -318,10 +318,10 @@ export const ICON_TITLE = 'Toolbar icon';
 export const ICON_LEVELS = ['Memory fine', 'Tight', 'Very tight'];
 export const ICON_STYLES = [['badge', 'Status badge', 'Shapes and colors'], ['melting', 'Melting snowflake', 'Color-blind friendly']];
 export const GLANCE_TITLE = 'Back to sleep after a quick look';
-export const GLANCE_WHY = "A sleeping tab you open and leave within 10 seconds sleeps again at once, and doesn't count as one you use. Not one with a call, typing, or sound.";
+export const GLANCE_WHY = "A sleeping tab you open and leave within 10 seconds sleeps again at once, and does not count as one you use. Not one with a call, typing, or sound.";
 
 export const SITES_TITLE = 'Typing and calls';
-export const SITES_ON = "On: tabs with unsent typing, or using the camera, microphone, or screen sharing, don't sleep on their own, so you don't lose what you typed or drop out of a call.";
+export const SITES_ON = "On: tabs with unsent typing, or using the camera, microphone, or screen sharing, do not sleep on their own, so you do not lose what you typed or drop out of a call.";
 export const SITES_OFF = 'Off: a tab with unsent typing can sleep, and what you typed is lost when it reloads. A call that has been quiet for 10 minutes can sleep too, which ends it.';
 export const SITES_HOW = 'Chrome will ask to "read and change all your data on all websites". It only checks for unsent typing and calls, and puts "zzZ" before a sleeping tab\'s title; it never reads what you type, and nothing leaves your computer.';
 export const SITES_TOGGLE = 'Keep tabs with unsent typing or a call awake';
@@ -336,7 +336,7 @@ export const REST_TITLE = 'Pause extensions';
 export const REST_TOGGLE = 'Pause extensions when memory is very tight or a session runs';
 export const REST_WHY = 'They turn back on afterward. One with tabs open stays on.';
 export const REST_NEEDS = 'Chrome asks you to allow this once.';
-export const PAUSE_REFUSED = "Pausing extensions stays off, since Chrome's permission wasn't given.";
+export const PAUSE_REFUSED = "Pausing extensions stays off, since Chrome's permission was not given.";
 export const REST_SET_UP = 'Choose which stay on';
 export const SAFE_TITLE = 'Extensions';
 export const SAFE_LEDE = "Pausing turns an extension off until the session ends or memory clears, which closes its pages and stops what it's doing. So password managers, blockers, VPNs, and security tools start as Always on: pausing them would lock your passwords, let ads and trackers through, or drop your VPN.";
@@ -389,7 +389,7 @@ export const MIGRATE_LATER_NOTE = 'You can move your suspended tabs any time fro
 export function migrateProgress(done, total) { return `Moving ${done} of ${total}`; }
 export const MIGRATE_KEEP_GOING = 'You can close this; it keeps going.';
 export function migrateDone(n) { return `${plural(n, 'tab')} moved. Each is asleep and wakes when you click it.`; }
-export function migrateFailed(n) { return `${plural(n, "tab couldn't", "tabs couldn't")} be moved and ${n === 1 ? 'stays' : 'stay'} with the suspender.`; }
+export function migrateFailed(n) { return `${plural(n, "tab could not", "tabs could not")} be moved and ${n === 1 ? 'stays' : 'stay'} with the suspender.`; }
 export function migrateParked(n) {
   return n === 1 ? "1 tab's address downloads a file instead of opening a page, so it now shows a page of Cool Head for Chrome's with its address. Nothing needs the suspender any more."
     : `${n} tabs' addresses download a file instead of opening a page, so they now show a page of Cool Head for Chrome's with their address. Nothing needs the suspender any more.`;
@@ -399,16 +399,16 @@ export const PARKED_WHY = "This tab's address downloads a file instead of openin
 export const PARKED_ADDRESS = 'Its address:';
 export const PARKED_DOWNLOAD = 'Download it again';
 export const PARKED_CLOSE = 'Close this tab';
-export function migrateRemove(name) { return `Remove ${name || 'the suspender'} now, so it can't suspend them again.`; }
+export function migrateRemove(name) { return `Remove ${name || 'the suspender'} now, so it cannot suspend them again.`; }
 export const MIGRATE_REMOVE = 'Remove it';
 export const MIGRATE_NOT_NOW = 'Not now';
-export function about(version) {
-  return `Version ${version}. Free and open source under the AGPL. Nothing leaves your computer: no network use and no analytics.`;
-}
+// the version on its own line at the top of About, as the Mac app's Settings shows its own, so it's found at a glance
+export function versionLine(version) { return `Cool Head for Chrome version ${version}`; }
+export const ABOUT = 'Free and open source under the AGPL. Nothing leaves your computer: no network use and no analytics.';
 
 // ---- setup page ----
 export const SETUP_TITLE = 'Cool Head for Chrome is installed';
-export const SETUP_LEDE = "Tabs you aren't using will sleep: they stay in your tab bar and reload when you click them, which frees memory for what you're doing.";
+export const SETUP_LEDE = "Tabs you are not using will sleep: they stay in your tab bar and reload when you click them, which frees memory for what you're doing.";
 export const SETUP_HOW = 'How to use it';
 // each step is [title, what to do]; the Mac app's step shows only on a Mac
 export const SETUP_STEPS = [
@@ -422,7 +422,7 @@ export const SETUP_OPTIONAL = 'optional';
 export const SETUP_OPTIONAL_TAG = 'Optional';
 export const SETUP_NOTHING_ELSE = "There's nothing else to set up. It works by itself from now on.";
 export const SETUP_ASK = 'Protect unsent typing and calls?';
-export const SETUP_WHY = "A tab with unsent typing, or on a call, won't sleep on its own, so you don't lose what you typed or drop out of the call.";
+export const SETUP_WHY = "A tab with unsent typing, or on a call, will not sleep on its own, so you do not lose what you typed or drop out of the call.";
 export const SETUP_YES = 'Protect them';
 export const SETUP_NO = 'Not now';
 export const SETUP_NO_COST = 'Not now: a sleeping tab loses unsent typing when it reloads, a call quiet for 10 minutes can end, and sleeping tabs show no "zzZ". You can turn this on later in Settings.';
@@ -435,9 +435,9 @@ export const SETUP_DONE_YES_TITLE = 'Protected';
 export const SETUP_DONE_YES = 'Tabs with unsent typing or on a call stay loaded.';
 export const SETUP_DONE_NO_TITLE = 'Not protected for now';
 export const SETUP_DONE_NO = 'You can turn this on later in Settings.';
-export const SETUP_REFUSED_TITLE = "Chrome didn't allow it";
+export const SETUP_REFUSED_TITLE = "Chrome did not allow it";
 export const SETUP_CLOSE = 'You can close this tab.';
-export const SETUP_REFUSED = "Chrome didn't allow it, so this stays off. You can try again later in Settings.";
+export const SETUP_REFUSED = "Chrome did not allow it, so this stays off. You can try again later in Settings.";
 export const SETUP_NEXT = "Open Cool Head for Chrome from the puzzle piece in the toolbar; pin it there to see at a glance how tight your computer's memory is.";
 
 // ---- the right-click menu ----
@@ -451,10 +451,10 @@ export function siteAdd(host) { return `Keep ${host} awake`; }
 export const SITE_REMOVE = 'Remove';
 
 export const OFFLINE_TITLE = 'Offline';
-export const OFFLINE_TOGGLE = "Don't sleep tabs while you're offline";
-export const OFFLINE_WHY = "A sleeping tab can't reload until you're back online.";
-export const OFFLINE_CARD_TITLE = "You're offline, so tabs aren't sleeping";
-export const OFFLINE_CARD_LINE = "Memory is low. Sleeping tabs would free it, but they couldn't reload until you're back online. You can let them sleep anyway in Settings.";
+export const OFFLINE_TOGGLE = "Do not sleep tabs while you're offline";
+export const OFFLINE_WHY = "A sleeping tab cannot reload until you're back online.";
+export const OFFLINE_CARD_TITLE = "You're offline, so tabs are not sleeping";
+export const OFFLINE_CARD_LINE = "Memory is low. Sleeping tabs would free it, but they could not reload until you're back online. You can let them sleep anyway in Settings.";
 export const OFFLINE_CARD_BUTTON = 'Open Settings';
 
 export const SHORTCUT_THIS = 'This tab';
@@ -483,11 +483,11 @@ export const WINDOWS_REOPEN = 'Reopen';
 export const WINDOWS_REMOVE = 'Remove';
 export const WINDOWS_DELETE = 'Delete';
 export const windowsReopenAsk = (n) => `Opens ${n === 1 ? 'its tab' : `its ${n} tabs`} asleep in a new window, then removes the folder.`;
-export const windowsRemoveAsk = (n) => `Deletes the folder and its ${n} ${n === 1 ? 'bookmark' : 'bookmarks'}. This can't be undone.`;
+export const windowsRemoveAsk = (n) => `Deletes the folder and its ${n} ${n === 1 ? 'bookmark' : 'bookmarks'}. This cannot be undone.`;
 export const WINDOWS_CANCEL = 'Cancel';
 export const WINDOWS_EMPTY = "No saved windows yet. Save a window above when you're done with it for now.";
 export const WINDOWS_OTHERS = 'Not saved by Cool Head';
-export const WINDOWS_OTHERS_WHY = `These are in the ${WINDOWS_FOLDER} folder, but Cool Head for Chrome didn't put them there. Tidy moves them to Other bookmarks; it never deletes them.`;
+export const WINDOWS_OTHERS_WHY = `These are in the ${WINDOWS_FOLDER} folder, but Cool Head for Chrome did not put them there. Tidy moves them to Other bookmarks; it never deletes them.`;
 export const WINDOWS_TIDY = 'Tidy';
 export const WINDOWS_ASKS = 'The first time, Chrome asks to let Cool Head for Chrome change your bookmarks.';
 export const WINDOWS_SAVE_ANYWAY = 'Save and close anyway';
