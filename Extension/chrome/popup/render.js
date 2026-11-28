@@ -583,6 +583,7 @@ function settingsScreen(view, ui, on) {
         h('span', {}, h('b', { text: W.OFFLINE_TOGGLE }), h('span', { class: 'why', text: W.OFFLINE_WHY })))),
     h('section', { class: 'card', 'aria-labelledby': 'about-h' },
       h('h2', { id: 'about-h', text: W.ABOUT_TITLE }),
+      h('p', { class: 'version', 'data-key': 'version', text: st.version }),
       h('p', { text: st.about })));
   return [band(view, ui, on), main, toolbar(view, ui, on)];
 }

@@ -1,0 +1,2 @@
+- Cool Head for Chrome shows its version on its own line at the top of About in Settings, so it's easy to find.
+- Cool Head for Chrome spells out "cannot", "do not", and other negatives, which many readers misread when shortened, in the extension, its setup page, and its store listing.

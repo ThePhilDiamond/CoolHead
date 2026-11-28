@@ -8,26 +8,26 @@ Run `scripts/package-extension.sh`. It builds `build/cool-head-for-chrome-<versi
 
 ## Store listing tab
 
-**Name and summary** come from the manifest: "Cool Head for Chrome", and "Sleeps unused tabs and temporarily turns off extensions you don't need, so Chrome holds less memory. Works alone or with Cool Head." (131 of the 132 characters allowed)
+**Name and summary** come from the manifest: "Cool Head for Chrome", and "Sleeps unused tabs and temporarily turns off extensions you do not need, so Chrome holds less memory. Works alone or with Cool Head." (132 of the 132 characters allowed)
 
 **Description:** (1.2.0's first submission listed seven kinds of extension that stay on and was rejected for "excessive keywords"; name only a couple of examples.)
 
 ```
-Cool Head for Chrome puts tabs you aren't using to sleep and can pause extensions you don't need, so Chrome holds less memory and your computer stays quick. A sleeping tab stays in your tab bar and reloads when you click it. A paused extension isn't removed: it's switched off for a while and comes back on by itself. Nothing closes unless you choose.
+Cool Head for Chrome puts tabs you are not using to sleep and can pause extensions you do not need, so Chrome holds less memory and your computer stays quick. A sleeping tab stays in your tab bar and reloads when you click it. A paused extension is not removed: it's switched off for a while and comes back on by itself. Nothing closes unless you choose.
 
 What it does
 • Sleeps tabs once you leave them. Effort sets how many stay loaded: Light keeps your 5 most used tabs, Balanced your 3, and Focus only the tab you're on.
-• Back to sleep after a quick look: a sleeping tab you open and leave within 10 seconds sleeps again at once, so looking for a tab doesn't wake them all.
+• Back to sleep after a quick look: a sleeping tab you open and leave within 10 seconds sleeps again at once, so looking for a tab does not wake them all.
 • Keeps what matters awake: calls, sound, unsent typing, pinned tabs, any tab you keep, and every tab from a site you choose.
 • Shows which tabs are asleep: with access to sites, "zzZ" goes before a sleeping tab's title, in your theme's own text color.
 • Protected shows each tab it's keeping loaded and why, so you can keep it, sleep it, or close it.
 • Start a session: tick the tabs a task needs, like a meeting or a project, and the rest sleep until you want them back. When it ends, you can save its tabs as a tab group.
 • Keyboard shortcuts: Command-Shift-S (Ctrl+Shift+S on Windows and Linux) sleeps the tab you're on, and another can sleep the rest of the window.
-• Doesn't sleep tabs while you're offline, when they couldn't reload, unless you choose otherwise.
+• Does not sleep tabs while you're offline, when they could not reload, unless you choose otherwise.
 • Moving from another tab suspender: its tabs move over one at a time, each asleep at its real address, so you can remove the suspender without losing them. A tab whose address downloads a file moves to a page of its own, with Download it again.
 • Finds pages open twice and closes the extra copy, keeping the one you used last.
 • Saved windows: save a window you're done with for now into a bookmark folder named with a few words, how many tabs, and the date, and close it. Reopen it later with every tab asleep, or open it with Chrome's own Open all.
-• Pauses extensions you don't need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. Essentials such as password managers and security tools stay on by default, and you can switch any extension on or off at any time. One that runs on every site is listed first, since it adds memory to every tab. Pausing is off until you turn it on.
+• Pauses extensions you do not need, during a session or, with Cool Head, when memory is very tight, then turns them back on for you. Essentials such as password managers and security tools stay on by default, and you can switch any extension on or off at any time. One that runs on every site is listed first, since it adds memory to every tab. Pausing is off until you turn it on.
 
 Works on its own, or with Cool Head
 Cool Head is a free Mac app that keeps an eye on your Mac's memory, heat, and battery. Linked to it, the extension's Auto level puts tabs to sleep only when memory is actually short, so they reload less; its toolbar icon shows how tight memory is, like Cool Head's menu bar icon; and Cool Head's advice can act in Chrome with one click. Without it, the extension works on its own at the level you choose.
@@ -54,7 +54,7 @@ Open source (AGPL): https://github.com/ThePhilDiamond/CoolHead
 **Single purpose:**
 
 ```
-Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep and, if the user turns it on, temporarily pauses extensions they don't need, while keeping awake what they need: calls, sound, unsent typing, and the tabs, sites, and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, marking sleeping tabs, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, keyboard shortcuts to sleep tabs, closing duplicate tabs, saving a window as a bookmark folder to reopen later with its tabs asleep, moving tabs held by another tab suspender so they can sleep natively, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
+Reduces how much memory Chrome uses. It puts tabs the user is not using to sleep and, if the user turns it on, temporarily pauses extensions they do not need, while keeping awake what they need: calls, sound, unsent typing, and the tabs, sites, and extensions they choose. Every feature serves that one purpose: choosing which tabs sleep, marking sleeping tabs, showing which tabs are holding memory and why, sessions that keep only one task's tabs loaded, keyboard shortcuts to sleep tabs, closing duplicate tabs, saving a window as a bookmark folder to reopen later with its tabs asleep, moving tabs held by another tab suspender so they can sleep natively, and optionally linking to Cool Head, a Mac app that reports when the computer's memory is short.
 ```
 
 **Permission justifications:**
@@ -62,7 +62,7 @@ Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep 
 | Permission | Justification to paste |
 |---|---|
 | tabs | Reads each tab's address, title, and state (loaded, asleep, playing sound, pinned) to choose which tabs to put to sleep, to find pages open twice, to list the tabs it keeps loaded and why, and to find tabs another tab suspender holds, which it reopens at their own address when the person asks. Puts tabs to sleep with chrome.tabs.discard. |
-| tabGroups | When a session ends, the person can save its tabs as a named tab group; Cool Head can also ask it to collapse groups the person isn't using. |
+| tabGroups | When a session ends, the person can save its tabs as a named tab group; Cool Head can also ask it to collapse groups the person is not using. |
 | storage | Keeps settings, the tabs and sites the person chose to keep, the session, and which extensions may pause in chrome.storage on the computer, because a Manifest V3 service worker stops when idle. |
 | nativeMessaging | Optionally links to Cool Head, a Mac app, through its helper, so tabs sleep only when the Mac's memory is short. Only counts are sent (tabs asleep, tabs held by reason), never addresses or titles, and only on the Mac. |
 | alarms | Wakes the service worker to put tabs to sleep after the person leaves them, and to find kept tabs again after Chrome restarts. |
@@ -70,7 +70,7 @@ Reduces how much memory Chrome uses. It puts tabs the user isn't using to sleep 
 | scripting | Registers its two page scripts, which say only whether a page has unsent typing or a live call, and runs them in tabs already open when the person turns on "Unsent typing and calls". Neither reads page content. Just before a tab sleeps, it also runs a short script in that tab that puts "zzZ" before the page's title, so the person can see the tab is asleep; the page's own title comes back when it wakes. |
 | favicon | Shows each tab's icon in the popup's lists, from Chrome's own icon cache. |
 | system.memory | Reads the computer's free memory, to show and decide how hard to work. |
-| management (optional, asked for when used) | Asked for only when the person turns on "Pause extensions", or asks to remove a tab suspender after its tabs are moved. During a session, or when Cool Head reports memory is very tight, pauses extensions the person hasn't kept on, and turns them back on when the session ends or memory clears. Never pauses an extension with tabs open on its own pages. Removing a suspender uses Chrome's own confirmation. |
+| management (optional, asked for when used) | Asked for only when the person turns on "Pause extensions", or asks to remove a tab suspender after its tabs are moved. During a session, or when Cool Head reports memory is very tight, pauses extensions the person has not kept on, and turns them back on when the session ends or memory clears. Never pauses an extension with tabs open on its own pages. Removing a suspender uses Chrome's own confirmation. |
 | bookmarks (optional, asked for when used) | Asked for only the first time the person saves a window. Saved windows writes the window's pages to a bookmark folder in its own "Cool Head windows" folder, lists that folder's contents, reopens a saved folder with its tabs asleep and then removes it, deletes one the person removes, and moves anything the person put in that folder to Other bookmarks. It reads no other bookmarks beyond the top folders' names, to find Other bookmarks. |
 | Host permissions, all sites (optional, asked for when used) | Asked for only when the person turns on "Unsent typing and calls". Lets its page scripts check whether a tab has unsent typing or a camera, microphone, or screen-sharing call, so those tabs never sleep and lose typing or end a call. Only a yes or no leaves the page. It also lets the extension put "zzZ" before a sleeping tab's title, so the person can see which tabs are asleep. The person can turn it off at any time. |
 

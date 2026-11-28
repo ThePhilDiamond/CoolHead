@@ -97,7 +97,7 @@ In a separate Chrome profile (or Chrome for Testing), never your everyday one:
 9. In Protected, turn on Pause extensions (Chrome asks once). Start a session: extensions under Pause when needed turn off; end it: they come back.
 10. Press Command-Shift-S (or set it in Settings first): the tab you're on sleeps and the next awake tab to its right shows; press it again and that one sleeps too. Turn off Wi-Fi with memory low: nothing sleeps, and the menu says why.
 11. With a tab suspender in the same test profile, suspend a few tabs, then open the menu: Move them, and each lands on its real address, asleep.
-12. With Cool Head's helper installed: the band says Working with Cool Head, and Auto becomes available. Quit Cool Head: the band says Cool Head isn't open within 10 seconds, and nothing else changes.
+12. With Cool Head's helper installed: the band says Working with Cool Head, and Auto becomes available. Quit Cool Head: the band says Cool Head is not open within 10 seconds, and nothing else changes.
 
 ## Files
 
