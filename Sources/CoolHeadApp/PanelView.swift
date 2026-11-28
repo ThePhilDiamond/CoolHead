@@ -2238,7 +2238,7 @@ struct FixRow: View {
         }
         var t = [OptionTag(words: fix.impact.uppercased(), symbol: symbol, color: Ink.text,
                            help: betterThanRecommended ? "This does more about the problem than the recommended option, but you do it yourself." : nil)]
-        if fix.caution { t.append(OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red)) }
+        if fix.caution { t.append(OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .white, solid: Ink.cautionFill)) }
         return t
     }
     let run: (Fix) -> Void
@@ -2341,7 +2341,7 @@ struct FixRow: View {
     @ViewBuilder var tagRow: some View {
         if !armed {
             HStack(spacing: OptionTag.gap) {
-                ForEach(tags, id: \.words) { t in OptionTag(words: t.words, symbol: t.symbol, color: t.color, help: t.help, onAccent: filledTile) }
+                ForEach(tags, id: \.words) { t in OptionTag(words: t.words, symbol: t.symbol, color: t.color, help: t.help, onAccent: filledTile, solid: t.solid) }
             }
             .fixedSize()
         }
@@ -2486,7 +2486,8 @@ struct FixRow: View {
 }
 
 /// An option's tile: a filled, bordered, full-width button that lightens under the mouse (with the pointing hand) and
-/// darkens when pressed. The recommended one is filled with the accent color, in white.
+/// darkens when pressed. The recommended one is filled with the accent color, in white; the others Cool Head does are
+/// tinted with it (tonal), so none looks switched off.
 struct OptionStyle: ButtonStyle {
     let recommended: Bool
     /// A task for you (Cool Head opens the place or shows the steps): an outline with a dashed border and no fill.
@@ -2501,7 +2502,6 @@ struct OptionStyle: ButtonStyle {
         @State private var hovering = false
         var body: some View {
             let shape = RoundedRectangle(cornerRadius: 9)
-            let wash: Double = configuration.isPressed ? 0.22 : hovering ? 0.13 : 0.07
             let line = Color.primary.opacity(hovering ? 0.55 : 0.4)
             let filled = recommended && !yours
             configuration.label
@@ -2510,12 +2510,12 @@ struct OptionStyle: ButtonStyle {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(shape.fill(filled ? AnyShapeStyle(Ink.fill.opacity(configuration.isPressed ? 0.85 : 1))
                                        : yours ? AnyShapeStyle(Color.primary.opacity(configuration.isPressed ? 0.12 : hovering ? 0.05 : 0))
-                                       : AnyShapeStyle(Color.primary.opacity(wash))))
+                                       : AnyShapeStyle(configuration.isPressed ? Ink.tintPressed : hovering ? Ink.tintHover : Ink.tint)))
                 .overlay {
                     if yours {
                         shape.strokeBorder(recommended ? Ink.accent : line, style: StrokeStyle(lineWidth: recommended ? 1.6 : 1.3, dash: [4, 3]))
                     } else {
-                        shape.strokeBorder(filled ? Ink.fillEdge : Color.primary.opacity(hovering ? 0.45 : 0.28), lineWidth: 1)
+                        shape.strokeBorder(filled ? Ink.fillEdge : Ink.tintEdge, lineWidth: 1)
                     }
                 }
                 .contentShape(shape)
@@ -2549,6 +2549,8 @@ struct OptionTag: View {
     /// Why it's there, shown when the pointer rests on it (see `Fix.cautionReason`).
     var help: String? = nil
     var onAccent = false
+    /// A tag that carries its own background (Caution): its words in `color` on it, the same on any tile.
+    var solid: Color? = nil
     static let font = NSFont.systemFont(ofSize: 8.5, weight: .bold)
     var body: some View {
         HStack(spacing: 3) {
@@ -2556,9 +2558,9 @@ struct OptionTag: View {
             Text(words).tracking(0.5)
         }
         .font(Font(OptionTag.font))
-        .foregroundStyle(onAccent ? Ink.onFill : color)
+        .foregroundStyle(solid != nil ? color : onAccent ? Ink.onFill : color)
         .padding(.horizontal, 5).padding(.vertical, 1.5)
-        .background(Capsule().fill(onAccent ? Color.white.opacity(0.22) : color.opacity(0.13)))
+        .background(Capsule().fill(solid ?? (onAccent ? Color.white.opacity(0.22) : Ink.text.opacity(0.13))))
         .fixedSize()
         .help(help ?? "")
     }
@@ -2622,6 +2624,16 @@ enum Ink {
     static let accent = dynamic(0x1769D1, 0x4A9EFF)
     /// Blue behind text (the recommended option): one deep blue with white text in light and dark,
     /// 7.4:1, the stricter AAA level, where the accent with dimmed text measured 4.0:1 and was harder to read.
+    /// Tonal: the other options Cool Head does, a clear light blue (dark blue in dark), not the accent over the gray card,
+    /// which read as switched off. Text stays in the text color: blue text on it falls under 4.5:1.
+    /// The Caution tag: white words on one red, the same in light and dark, 5.6:1. Red words on a gray or pink tag
+    /// measured 2.0:1 to 2.4:1.
+    static let cautionFill = Color(nsColor: rgb(0xC62828))
+    static let tint = dynamic(0xD1E1F6, 0x1A3759)
+    static let tintHover = dynamic(0xC2D7F3, 0x20416A)
+    static let tintPressed = dynamic(0xB0CBEF, 0x274C7A)
+    /// Its edge: 3:1 or more on the panel's cards, as a control's edge.
+    static let tintEdge = dynamic(0x5585CC, 0x4F7FC0)
     static let fill = Color(nsColor: rgb(0x0F52AD))
     static let onFill = Color.white
     /// On a dark card the deep blue stands apart only 1.9:1, so it gets an edge in the accent there (5.1:1).

@@ -11,9 +11,10 @@ One look and one voice for the Mac app, its Chrome extension, and these pages, o
 | Blue for marks: links, switches, icons | `#1769D1` | `#4A9EFF` |
 | Blue behind text: the recommended option, the open tool | `#0F52AD` | `#0F52AD`, with a `#4A9EFF` edge (5.1:1 against the dark card) |
 | Text on the blue behind text | white, 7.4:1 (AAA) | white, 7.4:1 (AAA) |
+| Pale blue behind text: the other options Cool Head does in one click, and in the extension a card's main button when another is recommended | `#D1E1F6`, its edge `#5585CC` | `#1A3759`, its edge `#4F7FC0` |
 | Blue text on the panel | 4.9:1 on the light panel | 6.1:1 on `#1E1E1E` |
 
-Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under the 4.5:1 text needs, and was harder to read. Text goes on the deeper blue instead, at full strength. The open tool along the bottom is the same: blue on a pale-blue highlight measured 3.0:1 in dark and 4.4:1 in light on a plain background, and under 2:1 when the panel's frost sat over a bright desktop, so it's white on the deep blue. The top and bottom bars have a denser frost of their own, the window's color at 75% under the level's tint: over a bright desktop in dark mode the panel's frost turned mid-gray and gray text on it fell to about 3:1, and with the denser frost it measured 5:1.
+The pale blue keeps the text color, 11.4:1 or more in light and 9.2:1 or more in dark: blue text on it measured 4.0:1 in light and 4.4:1 in dark, under 4.5:1. Its edge, `#5585CC` in light and `#4F7FC0` in dark, is 3:1 or more on the cards, as a control's edge. It's a clear blue rather than the accent laid over the gray card, which read as switched off. Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under the 4.5:1 text needs, and was harder to read. Text goes on the deeper blue instead, at full strength. The open tool along the bottom is the same: blue on a pale-blue highlight measured 3.0:1 in dark and 4.4:1 in light on a plain background, and under 2:1 when the panel's frost sat over a bright desktop, so it's white on the deep blue. The top and bottom bars have a denser frost of their own, the window's color at 75% under the level's tint: over a bright desktop in dark mode the panel's frost turned mid-gray and gray text on it fell to about 3:1, and with the denser frost it measured 5:1.
 
 **At night** Cool Head stays blue and leaves warmth to the Mac's Night Shift, which warms the whole screen, Cool Head included. I considered an orange night mode and decided against it: orange already means "watch out" on the same cards, and white text on it measured 4.7:1, against the deep blue's 7.4:1.
 
@@ -27,6 +28,7 @@ Text on blue is never dimmed: white at 80% on `#1769D1` measured 4.0:1, under th
 | Worth watching | yellow `#FFBD00` | the same |
 | Problem | macOS red | the same; "ends without saving" on options |
 | Caution | macOS orange | warnings on cards |
+| The Caution tag on an option | white on red `#C62828`, 5.6:1, the same in light and dark | Caution beside an option's other tags; red words on a gray or pink tag measured 2.0:1 to 2.4:1 |
 
 Status colors always come with words or a shape (the Melting Snowflake icon works without color), never color alone. As text on the light panel they fall short of 4.5:1, so they're used for fills, washes, and marks, with the words in the text color.
 

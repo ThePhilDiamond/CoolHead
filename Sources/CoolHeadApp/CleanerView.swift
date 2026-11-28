@@ -236,8 +236,8 @@ struct CleanerView: View {
                 Text(f.blocked.map { "Left out while \($0.lowercasedFirst). " + f.detail } ?? f.detail)
                     .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 if f.caution {
-                    OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .red,
-                              help: "Cool Head can't be sure nothing still uses this.")
+                    OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .white,
+                              help: "Cool Head can't be sure nothing still uses this.", solid: Ink.cautionFill)
                         .padding(.top, 2)
                 }
             }
