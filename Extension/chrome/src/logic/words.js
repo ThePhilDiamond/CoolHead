@@ -191,7 +191,21 @@ export function duplicatesCard(groups) {
 export function dupExtra(n) { return n === 1 ? '1 extra copy' : `${n} extra copies`; }
 export function closedDupsTitle(n) { return `Closed ${plural(n, 'duplicate tab')}`; }
 export const CLOSED_DUPS_NOTE = "Each page's copy you used last is still open. Chrome's History menu can reopen the ones closed.";
+// Chrome closed none of them: said on the duplicates card, which keeps its button, until the next close
+export const DUPS_FAILED_LINE = 'Chrome did not close these the last time you asked.';
 export const CLOSED_DUPS_DONE = 'Done';
+
+// ---- option cues: one recommended option on the home screen, and what each card's main option does ----
+// The recommended option is the blue one; the line under it, under a thin rule, says so in words, with the reason
+// where the facts give one (src/logic/view.js, recommend), in Cool Head's words (docs/CARD-TEMPLATE.md, Options).
+export function recommendsLine(reason) { return reason ? `${NAME} recommends this because ${reason}.` : `${NAME} recommends this.`; }
+export const REC_REASON = {
+  onlyHelps: 'it is the only option that helps',
+};
+// What an option does about the problem, as its small tag, from the closed list Cool Head's options use (Fixes the
+// cause, Helps, Helps later, Tells you more), so each word means one thing everywhere. The popup uses two of them.
+export const IMPACT_HELPS = 'Helps';             // Close duplicates: closing loaded copies frees memory now
+export const IMPACT_LATER = 'Helps later';       // Allow and choose: extensions turn off only when memory is very tight or a session runs
 
 // ---- sessions ----
 export const START = 'Start a session';
@@ -276,7 +290,9 @@ export const DONE = {
   kept: (t) => `Keeping ${quoted(t)} loaded until you press Kept again.`,
   unkept: (t) => `${quoted(t)} can sleep again.`,
   sleptMany: (n) => (n === 0 ? 'No tabs needed to sleep: the rest are in use or held for a reason.' : `Put ${plural(n, 'tab')} to sleep.`),
-  closedDuplicates: (n) => (n === 0 ? 'No duplicates to close.' : `Closed ${plural(n, 'duplicate tab')}. Chrome's History menu can reopen them.`),
+  closedDuplicates: (n) => (n === 0 ? 'No duplicates to close.' : `Closed ${plural(n, 'duplicate tab')}. Chrome's History menu can reopen ${n === 1 ? 'it' : 'them'}.`),
+  closedSomeDuplicates: (n, left) => `Closed ${plural(n, 'duplicate tab')}. Chrome did not close ${left === 1 ? 'the other one' : `the other ${left}`}.`,
+  dupsFailed: 'Chrome did not close the duplicates, so nothing changed.',
   foldedGroups: (g, t) => (g === 0
     ? "No tab groups to fold: you've used each one today."
     : `Folded ${plural(g, 'tab group')} you haven't used today and put ${plural(t, 'tab')} in them to sleep.`),
@@ -343,7 +359,7 @@ export const EXT_WHY = {
   other: '',
 };
 export const EXT_EVERY_SITE = 'Runs on every site you open, adding memory to every tab';
-export const EXT_REC_TITLE = 'Turn off extensions you don\'t need';
+export const EXT_REC_TITLE = 'Turn off extensions you do not need';
 export const EXT_REC_LINE = "Extensions use memory all the time, and one that runs on every site adds to every tab. Cool Head for Chrome can turn off the ones you choose while memory is very tight or a session runs, and back on afterward. Password managers, banking, security, VPN, and work sign-in tools stay on.";
 export const EXT_REC_ALLOW = 'Allow and choose';
 export const EXT_REC_NOTE = "Chrome asks once, in words that sound broader than this: it only lets Cool Head for Chrome see your extensions and turn them off and on.";

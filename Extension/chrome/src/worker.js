@@ -451,8 +451,9 @@ async function answerLinkRequest({ action }) {
       return { ok: true, count: slept.length, done: W.DONE.sleptMany(slept.length) };
     }
     case 'closeDuplicates': {
-      const n = await closeDuplicates();
-      return { ok: true, count: n, done: W.DONE.closedDuplicates(n) };
+      const r = await closeDuplicates();
+      // Chrome closed none of them: Cool Head says it didn't work, and keeps the option (its done-then-next journey)
+      return { ok: !(r.tried && !r.n), count: r.n, done: dupsSaid(r) };
     }
     case 'hideUnusedGroups':
       return hideUnusedGroups(tabs, ctx);
@@ -499,16 +500,26 @@ async function hideUnusedGroups(tabs, ctx) {
   return { ok: true, count: slept.length, done: W.DONE.foldedGroups(folded, slept.length) };
 }
 
+// Returns how many closed, and how many it tried. What closed is read back from Chrome, not assumed, since Chrome can
+// refuse some or all of them.
 async function closeDuplicates() {
   const { tabs, ctx } = await gather();
   const groups = findDuplicates(tabs, ctx);
   const ids = groups.flatMap((g) => g.closeIds);
-  if (ids.length) await chrome.tabs.remove(ids).catch(() => {});
-  // what closed, listed in the popup until the person presses Done
-  if (ids.length) await store.save({ closedDups: groups.map((g) => ({ title: g.title || 'Untitled tab', n: g.closeIds.length })) });
-  if (ids.length) log('closed', `Closed ${ids.length} duplicate tabs`);
-  return ids.length;
+  if (!ids.length) return { n: 0, tried: 0 };
+  await chrome.tabs.remove(ids).catch(() => {});
+  // each copy asked for by its id: Chrome answers with the tab if it's still open, and fails if it's gone, so a
+  // failed read can't be taken for a refusal
+  const stillOpen = new Set((await Promise.all(ids.map((id) => tabNow(id).then(() => id, () => null)))).filter((id) => id != null));
+  const closed = groups.map((g) => ({ title: g.title || 'Untitled tab', n: g.closeIds.filter((id) => !stillOpen.has(id)).length })).filter((g) => g.n > 0);
+  const n = closed.reduce((a, g) => a + g.n, 0);
+  // What closed, with when, for the popup (src/logic/view.js, dupsResult): shown for a few seconds, then the card goes.
+  // A failure (none closed) is a line on the duplicates card, which keeps its button. Replaced by the next close.
+  await store.save({ closedDups: n ? { at: Date.now(), groups: closed } : { at: Date.now(), failed: true } });
+  log('closed', n ? `Closed ${n} duplicate tabs` : `Chrome closed none of ${ids.length} duplicate tabs`);
+  return { n, tried: ids.length };
 }
+const dupsSaid = (r) => (r.tried && !r.n ? W.DONE.dupsFailed : r.n < r.tried ? W.DONE.closedSomeDuplicates(r.n, r.tried - r.n) : W.DONE.closedDuplicates(r.n));
 
 function scheduleReconnect(ms) {
   setTimeout(() => connectLink().catch(oops), ms);
@@ -796,7 +807,7 @@ async function act(m) {
       return W.DONE.closed(tab.title);
     }
     case 'closeDuplicates':
-      return W.DONE.closedDuplicates(await closeDuplicates());
+      return dupsSaid(await closeDuplicates());
     case 'closedDupsSeen':
       await store.save({ closedDups: null });
       return '';
@@ -1337,4 +1348,4 @@ newBrowserRun().then(() => connectLink()).catch(oops);
 unmarkAwake().catch(oops);
 
 // For the browser tests (test/browser/run.mjs), which drive the worker through Chrome's debugging protocol.
-globalThis.coolHead = { sweep, gather, act, store, link, viewFor, unmarkAwake };
+globalThis.coolHead = { sweep, gather, act, store, link, viewFor, unmarkAwake, answerLinkRequest };

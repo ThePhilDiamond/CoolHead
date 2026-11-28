@@ -2,7 +2,8 @@
 // review without Chrome's extension APIs. Open preview.html?screen=home&theme=dark. All data here is invented.
 import { render } from '../popup/render.js';
 import * as W from '../src/logic/words.js';
-import { buildView, buildStart } from '../src/logic/view.js';
+import { buildView, buildStart, contextFrom } from '../src/logic/view.js';
+import { findDuplicates } from '../src/logic/duplicates.js';
 import { LOCAL_DEFAULTS, SESSION_DEFAULTS } from '../src/store.js';
 import { columns } from '../src/logic/extensions.js';
 
@@ -79,6 +80,19 @@ if (screen === 'levels' || screen === 'levels-set') ui.screen = 'effort';
 if (screen === 'levels-set') ui.levelSet = 'auto';
 if (screen === 'confirm') ui.confirm = { tabId: form.id, action: 'close' };
 
+// Close duplicates pressed: ?screen=dups-closed (1 second after, the result showing), dups-gone (5 seconds after: the
+// card has gone and the next option is blue), dups-failed (Chrome closed none: the card stays, with a line saying so and its button to try again). The copies that
+// close are the ones findDuplicates picks from the made-up tabs.
+if (['dups-closed', 'dups-gone', 'dups-failed'].includes(screen)) {
+  const groups = findDuplicates(sessionTabs, contextFrom(s, sessionTabs, 1, NOW));
+  if (screen === 'dups-failed') s.closedDups = { at: NOW - 1000, failed: true };
+  else {
+    const gone = new Set(groups.flatMap((g) => g.closeIds));
+    sessionTabs = sessionTabs.filter((t) => !gone.has(t.id));
+    s.closedDups = { at: NOW - (screen === 'dups-gone' ? 5000 : 1000), groups: groups.map((g) => ({ title: g.title, n: g.closeIds.length })) };
+  }
+}
+
 const view = buildView({
   tabs: sessionTabs, s, now: NOW, focusedWindowId: 1, isMac: q.get('os') !== 'other',
   memInfo: { capacity: 16 * 1024 ** 3, availableCapacity: 2.5 * 1024 ** 3 }, version: '1.0.0',
@@ -94,7 +108,6 @@ if (screen === 'settings') ui.screen = 'settings';
 // Moving a suspender's tabs (made-up suspender and counts): ?screen=migrate, migrate-running, migrate-done, home-later
 view.migrate = { count: 37, from: 'Tab Napper', later: false, running: false, done: 0, total: 0, result: null };
 if (screen === 'dups') view.duplicates = W.duplicatesCard([{ title: 'Harbor & Pine budget', closeIds: [801] }, { title: 'Team calendar', closeIds: [802, 803] }]);
-if (screen === 'dups-closed') view.closedDups = [{ title: 'Harbor & Pine budget', n: 1 }, { title: 'Team calendar', n: 2 }];
 if (screen === 'migrate') ui.screen = 'migrate';
 if (screen === 'migrate-stuck') { ui.screen = 'migrate'; Object.assign(view.migrate, { count: 0, result: { moved: 36, failed: 0, stuck: 1, removeId: 'x', removeName: 'The Marvellous Suspender' } }); }
 if (screen === 'settings-migrating') { ui.screen = 'settings'; Object.assign(view.migrate, { running: true, done: 12, total: 37 }); }

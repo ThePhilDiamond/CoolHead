@@ -29,7 +29,7 @@ export const LOCAL_DEFAULTS = {
 };
 
 export const SESSION_DEFAULTS = {
-  closedDups: null,          // [{ title, n }]: duplicates just closed, listed until the person presses Done
+  closedDups: null,          // { at, groups: [{ title, n }] } or { at, failed: true }: what Close duplicates did; shown 4 seconds, a failure until Done
   run: false,                // set once per run of Chrome
   runStartedAt: null,
   use: {},
