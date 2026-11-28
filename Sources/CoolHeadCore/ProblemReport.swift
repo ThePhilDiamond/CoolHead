@@ -16,7 +16,7 @@ public enum ProblemReport {
     /// it, not what Cool Head did, which would read as if that were the problem; several kinds of problem make reports
     /// clearer and more useful for troubleshooting. The last asks for a few words instead.
     public static let heldProblems = ["Caused an app to crash or quit", "Stopped something from working", "Caused lost work or data",
-                                      "Didn't help", "Made my Mac slower", "Something else"]
+                                      "Did not help", "Made my Mac slower", "Something else"]
     /// The title of a report about something Cool Head was managing: what it did, then what went wrong, in full; with
     /// Something else, what it did and the person's few words.
     public static func heldTitle(doing: String, problem: String, summary: String) -> String {
@@ -30,7 +30,7 @@ public enum ProblemReport {
         let s = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         return s.count > summaryLimit ? String(s.prefix(summaryLimit)).trimmingCharacters(in: .whitespaces) : s
     }
-    public static let kinds = ["A fix caused trouble", "Cool Head isn't working right", "Something else"]
+    public static let kinds = ["A fix caused trouble", "Cool Head is not working right", "Something else"]
 
     /// `about`: what Cool Head is holding back that the problem is with, when the person picked one.
     public static func make(kind: String, words: String, activity: [Watcher.LogEntry], cards: [LiveCard], mac: MacState,

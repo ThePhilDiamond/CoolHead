@@ -141,7 +141,7 @@ public enum PressureHistory {
     public static func weekLine(_ w: Week) -> String {
         let time = Fmt.duration(Double(w.minutes) * 60)
         switch w.count {
-        case 0 where w.tightCount == 0: return "Memory hasn't been tight this week."
+        case 0 where w.tightCount == 0: return "Memory was not tight this week."
         case 0 where w.tightCount == 1: return "Memory was tight once this week, for about \(Fmt.duration(Double(w.tightMinutes) * 60))."
         case 0: return "Memory was tight \(w.tightCount) times this week, about \(Fmt.duration(Double(w.tightMinutes) * 60)) in all."
         case 1: return "Memory slowed your Mac once this week, for about \(time)."

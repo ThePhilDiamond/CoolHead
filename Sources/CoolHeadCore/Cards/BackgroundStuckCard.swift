@@ -12,10 +12,10 @@ enum BackgroundStuckCard: ProcessCard {
     static func card(_ s: Situation) -> Card? {
         guard var c = made(s) else { return nil }
         if s.background?.stuck?.afterRestart == true {
-            c.diagnosis = Diagnosis(saw: "it's stayed busy even after a restart", means: "it's likely a macOS fault that only an update can fix")
+            c.diagnosis = Diagnosis(saw: "it is still busy, even after a restart", means: "it's likely a macOS fault that only an update can fix")
             c.optionFacts["update"] = OptionFacts(helps: "gets Apple's fix, if there is one yet")
         } else {
-            c.diagnosis = Diagnosis(saw: "it's been busy far longer than macOS's background work usually runs", means: "it may be stuck")
+            c.diagnosis = Diagnosis(saw: "it is busy far longer than macOS's background work usually runs", means: "it may be stuck")
             c.optionFacts["restart"] = OptionFacts(helps: "starts macOS's background work fresh", cost: "you need to save your work first")
         }
         return c

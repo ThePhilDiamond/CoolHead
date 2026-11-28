@@ -25,7 +25,7 @@ extension Fixture {
         let winners = Dictionary(lines.map { l -> (String, String) in let p = l.components(separatedBy: " · "); return (p[0], p[1]) },
                                  uniquingKeysWith: { a, _ in a })
         let cardIDs = ProcessCards.all.map { $0.id } + ProcessCards.extras.map { $0.id }
-        let wrong = ProcessCards.all.flatMap { t in t.samples.filter { winners[$0] != t.id }.map { "\(t.id) doesn't win \($0) (\(winners[$0] ?? "no such sample"))" } }
+        let wrong = ProcessCards.all.flatMap { t in t.samples.filter { winners[$0] != t.id }.map { "\(t.id) does not win \($0) (\(winners[$0] ?? "no such sample"))" } }
         let bare = ProcessCards.all.filter { $0.samples.isEmpty }.map { $0.id }
         review.append(("card-samples", wrong.isEmpty && bare.isEmpty && Set(cardIDs).count == cardIDs.count,
                        wrong.isEmpty && bare.isEmpty ? "\(ProcessCards.all.count) cards and \(ProcessCards.extras.count) extras, each card winning its \(ProcessCards.all.map { $0.samples.count }.reduce(0, +)) samples"

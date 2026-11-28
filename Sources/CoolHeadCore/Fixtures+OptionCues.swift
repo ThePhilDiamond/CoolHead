@@ -26,7 +26,7 @@ extension Fixture {
             if w.contains("without closing anything"), r.closesSomething { untrue.append("\(id): closes nothing, but it closes something") }
             if w.contains("without closing anything"), let o = rivals.first(where: { !$0.closesSomething }) { untrue.append("\(id): closes nothing, but neither does \(o.title)") }
             if w.contains("only option"), others.contains(where: { $0.result >= r.result }) { untrue.append("\(id): the only option, but another does as much") }
-            if w != "Cool Head recommends this.", w.contains("fixes the cause") != (r.result == .fixesCause) { untrue.append("\(id): what it does doesn't match its tag") }
+            if w != "Cool Head recommends this.", w.contains("fixes the cause") != (r.result == .fixesCause) { untrue.append("\(id): what it does does not match its tag") }
             if r.result == .informs, w != "Cool Head recommends this." { untrue.append("\(id): a reason for an option that only tells you more") }
         }
         // every recommendation has the line, since nothing else says it in words
@@ -72,7 +72,7 @@ extension Fixture {
             if a.recommended?.caution == true { journey.append("\(id): a Caution option put forward") }
             if a.recommended?.holdBack == true { journey.append("\(id): a held-back option put forward") }
             if a.recommended != nil, a.why == nil { journey.append("\(id): the next has no line") }
-            if a.recommended.map({ $0.id != a.fixes.first?.id }) ?? false { journey.append("\(id): the next isn't first") }
+            if a.recommended.map({ $0.id != a.fixes.first?.id }) ?? false { journey.append("\(id): the next is not first") }
             if let n = a.recommended { nexts.append("\(id) → \(n.title)") }
             if c.after([]).fixes.map(\.id) != c.fixes.map(\.id) || c.after([]).recommended?.id != r.id { journey.append("\(id): changed with nothing done") }
             // another option done leaves the recommendation where it is
@@ -124,7 +124,7 @@ extension Fixture {
         // a restart the catalogue advises is one click where Cool Head can quit the app (DisplayLink Manager)
         let restartsItself: Bool = { if case .restartApp = byID["catalogue-displaylink-long"]?.recommended?.kind { return true }; return false }()
         if !restartsItself {
-            journey.append("catalogue-displaylink-long: the restart isn't one click")
+            journey.append("catalogue-displaylink-long: the restart is not one click")
         }
         let ok2 = journey.isEmpty
         // Quit beside a restart of the same app says when it's the one to use; a quit with no restart beside it doesn't
@@ -135,7 +135,7 @@ extension Fixture {
             for f in c.fixes {
                 guard case .quitApp(let b) = f.kind else { continue }
                 let says = f.consequence.hasPrefix(Card.whenDoneWords)
-                if restarted.contains(b) { if says { said += 1 } else { quits.append("\(id): \(f.title) beside its restart doesn't say when") } }
+                if restarted.contains(b) { if says { said += 1 } else { quits.append("\(id): \(f.title) beside its restart does not say when") } }
                 else if says { quits.append("\(id): \(f.title) says when with no restart beside it") }
             }
         }

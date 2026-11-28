@@ -231,7 +231,7 @@ struct FirstLookView: View {
                               stone: scheme == .dark ? Color(white: 0.85) : Color(white: 0.25))
             Text("Scanning your Mac…").font(.body.weight(.medium))
             Text(judging == 0 ? "Reading memory, heat, and what's running. This takes about 10 seconds."
-                 : "Watching \(judging == 1 ? "a busy program" : "\(judging) busy programs") for up to a minute, so a short burst of work isn't flagged.")
+                 : "Watching \(judging == 1 ? "a busy program" : "\(judging) busy programs") for up to a minute, so a short burst of work is not flagged.")
                 .font(.callout).foregroundStyle(Ink.muted).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -562,8 +562,8 @@ struct CardView: View {
                     show(watcher.deleteBuildData(folder))
                 } else if case .stopAgent(let label, let plist) = confirmStop?.kind {
                     let ok = watcher.turnOffAgent(label: label, plist: plist)
-                    show(ok ? .done("Turned off. It won't start by itself, even after a restart. Turn it back on from the top of this panel.")
-                            : .failed("macOS didn't turn it off"))
+                    show(ok ? .done("Turned off. It will not start by itself, even after a restart. Turn it back on from the top of this panel.")
+                            : .failed("macOS did not turn it off"))
                 } else {
                     show(confirmStop?.kind == .forceQuit ? watcher.forceQuit(live) : watcher.stop(live))
                 }
@@ -620,7 +620,7 @@ struct CardView: View {
         switch o {
         case .done(let what): note = what; noteFailed = false; acted = true
         case .gone: note = "It already finished, so nothing was done."; noteFailed = false; acted = true
-        case .failed(let why): note = "That didn't work: \(why)."; noteFailed = true
+        case .failed(let why): note = "That did not work: \(why)."; noteFailed = true
         }
     }
 
@@ -653,7 +653,7 @@ struct CardView: View {
                 let ok = ChromeCompanion.installHostFile()
                 ChromeCompanion.openStorePage()
                 note = ok ? "Set up. Press Add to Chrome on the page that opened in Chrome; it links to Cool Head by itself."
-                          : "That didn't work: Cool Head couldn't write Chrome's file for its helper."
+                          : "That did not work: Cool Head could not write Chrome's file for its helper."
                 noteFailed = !ok; acted = ok
                 watcher.log("Set up Cool Head for Chrome pressed: " + (ok ? "done" : "failed"))
             } else if let a = ChromeLink.Action(rawValue: action) {
@@ -667,7 +667,7 @@ struct CardView: View {
                     pending = false
                     // a later press has its own note: this answer is only written while its option is the one pressed
                     guard noteFor == id else { return }
-                    note = r.map { $0.done } ?? "\(ChromeCompanion.name) didn't answer. Is Chrome open?"
+                    note = r.map { $0.done } ?? "\(ChromeCompanion.name) did not answer. Is Chrome open?"
                     noteFailed = r?.ok != true; acted = r?.ok == true
                     guard a == .sleepHidden, let r, r.ok, let n = r.count, n > 0 else { return }
                     note = ChromeParts.gaveBack(count: n, done: r.done, before: before, after: nil, measuring: true)
@@ -681,7 +681,7 @@ struct CardView: View {
         case .keepOutOfBackup(let path):
             let ok = watcher.keepOutOfBackup(path)
             let name = (path as NSString).lastPathComponent
-            note = ok ? "Time Machine now skips \(name). Back it up again from the top of this panel." : "That didn't work: Time Machine's setting for \(name) didn't change."
+            note = ok ? "Time Machine now skips \(name). Back it up again from the top of this panel." : "That did not work: Time Machine's setting for \(name) did not change."
             noteFailed = !ok; acted = ok
         case .resume:
             show(watcher.resumeStopped(live))
@@ -705,7 +705,7 @@ struct CardView: View {
                 let ok = app.terminate()
                 let name = app.localizedName ?? "The app"
                 if ok { note = "Asked \(name) to quit. If anything is unsaved, it asks you first."; noteFailed = false; acted = true }
-                else { note = "\(name) didn't quit. It may be asking you something."; noteFailed = true }
+                else { note = "\(name) did not quit. It may be asking you something."; noteFailed = true }
                 watcher.log("Quit pressed for \(live.reportSubject): " + (ok ? "asked to quit" : "did not quit"), about: live.cause)
             } else { note = "It's already closed."; noteFailed = false; acted = true }
         case .restartBrowser(let bundle):
@@ -724,7 +724,7 @@ struct CardView: View {
                 var n = BrowserRestart.note(o, name: name)
                 if saver, !n.failed {
                     if wrote.value == .set { n.text += " Memory Saver is now at Maximum; change it any time in Chrome's Performance settings." }
-                    else { n.text += " Memory Saver didn't change, since Chrome's settings couldn't be written safely; set it in Chrome's Performance settings."; n.failed = true }
+                    else { n.text += " Memory Saver did not change, since Chrome's settings could not be written safely; set it in Chrome's Performance settings."; n.failed = true }
                     let result = wrote.value.map { "\($0)" } ?? "not run"
                     w.log("Memory Saver at Maximum: " + result)
                 }
@@ -742,8 +742,8 @@ struct CardView: View {
                 let o = await BrowserRestart.restart(bundle: bundle, arguments: [], log: { step in w.log("Quit and reopen \(name) pressed: \(step)") })
                 let n: (text: String, failed: Bool) = {
                     if case .restarted = o { return ("Reopened \(name). The memory it had built up is free.", false) }
-                    if case .stillOpen = o { return ("\(name) is still open after \(Int(BrowserRestart.wait)) seconds, so it wasn't reopened. It may be asking you something.", true) }
-                    if case .reopenFailed(let why) = o { return ("\(name) closed but didn't reopen: \(why). Open it again from Applications.", true) }
+                    if case .stillOpen = o { return ("\(name) is still open after \(Int(BrowserRestart.wait)) seconds, so it was not reopened. It may be asking you something.", true) }
+                    if case .reopenFailed(let why) = o { return ("\(name) closed but did not reopen: \(why). Open it again from Applications.", true) }
                     return BrowserRestart.note(o, name: name)
                 }()
                 pending = false
@@ -757,7 +757,7 @@ struct CardView: View {
             // System Settings opens its own pages from another app; it has no address bar to paste into (Command-L does
             // nothing there)
             let ok = URL(string: address).map { NSWorkspace.shared.open($0) } ?? false
-            note = ok ? "Opened System Settings." : "That didn't work: System Settings didn't open."
+            note = ok ? "Opened System Settings." : "That did not work: System Settings did not open."
             noteFailed = !ok; acted = ok
             watcher.log("Opened a System Settings page for \(live.reportSubject): " + (ok ? "opened" : "failed"), about: live.cause)
         case .openPage(let bundle, let address):
@@ -796,7 +796,7 @@ struct ShareView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("This is everything we'd share:")
+            Text("This is everything we would share:")
                 .font(.caption.weight(.semibold))
             ScrollView {
                 Text(report.replacingOccurrences(of: "**", with: ""))
@@ -894,7 +894,7 @@ struct ProblemView: View {
             // to the limit, with the count in the field's corner; about a managed item, only for Something else
             if asksSummary {
             Text("In a few words, what happened?").font(.callout.weight(.medium))
-            TextField("For example: Chrome's limit didn't lift", text: $draft.summary)
+            TextField("For example: Chrome's limit did not lift", text: $draft.summary)
                 .textFieldStyle(.plain)
                 .font(.callout)
                 .padding(6).padding(.trailing, 44)
@@ -998,12 +998,12 @@ enum WhatsNew {
             "Limit it: when an app is still busy a few minutes after Run it cooler, a slider holds it to Barely running, Slow and steady, or Half speed, and it runs at full speed while you're using it.",
             "Managed by Cool Head has one slider for anything slowed and a This once | Every time switch; Full speed on an Every time line lasts until the app quits.",
             "Pause until you plug in waits while a job plays sound or downloads, and a job's card says what it's doing when its log says so.",
-            "Cool Head for Chrome's next update has a toolbar icon like Cool Head's, a welcome page, and an offer to turn off extensions you don't need.",
+            "Cool Head for Chrome's next update has a toolbar icon like Cool Head's, a welcome page, and an offer to turn off extensions you do not need.",
         ],
         "0.20.0": [
-            "Run it cooler can be every time: an app is slowed whenever you aren't using it and is back to full speed when you switch to it. Rules are under Always cooler in Trusted.",
+            "Run it cooler can be every time: an app is slowed whenever you are not using it and is back to full speed when you switch to it. Rules are under Always cooler in Trusted.",
             "The open tool along the bottom is white on Cool Head's deep blue, and the top and bottom bars stay readable over a bright desktop.",
-            "Chrome's memory card offers to sleep tabs you aren't looking at whenever Chrome is among the apps using the most memory.",
+            "Chrome's memory card offers to sleep tabs you are not looking at whenever Chrome is among the apps using the most memory.",
             "Cool Head for Chrome's next update has a bottom bar like Cool Head's, sleep shortcuts, sites that stay awake, and a way to take over a tab suspender's tabs.",
         ],
         "0.19.0": [
@@ -1016,12 +1016,12 @@ enum WhatsNew {
         ],
         "0.17.0": [
             "A new icon: Cool Head's own melting snowflake. The Status badge menu bar icon shows it too, with only the badge changing.",
-            "Cool Head for Chrome, a free companion extension, puts Chrome tabs you aren't using to sleep. Set it up from Settings.",
+            "Cool Head for Chrome, a free companion extension, puts Chrome tabs you are not using to sleep. Set it up from Settings.",
             "With it, Chrome's memory card works in one click, and the extension follows Cool Head's reading of your Mac's memory.",
         ],
         "0.16.0": [
             "Cool Head has a color of its own now, Cool Head blue, the same on every Mac and easier to read.",
-            "Chrome's memory card says how much is in tabs you aren't looking at and in its extensions, and when a restart would help.",
+            "Chrome's memory card says how much is in tabs you are not looking at and in its extensions, and when a restart would help.",
             "When memory keeps slowing your Mac, Chrome's card can set Memory Saver to Maximum as your own setting.",
             "Limit Chrome is gone: Chrome never applied it on your Mac. Cool Head removes what it set, so Chrome stops saying it's managed.",
         ],
@@ -1040,7 +1040,7 @@ enum WhatsNew {
             "The gauges at the top are off to start, for less to read. To see them, turn on Show usage and temperature in Settings.",
             "A network test keeps running when you open another tool or close the panel. Dashes circle the Network globe until it's done, then it shows the result's mark.",
             "Trends is gone: what used the most energy this week is on the Battery page.",
-            "Battery Saver isn't a switch any more: on battery, a really hungry job always gets its card.",
+            "Battery Saver is not a switch any more: on battery, a really hungry job always gets its card.",
             "Report a problem titles each report from a few words of yours, or from what went wrong with something Cool Head is managing.",
         ],
         "0.13.0": [
@@ -1079,7 +1079,7 @@ enum WhatsNew {
         "0.8.0": [
             "Cards for sleep and power: an app keeping your Mac awake, Low Power Mode left on while it's busy, and a battery that drained while asleep.",
             "A program pretending to be part of macOS says so, and one click moves it to the Trash.",
-            "New cards for browser settings you didn't make, an app that keeps crashing, and an app using far more memory than it usually does.",
+            "New cards for browser settings you did not make, an app that keeps crashing, and an app using far more memory than it usually does.",
             "A Hardware tool along the bottom, and how your Mac is running at the top of the panel.",
             "Stop and Force Quit warn that anything unsaved will be lost. Rest the pointer on Caution to see why an option is risky.",
         ],
@@ -1093,13 +1093,13 @@ enum WhatsNew {
         // 0.6.1 repeats 0.6.0's notes without the Melting Snowflake bar, which 0.6.1 removed: only the newest version's
         // notes are shown, so someone updating from 0.5.0 straight to 0.6.1 still hears what 0.6.0 brought
         "0.6.1": [
-            "Every option is a button. What Cool Head can't do itself, it opens or shows you, step by step.",
+            "Every option is a button. What Cool Head cannot do itself, it opens or shows you, step by step.",
             "Stuck processes count too: paused, waiting on a drive, or Not Responding.",
             "Restart Chrome, keeping your tabs, to free the memory it builds up.",
             "An app keeping the graphics chip busy gets a card, even when it uses little CPU.",
         ],
         "0.6.0": [
-            "Every option is a button. What Cool Head can't do itself, it opens or shows you, step by step.",
+            "Every option is a button. What Cool Head cannot do itself, it opens or shows you, step by step.",
             "Stuck processes count too: paused, waiting on a drive, or Not Responding.",
             "Restart Chrome, keeping your tabs, to free the memory it builds up.",
             "An app keeping the graphics chip busy gets a card, even when it uses little CPU.",
@@ -1478,8 +1478,8 @@ enum FrozenItem: Identifiable {
         case .rule(let c, let app, let every):
             if c.fullSpeed { return "\(c.name) is at full speed until it quits" }
             if !every { return c.capLevel.map { "\(c.name) \(FrozenItem.phrase($0)) until it quits" } ?? "Slowing \(c.name) until it quits" }
-            if let l = c.capLevel { return "\(c.name) \(FrozenItem.phrase(l)) " + (app ? "while you aren't using it" : "every time it runs") }
-            return app ? "Slowing \(c.name) while you aren't using it" : "Slowing \(c.name) every time it runs"
+            if let l = c.capLevel { return "\(c.name) \(FrozenItem.phrase(l)) " + (app ? "while you are not using it" : "every time it runs") }
+            return app ? "Slowing \(c.name) while you are not using it" : "Slowing \(c.name) every time it runs"
         }
     }
     /// The line as a problem report says it: anonymised as the activity log is, with no file, folder or project names
@@ -1515,8 +1515,8 @@ enum FrozenItem: Identifiable {
         case .sync(let s): return due ? "Resume it from its menu bar icon, then press Resumed."
                                       : "We'll remind you to resume at \(Fmt.time(s.until)). Resume it from its menu bar icon."
         case .chrome: return "Chrome only applies it when an organization manages this Mac, so it does nothing here, and it makes Chrome say it's \u{201C}managed by your organization\u{201D}. Removing it changes nothing else."
-        case .agent(let a): return "\(a.label) doesn't start by itself, even after a restart. Turning it back on starts it now if it's set to."
-        case .backup(let p): return "It's build output, so it isn't backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
+        case .agent(let a): return "\(a.label) does not start by itself, even after a restart. Turning it back on starts it now if it's set to."
+        case .backup(let p): return "It's build output, so it is not backed up. Backing it up again makes the next backup larger. \((p as NSString).abbreviatingWithTildeInPath)"
         case .rule(let c, _, true) where c.fullSpeed:
             return "Just for now: back to \((c.capLevel ?? .cooler).name) the next time it starts, or as soon as you move the slider."
         case .rule(let c, _, false):
@@ -1774,7 +1774,7 @@ struct FrozenLine: View {
                 LimitGauge(offer: CPUCap.Offer(current: c.level, suggested: c.level, now: nil, app: true), words: false, onIce: true) { level in
                     // a pick that didn't take says so, which also puts the slider back on its level
                     switch watcher.setLimit(c, level: level) {
-                    case .failed(let why): failed = "That didn't work: \(why)."
+                    case .failed(let why): failed = "That did not work: \(why)."
                     case .gone: failed = "It already quit, so nothing changed."
                     case .done: failed = nil
                     }
@@ -1798,18 +1798,18 @@ struct FrozenLine: View {
     }
 
     func set(_ c: Watcher.CooledItem, _ on: Bool) {
-        if case .failed(let why) = watcher.setEveryTime(c, on) { failed = "That didn't work: \(why)." }
+        if case .failed(let why) = watcher.setEveryTime(c, on) { failed = "That did not work: \(why)." }
     }
 
     func undo() {
         switch item {
-        case .cooled(let c): if case .failed(let why) = watcher.restore(c) { failed = "That didn't work: \(why)." }
+        case .cooled(let c): if case .failed(let why) = watcher.restore(c) { failed = "That did not work: \(why)." }
         case .paused(let p): watcher.resumeJob(p, why: "Resume now pressed")
         case .sync(let s): watcher.syncResumed(s.name)
-        case .chrome: if !watcher.removeChromeLimit() { failed = "That didn't work: Chrome's settings didn't change." }
-        case .agent(let a): if !watcher.turnOnAgent(a) { failed = "That didn't work: macOS didn't turn it back on." }
-        case .backup(let p): if !watcher.backUpAgain(p) { failed = "That didn't work: Time Machine's setting didn't change." }
-        case .rule(let c, _, _): if case .failed(let why) = watcher.speedUpForNow(c) { failed = "That didn't work: \(why)." }
+        case .chrome: if !watcher.removeChromeLimit() { failed = "That did not work: Chrome's settings did not change." }
+        case .agent(let a): if !watcher.turnOnAgent(a) { failed = "That did not work: macOS did not turn it back on." }
+        case .backup(let p): if !watcher.backUpAgain(p) { failed = "That did not work: Time Machine's setting did not change." }
+        case .rule(let c, _, _): if case .failed(let why) = watcher.speedUpForNow(c) { failed = "That did not work: \(why)." }
         }
     }
 }
@@ -2332,7 +2332,7 @@ struct FixRow: View {
     var guarded: Bool { fix.caution }
     /// What the first click says: for Stop and Force Quit, that anything unsaved goes; otherwise why it's Caution.
     var warning: String {
-        fix.kind == .stop || fix.kind == .forceQuit ? "Anything unsaved will be lost." : (fix.cautionReason ?? "This can't be undone.")
+        fix.kind == .stop || fix.kind == .forceQuit ? "Anything unsaved will be lost." : (fix.cautionReason ?? "This cannot be undone.")
     }
     var isSyncPause: Bool { if case .pauseSync = fix.kind { return true }; return false }
     /// An option with a choice under it, shown as buttons once it's pressed: how long to pause syncing, or how far to limit.
@@ -2756,7 +2756,7 @@ struct EveryTimeOffer: View {
                         .background(Capsule().fill(Ink.fill))
                         .overlay(Capsule().strokeBorder(Ink.fillEdge, lineWidth: 1))
                         .fixedSize()
-                        .help(CoolerRules.isApp(live.trustKey ?? "") ? "Slowed whenever you aren't using it; full speed when you are" : "Slowed whenever it runs")
+                        .help(CoolerRules.isApp(live.trustKey ?? "") ? "Slowed whenever you are not using it; full speed when you are" : "Slowed whenever it runs")
                 }
             }
             Text("Stop any time from Trusted, under Always cooler.")

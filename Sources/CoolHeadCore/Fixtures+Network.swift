@@ -13,7 +13,7 @@ extension Fixture {
         let p1 = N.parse(Data(good.utf8)) == .done(.init(download: 241_830_000, upload: 38_200_000, rpm: 1241))
         let p2 = { if case .failed = N.parse(Data(failed.utf8)) { return true }; return false }()
         let p3 = { if case .failed = N.parse(Data("killed".utf8)) { return true }; return false }()
-        review.append(("network-test-result", p1 && p2 && p3, "result \(p1), couldn't finish \(p2), stopped \(p3)"))
+        review.append(("network-test-result", p1 && p2 && p3, "result \(p1), could not finish \(p2), stopped \(p3)"))
 
         // the verdict follows the responsiveness draft's bands (300 or fewer is poor, 1,000 or more is good) and the speed
         // HD video needs (5 Mbps); each task is checked against its own published speed and, for calls and games, responsiveness
@@ -64,7 +64,7 @@ extension Fixture {
         let wl = N.lines(slow, weak), sl = N.lines(quick, strong149), cl = N.lines(nil, cable)
         let l1 = wl.contains { $0.hasPrefix("Wi-Fi signal is weak: -78 dBm") } && sl.contains { $0.hasPrefix("Wi-Fi signal is fine: -54 dBm") }
             && N.lines(nil, .init(link: .wifi(.init(rssi: -75, noise: -90, rate: 6, channel: 1, band: "2.4 GHz")))).contains { $0.hasPrefix("Wi-Fi signal is weak") }
-        let l2 = wl.contains { $0.contains("router's 36") && $0.contains("Apple hasn't said so") }
+        let l2 = wl.contains { $0.contains("router's 36") && $0.contains("Apple has not said so") }
             && !sl.contains { $0.contains("AirDrop") } && !cl.contains { $0.contains("AirDrop") }
         let l3 = !wl.contains { $0.contains("Private Relay") } && wl.contains { $0.contains("a wait of about 286 ms") }
         let l4 = wl.first == "Speed: 90 Mbps down, 10 Mbps up." && sl[1].hasPrefix("Responsiveness: 2,400 round trips a minute")
@@ -154,7 +154,7 @@ extension Fixture {
         let queue = N.fixes(res(300, 20, 250), .init(link: .cable, router: "192.168.1.1")).first { $0.id == "net-smart-queue" }
         let rq = { if case .guide(let steps)? = queue?.kind { return steps.first == "Open your router's settings: its app, or http://192.168.1.1 in a browser." }; return false }()
         let sa = N.lines(nil, .init(link: .wifi(.init(rssi: -50, noise: -90, rate: 600, channel: 44, band: "5 GHz")), selfAssigned: true))
-            .contains { $0.hasPrefix("The router didn't give this Mac an address") }
+            .contains { $0.hasPrefix("The router did not give this Mac an address") }
         review.append(("network-dns-and-address", rn && dl && rq && sa, "services named \(rn), who set it \(dl), router page \(rq), self-assigned \(sa): \(byHand)"))
 
         // where websites see you: Cloudflare's trace text read for its address and country (anything else refused); the
@@ -167,7 +167,7 @@ extension Fixture {
                     N.whereSaid(.seen(nl, around: .blocked), full), N.whereSaid(.seen(us, around: .notAsked), nil),
                     N.whereSaid(.seen(us, around: .notAsked), split), N.whereSaid(.failed, nil)]
         let ws = seen.map { $0.level } == [0, 1, 0, 0, 1, 2] && seen[0].value == "Netherlands" && seen[0].detail == "Through WireGuard; without it, United States."
-            && seen[1].detail == "Your own address: WireGuard isn't hiding it." && seen[3].detail == "Your own address: no VPN is on."
+            && seen[1].detail == "Your own address: WireGuard is not hiding it." && seen[3].detail == "Your own address: no VPN is on."
             && !seen.contains { $0.value.contains("203.0") || $0.detail.contains("203.0") || $0.detail.contains("198.51") }
         let note = N.whereNote(.init(link: .cable, vpn: full, physical: "en0")).contains("around it") && !N.whereNote(.init(link: .cable, vpn: split)).contains("around")
             && N.privacySentence(.init(link: .cable), nil) == "No VPN is connected. The test also asks Cloudflare which country websites see you in."

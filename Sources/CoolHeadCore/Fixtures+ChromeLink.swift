@@ -56,7 +56,7 @@ extension Fixture {
         partial.append([0x33, 0x34, 0x35])
         review.append(("chrome-link-framing-limits", ChromeLink.frame([UInt8](repeating: 0, count: limit + 1)) == nil
                        && got == [after] && big.refused == 1 && waits && stillWaits && partial.next() == bytes("12345") && partial.next() == nil,
-                       "a message over 1 MB isn't framed, one from Chrome is skipped (\(big.refused)) and the next still read; a part message waits"))
+                       "a message over 1 MB is not framed, one from Chrome is skipped (\(big.refused)) and the next still read; a part message waits"))
 
         // the socket's lines: split anywhere, carriage returns and empty lines dropped, an oversized line passed over
         var lines = ChromeLink.LineReader(), readLines: [[UInt8]] = []
@@ -77,7 +77,7 @@ extension Fixture {
                        && longOut == [bytes("{\"d\":4}")] && longLines.refused == 1
                        && ChromeLink.line(bytes("{}")) == bytes("{}\n") && ChromeLink.line([]) == nil
                        && ChromeLink.line(bytes("{\n}")) == nil && ChromeLink.line([UInt8](repeating: 0x20, count: limit + 1)) == nil,
-                       "lines read across splits; a line over 1 MB skipped; a message with a line break, empty, or over 1 MB isn't sent"))
+                       "lines read across splits; a line over 1 MB skipped; a message with a line break, empty, or over 1 MB is not sent"))
 
         // messages: fields and words this side doesn't know are ignored; another version or type isn't read
         let newer = bytes(#"{"v":1,"type":"report","asleep":4,"held":{"sound":1,"pinned":2,"hologram":1},"session":{"active":true,"tabs":9,"name":"x"},"#
@@ -215,7 +215,7 @@ extension Fixture {
 
     static func chromeHostChecks() -> [(String, Bool, String)] {
         guard let host = chromeHostPath() else {
-            return [("chrome-link-host", false, "coolhead-chrome-host isn't beside coolhead; build it with swift build -c release")]
+            return [("chrome-link-host", false, "coolhead-chrome-host is not beside coolhead; build it with swift build -c release")]
         }
         // a folder of the selftest's own, 700, in the temporary folder, so Cool Head's real socket is never touched
         var template = Array((NSTemporaryDirectory() as NSString).appendingPathComponent("coolhead-link-XXXXXX").utf8CString)
@@ -232,9 +232,9 @@ extension Fixture {
             let first = run.receive()
             out.append(("chrome-link-host-not-running", first == notRunning && run.finish(),
                         first.map { String(decoding: $0, as: UTF8.self) } ?? "nothing from the host"))
-        } else { out.append(("chrome-link-host-not-running", false, "the host didn't start")) }
+        } else { out.append(("chrome-link-host-not-running", false, "the host did not start")) }
 
-        guard let listener = ChromeLink.listen(at: socket) else { return out + [("chrome-link-host-relay", false, "couldn't listen at \(socket)")] }
+        guard let listener = ChromeLink.listen(at: socket) else { return out + [("chrome-link-host-relay", false, "could not listen at \(socket)")] }
         defer { close(listener) }
 
         // running: relays both ways, byte for byte, and drops what it can't relay
@@ -291,7 +291,7 @@ extension Fixture {
             out.append(("chrome-link-host-reconnect", dropped == notRunning && relinked == running && relayedAgain && ended,
                         "after the socket closed: \(dropped.map { String(decoding: $0, as: UTF8.self) } ?? "nothing"), then "
                         + "\(relinked.map { String(decoding: $0, as: UTF8.self) } ?? "no reconnect"); relays again: \(relayedAgain); ended cleanly: \(ended)"))
-        } else { out.append(("chrome-link-host-relay", false, "the host didn't start or didn't connect")) }
+        } else { out.append(("chrome-link-host-relay", false, "the host did not start or did not connect")) }
 
         // a socket other users could reach, or a link to the socket, isn't Cool Head's: the host doesn't connect until
         // the socket is closed to others again
@@ -312,14 +312,14 @@ extension Fixture {
                         && later == running && linkStill && ended,
                         "a socket open to others and a link to the socket: refused, nothing connected (\(noneConnected)); "
                         + "once the socket is 600 again: \(later.map { String(decoding: $0, as: UTF8.self) } ?? "no link")"))
-        } else { out.append(("chrome-link-host-this-user-only", false, "the host didn't start")) }
+        } else { out.append(("chrome-link-host-this-user-only", false, "the host did not start")) }
 
         // a run let go part way, without finish, ends its host (at a socket nothing listens at, so a host left running
         // can't reach a later check)
         var pid: pid_t = 0
         do { if let run = HostRun(host, socket: folder + "/nobody.sock") { pid = run.process.processIdentifier } }
         let gone = pid != 0 && (0..<50).contains { _ in usleep(20_000); return Proc.bsd(pid) == nil }
-        out.append(("chrome-link-host-ended-when-let-go", gone, pid == 0 ? "the host didn't start" : "ended once its run was let go \(gone)"))
+        out.append(("chrome-link-host-ended-when-let-go", gone, pid == 0 ? "the host did not start" : "ended once its run was let go \(gone)"))
         return out
     }
 }

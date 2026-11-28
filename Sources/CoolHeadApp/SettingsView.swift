@@ -102,7 +102,7 @@ struct SettingsView: View {
         case .checking: return "Checking…"
         case .installing: return "Updating…"
         case .upToDate: return "Up to date"
-        case .failed: return "Couldn't check"
+        case .failed: return "Could not check"
         case .available(let v): return "\(v) ready"
         case .idle: return ""
         }
@@ -187,9 +187,9 @@ struct CompanionRow: View {
                 .foregroundStyle(Ink.accent).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(ChromeCompanion.name).font(.callout)
-                Text(status == .connected ? "Working with Cool Head: tabs you aren't using sleep when memory is tight."
+                Text(status == .connected ? "Working with Cool Head: tabs you are not using sleep when memory is tight."
                      : setUp ? "Set up. Press Add to Chrome on the page that opened in Chrome; it links by itself."
-                     : "Sleeps Chrome tabs you aren't using when memory is tight.")
+                     : "Sleeps Chrome tabs you are not using when memory is tight.")
                     .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()

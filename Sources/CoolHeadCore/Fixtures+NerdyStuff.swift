@@ -66,7 +66,7 @@ extension Fixture {
             // the slots' headings, in their fixed order, each once
             let heads = lines.filter(NerdyStuff.headings.contains)
             if heads != NerdyStuff.headings.filter(heads.contains) || Set(heads).count != heads.count { bad.append("\(id): headings \(heads)") }
-            if heads.first != NerdyStuff.headings[0] { bad.append("\(id): doesn't start with what Cool Head saw") }
+            if heads.first != NerdyStuff.headings[0] { bad.append("\(id): does not start with what Cool Head saw") }
             // every reading names its source, from the closed list
             for r in n.saw where !r.lines[0].contains("(\(r.source.rawValue)") || !sources.contains(where: r.lines[0].contains) {
                 bad.append("\(id): \(r.name) names no source")
@@ -99,9 +99,9 @@ extension Fixture {
             // every reading has a name: a family's line without one shows as "Note"
             for l in c.details where l.hasPrefix("Note: ") { bad.append("\(id): a reading without a name, \"\(l.prefix(40))\"") }
         }
-        if !live.contains(where: { $0.0 == "heat" && $0.1.details.contains("  and 4 more") }) { bad.append("heat: the busiest aren't all counted in the rest line") }
+        if !live.contains(where: { $0.0 == "heat" && $0.1.details.contains("  and 4 more") }) { bad.append("heat: the busiest are not all counted in the rest line") }
         if !live.contains(where: { $0.0 == "hang-paused" && $0.1.details.contains { $0.hasPrefix("Stuck: paused (ps state T) for 5 minutes") } }) { bad.append("hang-paused: not the hang's own rule") }
-        if !live.contains(where: { $0.0 == "memory-chrome" && $0.1.details.contains { $0.hasPrefix("  and 2 more, ") && $0.hasSuffix(" in total") } }) { bad.append("memory-chrome: the biggest users aren't cut at five with the rest added up") }
+        if !live.contains(where: { $0.0 == "memory-chrome" && $0.1.details.contains { $0.hasPrefix("  and 2 more, ") && $0.hasSuffix(" in total") } }) { bad.append("memory-chrome: the biggest users are not cut at five with the rest added up") }
         // made up: sentences the template moved out of the explanation are shown, first; a long list is cut at five
         var m = NerdyStuff()
         m.moved = ["It also writes a large log."]
@@ -109,14 +109,14 @@ extension Fixture {
         m.lists = [.init("Also busy", (1...8).map { "row \($0)" })]
         let ml = m.lines()
         if ml.count < 2 || ml[1] != "It also writes a large log." { bad.append("made-up: moved sentences not first under what Cool Head saw") }
-        if ml.filter({ $0.hasPrefix("  row") }).count != NerdyStuff.cap || !ml.contains("  and 3 more") { bad.append("made-up: a list of 8 isn't cut at five with 3 more") }
+        if ml.filter({ $0.hasPrefix("  row") }).count != NerdyStuff.cap || !ml.contains("  and 3 more") { bad.append("made-up: a list of 8 is not cut at five with 3 more") }
         // the energy week: 18 rows show five, then the rest with their share added up
         let shares = [0.31, 0.18, 0.12, 0.09, 0.06] + Array(repeating: 0.02, count: 12) + [0.0]
         let el = NerdyStuff.energy(shares.enumerated().map { "\(PowerHistory.share($0.element))  app \($0.offset)" }, shares: shares).lines()
         if el.filter({ $0.hasPrefix("  ") }).count != NerdyStuff.cap + 1 || !el.contains("  and 13 more, 24% in total") { bad.append("energy week: \(el.suffix(2))") }
         // the clarity rules catch the case that started them
-        if CardTemplate.clarity("it moved over 256 MB to storage").isEmpty { bad.append("made-up: \"moved over 256 MB\" isn't caught") }
-        if CardTemplate.clarity("it moved over 1.5 GB to storage").isEmpty { bad.append("made-up: \"over 1.5 GB\" isn't caught") }
+        if CardTemplate.clarity("it moved over 256 MB to storage").isEmpty { bad.append("made-up: \"moved over 256 MB\" is not caught") }
+        if CardTemplate.clarity("it moved over 1.5 GB to storage").isEmpty { bad.append("made-up: \"over 1.5 GB\" is not caught") }
         // What Cool Head did: only this card's own lines, though another card's mention the same name
         let t0 = now.addingTimeInterval(-60)
         let mixed = [Watcher.LogEntry(t: t0, text: "Stop pressed for a Python script: stopped", about: "pid-1"),
@@ -127,11 +127,11 @@ extension Fixture {
         if NerdyStuff.shown(raw).contains("abc123") || NerdyStuff.shown(raw).contains(NSHomeDirectory()) { bad.append("made-up: \(NerdyStuff.shown(raw))") }
         // the battery's condition and capacity name system_profiler, with no time, since they are read up to an hour earlier
         if !live.contains(where: { $0.0.hasPrefix("hardware-battery") && $0.1.details.contains { $0.hasPrefix("Maximum Capacity: ") && $0.hasSuffix("(\(NerdyStuff.Source.systemProfiler.rawValue))") } }) {
-            bad.append("hardware-battery: Maximum Capacity doesn't name system_profiler")
+            bad.append("hardware-battery: Maximum Capacity does not name system_profiler")
         }
         // a path with a space is one word to the shell, home outside the quotes
         if NerdyStuff.shellPath(NSHomeDirectory() + "/Library/Application Support/My Job/run's log.txt") != "~/'Library/Application Support/My Job/run'\\''s log.txt'" {
-            bad.append("made-up: a path with a space or a quote isn't one word: \(NerdyStuff.shellPath(NSHomeDirectory() + "/Library/Application Support/My Job/run's log.txt"))")
+            bad.append("made-up: a path with a space or a quote is not one word: \(NerdyStuff.shellPath(NSHomeDirectory() + "/Library/Application Support/My Job/run's log.txt"))")
         }
         if !CardTemplate.clarity("Busy: 0.5 cores or more for 60 seconds.").isEmpty { bad.append("made-up: a clear line is flagged") }
         let ok = bad.isEmpty

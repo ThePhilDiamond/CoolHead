@@ -537,7 +537,7 @@ public final class Watcher {
         log("Stop and delete pressed for \(c.reportSubject): " + (failed.isEmpty ? "stopped and moved to the Trash" : "stopped; \(failed.count) file(s) not moved"), about: c.cause)
         if failed.isEmpty { cards.removeAll { $0.cause == c.cause } }
         return failed.isEmpty ? .done("Stopped it and moved it to the Trash. You can put it back from there.")
-            : .failed("macOS didn't let Cool Head move \(failed.joined(separator: " and ")) to the Trash; drag it there in Finder, which asks for your password")
+            : .failed("macOS did not let Cool Head move \(failed.joined(separator: " and ")) to the Trash; drag it there in Finder, which asks for your password")
     }
 
     /// Asks Ollama to unload these models now (see Leftovers). Checked by asking Ollama what is still loaded.
@@ -545,7 +545,7 @@ public final class Watcher {
         let ok = Leftovers.unload(names)
         log("Unload pressed for a local AI model: " + (ok ? "unloaded" : "still loaded or Ollama did not answer"))
         return ok ? .done("Unloaded. Its memory is free; Ollama loads it again the next time it's asked something.")
-            : .failed("Ollama didn't unload it, or didn't answer")
+            : .failed("Ollama did not unload it, or did not answer")
     }
 
     /// Deletes the contents of Xcode's build data folder (see Leftovers). Only after the person confirms.
@@ -553,7 +553,7 @@ public final class Watcher {
         let ok = Leftovers.deleteBuildData(folder)
         log("Delete Xcode's build data pressed: " + (ok ? "deleted" : "not all deleted"))
         Leftovers.sizeCache.with { $0.read = nil }
-        return ok ? .done("Deleted. Xcode rebuilds what it needs on the next build.") : .failed("some of it couldn't be deleted")
+        return ok ? .done("Deleted. Xcode rebuilds what it needs on the next build.") : .failed("some of it could not be deleted")
     }
 
     /// Lets a process carry on that something other than Cool Head paused. Checked by reading back its state.
@@ -611,7 +611,7 @@ public final class Watcher {
             if (pri0 <= 4) != on { usleep(300_000); pri0 = Proc.schedulingPriority(p) ?? pri0 }
             guard (pri0 <= 4) == on else {
                 log("\(what) pressed for \(c.reportSubject): set, but its priority stayed at \(pri0)", about: c.cause)
-                return .failed("macOS accepted it, but the process's priority didn't change (\(pri0))")
+                return .failed("macOS accepted it, but the process's priority did not change (\(pri0))")
             }
         }
         let name = c.displaySubject.isEmpty ? "It" : c.displaySubject
@@ -661,7 +661,7 @@ public final class Watcher {
         limiter.set(key, pids: Watcher.groupPIDs(trust: c.trustKey, root: p), trust: c.trustKey, root: p, level: level)
         cooled[key]?.capLevel = level
         log("Limit set for \(c.reportSubject): \(level.rawValue)", about: c.cause)
-        return .done("\(name) \(CPUCap.phrase(level)) while you aren't using it. Full speed when you switch to it, or while it plays sound, records, or downloads.")
+        return .done("\(name) \(CPUCap.phrase(level)) while you are not using it. Full speed when you switch to it, or while it plays sound, records, or downloads.")
     }
 
     /// The slider on a Managed by Cool Head line: another level, or Full speed to lift the limit. A rule's line changes
@@ -872,7 +872,7 @@ public final class Watcher {
                 refreshTrust(); onPublish?()
                 return .done("\(item.name) runs this way every time now.")
             }
-            guard item.rule == nil, let k = item.trustKey else { return .failed("it can't be set to every time") }
+            guard item.rule == nil, let k = item.trustKey else { return .failed("it cannot be set to every time") }
             var c = LiveCard(id: "pinned", pid: item.pid, start: item.start, card: Card(state: .working, headline: "", explanation: "", fixes: []),
                              details: [], reportSubject: item.reportSubject)
             c.trustKey = k; c.trustName = item.name; c.displaySubject = item.name
@@ -890,7 +890,7 @@ public final class Watcher {
         if !wasFast, !running.isEmpty { var all = onceRules; all[r] = (name, level, running); setOnceRules(all) }
         log("Every time: switched to this once")
         refreshTrust(); onPublish?()
-        return .done(wasFast ? "\(name) isn't slowed any more." : "\(name) runs this way until it quits, not the next time.")
+        return .done(wasFast ? "\(name) is not slowed any more." : "\(name) runs this way until it quits, not the next time.")
     }
 
     /// "Speed up for now" on a pinned line: back to full speed until it quits; the rule stays.

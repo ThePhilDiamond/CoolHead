@@ -615,7 +615,7 @@ extension HardwareReport {
     public func summary() -> [String] {
         var l: [String] = []
         l.append("Internal drive")
-        l += drive.map { $0.lines } ?? ["  Its health record can't be read on this Mac."]
+        l += drive.map { $0.lines } ?? ["  Its health record cannot be read on this Mac."]
         l.append("Battery")
         l += battery.map { $0.lines } ?? ["  No battery."]
         l.append("Crash restarts")
@@ -632,8 +632,8 @@ extension HardwareReport {
 public enum Hardware {
     /// What Cool Head can't check, said plainly.
     public static func limits(appleSilicon: Bool) -> [String] {
-        var l = ["The memory can't be tested from inside macOS; Apple Diagnostics is the test.",
-                 "Apple Diagnostics' results aren't saved anywhere Cool Head can read."]
+        var l = ["The memory cannot be tested from inside macOS; Apple Diagnostics is the test.",
+                 "Apple Diagnostics' results are not saved anywhere Cool Head can read."]
         if appleSilicon {
             l.append("Apple silicon Macs have no SMC or NVRAM to reset; a restart does that job.")
             l.append("To run Apple Diagnostics: shut down, hold the power button until the startup options appear, then press and hold Command-D.")

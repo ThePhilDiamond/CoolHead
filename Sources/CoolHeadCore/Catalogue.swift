@@ -155,7 +155,7 @@ extension Pattern {
                 usually: "It downloads them after you choose one, or after a macOS update. They can take 10 GB or more.", usualHours: 1,
                 whenLong: "Choose a still wallpaper and screen saver",
                 risk: "It probably stops new downloads, though some people saw them continue.",
-                source: "Forum reports: idleassetsd downloading Aerial videos of about 10 GB and up to 62 GB on macOS 14 and 15 (Apple Community 255329956, 255818132; MacRumors 2392675). macOS 26 has no idleassetsd; where it downloads Aerials wasn't traced."),
+                source: "Forum reports: idleassetsd downloading Aerial videos of about 10 GB and up to 62 GB on macOS 14 and 15 (Apple Community 255329956, 255818132; MacRumors 2392675). macOS 26 has no idleassetsd; where it downloads Aerials was not traced."),
         Pattern(id: "displaylink", pathContains: ["DisplayLink Manager.app/Contents/"], symptoms: [.heat, .battery],
                 doing: "DisplayLink Manager is drawing your extra screens",
                 usually: "It draws every frame on the processor, so it works while things move on those screens.", usualHours: 0.5,

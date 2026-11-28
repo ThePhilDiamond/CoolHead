@@ -66,7 +66,7 @@ struct EnergyWeek: View {
                     }
                 }
             } else {
-                Text(loaded || sample != nil ? "No energy history to show: this Mac's power log couldn't be read." : "Reading macOS's power log…")
+                Text(loaded || sample != nil ? "No energy history to show: this Mac's power log could not be read." : "Reading macOS's power log…")
                     .font(.caption).foregroundStyle(Ink.muted)
             }
         }

@@ -2,10 +2,10 @@ import Foundation
 
 /// A program borrowing macOS's name or an Apple label (see Disguise.swift): who it is comes first, whatever it's doing.
 enum DisguiseCard: ProcessCard {
-    static let name = "a program that isn't what it claims to be"
+    static let name = "a program that is not what it claims to be"
     static let id = "disguise"
     static let kind = CardKind.identity
-    static let rule = "Disguise.swift: a program outside macOS's folders using one of macOS's names, or an Apple label it can't have"
+    static let rule = "Disguise.swift: a program outside macOS's folders using one of macOS's names, or an Apple label it cannot have"
     static func confidence(_ s: Situation) -> Confidence { .named("we checked who signed the program") }
     static let samples = ["disguise-macos-name", "disguise-apple-label", "disguise-protection-off"]
 
@@ -14,7 +14,7 @@ enum DisguiseCard: ProcessCard {
         switch s.disguise {
         case .macOSName?: c.diagnosis = Diagnosis(saw: "it uses a macOS name without Apple's signature, a common malware trick")
         case .appleLabel?: c.diagnosis = Diagnosis(saw: "it's labelled as Apple's without Apple's signature, a common malware trick")
-        case .notAppleSigned?: c.diagnosis = Diagnosis(saw: "a program in macOS's own folders has been changed while macOS's protection is off")
+        case .notAppleSigned?: c.diagnosis = Diagnosis(saw: "a program in macOS's own folders was changed while macOS's protection is off")
         default: break
         }
         c.optionFacts["delete"] = OptionFacts(helps: "removes it", undo: .other("You can put it back from the Trash if it turns out to be something you use."))

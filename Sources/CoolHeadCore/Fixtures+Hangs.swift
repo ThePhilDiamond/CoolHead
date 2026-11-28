@@ -51,7 +51,7 @@ extension Fixture {
             && working.recommended == nil && !ids(fresh).contains("stop") && fresh.explanation.contains("clock on this card")
         out.append(("hang-not-responding", ok,
                     "2 minutes: \(fresh.recommended?.title ?? "nothing recommended yet"); 10 minutes idle: \(settled.recommended?.title ?? "none"); 10 minutes busy: \(working.recommended?.title ?? "none")"))
-        out.append(("not-responding-check-available", Hang.canCheckResponding, Hang.canCheckResponding ? "macOS answers which apps are Not Responding" : "macOS's check wasn't found"))
+        out.append(("not-responding-check-available", Hang.canCheckResponding, Hang.canCheckResponding ? "macOS answers which apps are Not Responding" : "macOS's check was not found"))
         // for real: a child process paused by something other than Cool Head is found, and Resume lets it carry on
         let sleeper = Process()
         sleeper.executableURL = URL(fileURLWithPath: "/bin/sleep")

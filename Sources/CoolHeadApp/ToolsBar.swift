@@ -410,7 +410,7 @@ struct TrustedView: View {
                 .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             Divider().padding(.vertical, 4)
             Label("Always cooler", systemImage: "tortoise").font(.body.weight(.semibold))
-            Text("Slowed every time: an app while you aren't using it, back to full speed when you switch to it; a job whenever it runs.")
+            Text("Slowed every time: an app while you are not using it, back to full speed when you switch to it; a job whenever it runs.")
                 .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
             box(cooler, empty: "Nothing runs cooler every time", selected: $coolerSelected, addTip: "Always run an app cooler",
                 removeTip: "Stop running the selected one cooler", add: { choose(cooler: true) }) { key in
@@ -510,12 +510,12 @@ struct TrustedView: View {
             if watcher.addRule(appPath: url.path) {
                 reload(); coolerSelected = self.cooler.first { $0.name == name }?.key; coolerNote = nil
             } else {
-                coolerNote = "macOS's own apps can't be slowed: Cool Head explains them instead."
+                coolerNote = "macOS's own apps cannot be slowed: Cool Head explains them instead."
             }
         } else if watcher.trust(appPath: url.path) {
             reload(); selected = list.first { $0.name == name }?.key; note = nil
         } else {
-            note = "macOS's own apps can't be trusted: Cool Head explains them instead."
+            note = "macOS's own apps cannot be trusted: Cool Head explains them instead."
         }
     }
 }

@@ -31,7 +31,7 @@ extension Fixture {
             && !Served.isService("/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper")
             && Served.opened("/Applications/Google Drive.app") && Served.opened("/System/Applications/Mail.app") && Served.opened(safariCryptex)
             && !Served.opened("/System/Library/CoreServices/Dock.app") && !Served.opened("/System/Library/ExtensionKit/Extensions/WallpaperAerialsExtension.appex")
-        review.append(("served-only-services-and-opened-apps", r1, "WebKit and the video decoder are services, python3 and Chrome's helper aren't; Google Drive, Mail, and Safari are opened apps, the Dock and the wallpaper aren't"))
+        review.append(("served-only-services-and-opened-apps", r1, "WebKit and the video decoder are services, python3 and Chrome's helper are not; Google Drive, Mail, and Safari are opened apps, the Dock and the wallpaper are not"))
 
         // web pages in another app: that app named and quitting it advised (a sync app stops syncing; the text doesn't
         // repeat the option); in Safari, or unknown, the Safari tab card as before
@@ -66,7 +66,7 @@ extension Fixture {
         // whatever started Cool Head, which is why only services are read this way
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sleep"); p.arguments = ["5"]
-        var live = "couldn't start a command"
+        var live = "could not start a command"
         var ok = false
         if (try? p.run()) != nil {
             let r = Served.responsible(p.processIdentifier)

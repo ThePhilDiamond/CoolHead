@@ -65,7 +65,7 @@ extension Fixture {
                       ("IMDPersistenceAgent", "/System/Library/PrivateFrameworks/IMDPersistence.framework/XPCServices/IMDPersistenceAgent.xpc/Contents/MacOS/IMDPersistenceAgent", "messages-sync"),
                       ("LM Studio", "/Applications/LM Studio.app/Contents/MacOS/LM Studio", "local-ai-model"),
                       ("ollama", "/opt/homebrew/Cellar/ollama/0.13.0/bin/ollama", "local-ai-model")]
-        for (name, path, id) in others where Pattern.match(name: name, path: path, pid: 99999)?.id != id { wrong.append("\(name) didn't match \(id)") }
+        for (name, path, id) in others where Pattern.match(name: name, path: path, pid: 99999)?.id != id { wrong.append("\(name) did not match \(id)") }
         review.append(("catalogue-entries-match", wrong.isEmpty, wrong.isEmpty ? "\(catalogueExamples(now).count + others.count) processes match their entries" : wrong.joined(separator: "; ")))
 
         // while usual: calm, saying what is normal; once longer than usual: the entry's advice is recommended, as steps

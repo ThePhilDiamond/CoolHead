@@ -205,7 +205,7 @@ public enum Cleaner {
             guard let d = NSDictionary(contentsOfFile: path) as? [String: Any], missingProgram(d) != nil,
                   let label = d["Label"] as? String else { return nil }
             return Find(id: "agent:" + label, group: .quick, title: "\(helperName(label))'s background helper",
-                        detail: "It starts a program that's been deleted, so it does nothing.", bytes: nil,
+                        detail: "It starts a program that was deleted, so it does nothing.", bytes: nil,
                         paths: [path], agentLabel: label)
         }
     }
@@ -266,7 +266,7 @@ public enum Cleaner {
              h + "/Library/Caches/Homebrew", nil),
             ("npm", "npm's downloads", "Downloaded again the next time they're needed, which needs the internet.",
              h + "/.npm/_cacache", nil),
-            ("chrome-cache", "Chrome's cache", "Pages load a little slower once. Bookmarks, passwords, and sign-ins aren't touched.",
+            ("chrome-cache", "Chrome's cache", "Pages load a little slower once. Bookmarks, passwords, and sign-ins are not touched.",
              h + "/Library/Caches/Google/Chrome", ("com.google.Chrome", "Chrome")),
         ]
         return items.compactMap { i in
@@ -584,7 +584,7 @@ public enum Cleaner {
     public static func sample() -> [Find] {
         [
             Find(id: "agent:com.dropbox.DropboxMacUpdate.agent", group: .quick, title: "Dropbox's background helper",
-                 detail: "It starts a program that's been deleted, so it does nothing.", bytes: nil),
+                 detail: "It starts a program that was deleted, so it does nothing.", bytes: nil),
             Find(id: "logs", group: .quick, title: "Logs and crash reports more than 30 days old",
                  detail: "Apps only ever read their newest ones.", bytes: 270_000_000),
             Find(id: "saved-state", group: .quick, title: "Saved windows of deleted apps",
@@ -596,7 +596,7 @@ public enum Cleaner {
             Find(id: "homebrew", group: .rebuilds, title: "Homebrew's downloads",
                  detail: "Downloaded again the next time they're needed, which needs the internet.", bytes: 2_000_000_000),
             Find(id: "chrome-cache", group: .rebuilds, title: "Chrome's cache",
-                 detail: "Pages load a little slower once. Bookmarks, passwords, and sign-ins aren't touched.",
+                 detail: "Pages load a little slower once. Bookmarks, passwords, and sign-ins are not touched.",
                  bytes: 1_800_000_000, blocked: "Chrome is open"),
             Find(id: "pane:com.telestream.flip4mac", group: .check, title: "Flip4Mac WMV settings pane",
                  detail: "In the System Settings sidebar, but nothing else from its developer is on this Mac. Keep it if you still use what it set up.",

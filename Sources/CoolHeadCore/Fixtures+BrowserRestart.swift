@@ -25,7 +25,7 @@ extension Fixture {
         defer { try? FileManager.default.removeItem(at: folder) }
         let id = BrowserRestart.testAppID(run: getpid())
         guard let app = try? BrowserRestart.makeTestApp(in: folder, program: program, id: id) else {
-            return [("restart-browser-really-works", false, "couldn't build the test app")]
+            return [("restart-browser-really-works", false, "could not build the test app")]
         }
         let exec = realPath(app + "/Contents/MacOS/restarttest")
         // each check, then every copy it left ended; how many were still there afterward

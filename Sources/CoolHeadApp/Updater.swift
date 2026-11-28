@@ -48,7 +48,7 @@ final class Updater {
             let (data, _) = try await URLSession.shared.data(for: req)
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let tag = json["tag_name"] as? String, let assets = json["assets"] as? [[String: Any]] else {
-                throw Problem("GitHub's answer wasn't readable")
+                throw Problem("GitHub's answer was not readable")
             }
             let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
             releasePage = (json["html_url"] as? String).flatMap(URL.init(string:))
@@ -68,7 +68,7 @@ final class Updater {
                 Task { try? await Task.sleep(for: .seconds(4)); if self.phase == .upToDate { self.phase = .idle } }
             }
         } catch {
-            if !quiet { phase = .failed("Couldn't check for updates: \(error.localizedDescription)") }
+            if !quiet { phase = .failed("Could not check for updates: \(error.localizedDescription)") }
         }
     }
 
@@ -76,7 +76,7 @@ final class Updater {
     func install() async {
         guard case .available(let version) = phase else { return }
         guard let zip, let sig else {
-            phase = .failed("This release isn't signed for updating from inside the app. Download it from its release page instead.")
+            phase = .failed("This release is not signed for updating from inside the app. Download it from its release page instead.")
             return
         }
         phase = .installing
@@ -89,7 +89,7 @@ final class Updater {
                   let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData),
                   let signature = Data(base64Encoded: String(decoding: sigData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)),
                   key.isValidSignature(signature, for: zipData) else {
-                throw Problem("the update's signature didn't match, so it wasn't installed")
+                throw Problem("the update's signature did not match, so it was not installed")
             }
             // 2. unpack it beside nothing else, and check it is Cool Head at the version expected
             let work = FileManager.default.temporaryDirectory.appendingPathComponent("CoolHeadUpdate-\(UUID().uuidString)")
@@ -99,7 +99,7 @@ final class Updater {
             guard let info = Bundle(url: app)?.infoDictionary,
                   info["CFBundleIdentifier"] as? String == Bundle.main.bundleIdentifier,
                   info["CFBundleShortVersionString"] as? String == version else {
-                throw Problem("the download wasn't the expected version of Cool Head")
+                throw Problem("the download was not the expected version of Cool Head")
             }
             // 2a. it must run on this Mac: an update built for a newer macOS would replace a working copy with one
             // macOS refuses to open, so it isn't installed, and isn't offered again
@@ -120,7 +120,7 @@ final class Updater {
             try reopen.run()
             NSApp.terminate(nil)
         } catch {
-            phase = .failed((error as? Problem)?.message ?? "The update couldn't be installed: \(error.localizedDescription)")
+            phase = .failed((error as? Problem)?.message ?? "The update could not be installed: \(error.localizedDescription)")
             Watcher.shared.log("Update to \(version) failed")
         }
     }

@@ -1,5 +1,5 @@
 name: Report a problem
-description: "Sent from Cool Head's \"Report a problem\": a fix caused trouble, or Cool Head isn't working right. Posted under your GitHub account."
+description: "Sent from Cool Head's \"Report a problem\": a fix caused trouble, or Cool Head is not working right. Posted under your GitHub account."
 title: "Problem: "
 labels: [problem]
 body:

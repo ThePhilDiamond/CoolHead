@@ -91,7 +91,7 @@ public enum Decision {
         switch f.kind {
         case .stop: return OptionFacts(helps: "ends the load completely", cost: "nothing gets a chance to save")
         case .cooler: return OptionFacts(helps: "moves {who} to background priority, so it uses less power and makes less heat", undo: .anyTime)
-        case .cpuCap: return OptionFacts(helps: "holds {who} to the level you choose while you aren't using it, so it makes far less heat", undo: .anyTime)
+        case .cpuCap: return OptionFacts(helps: "holds {who} to the level you choose while you are not using it, so it makes far less heat", undo: .anyTime)
         case .pauseJob: return OptionFacts(helps: "freezes {who} until you connect the charger, when it continues by itself with nothing lost")
         case .quitApp:
             guard let app else { return nil }
@@ -181,8 +181,8 @@ public enum Decision {
                 out.append("\(act) only \(when): it \(fill(fb.helps, subject)), but \(fill(why, subject)).")
             } else if r == nil {
                 out.append(factor == "card's reason"
-                    ? "We don't recommend \(who) because \(because), and \(fill(why, subject))."
-                    : "We don't recommend \(who) because \(because). If you \(act.prefix(1).lowercased() + act.dropFirst()), \(fill(why, subject)).")
+                    ? "We do not recommend \(who) because \(because), and \(fill(why, subject))."
+                    : "We do not recommend \(who) because \(because). If you \(act.prefix(1).lowercased() + act.dropFirst()), \(fill(why, subject)).")
             } else {
                 out.append("Instead, \(who) \(fill(fb.helps, subject)), but \(fill(why, subject)).")
             }

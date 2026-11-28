@@ -12,7 +12,7 @@ Most of the work on Cool Head starts with a report. [Open an issue](../../issues
 
 ## Report a problem from the app
 
-If a fix caused trouble, or Cool Head isn't working right, use **Report a problem** (Report, among the tools along the bottom of the panel). It shows you everything it would share, and opens a GitHub issue for you to submit.
+If a fix caused trouble, or Cool Head is not working right, use **Report a problem** (Report, among the tools along the bottom of the panel). It shows you everything it would share, and opens a GitHub issue for you to submit.
 
 ## Share a case it couldn't explain
 

@@ -47,8 +47,8 @@ The system font everywhere, so each feels native: SF Pro on the Mac (SwiftUI's d
 ## Voice
 
 - Every card aims to make it easy to see what's happening and decide what to do, in simple, literal English that a person who learned English as a second language reads correctly the first time: the fewest words that keep it clear, and the same words and shapes for the same things on every card (26 November 2026).
-- Plain, non-technical words where possible; US English; the Oxford comma; no em dashes; no exclamation marks.
-- On cards: the present tense, with "still … after" for something still going on ("Site is still busy after 3 hours."), and the past only for an event that is over; never the present perfect ("has used"); no contractions ("is not"); no idioms or two-word verbs ("Wait a few minutes", not "Give it a minute"; "Search the web", not "Look it up"), except macOS's own Turn on and Turn off; no "we"; full sentences of at most 25 words, and at most 3 in an explanation.
+- Plain, non-technical words where possible; US English; the Oxford comma; no em dashes; no exclamation marks; contractions as GOV.UK has them, "it's" but "is not" and "cannot" (docs/CARD-TEMPLATE.md, Contractions).
+- On cards: the present tense, with "still … after" for something still going on ("Site is still busy after 3 hours."), and the past only for an event that is over; never the present perfect ("has used"); no idioms or two-word verbs ("Wait a few minutes", not "Give it a minute"; "Search the web", not "Look it up"), except macOS's own Turn on and Turn off; no "we"; full sentences of at most 25 words, and at most 3 in an explanation.
 - A card gives the verdict, a brief disclaimer, and the advice, and says what Cool Head thinks rather than leaving it to the reader.
 - Every "why" ends in what it means for the person.
 - Each option says what it does and what it costs before it's pressed.

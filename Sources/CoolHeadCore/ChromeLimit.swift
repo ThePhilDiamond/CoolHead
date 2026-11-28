@@ -143,12 +143,12 @@ public enum ChromeMemorySaver {
         tuning["high_efficiency_mode"] = mode; json["performance_tuning"] = tuning
         guard let out = try? JSONSerialization.data(withJSONObject: json),
               let back = (try? JSONSerialization.jsonObject(with: out)) as? [String: Any],
-              (back as NSDictionary).isEqual(to: json) else { return .failed("its settings file couldn't be written exactly") }
+              (back as NSDictionary).isEqual(to: json) else { return .failed("its settings file could not be written exactly") }
         let mode600 = (try? FileManager.default.attributesOfItem(atPath: path))?[.posixPermissions] as? NSNumber ?? 0o600
         let temp = dir + "/.Local State.coolhead-\(UUID().uuidString)"
-        guard FileManager.default.createFile(atPath: temp, contents: out, attributes: [.posixPermissions: mode600]) else { return .failed("couldn't write next to its settings file") }
-        guard rename(temp, path) == 0 else { try? FileManager.default.removeItem(atPath: temp); return .failed("couldn't replace its settings file") }
-        return read(path: path)?.atMaximum == true ? .set : .failed("the new setting didn't read back")
+        guard FileManager.default.createFile(atPath: temp, contents: out, attributes: [.posixPermissions: mode600]) else { return .failed("could not write next to its settings file") }
+        guard rename(temp, path) == 0 else { try? FileManager.default.removeItem(atPath: temp); return .failed("could not replace its settings file") }
+        return read(path: path)?.atMaximum == true ? .set : .failed("the new setting did not read back")
     }
 
     /// Whether a Chrome is using this data folder: its SingletonLock names `<host>-<pid>`. A lock left by a process that

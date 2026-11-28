@@ -51,7 +51,7 @@ extension Fixture {
         let addsUp = browser?.energy == 2 * 3_000_000_000       // two days, helpers included, boundary once
             // macOS's own parts together; each row says what its share means
             && energy == "Browser 56%, macOS itself 36%, Chat 4%, syncd 4%"
-            && rows.first?.detail.hasPrefix("A large share. If you don't use Browser most of the day") == true
+            && rows.first?.detail.hasPrefix("A large share. If you do not use Browser most of the day") == true
             && rows.first { $0.name == "macOS itself" }?.detail == PowerHistory.macOSDetail && rows.first { $0.name == "macOS itself" }?.user == nil
             && rows.last?.detail == "A program that runs in the background, started by you or by an app. A small share: nothing to do."
             && PowerHistory.detail("X", app: true, share: 0.12).hasPrefix("A fair share")

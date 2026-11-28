@@ -3,8 +3,8 @@ import Foundation
 /// The card template (docs/BRAND.md, Card template; the rules and their sources are in docs/CARD-TEMPLATE.md).
 /// Every card fills the same slots, and the sentences are written here from them, in simple English that a person who
 /// learned English as a second language reads correctly the first time: the simple present for now, the simple past
-/// for a measured stretch of time, never the present perfect ("has used"), no contractions, no idioms, and one word
-/// for each idea.
+/// for a measured stretch of time, never the present perfect ("has used"), no negative or conditional contractions
+/// (GOV.UK's rule: "it's" is fine, "isn't" is "is not"), no idioms, and one word for each idea.
 ///
 /// - Headline: subject, reading, verdict. "A Google Chrome tab is still working hard after 1 hour. This is more than usual."
 /// - Explanation: how we know (evidence), then what it means for you (effect).
@@ -300,9 +300,16 @@ public struct CardTemplate: Equatable {
 
     /// Words and forms the rules leave out, each with the reason, found by a pattern (docs/CARD-TEMPLATE.md).
     static let banned: [(pattern: String, why: String)] = [
-        (#"\b\w+n't\b"#, "a contraction"),
-        (#"\b(?:it|that|there|what|here|who|let)'s\b"#, "a contraction"),
-        (#"\b\w+'(?:re|ll|ve|d|m)\b"#, "a contraction"),
+        // GOV.UK's rule: "it's", "you're", and "you'll" are fine; a negative or conditional contraction is spelled out,
+        // and "'s" means only "is" (docs/CARD-TEMPLATE.md, Contractions)
+        (negativeContraction, "a negative contraction"),
+        (conditionalContraction, "a conditional contraction"),
+        // only before been, had, or got, where "'s" can only be "has": "it's paused", "it's done", "it's red" are "is"
+        (#"\b\w+'s\s+(?:not\s+)?(?:been|had|got)\b"#, "\"'s\" for \"has\", which reads as \"is\""),
+        // "you've used", "they've stopped": the present perfect, contracted
+        (#"\b\w+'ve\b"#, "the present perfect"),
+        // "let's" is "let us"
+        (#"\blet's\b"#, "\"we\", which is unclear on a card"),
         (#"\b(?:has|have)\s+(?:not\s+)?(?:been|done|had|gone|made|kept|run|found|seen|grown|slept|left|lost|got|put|set|come|become|risen|taken|given|\w+ed)\b"#, "the present perfect"),
         (#"\b(?:likely|seems?|looks|might|could|perhaps)\b"#, "a word for how sure outside probably, may, and usually"),
         (#"\b(?:since|around)\b"#, "a time word outside for the last, at, after, and about"),
@@ -314,12 +321,18 @@ public struct CardTemplate: Equatable {
         // two-word verbs; macOS's own Turn on, Turn off, Shut down, Back up, and plugged in are allowed
         (#"\b(?:comes?|came) back\b|\bcarr(?:y|ies) on\b|\bfigures? (?:it )?out\b|\bsets? up\b|\bgo(?:es)? on\b|\blooks? up\b|\bgives? back\b|\bbrings? (?:it )?back\b|\bslows? down\b|\bturns? down\b"#, "a two-word verb"),
     ]
+    /// "can't", "isn't", "won't": spelled out everywhere, on cards and off (the selftest's contractions check reads
+    /// every string in Sources for it).
+    public static let negativeContraction = #"\b\w+n't\b"#
+    /// "should've", "could've", and any "'d" ("it'd", "you'd"), which reads as "had" or "would".
+    public static let conditionalContraction = #"\b(?:should|could|would|might|must)'ve\b|\b\w+'d\b"#
     /// The rules of the word list that hold beyond the cards, in Nerdy stuff, where technical words are fine: no
-    /// contraction, no present perfect, no "we", no "over" with an amount or a time. Each problem with the words it found.
+    /// negative or conditional contraction, no "'s" for "has", no present perfect, no "we", no "over" with an amount
+    /// or a time. Each problem with the words it found.
     public static func clarity(_ text: String) -> [String] {
         // names with a dot (zoom.us, com.apple.mds, build.log) masked first, as the card check masks names
         let t = text.replacingOccurrences(of: "\u{2019}", with: "'").replacingOccurrences(of: #"\S*[A-Za-z_]\.[A-Za-z]\S*"#, with: "Name", options: .regularExpression)
-        return banned.filter { ["a contraction", "the present perfect"].contains($0.why) || $0.why.hasPrefix("\"we\"") || $0.why.hasPrefix("\"over\"") }
+        return banned.filter { $0.why.hasSuffix(" contraction") || $0.why.hasPrefix("\"'s\"") || $0.why == "the present perfect" || $0.why.hasPrefix("\"we\"") || $0.why.hasPrefix("\"over\"") }
             .compactMap { b in t.range(of: b.pattern, options: [.regularExpression, .caseInsensitive]).map { "\(b.why) (\(t[$0]))" } }
     }
 
@@ -335,8 +348,9 @@ public struct CardTemplate: Equatable {
             .components(separatedBy: "\u{1}").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
-    /// Every way a card's words break the rules, as "headline: a contraction (isn't)"; empty when none does. Names are
-    /// left out of the words checked (a program may be called "helper"), and curly apostrophes count as straight ones.
+    /// Every way a card's words break the rules, as "headline: a negative contraction (isn't)"; empty when none does.
+    /// Names are left out of the words checked (a program may be called "helper"), and curly apostrophes count as
+    /// straight ones.
     public static func problems(_ c: Card) -> [String] {
         var out: [String] = []
         var parts = [("headline", c.headline), ("explanation", c.explanation)]
@@ -350,7 +364,7 @@ public struct CardTemplate: Equatable {
             if case .guide(let steps) = f.kind { parts += steps.map { ("\(f.id) step", $0) } }
             if case .reveal(_, let steps) = f.kind { parts.append(("\(f.id) step", steps)) }
             if !f.consequence.isEmpty, !consequenceStarts.contains(where: { f.consequence.hasPrefix($0) }) {
-                out.append("\(f.id) consequence: doesn't start with This or a fixed phrase (\(f.consequence.prefix(30)))")
+                out.append("\(f.id) consequence: does not start with This or a fixed phrase (\(f.consequence.prefix(30)))")
             }
             if f.title.hasSuffix(".") { out.append("\(f.id) title: ends with a period") }
             if f.title.range(of: replacedActions, options: .regularExpression) != nil { out.append("\(f.id) title: an action the word list replaces (\(f.title))") }

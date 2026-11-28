@@ -1,0 +1,1 @@
+- Cool Head's words follow GOV.UK's rule on contractions, in the panel, Settings, Nerdy stuff, and the `coolhead` tool: "it's" and "you're" stay, but negative ones such as "can't", "don't", and "isn't" are spelled out, since they are easy to misread as the opposite.

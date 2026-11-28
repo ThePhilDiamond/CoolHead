@@ -83,7 +83,7 @@ flowchart TD
 
 If two cards tie, the selftest fails and names both. Each card's Nerdy stuff explains its recommendation in plain words, generated from a **decision record** ([`Decision.swift`](../Sources/CoolHeadCore/Decision.swift)), never reworded by a model:
 
-- **What the card saw, and what it means**, written by each card for each situation it covers: "it hasn't made any progress for 2 hours", "it's stuck, using power without getting anywhere".
+- **What the card saw, and what it means**, written by each card for each situation it covers: "it made no progress in the last 2 hours", "it's stuck, using power without getting anywhere".
 - **Facts about each option**, written once for each kind of option, or by the card where its option needs its own words, each a clause for one role: how it helps, what it costs, whether it can be undone, when it's the right choice, and what Cool Head checked (worked out, such as "you could lose up to 3 hours of work").
 - **The comparison**: the strongest option the card doesn't recommend, and the factor that holds it back (its risk, what it ends, the effort, or the card's own reason).
 

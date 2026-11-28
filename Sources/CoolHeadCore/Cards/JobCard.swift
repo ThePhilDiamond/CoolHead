@@ -13,7 +13,7 @@ enum JobCard: ProcessCard {
         case .stalled: return .any("it has stopped making progress")
         case .working where s.e.progress != nil: return .any("its log says how far along it is")
         case .waiting: return .any("it's waiting for another job")
-        default: return .any("we can't tell what it's doing from outside it")
+        default: return .any("we cannot tell what it's doing from outside it")
         }
     }
     /// Before Stop it's cost when nobody can tell what the job is (its state is unknown); the memory card says it too.
@@ -36,11 +36,11 @@ enum JobCard: ProcessCard {
         switch s.state {
         case .working:
             signs = [e.progress?.fraction.map { "is \(Fmt.percent($0)) done" } ?? (e.progress != nil ? "is making progress" : "is busy and still saving its work")]
-        case .waiting: signs = ["is waiting for another job and isn't using your Mac's power"]
+        case .waiting: signs = ["is waiting for another job and is not using your Mac's power"]
         case .stalled:
-            signs = ["hasn't made any progress for \(Fmt.duration(s.now.timeIntervalSince(e.progress?.lineTime ?? s.now)))"]
+            signs = ["made no progress in \(CardTemplate.last(s.now.timeIntervalSince(e.progress?.lineTime ?? s.now)))"]
             means = "it's stuck, using power without getting anywhere"
-        case .unknown: signs = ["'s been busy for \(Fmt.duration(s.busyFor)) without saying what it's doing"]
+        case .unknown: signs = ["is still busy after \(Fmt.duration(s.busyFor)) without saying what it is doing"]
         case .starting: signs = ["only just started"]
         case .quiet: signs = ["is quiet now"]
         }
@@ -51,7 +51,7 @@ enum JobCard: ProcessCard {
             if s.gpuLed { signs.append("is keeping the graphics chip busy") }
         }
         // "it's 96% done and is adding to the heat"
-        if signs[0].hasPrefix("is ") { signs[0] = "'s " + signs[0].dropFirst(3) } else if !signs[0].hasPrefix("'") { signs[0] = " " + signs[0] }
+        if signs[0].hasPrefix("is ") { signs[0] = "'s " + signs[0].dropFirst(3) } else { signs[0] = " " + signs[0] }
         return Diagnosis(saw: "it" + Decision.list(signs), means: means)
     }
 
@@ -59,10 +59,10 @@ enum JobCard: ProcessCard {
     static func facts(_ s: Situation) -> [String: OptionFacts] {
         var out: [String: OptionFacts] = [:]
         if s.state == .stalled, let p = s.e.progress {
-            out["stop"] = OptionFacts(helps: "frees the power it's been using", cost: "it can't be undone", stakes: .nothingLostSince(Fmt.time(p.lineTime)))
+            out["stop"] = OptionFacts(helps: "frees the power it uses", cost: "it cannot be undone", stakes: .nothingLostSince(Fmt.time(p.lineTime)))
         } else {
             out["stop"] = OptionFacts(helps: "ends the load completely", cost: "nothing gets a chance to save",
-                                      when: s.state == .unknown ? "if you know what it is and don't need it" : nil,
+                                      when: s.state == .unknown ? "if you know what it is and do not need it" : nil,
                                       stakes: s.atStake >= 10 * 60 ? .mayLose(Fmt.duration(s.atStake)) : nil)
         }
         if let g = s.gameRunning { out["cooler"] = OptionFacts(helps: "leaves more power for \(g)", undo: .anyTime) }
