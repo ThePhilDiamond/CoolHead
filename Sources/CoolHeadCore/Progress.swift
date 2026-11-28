@@ -42,7 +42,7 @@ public struct Progress {
         let pct = Fmt.percent(f)
         if let a = activity { return "\(who) is \(a): \(pct) done." }
         if let u = unit, let t = total { return "\(who) is \(pct) through \(Int(t).formatted()) \(u)." }
-        return "\(who) is \(pct) done with something its log doesn't name."
+        return "\(who) is \(pct) done with something its log does not name."
     }
 
     /// When the job should finish: its own estimate, counted from when it wrote the line.

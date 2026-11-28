@@ -63,7 +63,7 @@ struct CleanerView: View {
             // what Cool Head can't see or clear itself: where to do it
             VStack(alignment: .leading, spacing: 10) {
                 linkRow(symbol: "hand.raised", title: "Deleted apps in permission lists",
-                        detail: "macOS doesn't let apps read these lists. Select the app there and press −.",
+                        detail: "macOS does not let apps read these lists. Select the app there and press −.",
                         button: "Open Privacy & Security", url: "x-apple.systempreferences:com.apple.preference.security?Privacy")
                 linkRow(symbol: "internaldrive", title: "Large files, iPhone backups, and the Trash",
                         detail: "Apple's Storage settings already sort these by size.",
@@ -164,7 +164,7 @@ struct CleanerView: View {
         let check = deep.filter { $0.group == .check }
         let rebuild = deep.contains { $0.group == .rebuilds }
         let sentence = [rebuild ? "What rebuilds itself is ticked; rebuilding can need the internet." : nil,
-                        check.isEmpty ? nil : "What Cool Head can't be sure of isn't: \(Fmt.list(Cleaner.kinds(check)))."]
+                        check.isEmpty ? nil : "What Cool Head cannot be sure of is not ticked: \(Fmt.list(Cleaner.kinds(check)))."]
             .compactMap { $0 }.joined(separator: " ")
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -237,7 +237,7 @@ struct CleanerView: View {
                     .font(.caption).foregroundStyle(Ink.muted).fixedSize(horizontal: false, vertical: true)
                 if f.caution {
                     OptionTag(words: "CAUTION", symbol: "exclamationmark.triangle.fill", color: .white,
-                              help: "Cool Head can't be sure nothing still uses this.", solid: Ink.cautionFill)
+                              help: "Cool Head cannot be sure nothing still uses this.", solid: Ink.cautionFill)
                         .padding(.top, 2)
                 }
             }
@@ -416,7 +416,7 @@ final class CleanerModel: ObservableObject {
             await MainActor.run {
                 Watcher.shared.log("Cleaner: \(label), \(m) moved to the Trash, \(f) not moved")
                 self.message = (m > 0 ? "Moved \(Cleaner.count(m, bytes: b)) to the Trash. " : "")
-                    + (f > 0 ? (ok ? "\(f == 1 ? "1 item" : "\(f) items") couldn't be moved." : "Nothing in the folders for all users was moved.") : "")
+                    + (f > 0 ? (ok ? "\(f == 1 ? "1 item" : "\(f) items") could not be moved." : "Nothing in the folders for all users was moved.") : "")
                 self.working = false
                 self.chosen.removeAll { c in list.contains { $0.id == c.id } }
                 self.scan(force: true)

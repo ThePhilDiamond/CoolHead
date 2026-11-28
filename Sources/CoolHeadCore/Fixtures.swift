@@ -56,15 +56,15 @@ public struct Fixture {
                        ("case-report-leaks-nothing", found.isEmpty, found.isEmpty ? "no private detail in the report" : "leaked: \(found)"),
                        ("case-report-names-macos", mdsReport.contains("mds_stores (part of macOS)"), "macOS processes keep their name"),
                        // the issue's title is the person's few words, tidied and kept short; the kind only when none were typed
-                       ("problem-report-title", ProblemReport.title(kind: "Something else", summary: "  Chrome's limit\ndidn't lift ") == "Problem: Chrome's limit didn't lift"
+                       ("problem-report-title", ProblemReport.title(kind: "Something else", summary: "  Chrome's limit\ndid not lift ") == "Problem: Chrome's limit did not lift"
                             && ProblemReport.title(kind: "Something else", summary: "") == "Problem: Something else"
                             && ProblemReport.title(kind: "x", summary: String(repeating: "word ", count: 20)).count <= "Problem: ".count + ProblemReport.summaryLimit
                             && ProblemReport.issueURL(title: ProblemReport.title(kind: "x", summary: "Menu icon stuck"), words: "", report: "")?.absoluteString.contains("title=Problem:%20Menu%20icon%20stuck") == true
                             // about a managed item: what Cool Head did, then what went wrong; Something else takes the few words
                             && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: ProblemReport.heldProblems[0], summary: "") == "Problem: Chrome's memory limit caused an app to crash or quit"
-                            && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: "Didn't help", summary: "") == "Problem: Chrome's memory limit didn't help"
+                            && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: "Did not help", summary: "") == "Problem: Chrome's memory limit did not help"
                             && ProblemReport.heldTitle(doing: "Chrome's memory limit", problem: "Something else", summary: "tabs blank") == "Problem: Chrome's memory limit: tabs blank",
-                        ProblemReport.title(kind: "Something else", summary: "  Chrome's limit\ndidn't lift "))]
+                        ProblemReport.title(kind: "Something else", summary: "  Chrome's limit\ndid not lift "))]
         // review of 15 November 2026: each finding that was fixed keeps a check here
         var review: [(String, Bool, String)] = []
         // F2: a job whose progress line is old but which is writing now is working, not stuck
@@ -92,11 +92,11 @@ public struct Fixture {
         let helper = Evidence.sample(name: "Simulator", path: "/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator",
                                      start: now, cores: 1)
         review.append(("F7-quit-only-main-programs", helper.quittableBundle == nil && xcode.quittableBundle == "/Applications/Xcode.app",
-                       "a helper inside Xcode can't be quit as Xcode"))
+                       "a helper inside Xcode cannot be quit as Xcode"))
         // F18: a catalogue name only counts for macOS's own copy
         review.append(("F18-name-needs-macos-path", Pattern.match(name: "bird", path: "/Users/x/bin/bird", pid: 99999) == nil
                        && Pattern.match(name: "bird", path: "/System/Library/PrivateFrameworks/CloudDocsDaemon.framework/Versions/A/Support/bird", pid: 99999) != nil,
-                       "someone's own program called bird isn't taken for iCloud"))
+                       "someone's own program called bird is not taken for iCloud"))
         // F22: secrets in command lines are hidden
         let shown = Redact.args(["tool", "--token=abc123", "--password", "hunter2", "https://me:pw123@example.com/x"]).joined(separator: " ")
         review.append(("F22-secrets-hidden", !shown.contains("abc123") && !shown.contains("hunter2") && !shown.contains("pw123"), shown))
@@ -166,13 +166,13 @@ public struct Fixture {
             && restartFix?.consequence == "This closes and opens it again, to free memory it built up. Your tabs open again. Incognito windows, unsent typing, and downloads in progress do not."
             && browserOrder == "tabs restart quit saver tabmemory" && driveOrder == "quit restart quit2 pause"
             && edgeRestart?.consequence.contains("InPrivate windows") == true && notChromium.isEmpty
-            && BrowserRestart.note(.stillOpen, name: "Google Chrome").text.contains("so it wasn't reopened") && BrowserRestart.note(.stillOpen, name: "Google Chrome").failed
+            && BrowserRestart.note(.stillOpen, name: "Google Chrome").text.contains("so it was not reopened") && BrowserRestart.note(.stillOpen, name: "Google Chrome").failed
             && !BrowserRestart.note(.restarted(seconds: 3), name: "Google Chrome").failed
         review.append(("restart-browser-option", restartCard, "Chrome first: \(browserOrder); Chrome second: \(driveOrder); Edge \(edgeRestart != nil); offered for others \(notChromium)"))
         let dockerCard = MemoryAdvice.card([MemGroup(key: "d", name: "Docker", kind: .app, bundle: "/Applications/Docker.app", bytes: 4_000_000_000, count: 3)], mac: tight, now: now)
         let dockerQuit = dockerCard.fixes.first { $0.id == "quit" }
         review.append(("memory-app-risk", dockerQuit?.consequence.contains("stops all containers") == true && dockerQuit?.recommended == false,
-                       "Quit Docker says it stops every container, and isn't recommended"))
+                       "Quit Docker says it stops every container, and is not recommended"))
         var jobGroup = MemGroup(key: "job-1", name: "job", kind: .job, bundle: nil, bytes: 3_000_000_000, count: 1)
         jobGroup.evidence = Evidence.sample(name: "python3", path: "/usr/bin/python3", args: ["python3", "index.py"], cwd: "/Users/x/Archive",
                                             start: now.addingTimeInterval(-3 * 3600), cores: 4)
@@ -223,12 +223,12 @@ public struct Fixture {
                        busyRepeats.isEmpty ? "stalled: \(stopOf("job-stalled") ?? "-"); no signs: \(stopOf("job-no-signs") ?? "-"); older work: \(olderWork.fixes.first { $0.kind == .stop }?.consequence ?? "-")"
                                            : busyRepeats.joined(separator: "; ")))
         // the card template (docs/BRAND.md, Card template; docs/CARD-TEMPLATE.md): every sample card is written
-        // from its slots, its headline is the template's, and its words keep the rules (no contractions, no present
+        // from its slots, its headline is the template's, and its words keep the rules (no negative contractions, no present
         // perfect, no idioms, one word for each idea, options that start with This or a fixed phrase)
         var templateProblems: [String] = []
         for (id, c) in samples.sorted(by: { $0.key < $1.key }) {
             guard let t = c.template else { templateProblems.append("\(id): not from the template"); continue }
-            if c.headline != t.headline { templateProblems.append("\(id): headline isn't the template's") }
+            if c.headline != t.headline { templateProblems.append("\(id): headline is not the template's") }
             templateProblems += CardTemplate.problems(c).map { "\(id) \($0)" }
         }
         // the terms footer: a card that says memory or storage brings up their definition, once however many cards do;
@@ -275,7 +275,7 @@ public struct Fixture {
         if let intel = samples["intel-app-26"] { varied.append(("intel extra", intel)) }
         for (name, c) in varied {
             guard let t = c.template else { templateProblems.append("\(name): not from the template"); continue }
-            if c.headline != t.headline { templateProblems.append("\(name): headline isn't the template's") }
+            if c.headline != t.headline { templateProblems.append("\(name): headline is not the template's") }
             if c.explanation.hasPrefix(" ") { templateProblems.append("\(name): explanation starts with a space") }
             templateProblems += CardTemplate.problems(c).map { "\(name) \($0)" }
         }

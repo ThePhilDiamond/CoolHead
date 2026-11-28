@@ -8,8 +8,8 @@ extension Fixture {
         var bad: [String] = []
         for (id, c) in samples {
             let text = ([c.headline, c.explanation] + c.facts + c.fixes.flatMap { [$0.title, $0.consequence] }).joined(separator: " ")
-            if !Naming.tellApart(c.names) { bad.append("\(id): \(c.names) can't be told apart") }
-            for n in c.names where !text.contains(n) && !text.contains(Fmt.sentenceStart(n)) { bad.append("\(id): names \"\(n)\" but doesn't show it") }
+            if !Naming.tellApart(c.names) { bad.append("\(id): \(c.names) cannot be told apart") }
+            for n in c.names where !text.contains(n) && !text.contains(Fmt.sentenceStart(n)) { bad.append("\(id): names \"\(n)\" but does not show it") }
         }
         let named = samples.filter { !$0.1.names.isEmpty }.count
         let aboutProcesses = samples.filter { !$0.0.hasPrefix("hardware-") }.count      // hardware cards name no process

@@ -92,7 +92,7 @@ public struct PowerHistory: Equatable {
         let what = app ? "" : "A program that runs in the background, started by you or by an app. "
         let stop = app ? "quit it" : "stop it, or quit the app that started it,"
         if share >= 0.25 {
-            return what + "A large share. If you don't use \(name) most of the day, it may be working in the background: \(stop) when you're done with it, or look in its settings for background activity."
+            return what + "A large share. If you do not use \(name) most of the day, it may be working in the background: \(stop) when you're done with it, or look in its settings for background activity."
         }
         if share >= 0.10 { return what + "A fair share, as for anything you use a lot. If you rarely use it, \(stop) when you're done with it." }
         return what + "A small share: nothing to do."
@@ -458,7 +458,7 @@ extension PowerHistory {
 
     /// "It woke from sleep 58 times."
     public var wakesSummary: String {
-        wakes.isEmpty ? "It didn't wake from sleep." : "It woke from sleep \(PowerHistory.times(wakes.count))."
+        wakes.isEmpty ? "It did not wake from sleep." : "It woke from sleep \(PowerHistory.times(wakes.count))."
     }
 
     /// One line per cause: "51 times on a timer, which macOS sets to do its own work while asleep. This is normal."
@@ -506,11 +506,11 @@ extension PowerHistory {
         case .plug: return "Plugging something in wakes it, most often the charger. There's nothing to change."
         case .network: return "Network activity woke it, such as another device reaching this Mac."
         case .bluetooth: return "A Bluetooth device woke it, such as a keyboard or headphones."
-        case .wireless: return "The chip that handles both Wi-Fi and Bluetooth woke it, for network activity or a Bluetooth device; macOS doesn't record which."
+        case .wireless: return "The chip that handles both Wi-Fi and Bluetooth woke it, for network activity or a Bluetooth device; macOS does not record which."
         case .schedule: return "macOS sets timers to wake the Mac briefly while it sleeps, to do its own work. This is normal, and there's nothing to change."
         case .other:
             let reasons = Array(Set(wakes.map(\.reason))).sorted().prefix(2).map { "“\($0)”" }
-            return "macOS records \(reasons.count == 1 ? "the reason" : "the reasons") as \(reasons.joined(separator: " and ")), which Cool Head doesn't recognize."
+            return "macOS records \(reasons.count == 1 ? "the reason" : "the reasons") as \(reasons.joined(separator: " and ")), which Cool Head does not recognize."
         }
     }
 

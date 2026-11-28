@@ -152,7 +152,7 @@ extension Fixture {
     /// A child process that keeps one core busy, limited to Barely running and then to Slow and steady, and a second
     /// group started at Slow and steady: each should settle at its level's amount.
     static func cpuLimitHoldsChecks() -> (String, Bool, String) {
-        guard let a = busyLoop() else { return ("cpu-limit-holds-the-amount", false, "couldn't start a busy loop") }
+        guard let a = busyLoop() else { return ("cpu-limit-holds-the-amount", false, "could not start a busy loop") }
         defer { end(a) }
         let limiter = CPULimiter()
         // the limiter narrows toward the amount a step a second, so it settles sooner on a quick Mac than on a busy test

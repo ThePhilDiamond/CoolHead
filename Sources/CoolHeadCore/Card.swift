@@ -288,7 +288,7 @@ extension Fix {
         case .deleteBuildData: return nil
         // a quit marked losingWork() where it's made: its description says what is lost
         case .quitApp: return "What it's in the middle of stops, and reopening it may not pick up where it left off."
-        case .keepOutOfBackup: return "It won't be in your backups."
+        case .keepOutOfBackup: return "It will not be in your backups."
         case .wait: return nil
         case .cooler, .cpuCap: return nil
         case .lookUp: return nil

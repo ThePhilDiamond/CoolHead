@@ -17,7 +17,7 @@ public enum HardwarePage {
             return Verdict(level: 2, title: "Crash restarts", meaning: "The Mac restarted after a crash \(Hardware.times(crashes)) this week. What to try is below.")
         }
         if let d = r.drive, d.mediaErrors > 0 {
-            return Verdict(level: 1, title: "Drive errors", meaning: "The drive couldn't correct some reads. Keep your backups current.")
+            return Verdict(level: 1, title: "Drive errors", meaning: "The drive could not correct some reads. Keep your backups current.")
         }
         if crashes == 1 {
             return Verdict(level: 1, title: "One crash restart", meaning: "Nothing to worry about yet. What happened is below.")
@@ -31,7 +31,7 @@ public enum HardwarePage {
         // names what was checked, since "Hardware looks healthy" wouldn't say which hardware
         return r.drive != nil
             ? Verdict(level: 0, title: "Drive and ports look healthy", meaning: "No warnings from either, and no crash restarts this week.")
-            : Verdict(level: 0, title: "Ports look healthy", meaning: "No warnings from them and no crash restarts this week. The drive's health couldn't be read.")
+            : Verdict(level: 0, title: "Ports look healthy", meaning: "No warnings from them and no crash restarts this week. The drive's health could not be read.")
     }
 
     /// One part of the Mac, with everything about it together: its name, a few words for how it is, and a line or two
@@ -52,11 +52,11 @@ public enum HardwarePage {
             // the drive's wear and what wears it (writing, and time on), its temperature, and any errors, in one place
             var lines: [String] = []
             if !d.warnings.isEmpty { lines.append("It reports: " + d.warnings.joined(separator: ", ") + ". Back up now.") }
-            if d.mediaErrors > 0 { lines.append("It couldn't correct \(Hardware.count(d.mediaErrors)) reads. Keep your backups current.") }
+            if d.mediaErrors > 0 { lines.append("It could not correct \(Hardware.count(d.mediaErrors)) reads. Keep your backups current.") }
             // whether anything backs it up, since every drive warning ends in "back up"; only Time Machine counts, since
             // sync apps (iCloud Drive, Google Drive, Dropbox, Box) aren't backups
             let backup: String? = switch r.timeMachine {
-            case .notSetUp?: "Time Machine isn't set up, so nothing backs this drive up."
+            case .notSetUp?: "Time Machine is not set up, so nothing backs this drive up."
             case .setUp?: "Time Machine is set up to back it up."
             case nil: nil
             }
@@ -72,7 +72,7 @@ public enum HardwarePage {
         } else {
             // never left out without a word: an Intel Mac's drive, or a read that failed
             out.append(Part(kind: .drive, symbol: "internaldrive", name: "Drive", value: "Not read",
-                            level: 0, lines: ["Cool Head couldn't read its health record. It tries again every 10 minutes."]))
+                            level: 0, lines: ["Cool Head could not read its health record. It tries again every 10 minutes."]))
         }
         // crash restarts: the count, when the last one was, and what it means with what to do, together, not the time at
         // one end of the part and the meaning at the other; short, in plain words ("A one-off crash like this isn't a
@@ -84,7 +84,7 @@ public enum HardwarePage {
         }
         if crashes == 1 {
             crashLines.append(CrashRestarts.plainCause(r.crashes.lastText.map(CrashRestarts.cause) ?? .unclear).joined(separator: " "))
-            crashLines.append("A one-off crash like this isn't a concern. If it happens again in the next week, Cool Head will show you what to try.")
+            crashLines.append("A one-off crash like this is not a concern. If it happens again in the next week, Cool Head will show you what to try.")
         } else if crashes >= 2 {
             crashLines.append("Its card, in the list, says what that means and what to try.")
         }
@@ -174,7 +174,7 @@ public enum HardwarePage {
         let (icon, meaning): (Int, String) = {
             if thermal == "critical" { return (2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun.") }
             if signs.memoryCritical { return (2, "Apps and programs are using all of your Mac's memory, so everything is slower.") }
-            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program isn't making progress." : "\(signs.stuck) programs aren't making progress.") }
+            if signs.stuck > 0 { return (2, signs.stuck == 1 ? "A program is not making progress." : "\(signs.stuck) programs are not making progress.") }
             if let p = signs.partHeat, p.level >= 2 { return (2, "The \(p.part) is hot.") }
             // moderate: melting
             if thermal == "serious" { return (1, "macOS is slowing your Mac a little to cool it.") }

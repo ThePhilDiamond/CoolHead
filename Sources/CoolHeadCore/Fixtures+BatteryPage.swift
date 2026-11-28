@@ -36,7 +36,7 @@ extension Fixture {
             "Charging · 64% / 45 W from a 96 W charger",
             "Holding at 80% / on purpose, to slow wear",
             "Not charging · 50% / too warm (\(Fmt.temperature(42))); it starts as it cools",
-            "Draining while plugged in / the 30 W charger can't keep up",
+            "Draining while plugged in / the 30 W charger cannot keep up",
             "Plugged in · full / 96 W charger",
         ] && states.map(\.level) == [0, 0, 0, 1, 2, 0] && states[0].symbol == "battery.75percent"
         review.append(("battery-page-status", s1, states.map { $0.text + " / " + ($0.detail ?? "-") }.joined(separator: " | ")))

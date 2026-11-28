@@ -76,10 +76,10 @@ public enum BrowserRestart {
         let done = DispatchSemaphore(value: 0)
         let result = Box()
         NSWorkspace.shared.openApplication(at: url, configuration: config) { app, error in
-            result.error = error.map { $0.localizedDescription } ?? (app == nil ? "macOS didn't open it" : nil)
+            result.error = error.map { $0.localizedDescription } ?? (app == nil ? "macOS did not open it" : nil)
             done.signal()
         }
-        if done.wait(timeout: .now() + 15) == .timedOut { result.error = "macOS didn't open it within 15 seconds" }
+        if done.wait(timeout: .now() + 15) == .timedOut { result.error = "macOS did not open it within 15 seconds" }
         if let e = result.error { log("did not reopen"); return .reopenFailed(e) }
         log(arguments.isEmpty ? "reopened" : "reopened with its last session")
         return .restarted(seconds: took)
@@ -105,11 +105,11 @@ public enum BrowserRestart {
         case .notRunning:
             return ("It's already closed.", false)
         case .refused:
-            return ("\(name) didn't quit. It may be asking you something.", true)
+            return ("\(name) did not quit. It may be asking you something.", true)
         case .stillOpen:
-            return ("\(name) is still open after \(Int(wait)) seconds, so it wasn't reopened. It may be asking you something, such as about a download. If it closes later, open it again: it may offer to restore your tabs, or look in \(Fmt.path("History", "Recently Closed")).", true)
+            return ("\(name) is still open after \(Int(wait)) seconds, so it was not reopened. It may be asking you something, such as about a download. If it closes later, open it again: it may offer to restore your tabs, or look in \(Fmt.path("History", "Recently Closed")).", true)
         case .reopenFailed(let why):
-            return ("\(name) closed but didn't reopen: \(why). Open it again: it may offer to restore your tabs, or look in \(Fmt.path("History", "Recently Closed")).", true)
+            return ("\(name) closed but did not reopen: \(why). Open it again: it may offer to restore your tabs, or look in \(Fmt.path("History", "Recently Closed")).", true)
         }
     }
 

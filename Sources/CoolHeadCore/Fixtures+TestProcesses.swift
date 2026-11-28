@@ -82,7 +82,7 @@ extension Fixture {
             usleep(300_000)
             let ended = end(stubborn)
             out.append(("test-process-ended-even-ignoring-sigterm", ended && Proc.bsd(pid) == nil, "ended \(ended)"))
-        } else { out.append(("test-process-ended-even-ignoring-sigterm", false, "couldn't start /bin/sh")) }
+        } else { out.append(("test-process-ended-even-ignoring-sigterm", false, "could not start /bin/sh")) }
         // a busy loop ends by itself once what it belongs to has gone, as when the selftest is stopped part way: here
         // it belongs to a sleeper, which is ended
         let owner = sleeper(), loop = owner.flatMap { busyLoop(owner: $0.processIdentifier) }
@@ -91,7 +91,7 @@ extension Fixture {
             end(owner)
             let gone = until(3) { !loop.isRunning }
             out.append(("busy-loop-ends-with-the-selftest", busy && gone, "busy \(busy); ended by itself once its owner had gone \(gone)"))
-        } else { out.append(("busy-loop-ends-with-the-selftest", false, "couldn't start /bin/sleep or the loop")) }
+        } else { out.append(("busy-loop-ends-with-the-selftest", false, "could not start /bin/sleep or the loop")) }
         [owner, loop].compactMap { $0 }.forEach { end($0) }
         return out
     }

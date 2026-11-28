@@ -47,7 +47,7 @@ struct BatteryView: View {
                     if let d = s.detail { Text(d).font(.caption).foregroundStyle(Ink.muted).multilineTextAlignment(.trailing) }
                 }
             } else if MacOutline.laptop {
-                Text("Cool Head can't read the battery right now.").foregroundStyle(Ink.muted)
+                Text("Cool Head cannot read the battery right now.").foregroundStyle(Ink.muted)
             } else {
                 // a desktop: nothing to say about a battery, so the page is the week's energy use
                 Text("This Mac has no battery.").foregroundStyle(Ink.muted)

@@ -157,7 +157,7 @@ struct NetworkView: View {
             if let r = result {
                 // the one fact the old Nerdy stuff held that nothing else shows, and only when it's the problem
                 if case .none = tester.setup?.dns {
-                    Label("No server is set to look up website names, so sites won't load by name.", systemImage: "exclamationmark.triangle.fill")
+                    Label("No server is set to look up website names, so sites will not load by name.", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(Color.red).fixedSize(horizontal: false, vertical: true)
                 }
                 fixList(r)
@@ -186,8 +186,8 @@ struct NetworkView: View {
                 statusText("ellipsis.circle", Ink.muted, "Checking your connection…", "Nothing is sent until you start the test.")
             case .ready where tester.setup?.selfAssigned == true:
                 // the one reading that means the Mac can't go online at all, so it takes the top line
-                statusText("exclamationmark.triangle.fill", Color.red, "The router didn't give this Mac an address",
-                           "So it can't go online. Turn Wi-Fi off and on, or restart the router.")
+                statusText("exclamationmark.triangle.fill", Color.red, "The router did not give this Mac an address",
+                           "So it cannot go online. Turn Wi-Fi off and on, or restart the router.")
             case .ready:
                 let busy = tester.setup?.talkers.filter { $0.bytesPerSecond >= NetworkCheck.talkerFloor }.prefix(2) ?? []
                 statusText("play.circle", Ink.muted, "Ready to test",

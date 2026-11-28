@@ -21,7 +21,7 @@ enum CatalogueCard: ProcessCard {
             c.optionFacts["backup"] = OptionFacts(helps: "stops Time Machine copying \(feed.name) again and again", undo: .anyTime,
                                                   stakes: .protected("it's build output, which a build makes again"))
         } else if long {
-            c.diagnosis = Diagnosis(saw: "it's been busy for \(Fmt.duration(s.busyFor)), longer than the \(Fmt.duration(k.usualHours * 3600)) it usually takes")
+            c.diagnosis = Diagnosis(saw: "it is still busy after \(Fmt.duration(s.busyFor)), longer than the \(Fmt.duration(k.usualHours * 3600)) it usually takes")
         } else {
             c.diagnosis = Diagnosis(saw: k.doing + (updated != nil ? ", which is normal after an update" : ", which is normal"))
         }

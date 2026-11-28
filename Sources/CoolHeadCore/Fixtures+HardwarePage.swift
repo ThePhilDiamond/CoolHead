@@ -28,7 +28,7 @@ extension Fixture {
             && verdicts.map(\.level) == [0, 1, 1, 1, 1, 2, 2]
             && !verdicts.contains { $0.meaning.lowercased().contains("battery") }
             && HardwarePage.verdict(report { $0.drive = nil }, now: now).title == "Ports look healthy"
-            && HardwarePage.verdict(report { $0.drive = nil }, now: now).meaning.hasSuffix("The drive's health couldn't be read.")
+            && HardwarePage.verdict(report { $0.drive = nil }, now: now).meaning.hasSuffix("The drive's health could not be read.")
         review.append(("hardware-page-verdict", v1, verdicts.map { "\($0.title): \($0.meaning)" }.joined(separator: " | ")))
 
         // each part with everything about it together: the drive's wear, writes, hours and temperature; a crash's time,
@@ -50,12 +50,12 @@ extension Fixture {
         let hotTemps = HardwarePage.parts(hot, now: now).first
         p1 = p1 && hotTemps?.value == "Hot" && hotTemps?.tiles.map(\.unit) == ["battery", "drive"]
         p1 = p1 && issue[0].value == "Well worn" && issue[0].tiles.first?.level == 1
-        p1 = p1 && issue[0].backup == "Time Machine isn't set up, so nothing backs this drive up."
+        p1 = p1 && issue[0].backup == "Time Machine is not set up, so nothing backs this drive up."
         p1 = p1 && calm[1].value == "None this week" && calm[1].lines.isEmpty && calm[2].value == "No errors"
         p1 = p1 && issue[0].level == 1 && issue[1].value == "1 this week" && issue[1].level == 1
         p1 = p1 && issue[1].lines.count == 3 && issue[1].lines[0].hasPrefix("Last one ")
         p1 = p1 && issue[1].lines[1] == "WindowServer, the part of macOS that draws the screen, stopped responding, so macOS restarted. Software usually causes this, not hardware."
-        p1 = p1 && issue[1].lines[2] == "A one-off crash like this isn't a concern. If it happens again in the next week, Cool Head will show you what to try."
+        p1 = p1 && issue[1].lines[2] == "A one-off crash like this is not a concern. If it happens again in the next week, Cool Head will show you what to try."
         p1 = p1 && ported[2].value == "2 errors" && ported[2].lines == ["The MagSafe port: a device asked for too much power twice."] && ported[2].level == 1
         p1 = p1 && noDrive == ["Normal", "Not read", "None this week", "No errors"]
         // in the unit this Mac is set to, either way
@@ -83,7 +83,7 @@ extension Fixture {
             ("fair", S(addingHeat: true), 1, "Your Mac is warm, and something running is adding to the heat."),
             ("serious", S(toWatch: 2), 1, "macOS is slowing your Mac a little to cool it."),
             ("nominal", S(resumeSync: true), 1, "It's time to resume syncing."),
-            ("nominal", S(stuck: 1, memoryTight: true), 2, "A program isn't making progress."),
+            ("nominal", S(stuck: 1, memoryTight: true), 2, "A program is not making progress."),
             ("serious", S(memoryCritical: true), 2, "Apps and programs are using all of your Mac's memory, so everything is slower."),
             ("critical", S(), 2, "macOS is slowing your Mac a lot to cool it. Give it a break on a hard surface, out of the sun."),
         ]

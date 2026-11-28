@@ -13,7 +13,7 @@ extension Fixture {
         let count = p("25600/26512 passages", 25600, 26512, "passages").headline(who: "Photo Export")
         let none = p("progress: 95%", 95, 100, nil).headline(who: "WhatsApp")
         let ok = backup == "Archiver is backing up: 95% done." && upload == "Sender is uploading: 95% done."
-            && count == "Photo Export is 96% through 26,512 passages." && none == "WhatsApp is 95% done with something its log doesn't name."
+            && count == "Photo Export is 96% through 26,512 passages." && none == "WhatsApp is 95% done with something its log does not name."
         // a binary file read as a log (WhatsApp, 26 November 2026): its bytes are never progress or a line to show; a
         // run of base64 isn't a count with a unit; a real log line next to junk still reads
         let dir = NSTemporaryDirectory() + "coolhead-progress-\(getpid())"

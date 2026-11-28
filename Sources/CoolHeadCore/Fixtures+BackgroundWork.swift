@@ -111,7 +111,7 @@ extension Fixture {
 
         // on this Mac, for real: a busy loop of Cool Head's own, run at background priority with taskpolicy, reads as
         // running cool through ps; this Mac's last update reads from its install history
-        var live = "taskpolicy couldn't start"
+        var live = "taskpolicy could not start"
         var r6 = false
         if let p = Fixture.busyLoop(background: true) {
             // read every second, for up to 10 seconds, until it has used enough of a busy Mac to judge (see RunCooler's check)

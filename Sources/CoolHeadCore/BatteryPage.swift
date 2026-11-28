@@ -35,7 +35,7 @@ public enum BatteryPage {
         if let m = b.maxCapacity, m < 80 {
             return Verdict(level: 1, title: "Battery worn", meaning: "You get less time unplugged. Below 80%, AppleCare replaces it.")
         }
-        return Verdict(level: 0, title: "Battery healthy", meaning: b.condition == nil ? "macOS doesn't rate its condition." : "macOS rates its condition Normal.")
+        return Verdict(level: 0, title: "Battery healthy", meaning: b.condition == nil ? "macOS does not rate its condition." : "macOS rates its condition Normal.")
     }
 
     /// Three figures, each with its level: how much it holds, its cycles against Apple's rating, and its temperature.
@@ -74,8 +74,8 @@ public enum BatteryPage {
             switch why {
             case .onHold(let p): return Status(symbol: gauge, text: "Holding at \(p)%", detail: "on purpose, to slow wear", level: 0)
             case .tooWarm(let t): return Status(symbol: gauge, text: "Not charging · \(pct)%", detail: "too warm (\(Fmt.temperature(t))); it starts as it cools", level: 1)
-            case .chargerTooWeak(let w): return Status(symbol: gauge, text: "Draining while plugged in", detail: (w.map { "the \($0) W charger" } ?? "the charger") + " can't keep up", level: 2)
-            case .unknown: return Status(symbol: gauge, text: "Not charging · \(pct)%", detail: "macOS doesn't say why", level: 1)
+            case .chargerTooWeak(let w): return Status(symbol: gauge, text: "Draining while plugged in", detail: (w.map { "the \($0) W charger" } ?? "the charger") + " cannot keep up", level: 2)
+            case .unknown: return Status(symbol: gauge, text: "Not charging · \(pct)%", detail: "macOS does not say why", level: 1)
             }
         }
         return Status(symbol: "battery.100percent.bolt", text: "Plugged in · full", detail: charger, level: 0)

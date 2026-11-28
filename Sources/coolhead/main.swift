@@ -172,7 +172,7 @@ case "hangs":
         pid > 1 ? Hang.kind(psState: row.state).map { (pid, $0) } : nil
     }
     found += Hang.notResponding().map { ($0, Hang.Kind.notResponding) }
-    if found.isEmpty { print("Nothing is paused, waiting on a drive, or not responding" + (Hang.canCheckResponding ? "." : " (this Mac can't say which apps are Not Responding).")) }
+    if found.isEmpty { print("Nothing is paused, waiting on a drive, or not responding" + (Hang.canCheckResponding ? "." : " (this Mac cannot say which apps are Not Responding).")) }
     let pids = Proc.allPIDs()
     for (pid, kind) in found.sorted(by: { $0.0 < $1.0 }) {
         guard let e = Evidence.gather(pid: pid, interval: 0.3, readFiles: kind != .diskWait) else { continue }
@@ -213,7 +213,7 @@ case "link-test":
     // put hidden tabs to sleep. Usage: coolhead link-test <socket path> [seconds]
     guard CommandLine.arguments.count > 2 else { print("Usage: coolhead link-test <socket path> [seconds]"); exit(2) }
     let server = ChromeLinkServer()
-    guard server.start(path: CommandLine.arguments[2]) else { print("Couldn't listen there."); exit(1) }
+    guard server.start(path: CommandLine.arguments[2]) else { print("Could not listen there."); exit(1) }
     let seconds = CommandLine.arguments.count > 3 ? Double(CommandLine.arguments[3]) ?? 60 : 60
     let state = ChromeLink.State(memory: .slowed, freeMB: ChromeLinkServer.freeMB(), chromeMB: 0, hiddenTabsMB: nil, extensionsMB: nil, auto: true)
     let started = Date()
@@ -230,7 +230,7 @@ case "link-test":
     }
     server.stop()
 case "history":
-    guard let h = PowerHistory.read() else { print("No history: this Mac's power log couldn't be read."); exit(0) }
+    guard let h = PowerHistory.read() else { print("No history: this Mac's power log could not be read."); exit(0) }
     print(h.text)
 case "wording":
     // --verbose: as verbose mode shows them, with each reading's figure and the whole explanation
@@ -254,7 +254,7 @@ case "ranking":
         do {
             try Ranking.source(lines).write(to: Ranking.file, atomically: true, encoding: .utf8)
             try Ranking.explanationsSource(explained).write(to: Ranking.explanationsFile, atomically: true, encoding: .utf8)
-        } catch { print("coolhead: couldn't write the golden files: \(error.localizedDescription)"); exit(1) }
+        } catch { print("coolhead: could not write the golden files: \(error.localizedDescription)"); exit(1) }
         print("Wrote \(lines.count) lines to \(Ranking.file.path) and \(explained.count) to \(Ranking.explanationsFile.path)")
     } else {
         for l in lines { print(l) }

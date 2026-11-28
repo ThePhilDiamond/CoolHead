@@ -97,12 +97,12 @@ struct HardwareView: View {
                 Image(systemName: "memorychip")
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Memory and other parts")
-                    Text("macOS doesn't let apps test these.").font(.caption).foregroundStyle(Ink.muted)
+                    Text("macOS does not let apps test these.").font(.caption).foregroundStyle(Ink.muted)
                 }
                 Spacer()
                 Button(showDiagnostics ? "Hide" : "How to test them") { showDiagnostics.toggle() }
                     .buttonStyle(.bordered).controlSize(.small)
-                    .help("Apple Diagnostics tests what Cool Head can't read from inside macOS, such as the memory.")
+                    .help("Apple Diagnostics tests what Cool Head cannot read from inside macOS, such as the memory.")
             }
             if showDiagnostics {
                 VStack(alignment: .leading, spacing: 4) {

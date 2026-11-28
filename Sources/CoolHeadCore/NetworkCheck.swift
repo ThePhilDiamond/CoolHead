@@ -401,7 +401,7 @@ public enum NetworkCheck {
                         return true
                     }
                     guard let ok else { done.resume(returning: .failed("The test was stopped.")); return }
-                    guard ok else { done.resume(returning: .failed("Apple's network test isn't on this Mac (it comes with macOS 12 and later).")); return }
+                    guard ok else { done.resume(returning: .failed("Apple's network test is not on this Mac (it comes with macOS 12 and later).")); return }
                     // a test that hangs past its own limit is stopped, and reads as one that couldn't finish
                     DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(testSeconds + 15)) { if p.isRunning { p.terminate() } }
                     // read while it runs, so a full pipe can never hold it up
@@ -425,7 +425,7 @@ public enum NetworkCheck {
             return .failed("The test stopped before it had a result.")
         }
         if j["error_code"] != nil {
-            return .failed("The test couldn't reach Apple's test servers, so the connection may be down.")
+            return .failed("The test could not reach Apple's test servers, so the connection may be down.")
         }
         guard let rpm = (j["responsiveness"] as? NSNumber)?.doubleValue, rpm.isFinite,
               let down = (j["dl_throughput"] as? NSNumber)?.doubleValue, down.isFinite else {
@@ -520,13 +520,13 @@ public enum NetworkCheck {
     /// The answer in a few words and one plain sentence, with how it went (0 fine, 1 worth a look, 2 couldn't tell).
     public static func whereSaid(_ w: Where, _ vpn: VPN?) -> (level: Int, value: String, detail: String) {
         guard case .seen(let s, let around) = w else {
-            return (2, "Unknown", "Cloudflare didn't answer, so the connection may be down.")
+            return (2, "Unknown", "Cloudflare did not answer, so the connection may be down.")
         }
         let place = country(s.country)
         guard let v = vpn else { return (0, place, "Your own address: no VPN is on.") }
-        guard v.carriesWebsites else { return (1, place, "Your own address: \(v.called) doesn't carry websites' traffic.") }
+        guard v.carriesWebsites else { return (1, place, "Your own address: \(v.called) does not carry websites' traffic.") }
         switch around {
-        case .same: return (1, place, "Your own address: \(v.called) isn't hiding it.")
+        case .same: return (1, place, "Your own address: \(v.called) is not hiding it.")
         case .other(let o) where o.country == s.country: return (0, place, "Through \(v.called), from a different address in the same country.")
         case .other(let o): return (0, place, "Through \(v.called); without it, \(country(o.country)).")
         case .blocked: return (0, place, "Through \(v.called), which stops traffic going around it.")
@@ -546,7 +546,7 @@ public enum NetworkCheck {
 
     public static func verdict(_ o: Outcome) -> Verdict {
         guard case .done(let r) = o else {
-            if case .failed(let why) = o { return Verdict(level: 2, title: "The test couldn't finish", meaning: why) }
+            if case .failed(let why) = o { return Verdict(level: 2, title: "The test could not finish", meaning: why) }
             return Verdict(level: 2, title: "", meaning: "")
         }
         if r.rpm <= poorRPM {
@@ -641,7 +641,7 @@ public enum NetworkCheck {
                                       "Use a cable if you can: it's steadier than Wi-Fi.",
                                       "Test again."]))
             out.append(.openApp("net-diagnostics", "Ask Apple's Wireless Diagnostics", bundle: wirelessDiagnostics,
-                                steps: "It checks your Wi-Fi and suggests fixes, and doesn't change any settings."))
+                                steps: "It checks your Wi-Fi and suggests fixes, and does not change any settings."))
         }
         // 3. slow to respond under load: the router's queue (bufferbloat); the fix is its Smart Queue setting
         if r.rpm < goodRPM {
@@ -655,7 +655,7 @@ public enum NetworkCheck {
         // 4. AirDrop's radio link hopping channels (several reports, no Apple statement)
         if r.rpm < goodRPM, case .wifi(let w) = s.link, s.awdlOn, !awdlChannels.contains(w.channel) {
             out.append(Fix(id: "net-airdrop", title: "Set AirDrop to No One for a while",
-                           consequence: "Stopped regular stutters for some people; Apple hasn't said why. Others can't AirDrop to you until you set it back.",
+                           consequence: "Stopped regular stutters for some people; Apple has not said why. Others cannot AirDrop to you until you set it back.",
                            kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.AirDrop-Handoff-Settings.extension")))
         }
         // 5. iCloud Private Relay (one tester), a VPN, a proxy: test without them; Cool Head never turns them off
@@ -670,7 +670,7 @@ public enum NetworkCheck {
         }
         if s.proxy || s.autoProxy {
             out.append(Fix(id: "net-proxy", title: "Check the proxy setting",
-                           consequence: "In \(Fmt.path("Network", "Details", "Proxies")). Turn it off only if you know you don't need it.",
+                           consequence: "In \(Fmt.path("Network", "Details", "Proxies")). Turn it off only if you know you do not need it.",
                            kind: .openPage(systemSettings, "x-apple.systempreferences:com.apple.Network-Settings.extension")))
         }
         // 6. slow, with a good signal or a cable: the line itself
@@ -706,14 +706,14 @@ public enum NetworkCheck {
             }
             out.append("Wi-Fi is sending at up to \(grouped(Int(w.rate.rounded()))) Mbps on channel \(w.channel)" + (w.band.isEmpty ? "." : " (\(w.band))."))
             if s.awdlOn && !awdlChannels.contains(w.channel) {
-                out.append("The radio link AirDrop and Continuity use is on, and it listens on channel 6, 44, or 149 rather than your router's \(w.channel). Several people report this causes short, regular stutters, though Apple hasn't said so; setting AirDrop to No One stopped it for some.")
+                out.append("The radio link AirDrop and Continuity use is on, and it listens on channel 6, 44, or 149 rather than your router's \(w.channel). Several people report this causes short, regular stutters, though Apple has not said so; setting AirDrop to No One stopped it for some.")
             }
         case .cable: out.append("Connected by cable.")
         case .other: out.append("Connected, but not by Wi-Fi or cable (perhaps through a phone).")
         case .none: out.append("Not connected to a network.")
         }
         if s.selfAssigned {
-            out.append("The router didn't give this Mac an address, so it can't go online. Turn Wi-Fi off and on, or restart the router.")
+            out.append("The router did not give this Mac an address, so it cannot go online. Turn Wi-Fi off and on, or restart the router.")
         }
         if let v = s.vpn { out.append(vpnLine(v)) }
         if s.proxy { out.append("A proxy is set in Network settings, so web traffic goes through it first.") }
@@ -749,7 +749,7 @@ public enum NetworkCheck {
             case .none: return ""
             }
         }()
-        guard s.dns != .none else { return "No server is set to look up website names, so sites by name won't load." }
+        guard s.dns != .none else { return "No server is set to look up website names, so sites by name will not load." }
         switch s.dnsSetBy {
         case .network: return "Website names are looked up by \(who)" + (s.dns == .router ? "." : ", set by the network you joined.")
         case .thisMac: return "Website names are looked up by \(who), set by hand on this Mac (Network settings ▸ Details ▸ DNS). If sites stop loading on another network, this is the first thing to remove."
@@ -779,7 +779,7 @@ public enum NetworkCheck {
             case .none: return "None"
             }
         }()
-        if s.dns == .none { return (value, "Sites won't load by name.") }
+        if s.dns == .none { return (value, "Sites will not load by name.") }
         switch s.dnsSetBy {
         case .network: return (value, s.dns == .router ? "Set by your network, the usual setup." : "Set by the network you joined.")
         case .thisMac: return (value, "Set by hand on this Mac.")

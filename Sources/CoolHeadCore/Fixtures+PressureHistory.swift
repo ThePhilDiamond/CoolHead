@@ -74,7 +74,7 @@ extension Fixture {
                      PressureHistory.weekLine(wTight1)]
         review.append(("pressure-week-line", lines == ["Memory slowed your Mac 3 times this week, about 40 minutes in all.", "Chrome was using the most memory in 2 of them.",
                                                        "Memory slowed your Mac once this week, for about 12 minutes.", "Chrome was using the most memory.",
-                                                       "Memory hasn't been tight this week.", "-", "Memory was tight 2 times this week, about 46 minutes in all.", "-",
+                                                       "Memory was not tight this week.", "-", "Memory was tight 2 times this week, about 46 minutes in all.", "-",
                                                        "Memory was tight once this week, for about 16 minutes."], lines.joined(separator: " | ")))
 
         // saved in Cool Head's preferences and read back, with no names in it
